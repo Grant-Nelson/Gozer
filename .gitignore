@@ -1,0 +1,28 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Directories created by pub
+.buildlog
+.DS_Store
+.packages
+.pub/
+build/
+packages
+
+# Files created by dart2js
+*.dart.js
+*.js_
+*.js.deps
+*.js.map
+
+# Include when developing application packages
+pubspec.lock

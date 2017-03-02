@@ -1,2 +1,8 @@
 # Gozer
-A transpiler from GO to Dart
+*The Transpiler*
+
+![Gozer](/docs/Gozer.png)
+
+#### Getting Started
+
+[WIP]
