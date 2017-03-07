@@ -1,6 +1,9 @@
 package constructs
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 var _ Type = (*InterfaceType)(nil)
 
@@ -26,7 +29,7 @@ func (t *InterfaceType) AddFunction(name string) *FunctionType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *InterfaceType) Equals(other Type) bool {
+func (t *InterfaceType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -44,7 +47,7 @@ func (t *InterfaceType) Equals(other Type) bool {
 		if !exists {
 			return false
 		}
-		if !tfunc.Equals(ttfunc) {
+		if !Equals(tfunc, ttfunc) {
 			return false
 		}
 	}
@@ -56,11 +59,12 @@ func (t *InterfaceType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	parts := make([]string, len(t.Functions))
 	i := 0
+	parts := make([]string, len(t.Functions))
 	for name, tfunc := range t.Functions {
-		parts[i] = name + " " + tfunc.String()
+		parts[i] = name + " " + ToString(tfunc)
 		i++
 	}
+	sort.Strings(parts)
 	return "{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

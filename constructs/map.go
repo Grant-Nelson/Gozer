@@ -21,7 +21,7 @@ func Map(key Type, value Type) *MapType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *MapType) Equals(other Type) bool {
+func (t *MapType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -31,10 +31,10 @@ func (t *MapType) Equals(other Type) bool {
 	if !ok {
 		return false
 	}
-	if !t.Key.Equals(tother.Key) {
+	if !Equals(t.Key, tother.Key) {
 		return false
 	}
-	if !t.Value.Equals(tother.Value) {
+	if !Equals(t.Value, tother.Value) {
 		return false
 	}
 	return true
@@ -42,5 +42,8 @@ func (t *MapType) Equals(other Type) bool {
 
 // String gets the name for this type.
 func (t *MapType) String() string {
-	return "Map<" + t.Key.String() + ", " + t.Value.String() + ">"
+	if t == nil {
+		return nilStr
+	}
+	return "Map<" + ToString(t.Key) + ", " + ToString(t.Value) + ">"
 }

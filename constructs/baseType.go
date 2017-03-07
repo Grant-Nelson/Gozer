@@ -15,7 +15,7 @@ func newBaseType(typeName string) *BaseType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *BaseType) Equals(other Type) bool {
+func (t *BaseType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -41,11 +41,6 @@ func (t *BaseType) String() string {
 
 //==========================================================================
 
-// Void is the non-type return value.
-func Void() *BaseType {
-	return newBaseType("void")
-}
-
 // Bool is the set of boolean values, true and false.
 func Bool() *BaseType {
 	return newBaseType("bool")
@@ -66,6 +61,12 @@ func Float32() *BaseType {
 // Float64 is the set of all IEEE-754 64-bit floating-point numbers.
 func Float64() *BaseType {
 	return newBaseType("float64")
+}
+
+// Imaginary is the set of all IEEE-754 64-bit floating-point numbers
+// followed by another IEEE-754 64-bit float-point number as an imaginary.
+func Imaginary() *BaseType {
+	return newBaseType("imaginary")
 }
 
 // Int is a signed integer type that is at least 32 bits in size.
@@ -139,4 +140,14 @@ func UInt64() *BaseType {
 // Range: 0 through 255.
 func UInt8() *BaseType {
 	return newBaseType("uint8")
+}
+
+// Variant is the unknown type.
+func Variant() *BaseType {
+	return newBaseType("variant")
+}
+
+// Void is the non-type return value.
+func Void() *BaseType {
+	return newBaseType("void")
 }

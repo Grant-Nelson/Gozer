@@ -30,42 +30,42 @@ func FmtPrebuild(prog *c.ProgramType) {
 		AddParam("format", c.String()).
 		AddParam("a", c.Interface()).
 		SetEllipse(true).
-		AddResult("", errType)
+		AddReturn("", errType)
 
 	pack.AddFunction("Print").
 		AddParam("a", c.Interface()).
 		SetEllipse(true).
-		AddResult("n", c.Int()).
-		AddResult("err", errType)
+		AddReturn("n", c.Int()).
+		AddReturn("err", errType)
 
 	pack.AddFunction("Print").
 		AddParam("format", c.String()).
 		AddParam("a", c.Interface()).
 		SetEllipse(true).
-		AddResult("n", c.Int()).
-		AddResult("err", errType)
+		AddReturn("n", c.Int()).
+		AddReturn("err", errType)
 
 	pack.AddFunction("Println").
 		AddParam("a", c.Interface()).
 		SetEllipse(true).
-		AddResult("n", c.Int()).
-		AddResult("err", errType)
+		AddReturn("n", c.Int()).
+		AddReturn("err", errType)
 
 	pack.AddFunction("Sprint").
 		AddParam("a", c.Interface()).
 		SetEllipse(true).
-		AddResult("", c.String())
+		AddReturn("", c.String())
 
 	pack.AddFunction("Sprintf").
 		AddParam("format", c.String()).
 		AddParam("a", c.Interface()).
 		SetEllipse(true).
-		AddResult("", c.String())
+		AddReturn("", c.String())
 
 	pack.AddFunction("Sprintln").
 		AddParam("a", c.Interface()).
 		SetEllipse(true).
-		AddResult("", c.String())
+		AddReturn("", c.String())
 
 	// TODO: Add the following:
 	//

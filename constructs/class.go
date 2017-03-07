@@ -21,7 +21,7 @@ func Class() *ClassType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *ClassType) Equals(other Type) bool {
+func (t *ClassType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -31,10 +31,10 @@ func (t *ClassType) Equals(other Type) bool {
 	if !ok {
 		return false
 	}
-	if !t.Data.Equals(tother.Data) {
+	if !Equals(t.Data, tother.Data) {
 		return false
 	}
-	if !t.Interface.Equals(tother.Interface) {
+	if !Equals(t.Interface, tother.Interface) {
 		return false
 	}
 	return true
@@ -46,7 +46,7 @@ func (t *ClassType) String() string {
 		return nilStr
 	}
 	return "{\n" +
-		indent(t.Data.String(), "  ") + "\n" +
-		indent(t.Interface.String(), "  ") + "\n" +
+		indent(ToString(t.Data), "  ") + "\n" +
+		indent(ToString(t.Interface), "  ") + "\n" +
 		"}"
 }

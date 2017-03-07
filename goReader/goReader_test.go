@@ -26,4 +26,7 @@ func TestGoReader2(t *testing.T) {
 	test.CheckPackages("builtin", "fmt", "io", "test")
 	test.CheckImports("test", "builtin", "fmt")
 	test.Transpile()
+	test.CheckFunctions("test", "main")
+	test.CheckFunctionBody("test", "main",
+		``)
 }

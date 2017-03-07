@@ -17,7 +17,7 @@ func Pointer(inner Type) *PointerType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *PointerType) Equals(other Type) bool {
+func (t *PointerType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -27,7 +27,7 @@ func (t *PointerType) Equals(other Type) bool {
 	if !ok {
 		return false
 	}
-	if !t.Inner.Equals(tother.Inner) {
+	if !Equals(t.Inner, tother.Inner) {
 		return false
 	}
 	return true
@@ -38,5 +38,5 @@ func (t *PointerType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	return "*" + t.Inner.String()
+	return "*" + ToString(t.Inner)
 }

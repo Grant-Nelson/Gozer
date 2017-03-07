@@ -1,6 +1,9 @@
 package constructs
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 var _ Type = (*ProgramType)(nil)
 
@@ -32,7 +35,7 @@ func (t *ProgramType) AddPackage(name string, pack *PackageType) *ProgramType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *ProgramType) Equals(other Type) bool {
+func (t *ProgramType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -62,12 +65,13 @@ func (t *ProgramType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	parts := make([]string, len(t.Packages))
 	i := 0
+	parts := make([]string, len(t.Packages))
 	for name := range t.Packages {
 		parts[i] = "import " + name
 		i++
 	}
+	sort.Strings(parts)
 	return "{\n" +
 		indent(strings.Join(parts, "\n"), "  ") + "\n" +
 		"}"

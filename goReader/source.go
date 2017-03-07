@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"math"
 	"reflect"
+	"strconv"
 
 	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs"
@@ -31,33 +33,17 @@ type Source struct {
 
 	// Package is the package which this method belongs to.
 	Package *constructs.PackageType
-
-	// Declarations gets the set of constant and variable declarations from this source.
-	Declarations map[string]constructs.Type
-
-	// Functions is the set of functions from this source.
-	Functions map[string]*constructs.FunctionType
-
-	// Interfaces is the set of interfaces from this source.
-	Interfaces map[string]*constructs.InterfaceType
-
-	// Classes is the set of classes from this source.
-	Classes map[string]*constructs.ClassType
 }
 
 // NewSource creates a new source file descriptions.
 func NewSource(log *common.Logger, fileSet *token.FileSet) *Source {
 	return &Source{
-		log:          log,
-		fileSet:      fileSet,
-		Path:         "",
-		Data:         nil,
-		Imports:      map[string]*constructs.PackageType{},
-		Package:      nil,
-		Declarations: map[string]constructs.Type{},
-		Functions:    map[string]*constructs.FunctionType{},
-		Interfaces:   map[string]*constructs.InterfaceType{},
-		Classes:      map[string]*constructs.ClassType{},
+		log:     log,
+		fileSet: fileSet,
+		Path:    "",
+		Data:    nil,
+		Imports: map[string]*constructs.PackageType{},
+		Package: nil,
 	}
 }
 
@@ -67,7 +53,7 @@ func (src *Source) ProcessTypes() {
 	for _, decl := range src.Data.Decls {
 		switch data := decl.(type) {
 		case *ast.GenDecl:
-			// TODO: Impelement
+			// TODO: handle
 			fmt.Println("GenDecl: ", data)
 		case *ast.FuncDecl:
 			src.readFunctionType(scope, data)
@@ -180,17 +166,17 @@ func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string,
 func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	//ast.Print(src.fileSet, data)
 	fn := constructs.Function()
-	name := data.Name.Name
+	fn.Name = data.Name.Name
 
 	// Receiver
 	receiverNames, receiverTypes, _ := src.readFieldList(scope, data.Recv)
 	if len(receiverNames) > 0 {
 		fn.ReceiverName = receiverNames[0]
 		class := receiverTypes[0].(*constructs.ClassType)
-		class.Interface.Functions[name] = fn
+		class.Interface.Functions[fn.Name] = fn
 		fn.ReceiverClass = class
 	} else {
-		src.Package.Functions[name] = fn
+		src.Package.Functions[fn.Name] = fn
 	}
 
 	// Input parameters
@@ -200,7 +186,112 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	fn.Ellipsis = ellipsis
 
 	// Return paramters
-	resultNames, resultTypes, _ := src.readFieldList(scope, data.Type.Results)
-	fn.ResultNames = resultNames
-	fn.ResultTypes = resultTypes
+	returnNames, returnTypes, _ := src.readFieldList(scope, data.Type.Results)
+	fn.ReturnNames = returnNames
+	fn.ReturnTypes = returnTypes
+
+	// Read the body for the function
+	if data.Body != nil {
+		fn.Body = src.parseBlock(scope, data.Body)
+	}
+}
+
+// parseBlock reads a block statement.
+// https://golang.org/pkg/go/ast/#BlockStmt
+func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *constructs.BlockStatement {
+	blockScope := NewScope(scope)
+	stats := make([]constructs.Statement, len(block.List))
+	for i, stmt := range block.List {
+		stats[i] = src.parseStatement(blockScope, stmt)
+	}
+	return constructs.Block(stats...)
+}
+
+// parseStatement reads a statement.
+// https://golang.org/pkg/go/ast/#Stmt
+func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) constructs.Statement {
+	statScope := NewScope(scope)
+	switch stat := statement.(type) {
+	case *ast.ExprStmt:
+		return src.parseExpression(statScope, stat.X)
+	// case *ast.ReturnStmt: dw.writeReturn(st)
+	default:
+		src.log.Error("Unhandled statement type ", reflect.TypeOf(stat))
+		return nil
+	}
+}
+
+// parseExpression reads in some kind of expression.
+// https://golang.org/pkg/go/ast/#Expr
+func (src *Source) parseExpression(scope *Scope, expr ast.Expr) constructs.Expression {
+	switch ex := expr.(type) {
+	case *ast.BasicLit:
+		return src.parseLiteral(scope, ex)
+	// case *ast.BinaryExpr: src.parseBinary(ex)
+	case *ast.CallExpr:
+		return src.parseCall(scope, ex)
+	case *ast.Ident:
+		return src.parseIdentifier(scope, ex)
+	case *ast.SelectorExpr:
+		return src.parseSelector(scope, ex)
+	default:
+		src.log.Error("Unhandled expression type ", reflect.TypeOf(ex))
+		return nil
+	}
+}
+
+// parseLiteral reads a code literal.
+// https://golang.org/pkg/go/ast/#BasicLit
+// e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
+func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.LiteralExp {
+	switch lit.Kind {
+	case token.INT:
+		val, err := strconv.ParseInt(lit.Value, 0, 64)
+		if err != nil {
+			src.log.Error("Error reading integer literal: ", err)
+			return nil
+		}
+		if val > math.MaxInt32 {
+			return constructs.Literal(lit.Value, constructs.Int64())
+		}
+		return constructs.Literal(lit.Value, constructs.Int())
+	case token.FLOAT:
+		return constructs.Literal(lit.Value, constructs.Float64())
+	case token.IMAG:
+		return constructs.Literal(lit.Value, constructs.Imaginary())
+	case token.CHAR:
+		return constructs.Literal(lit.Value, constructs.Rune())
+	case token.STRING:
+		// TODO: Check back tick strings and normalize string.
+		return constructs.Literal(lit.Value, constructs.String())
+	default:
+		src.log.Error("Unhandled literal kind ", lit.Kind)
+		return nil
+	}
+}
+
+// parseIdentifier reads an identifier.
+// https://golang.org/pkg/go/ast/#Ident
+func (src *Source) parseIdentifier(scope *Scope, sel *ast.Ident) *constructs.IdentifierExp {
+	return constructs.Identifier(sel.Name)
+}
+
+// parseSelector reads an identifier selector.
+// https://golang.org/pkg/go/ast/#SelectorExpr
+func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *constructs.SelectorExp {
+	exp := src.parseExpression(scope, sel.X)
+	return constructs.Selector(exp, sel.Sel.Name)
+}
+
+// parseCall reads a code literal.
+// https://golang.org/pkg/go/ast/#CallExpr
+func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) *constructs.CallExp {
+	fnHandl := src.parseExpression(scope, call.Fun)
+	paramLen := len(call.Args)
+	params := make([]constructs.Expression, paramLen)
+	for i, param := range call.Args {
+		params[i] = src.parseExpression(scope, param)
+	}
+	// Set the function to nil for now. It will be set when determining types.
+	return constructs.Call(nil, fnHandl, params)
 }

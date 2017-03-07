@@ -1,6 +1,9 @@
 package constructs
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 var _ Type = (*PackageType)(nil)
 
@@ -57,7 +60,7 @@ func (t *PackageType) AddClass(name string) *ClassType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *PackageType) Equals(other Type) bool {
+func (t *PackageType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -87,7 +90,7 @@ func (t *PackageType) Equals(other Type) bool {
 		if !exists {
 			return false
 		}
-		if !imp.Equals(timp) {
+		if !Equals(imp, timp) {
 			return false
 		}
 	}
@@ -96,7 +99,7 @@ func (t *PackageType) Equals(other Type) bool {
 		if !exists {
 			return false
 		}
-		if !decl.Equals(tdecl) {
+		if !Equals(decl, tdecl) {
 			return false
 		}
 	}
@@ -105,7 +108,7 @@ func (t *PackageType) Equals(other Type) bool {
 		if !exists {
 			return false
 		}
-		if !tfunc.Equals(ttfunc) {
+		if !Equals(tfunc, ttfunc) {
 			return false
 		}
 	}
@@ -114,7 +117,7 @@ func (t *PackageType) Equals(other Type) bool {
 		if !exists {
 			return false
 		}
-		if !inter.Equals(tinter) {
+		if !Equals(inter, tinter) {
 			return false
 		}
 	}
@@ -123,7 +126,7 @@ func (t *PackageType) Equals(other Type) bool {
 		if !exists {
 			return false
 		}
-		if !class.Equals(tclass) {
+		if !Equals(class, tclass) {
 			return false
 		}
 	}
@@ -135,29 +138,52 @@ func (t *PackageType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	parts := make([]string, len(t.Imports)+len(t.Declarations)+len(t.Functions)+len(t.Interfaces)+len(t.Classes))
+
 	i := 0
+	parts1 := make([]string, len(t.Imports))
 	for name := range t.Imports {
-		parts[i] = "import " + name
+		parts1[i] = "import " + name
 		i++
 	}
+	sort.Strings(parts1)
+
+	i = 0
+	parts2 := make([]string, len(t.Declarations))
 	for name, decl := range t.Declarations {
-		parts[i] = name + " " + decl.String()
+		parts2[i] = name + " " + ToString(decl)
 		i++
 	}
+	sort.Strings(parts2)
+
+	i = 0
+	parts3 := make([]string, len(t.Functions))
 	for name, tfunc := range t.Functions {
-		parts[i] = name + " " + tfunc.String()
+		parts3[i] = name + " " + ToString(tfunc)
 		i++
 	}
+	sort.Strings(parts3)
+
+	i = 0
+	parts4 := make([]string, len(t.Interfaces))
 	for name, inter := range t.Interfaces {
-		parts[i] = name + " " + inter.String()
+		parts4[i] = name + " " + ToString(inter)
 		i++
 	}
+	sort.Strings(parts4)
+
+	i = 0
+	parts5 := make([]string, len(t.Classes))
 	for name, class := range t.Classes {
-		parts[i] = name + " " + class.String()
+		parts5[i] = name + " " + ToString(class)
 		i++
 	}
+	sort.Strings(parts5)
+
 	return "{\n" +
-		indent(strings.Join(parts, "\n"), "  ") + "\n" +
+		indent(strings.Join(parts1, "\n"), "  ") + "\n" +
+		indent(strings.Join(parts2, "\n"), "  ") + "\n" +
+		indent(strings.Join(parts3, "\n"), "  ") + "\n" +
+		indent(strings.Join(parts4, "\n"), "  ") + "\n" +
+		indent(strings.Join(parts5, "\n"), "  ") + "\n" +
 		"}"
 }

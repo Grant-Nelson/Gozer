@@ -1,6 +1,9 @@
 package constructs
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 var _ Type = (*StructureType)(nil)
 
@@ -19,7 +22,7 @@ func Structure() *StructureType {
 }
 
 // Equals determins if the given type is the same as this type.
-func (t *StructureType) Equals(other Type) bool {
+func (t *StructureType) Equals(other interface{}) bool {
 	if t == nil {
 		return other == nil
 	} else if other == nil {
@@ -37,7 +40,7 @@ func (t *StructureType) Equals(other Type) bool {
 		if !exists {
 			return false
 		}
-		if !member.Equals(tmem) {
+		if !Equals(member, tmem) {
 			return false
 		}
 	}
@@ -49,11 +52,12 @@ func (t *StructureType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	parts := make([]string, len(t.Members))
 	i := 0
+	parts := make([]string, len(t.Members))
 	for name, member := range t.Members {
-		parts[i] = name + " " + member.String()
+		parts[i] = name + " " + ToString(member)
 		i++
 	}
+	sort.Strings(parts)
 	return "{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

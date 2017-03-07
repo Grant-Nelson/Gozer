@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/grant-nelson/Gozer/common"
+	"github.com/grant-nelson/Gozer/constructs"
 )
 
 // TestGoReader is a shell for testing the GoReader.
@@ -76,13 +77,18 @@ func (test *TestGoReader) CheckPackages(expPackages ...string) {
 	}
 }
 
-// CheckImports checks that the imports in the given package.
-func (test *TestGoReader) CheckImports(packName string, expImports ...string) {
+// getPack gets the package for the given name.
+func (test *TestGoReader) getPack(packName string) *constructs.PackageType {
 	pack, exists := test.gr.Program.Packages[packName]
 	if !exists {
-		test.fail("Failed to find package ", packName, ".")
-		return
+		test.fail("Failed to find package ", packName, " for CheckImports.")
 	}
+	return pack
+}
+
+// CheckImports checks that the given imports are in the given package.
+func (test *TestGoReader) CheckImports(packName string, expImports ...string) {
+	pack := test.getPack(packName)
 	imports := make([]string, len(pack.Imports))
 	index := 0
 	for name := range pack.Imports {
@@ -90,12 +96,48 @@ func (test *TestGoReader) CheckImports(packName string, expImports ...string) {
 		index++
 	}
 	if missing, extra, diff := common.DiffStringSets(imports, expImports); diff {
-		test.fail("Unexpected or missing packages:",
+		test.fail("Unexpected or missing package imports:",
 			"\n   Package:  ", packName,
 			"\n   Imports:  ", strings.Join(imports, ", "),
 			"\n   Expected: ", strings.Join(expImports, ", "),
 			"\n   Missing:  ", strings.Join(missing, ", "),
 			"\n   Extra:    ", strings.Join(extra, ", "))
+	}
+}
+
+// CheckFunctions checks that the given functions are in the given package.
+func (test *TestGoReader) CheckFunctions(packName string, expFunctions ...string) {
+	pack := test.getPack(packName)
+	functions := make([]string, len(pack.Functions))
+	index := 0
+	for name := range pack.Functions {
+		functions[index] = name
+		index++
+	}
+	if missing, extra, diff := common.DiffStringSets(functions, expFunctions); diff {
+		test.fail("Unexpected or missing package functions:",
+			"\n   Package:   ", packName,
+			"\n   Functions: ", strings.Join(functions, ", "),
+			"\n   Expected:  ", strings.Join(expFunctions, ", "),
+			"\n   Missing:   ", strings.Join(missing, ", "),
+			"\n   Extra:     ", strings.Join(extra, ", "))
+	}
+}
+
+// CheckFunctionBody checks the function body in the given package's function.
+func (test *TestGoReader) CheckFunctionBody(packName string, funcName string, expBody ...string) {
+	pack := test.getPack(packName)
+	tfunc, exists := pack.Functions[funcName]
+	if !exists {
+		test.fail("Failed to find function ", funcName, " in ", packName, ".")
+	}
+	expResult := strings.Join(expBody, "\n")
+	if result := tfunc.String(); result != expResult {
+		test.fail("Unexpected function construct:",
+			"\n   Package:  ", packName,
+			"\n   Function: ", funcName,
+			"\n   Expected: ", strings.Replace(expResult, "\n", "\n             ", -1),
+			"\n   Result:   ", strings.Replace(result, "\n", "\n             ", -1))
 	}
 }
 

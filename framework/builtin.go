@@ -31,7 +31,7 @@ func BuiltinPrebuild(prog *c.ProgramType) {
 
 	pack.AddInterface("error").
 		AddFunction("Error").
-		AddResult("", c.String())
+		AddReturn("", c.String())
 
 	// TODO: Implement the following:
 	//
