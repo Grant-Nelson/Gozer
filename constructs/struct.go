@@ -21,32 +21,6 @@ func Structure() *StructureType {
 	}
 }
 
-// Equals determins if the given type is the same as this type.
-func (t *StructureType) Equals(other interface{}) bool {
-	if t == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	tother, ok := other.(*StructureType)
-	if !ok {
-		return false
-	}
-	if len(t.Members) != len(tother.Members) {
-		return false
-	}
-	for name, member := range t.Members {
-		tmem, exists := tother.Members[name]
-		if !exists {
-			return false
-		}
-		if !Equals(member, tmem) {
-			return false
-		}
-	}
-	return true
-}
-
 // String gets the name for this type.
 func (t *StructureType) String() string {
 	if t == nil {

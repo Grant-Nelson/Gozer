@@ -34,34 +34,6 @@ func (e *CallExp) ReturnTypes() []Type {
 	return e.Function.ReturnTypes
 }
 
-// Equals determines if this call is the same as the other expression.
-func (e *CallExp) Equals(other interface{}) bool {
-	if e == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	eother, ok := other.(*CallExp)
-	if !ok {
-		return false
-	}
-	if len(e.Parameters) != len(eother.Parameters) {
-		return false
-	}
-	if !Equals(e.Function, eother.Function) {
-		return false
-	}
-	if !Equals(e.Receiver, eother.Receiver) {
-		return false
-	}
-	for i, param := range e.Parameters {
-		if !Equals(param, eother.Parameters[i]) {
-			return false
-		}
-	}
-	return true
-}
-
 // String gets the string for the call.
 func (e *CallExp) String() string {
 	if e == nil {

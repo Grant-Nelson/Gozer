@@ -1,7 +1,6 @@
 package transpiler
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"math"
@@ -33,17 +32,21 @@ type Source struct {
 
 	// Package is the package which this method belongs to.
 	Package *constructs.PackageType
+
+	// pendingFuncs is the set of functions which need the body of the function read.
+	pendingFuncs map[*constructs.FunctionType]*ast.BlockStmt
 }
 
 // NewSource creates a new source file descriptions.
 func NewSource(log *common.Logger, fileSet *token.FileSet) *Source {
 	return &Source{
-		log:     log,
-		fileSet: fileSet,
-		Path:    "",
-		Data:    nil,
-		Imports: map[string]*constructs.PackageType{},
-		Package: nil,
+		log:          log,
+		fileSet:      fileSet,
+		Path:         "",
+		Data:         nil,
+		Imports:      map[string]*constructs.PackageType{},
+		Package:      nil,
+		pendingFuncs: map[*constructs.FunctionType]*ast.BlockStmt{},
 	}
 }
 
@@ -53,8 +56,7 @@ func (src *Source) ProcessTypes() {
 	for _, decl := range src.Data.Decls {
 		switch data := decl.(type) {
 		case *ast.GenDecl:
-			// TODO: handle
-			fmt.Println("GenDecl: ", data)
+			src.readGenericDeclaration(scope, data)
 		case *ast.FuncDecl:
 			src.readFunctionType(scope, data)
 		default:
@@ -161,7 +163,18 @@ func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string,
 	return names, types, ellipsis
 }
 
-// readFunction reads the given method into the given library
+// readGenericDeclaration reads the given generic declaration into the library.
+func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
+	switch data.Tok {
+	case token.IMPORT:
+		// Ignore imports while reading generic declarations.
+		return
+	default:
+		common.ThrowError("Unhandled generic declaration: ", data, " (", reflect.TypeOf(data), ")")
+	}
+}
+
+// readFunction reads the given method into the library
 // and adds it to a class if the class is defined.
 func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	//ast.Print(src.fileSet, data)
@@ -192,7 +205,8 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 
 	// Read the body for the function
 	if data.Body != nil {
-		fn.Body = src.parseBlock(scope, data.Body)
+		src.pendingFuncs[fn] = data.Body
+		//fn.Body = src.parseBlock(scope, data.Body)
 	}
 }
 

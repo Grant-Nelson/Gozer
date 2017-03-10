@@ -30,29 +30,6 @@ func (e *SelectorExp) ReturnTypes() []Type {
 	return []Type{e.Type}
 }
 
-// Equals determines if this expression is the same as the other expression.
-func (e *SelectorExp) Equals(other interface{}) bool {
-	if e == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	eother, ok := other.(*SelectorExp)
-	if !ok {
-		return false
-	}
-	if !Equals(e.Expression, eother.Expression) {
-		return false
-	}
-	if e.Identifier != eother.Identifier {
-		return false
-	}
-	if !Equals(e.Type, eother.Type) {
-		return false
-	}
-	return true
-}
-
 // String gets the string for this constuct.
 func (e *SelectorExp) String() string {
 	if e == nil {

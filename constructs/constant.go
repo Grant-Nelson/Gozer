@@ -16,23 +16,6 @@ func Constant(inner Type) *ConstantType {
 	}
 }
 
-// Equals determins if the given type is the same as this type.
-func (t *ConstantType) Equals(other interface{}) bool {
-	if t == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	tother, ok := other.(*ConstantType)
-	if !ok {
-		return false
-	}
-	if !Equals(t.Inner, tother.Inner) {
-		return false
-	}
-	return true
-}
-
 // String gets the string for this constant.
 func (t *ConstantType) String() string {
 	if t == nil {

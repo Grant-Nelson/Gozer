@@ -16,23 +16,6 @@ func Pointer(inner Type) *PointerType {
 	}
 }
 
-// Equals determins if the given type is the same as this type.
-func (t *PointerType) Equals(other interface{}) bool {
-	if t == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	tother, ok := other.(*PointerType)
-	if !ok {
-		return false
-	}
-	if !Equals(t.Inner, tother.Inner) {
-		return false
-	}
-	return true
-}
-
 // String gets the name for this type.
 func (t *PointerType) String() string {
 	if t == nil {

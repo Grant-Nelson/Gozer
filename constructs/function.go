@@ -75,59 +75,6 @@ func (t *FunctionType) AddReturn(name string, returnType Type) *FunctionType {
 	return t
 }
 
-// Equals determins if the given type is the same as this type.
-func (t *FunctionType) Equals(other interface{}) bool {
-	if t == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	tother, ok := other.(*FunctionType)
-	if !ok {
-		return false
-	}
-	if t.ReceiverName != tother.ReceiverName {
-		return false
-	}
-	if len(t.ParamNames) != len(tother.ParamNames) {
-		return false
-	}
-	if len(t.ParamTypes) != len(tother.ParamTypes) {
-		return false
-	}
-	if len(t.ReturnNames) != len(tother.ReturnNames) {
-		return false
-	}
-	if len(t.ReturnTypes) != len(tother.ReturnTypes) {
-		return false
-	}
-	for i, name := range t.ParamNames {
-		if name != tother.ParamNames[i] {
-			return false
-		}
-	}
-	for i, paramType := range t.ParamTypes {
-		if !Equals(paramType, tother.ParamTypes[i]) {
-			return false
-		}
-	}
-	for i, name := range t.ReturnNames {
-		if name != tother.ReturnNames[i] {
-			return false
-		}
-	}
-	for i, returnType := range t.ReturnTypes {
-		if !Equals(returnType, tother.ReturnTypes[i]) {
-			return false
-		}
-	}
-	if !Equals(t.Body, tother.Body) {
-		return false
-	}
-	// Don't check ReceiverClass
-	return true
-}
-
 // String gets the name for this type.
 func (t *FunctionType) String() string {
 	if t == nil {

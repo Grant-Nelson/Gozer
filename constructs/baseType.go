@@ -14,23 +14,6 @@ func newBaseType(typeName string) *BaseType {
 	}
 }
 
-// Equals determins if the given type is the same as this type.
-func (t *BaseType) Equals(other interface{}) bool {
-	if t == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	tother, ok := other.(*BaseType)
-	if !ok {
-		return false
-	}
-	if t.typeName != tother.typeName {
-		return false
-	}
-	return true
-}
-
 // String gets the name for this type.
 func (t *BaseType) String() string {
 	if t == nil {

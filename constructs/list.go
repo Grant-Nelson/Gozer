@@ -16,23 +16,6 @@ func List(element Type) *ListType {
 	}
 }
 
-// Equals determins if the given type is the same as this type.
-func (t *ListType) Equals(other interface{}) bool {
-	if t == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	tother, ok := other.(*ListType)
-	if !ok {
-		return false
-	}
-	if !Equals(t.Element, tother.Element) {
-		return false
-	}
-	return true
-}
-
 // String gets the name for this type.
 func (t *ListType) String() string {
 	if t == nil {

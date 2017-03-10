@@ -18,28 +18,6 @@ func Block(statements ...Statement) *BlockStatement {
 	}
 }
 
-// Equals determines if this block is the same as the other block.
-func (s *BlockStatement) Equals(other interface{}) bool {
-	if s == nil {
-		return other == nil
-	} else if other == nil {
-		return false
-	}
-	sother, ok := other.(*BlockStatement)
-	if !ok {
-		return false
-	}
-	if len(s.Statements) != len(sother.Statements) {
-		return false
-	}
-	for i, stat := range s.Statements {
-		if !Equals(stat, sother.Statements[i]) {
-			return false
-		}
-	}
-	return true
-}
-
 // String gets the string for this block.
 func (s *BlockStatement) String() string {
 	if s == nil {
