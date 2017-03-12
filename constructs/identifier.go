@@ -14,10 +14,10 @@ type IdentifierExp struct {
 }
 
 // Identifier creates a new identifier expression.
-func Identifier(id string) *IdentifierExp {
+func Identifier(id string, t Type) *IdentifierExp {
 	return &IdentifierExp{
 		Identifier: id,
-		Type:       nil,
+		Type:       t,
 	}
 }
 
@@ -31,5 +31,5 @@ func (e *IdentifierExp) String() string {
 	if e == nil {
 		return nilStr
 	}
-	return e.Identifier + "(" + ToString(e.Type) + ")"
+	return e.Identifier
 }

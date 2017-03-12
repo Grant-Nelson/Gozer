@@ -67,13 +67,12 @@ func (src *Source) ProcessTypes() {
 
 // ProcessBodies transpiles the bodies of the
 func (src *Source) ProcessBodies() {
-	// scope := src.fillOutScope()
+	scope := src.fillOutScope()
 	// TODO: fill out Constansts
 	// TODO: fill out Variables
-	// for _, named := range src.Functions.AllNamed() {
-	// 	src.transpileFunction(scope, named.Data.(*FunctionType))
-	// }
-
+	for fn, body := range src.pendingFuncs {
+		fn.Body = src.parseBlock(scope, body)
+	}
 	// TODO: fill out Library Functions
 	// TODO: fill out Class Functions
 }
@@ -206,7 +205,6 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	// Read the body for the function
 	if data.Body != nil {
 		src.pendingFuncs[fn] = data.Body
-		//fn.Body = src.parseBlock(scope, data.Body)
 	}
 }
 
@@ -287,25 +285,54 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 // parseIdentifier reads an identifier.
 // https://golang.org/pkg/go/ast/#Ident
 func (src *Source) parseIdentifier(scope *Scope, sel *ast.Ident) *constructs.IdentifierExp {
-	return constructs.Identifier(sel.Name)
+	name := sel.Name
+	if t, ok := scope.Get(name); ok {
+		return constructs.Identifier(name, t)
+	}
+	src.log.Error("Unable to find ", name, " in scope.")
+	return constructs.Identifier(name, constructs.Variant())
 }
 
 // parseSelector reads an identifier selector.
 // https://golang.org/pkg/go/ast/#SelectorExpr
 func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *constructs.SelectorExp {
 	exp := src.parseExpression(scope, sel.X)
-	return constructs.Selector(exp, sel.Sel.Name)
+	name := sel.Sel.Name
+	returns := exp.ReturnTypes()
+	if len(returns) != 1 {
+		src.log.Error("Too many return values to select from:",
+			"\n   Expression: ", exp,
+			"\n   Selector:   ", name)
+		return constructs.Selector(exp, name, constructs.Variant())
+	}
+	if t, exists := constructs.FindSubtype(returns[0], name); exists {
+		return constructs.Selector(exp, name, t)
+	}
+	src.log.Error("Failed to find subtype for selector:",
+		"\n   Expression: ", exp,
+		"\n   Selector:   ", name)
+	return constructs.Selector(exp, name, constructs.Variant())
 }
 
 // parseCall reads a code literal.
 // https://golang.org/pkg/go/ast/#CallExpr
 func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) *constructs.CallExp {
-	fnHandl := src.parseExpression(scope, call.Fun)
+	fnExp := src.parseExpression(scope, call.Fun)
 	paramLen := len(call.Args)
 	params := make([]constructs.Expression, paramLen)
+	returns := fnExp.ReturnTypes()
+	if len(returns) != 1 {
+		src.log.Error("Too many return values for a method call:",
+			"\n   Expression: ", fnExp)
+		return constructs.Call(nil, fnExp, params)
+	}
 	for i, param := range call.Args {
 		params[i] = src.parseExpression(scope, param)
 	}
-	// Set the function to nil for now. It will be set when determining types.
-	return constructs.Call(nil, fnHandl, params)
+	if fnHndl, exists := returns[0].(*constructs.FunctionType); exists {
+		return constructs.Call(fnHndl, fnExp, params)
+	}
+	src.log.Error("Called type is not a function handle:",
+		"\n   Expression: ", fnExp)
+	return constructs.Call(nil, fnExp, params)
 }

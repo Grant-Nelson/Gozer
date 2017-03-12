@@ -21,6 +21,12 @@ func Interface() *InterfaceType {
 	}
 }
 
+// Find looks up a subtype to this interface.
+func (t *InterfaceType) Find(name string) (Type, bool) {
+	t2, exists := t.Functions[name]
+	return t2, exists
+}
+
 // AddFunction adds a function to this interface.
 func (t *InterfaceType) AddFunction(name string) *FunctionType {
 	tfunc := Function()
@@ -33,6 +39,9 @@ func (t *InterfaceType) String() string {
 	if t == nil {
 		return nilStr
 	}
+	if len(t.Functions) <= 0 {
+		return "interface{}"
+	}
 	i := 0
 	parts := make([]string, len(t.Functions))
 	for name, tfunc := range t.Functions {
@@ -40,5 +49,5 @@ func (t *InterfaceType) String() string {
 		i++
 	}
 	sort.Strings(parts)
-	return "{\n  " + strings.Join(parts, "\n  ") + "\n}"
+	return "interface{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

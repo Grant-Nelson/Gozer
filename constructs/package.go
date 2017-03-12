@@ -38,6 +38,29 @@ func Package() *PackageType {
 	}
 }
 
+// Find looks up a subtype to this package.
+func (t *PackageType) Find(name string) (Type, bool) {
+	if t2, exists := t.Imports[name]; exists {
+		return t2, true
+	}
+	if t2, exists := t.Declarations[name]; exists {
+		return t2, true
+	}
+	if t2, exists := t.Functions[name]; exists {
+		return t2, true
+	}
+	if t2, exists := t.Interfaces[name]; exists {
+		return t2, true
+	}
+	if t2, exists := t.Classes[name]; exists {
+		return t2, true
+	}
+	if t2, exists := t.Imports[name]; exists {
+		return t2, true
+	}
+	return nil, false
+}
+
 // AddFunction adds a function to this package.
 func (t *PackageType) AddFunction(name string) *FunctionType {
 	tfunc := Function()
@@ -64,52 +87,65 @@ func (t *PackageType) String() string {
 	if t == nil {
 		return nilStr
 	}
+	result := ""
 
-	i := 0
-	parts1 := make([]string, len(t.Imports))
-	for name := range t.Imports {
-		parts1[i] = "import " + name
-		i++
+	if len(t.Imports) > 0 {
+		i := 0
+		parts1 := make([]string, len(t.Imports))
+		for name := range t.Imports {
+			parts1[i] = "import " + name
+			i++
+		}
+		sort.Strings(parts1)
+		result += indent(strings.Join(parts1, "\n"), "  ") + "\n"
 	}
-	sort.Strings(parts1)
 
-	i = 0
-	parts2 := make([]string, len(t.Declarations))
-	for name, decl := range t.Declarations {
-		parts2[i] = name + " " + ToString(decl)
-		i++
+	if len(t.Declarations) > 0 {
+		i := 0
+		parts2 := make([]string, len(t.Declarations))
+		for name, decl := range t.Declarations {
+			parts2[i] = name + " " + ToString(decl)
+			i++
+		}
+		sort.Strings(parts2)
+		result += indent(strings.Join(parts2, "\n"), "  ") + "\n"
 	}
-	sort.Strings(parts2)
 
-	i = 0
-	parts3 := make([]string, len(t.Functions))
-	for name, tfunc := range t.Functions {
-		parts3[i] = name + " " + ToString(tfunc)
-		i++
+	if len(t.Functions) > 0 {
+		i := 0
+		parts3 := make([]string, len(t.Functions))
+		for name, tfunc := range t.Functions {
+			parts3[i] = name + " " + ToString(tfunc)
+			i++
+		}
+		sort.Strings(parts3)
+		result += indent(strings.Join(parts3, "\n"), "  ") + "\n"
 	}
-	sort.Strings(parts3)
 
-	i = 0
-	parts4 := make([]string, len(t.Interfaces))
-	for name, inter := range t.Interfaces {
-		parts4[i] = name + " " + ToString(inter)
-		i++
+	if len(t.Interfaces) > 0 {
+		i := 0
+		parts4 := make([]string, len(t.Interfaces))
+		for name, inter := range t.Interfaces {
+			parts4[i] = name + " " + ToString(inter)
+			i++
+		}
+		sort.Strings(parts4)
+		result += indent(strings.Join(parts4, "\n"), "  ") + "\n"
 	}
-	sort.Strings(parts4)
 
-	i = 0
-	parts5 := make([]string, len(t.Classes))
-	for name, class := range t.Classes {
-		parts5[i] = name + " " + ToString(class)
-		i++
+	if len(t.Classes) > 0 {
+		i := 0
+		parts5 := make([]string, len(t.Classes))
+		for name, class := range t.Classes {
+			parts5[i] = name + " " + ToString(class)
+			i++
+		}
+		sort.Strings(parts5)
+		result += indent(strings.Join(parts5, "\n"), "  ") + "\n"
 	}
-	sort.Strings(parts5)
 
-	return "{\n" +
-		indent(strings.Join(parts1, "\n"), "  ") + "\n" +
-		indent(strings.Join(parts2, "\n"), "  ") + "\n" +
-		indent(strings.Join(parts3, "\n"), "  ") + "\n" +
-		indent(strings.Join(parts4, "\n"), "  ") + "\n" +
-		indent(strings.Join(parts5, "\n"), "  ") + "\n" +
-		"}"
+	if len(result) > 0 {
+		return "{}"
+	}
+	return "{\n" + result + "}"
 }

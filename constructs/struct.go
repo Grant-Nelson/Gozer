@@ -21,10 +21,19 @@ func Structure() *StructureType {
 	}
 }
 
+// Find looks up a subtype to this structure.
+func (t *StructureType) Find(name string) (Type, bool) {
+	t2, exists := t.Members[name]
+	return t2, exists
+}
+
 // String gets the name for this type.
 func (t *StructureType) String() string {
 	if t == nil {
 		return nilStr
+	}
+	if len(t.Members) <= 0 {
+		return "struct{}"
 	}
 	i := 0
 	parts := make([]string, len(t.Members))
@@ -33,5 +42,5 @@ func (t *StructureType) String() string {
 		i++
 	}
 	sort.Strings(parts)
-	return "{\n  " + strings.Join(parts, "\n  ") + "\n}"
+	return "struct{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

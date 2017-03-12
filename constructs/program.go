@@ -39,6 +39,9 @@ func (t *ProgramType) String() string {
 	if t == nil {
 		return nilStr
 	}
+	if len(t.Packages) <= 0 {
+		return "{}"
+	}
 	i := 0
 	parts := make([]string, len(t.Packages))
 	for name := range t.Packages {

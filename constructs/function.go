@@ -94,11 +94,11 @@ func (t *FunctionType) String() string {
 		params = "(" + strings.Join(paramStrs, ", ") + ")"
 	}
 
-	returns := "()"
+	returns := ""
 	if returnCount := len(t.ReturnNames); returnCount > 0 {
 		returnStrs := make([]string, returnCount)
 		for i, name := range t.ReturnNames {
-			returnType := ToString(t.ParamTypes[i])
+			returnType := ToString(t.ReturnTypes[i])
 			if len(name) > 0 {
 				returnStrs[i] = name + " " + returnType
 			} else {
@@ -108,5 +108,9 @@ func (t *FunctionType) String() string {
 		returns = "(" + strings.Join(returnStrs, ", ") + ")"
 	}
 
-	return "func " + t.Name + params + returns + ToString(t.Body)
+	bodyStr := ""
+	if t.Body != nil {
+		bodyStr = " " + ToString(t.Body)
+	}
+	return "func " + t.Name + params + returns + bodyStr
 }

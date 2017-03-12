@@ -27,5 +27,5 @@ func (e *LiteralExp) ReturnTypes() []Type {
 
 // String gets the string for the literal.
 func (e *LiteralExp) String() string {
-	return ToString(e.Type) + "(" + e.Value + ")"
+	return e.Value
 }

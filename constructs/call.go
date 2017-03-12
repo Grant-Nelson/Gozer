@@ -43,5 +43,5 @@ func (e *CallExp) String() string {
 	for i, param := range e.Parameters {
 		parts[i] = ToString(param)
 	}
-	return "(" + ToString(e.Receiver) + ")" + ToString(e.Function) + "(" + strings.Join(parts, ", ") + ")"
+	return ToString(e.Receiver) + "(" + strings.Join(parts, ", ") + ")"
 }

@@ -108,6 +108,9 @@ func (gr *GoReader) Transpile() {
 	for _, src := range gr.sources {
 		src.ProcessTypes()
 	}
+	for _, src := range gr.sources {
+		src.ProcessBodies()
+	}
 	// TODO: Need to connect all interfaces across all the classes.
 	// for i := gr.packages.Length() - 1; i >= 0; i-- {
 	// 	pack := gr.packages.At(i).Data.(*constructs.PackageType)

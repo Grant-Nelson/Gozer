@@ -17,11 +17,11 @@ type SelectorExp struct {
 }
 
 // Selector creates a new selector expression.
-func Selector(exp Expression, id string) *SelectorExp {
+func Selector(exp Expression, id string, t Type) *SelectorExp {
 	return &SelectorExp{
 		Expression: exp,
 		Identifier: id,
-		Type:       nil,
+		Type:       t,
 	}
 }
 
@@ -35,5 +35,5 @@ func (e *SelectorExp) String() string {
 	if e == nil {
 		return nilStr
 	}
-	return ToString(e.Expression) + "." + e.Identifier + "(" + ToString(e.Type) + ")"
+	return ToString(e.Expression) + "." + e.Identifier
 }

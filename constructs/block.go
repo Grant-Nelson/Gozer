@@ -1,6 +1,8 @@
 package constructs
 
-import "strings"
+import (
+	"strings"
+)
 
 var _ Statement = (*BlockStatement)(nil)
 
@@ -31,5 +33,5 @@ func (s *BlockStatement) String() string {
 	for i, stat := range s.Statements {
 		parts[i] = ToString(stat)
 	}
-	return "{\n   " + strings.Join(parts, "\n   ") + "}"
+	return "{\n   " + strings.Join(parts, "\n   ") + "\n}"
 }
