@@ -25,5 +25,5 @@ func (t *MapType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	return "Map<" + ToString(t.Key) + ", " + ToString(t.Value) + ">"
+	return "map[" + ToString(t.Key) + "]" + ToString(t.Value)
 }

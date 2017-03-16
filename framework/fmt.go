@@ -38,7 +38,7 @@ func FmtPrebuild(prog *c.ProgramType) {
 		AddReturn("n", c.Int()).
 		AddReturn("err", errType)
 
-	pack.AddFunction("Print").
+	pack.AddFunction("Printf").
 		AddParam("format", c.String()).
 		AddParam("a", c.Interface()).
 		SetEllipse(true).

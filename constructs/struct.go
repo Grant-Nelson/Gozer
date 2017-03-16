@@ -27,6 +27,12 @@ func (t *StructureType) Find(name string) (Type, bool) {
 	return t2, exists
 }
 
+// AddMember adds a member to this structure.
+func (t *StructureType) AddMember(name string, tmem Type) *StructureType {
+	t.Members[name] = tmem
+	return t
+}
+
 // String gets the name for this type.
 func (t *StructureType) String() string {
 	if t == nil {

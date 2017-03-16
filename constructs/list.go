@@ -21,5 +21,5 @@ func (t *ListType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	return "List<" + ToString(t.Element) + ">"
+	return "[]" + ToString(t.Element)
 }

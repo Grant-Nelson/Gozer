@@ -55,6 +55,12 @@ func Function() *FunctionType {
 	}
 }
 
+// SetName sets the name of the function.
+func (t *FunctionType) SetName(name string) *FunctionType {
+	t.Name = name
+	return t
+}
+
 // AddParam adds a parameter to the function.
 func (t *FunctionType) AddParam(name string, paramType Type) *FunctionType {
 	t.ParamNames = append(t.ParamNames, name)
@@ -112,5 +118,9 @@ func (t *FunctionType) String() string {
 	if t.Body != nil {
 		bodyStr = " " + ToString(t.Body)
 	}
-	return "func " + t.Name + params + returns + bodyStr
+	name := ""
+	if len(t.Name) > 0 {
+		name = " " + t.Name
+	}
+	return "func" + name + params + returns + bodyStr
 }

@@ -33,5 +33,5 @@ func (s *BlockStatement) String() string {
 	for i, stat := range s.Statements {
 		parts[i] = ToString(stat)
 	}
-	return "{\n   " + strings.Join(parts, "\n   ") + "\n}"
+	return "{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

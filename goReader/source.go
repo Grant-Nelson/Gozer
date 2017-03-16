@@ -212,25 +212,43 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 // https://golang.org/pkg/go/ast/#BlockStmt
 func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *constructs.BlockStatement {
 	blockScope := NewScope(scope)
-	stats := make([]constructs.Statement, len(block.List))
-	for i, stmt := range block.List {
-		stats[i] = src.parseStatement(blockScope, stmt)
+	stats := []constructs.Statement{}
+	for _, stmt := range block.List {
+		newStates := src.parseStatement(blockScope, stmt)
+		stats = append(stats, newStates...)
 	}
 	return constructs.Block(stats...)
 }
 
 // parseStatement reads a statement.
 // https://golang.org/pkg/go/ast/#Stmt
-func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) constructs.Statement {
+func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs.Statement {
 	statScope := NewScope(scope)
 	switch stat := statement.(type) {
+	case *ast.AssignStmt:
+		return src.parseAssignment(statScope, stat)
 	case *ast.ExprStmt:
-		return src.parseExpression(statScope, stat.X)
+		return []constructs.Statement{src.parseExpression(statScope, stat.X)}
 	// case *ast.ReturnStmt: dw.writeReturn(st)
 	default:
 		src.log.Error("Unhandled statement type ", reflect.TypeOf(stat))
 		return nil
 	}
+}
+
+// parseAssignment reads in an assigment statement.
+// https://golang.org/pkg/go/ast/#AssignStmt
+func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []constructs.Expression {
+	// TODO: Need to update the scope!
+	leftExps := make([]constructs.Expression, len(assign.Lhs))
+	for i, exp := range assign.Lhs {
+		leftExps[i] = src.parseExpression(scope, exp)
+	}
+	rightExps := make([]constructs.Expression, len(assign.Rhs))
+	for i, exp := range assign.Rhs {
+		rightExps[i] = src.parseExpression(scope, exp)
+	}
+	return Assignments(leftExps, rightExps)
 }
 
 // parseExpression reads in some kind of expression.
@@ -274,8 +292,13 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 	case token.CHAR:
 		return constructs.Literal(lit.Value, constructs.Rune())
 	case token.STRING:
-		// TODO: Check back tick strings and normalize string.
-		return constructs.Literal(lit.Value, constructs.String())
+		str, err := strconv.Unquote(lit.Value)
+		if err != nil {
+			src.log.Error("Unable to unquote literal string: ", lit.Value)
+			return constructs.Literal(lit.Value, constructs.String())
+		}
+		str = strconv.QuoteToASCII(str)
+		return constructs.Literal(str, constructs.String())
 	default:
 		src.log.Error("Unhandled literal kind ", lit.Kind)
 		return nil
