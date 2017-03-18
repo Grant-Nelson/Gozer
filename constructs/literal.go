@@ -27,5 +27,8 @@ func (e *LiteralExp) ReturnTypes() []Type {
 
 // String gets the string for the literal.
 func (e *LiteralExp) String() string {
+	if e == nil {
+		return ""
+	}
 	return e.Value
 }

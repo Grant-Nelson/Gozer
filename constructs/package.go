@@ -55,10 +55,13 @@ func (t *PackageType) Find(name string) (Type, bool) {
 	if t2, exists := t.Classes[name]; exists {
 		return t2, true
 	}
-	if t2, exists := t.Imports[name]; exists {
-		return t2, true
-	}
 	return nil, false
+}
+
+// AddDeclaration adds a declaration to this package.
+func (t *PackageType) AddDeclaration(name string, decl Type) *PackageType {
+	t.Declarations[name] = decl
+	return t
 }
 
 // AddFunction adds a function to this package.
@@ -144,7 +147,7 @@ func (t *PackageType) String() string {
 		result += indent(strings.Join(parts5, "\n"), "  ") + "\n"
 	}
 
-	if len(result) > 0 {
+	if len(result) <= 0 {
 		return "{}"
 	}
 	return "{\n" + result + "}"

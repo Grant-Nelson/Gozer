@@ -40,11 +40,11 @@ func (t *ClassType) String() string {
 	}
 
 	result := ""
-	if str := indent(ToString(t.Data), "  "); len(str) > 0 {
-		result += str + "\n"
+	if str := ToString(t.Data); (len(str) > 0) && (str != "nil") {
+		result += indent(str, "  ") + "\n"
 	}
-	if str := indent(ToString(t.Interface), "  "); len(str) > 0 {
-		result += str + "\n"
+	if str := ToString(t.Interface); (len(str) > 0) && (str != "interface{}") {
+		result += indent(str, "  ") + "\n"
 	}
 
 	if len(result) <= 0 {
