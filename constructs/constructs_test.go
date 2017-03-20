@@ -3,6 +3,8 @@ package constructs
 import (
 	"strings"
 	"testing"
+
+	"github.com/grant-nelson/Gozer/common"
 )
 
 func checkString(t *testing.T, result string, exp ...string) {
@@ -274,11 +276,11 @@ func TestPackageAndProgramTypes(t *testing.T) {
 		`}`)
 	if !prog1.Contains("sounds") {
 		t.Fatal("Expected contains to return true for sounds:",
-			"\n   Program: ", indent(ToString(prog1), "            "))
+			"\n   Program: ", common.Indent(ToString(prog1), "            "))
 	}
 	if prog1.Contains("pudding") {
 		t.Fatal("Expected contains to return false for pudding:",
-			"\n   Program: ", indent(ToString(prog1), "            "))
+			"\n   Program: ", common.Indent(ToString(prog1), "            "))
 	}
 }
 

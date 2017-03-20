@@ -21,7 +21,7 @@ func Identifier(id string, t Type) *IdentifierExp {
 	}
 }
 
-// ReturnTypes are the typea this expression resolves to.
+// ReturnTypes are the types this expression resolves to.
 func (e *IdentifierExp) ReturnTypes() []Type {
 	return []Type{e.Type}
 }

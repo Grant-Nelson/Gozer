@@ -6,7 +6,7 @@ var _ Statement = (Expression)(nil)
 // or more literals, variables, operators, and functions.
 type Expression interface {
 
-	// ReturnTypes are the typea this expression resolves to.
+	// ReturnTypes are the types this expression resolves to.
 	ReturnTypes() []Type
 
 	// String gets the string for this constuct.

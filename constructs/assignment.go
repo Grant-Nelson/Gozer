@@ -22,7 +22,7 @@ func Assignment(left []Expression, right Expression) *AssignmentStat {
 	}
 }
 
-// ReturnTypes are the typea this expression resolves to.
+// ReturnTypes are the types this expression resolves to.
 func (s *AssignmentStat) ReturnTypes() []Type {
 	return s.RightExp.ReturnTypes()
 }

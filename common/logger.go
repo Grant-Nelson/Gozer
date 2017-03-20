@@ -27,6 +27,9 @@ type Logger struct {
 
 	// showStacks indicates if error should also print stacktraces.
 	showStacks bool
+
+	// showDebug indicates debugging logs should be printed.
+	showDebug bool
 }
 
 // NewLogger creates a new logger.
@@ -35,6 +38,7 @@ func NewLogger() *Logger {
 		output:     nil,
 		errorCount: 0,
 		showStacks: false,
+		showDebug:  false,
 	}
 }
 
@@ -49,17 +53,19 @@ func (log *Logger) ShowStackTraces(showStacks bool) {
 	log.showStacks = showStacks
 }
 
+// ShowDebug indicates if debugging messages should be shown.
+func (log *Logger) ShowDebug(showDebug bool) {
+	log.showDebug = showDebug
+}
+
 // StackTrace gets the current stack strace.
-func (log *Logger) StackTrace(minLevel int, maxLevel int, indent string) string {
+func (log *Logger) StackTrace(scope int, steps int, indent string) string {
 	stack := string(debug.Stack())
 	lines := strings.Split(stack, "\n")
-	maxCut := maxLevel*2 + 1
-	if len(lines) > maxCut {
-		lines = lines[:maxCut]
-	}
-	minCut := minLevel*2 + 1
-	if len(lines) > minCut {
-		lines = lines[minCut:]
+	scopeCut := scope*2 + 1
+	topCut := scopeCut + steps*2
+	if len(lines) > topCut {
+		lines = lines[scopeCut:topCut]
 	}
 	return indent + strings.Join(lines, "\n"+indent)
 }
@@ -77,6 +83,13 @@ func (log *Logger) Write(msg ...interface{}) {
 // ErrorCount gets the number of errors which have been logged.
 func (log *Logger) ErrorCount() int {
 	return log.errorCount
+}
+
+// Debug will log debugging information to the current output or console.
+func (log *Logger) Debug(msg ...interface{}) {
+	if log.showDebug {
+		log.Write(msg...)
+	}
 }
 
 // Error will log an error to the current output or console.

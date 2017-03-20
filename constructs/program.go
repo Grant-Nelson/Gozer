@@ -3,6 +3,8 @@ package constructs
 import (
 	"sort"
 	"strings"
+
+	"github.com/grant-nelson/Gozer/common"
 )
 
 var _ Type = (*ProgramType)(nil)
@@ -50,6 +52,6 @@ func (t *ProgramType) String() string {
 	}
 	sort.Strings(parts)
 	return "{\n" +
-		indent(strings.Join(parts, "\n"), "  ") + "\n" +
+		common.Indent(strings.Join(parts, "\n"), "  ") + "\n" +
 		"}"
 }

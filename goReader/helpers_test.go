@@ -22,6 +22,7 @@ func NewTestGoReader(t *testing.T) *TestGoReader {
 	logBuf := &bytes.Buffer{}
 	gr := NewGoReader()
 	gr.Logger().SetOutput(logBuf)
+	gr.Logger().ShowDebug(true)
 	return &TestGoReader{
 		t:      t,
 		gr:     gr,
@@ -124,20 +125,25 @@ func (test *TestGoReader) CheckFunctions(packName string, expFunctions ...string
 	}
 }
 
-// CheckFunctionBody checks the function body in the given package's function.
-func (test *TestGoReader) CheckFunctionBody(packName string, funcName string, expBody ...string) {
+// CheckFunction checks the function body in the given package's function.
+func (test *TestGoReader) CheckFunction(packName string, funcName string, expBody ...string) {
 	pack := test.getPack(packName)
 	tfunc, exists := pack.Functions[funcName]
 	if !exists {
 		test.fail("Failed to find function ", funcName, " in ", packName, ".")
 	}
-	expResult := strings.Join(expBody, "\n")
+	indent := func(s string) string {
+		return strings.Replace(strings.Replace(s,
+			" ", "\u00B7", -1),
+			"\n", "\n             ", -1)
+	}
+	expResult := Lines(expBody...)
 	if result := tfunc.String(); result != expResult {
 		test.fail("Unexpected function construct:",
 			"\n   Package:  ", packName,
 			"\n   Function: ", funcName,
-			"\n   Expected: ", strings.Replace(expResult, "\n", "\n             ", -1),
-			"\n   Result:   ", strings.Replace(result, "\n", "\n             ", -1))
+			"\n   Expected: ", indent(expResult),
+			"\n   Result:   ", indent(result))
 	}
 }
 
@@ -145,4 +151,26 @@ func (test *TestGoReader) CheckFunctionBody(packName string, funcName string, ex
 func (test *TestGoReader) Transpile() {
 	test.gr.Transpile()
 	test.CheckNoErrors("transpiling")
+}
+
+//==========================================================================
+
+func Lines(code ...string) string {
+	return strings.Join(code, "\n")
+}
+
+func MainMethodBodyTest(t *testing.T, input string, exp string) {
+	test := NewTestGoReader(t)
+	test.AddCode("test/main.go",
+		`package main`,
+		`import "fmt"`,
+		``,
+		`func main() {`,
+		common.Indent(input, "  "),
+		`}`)
+	test.Transpile()
+	test.CheckFunction("test", "main",
+		`func main() {`,
+		common.Indent(exp, "  "),
+		`}`)
 }

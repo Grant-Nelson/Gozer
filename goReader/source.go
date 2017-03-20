@@ -52,6 +52,11 @@ func NewSource(log *common.Logger, fileSet *token.FileSet) *Source {
 
 // ProcessTypes determines all the class signatures, interfaces, functions, and handles.
 func (src *Source) ProcessTypes() {
+	defer func() {
+		if r := recover(); r != nil {
+			src.log.Error("Error occurred while processing types: ", r)
+		}
+	}()
 	scope := src.fillOutScope()
 	for _, decl := range src.Data.Decls {
 		switch data := decl.(type) {
@@ -65,8 +70,13 @@ func (src *Source) ProcessTypes() {
 	}
 }
 
-// ProcessBodies transpiles the bodies of the
+// ProcessBodies transpiles the bodies of the functions and expressions of constants.
 func (src *Source) ProcessBodies() {
+	defer func() {
+		if r := recover(); r != nil {
+			src.log.Error("Error occurred while processing bodies: ", r)
+		}
+	}()
 	scope := src.fillOutScope()
 	// TODO: fill out Constansts
 	// TODO: fill out Variables
@@ -98,6 +108,11 @@ func (src *Source) addBasedPackage(scope *Scope, pack *constructs.PackageType) {
 
 // fillOutScope fills out the scope for the containing package.
 func (src *Source) fillOutScope() *Scope {
+	defer func() {
+		if r := recover(); r != nil {
+			common.ThrowError("Error occurred while filling out the scrope: ", r)
+		}
+	}()
 	scope := NewScope(nil)
 	for name, pack := range src.Imports {
 		if name == "builtin" {
@@ -164,6 +179,11 @@ func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string,
 
 // readGenericDeclaration reads the given generic declaration into the library.
 func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
+	defer func() {
+		if r := recover(); r != nil {
+			common.ThrowError("Error occurred while reading a generic declaration: ", r)
+		}
+	}()
 	switch data.Tok {
 	case token.IMPORT:
 		// Ignore imports while reading generic declarations.
@@ -176,6 +196,11 @@ func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
 // readFunction reads the given method into the library
 // and adds it to a class if the class is defined.
 func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
+	defer func() {
+		if r := recover(); r != nil {
+			common.ThrowError("Error occurred while reading a function type: ", r)
+		}
+	}()
 	//ast.Print(src.fileSet, data)
 	fn := constructs.Function()
 	fn.Name = data.Name.Name
@@ -211,6 +236,11 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 // parseBlock reads a block statement.
 // https://golang.org/pkg/go/ast/#BlockStmt
 func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *constructs.BlockStatement {
+	defer func() {
+		if r := recover(); r != nil {
+			common.ThrowError("Error occurred while parsing a block: ", r)
+		}
+	}()
 	blockScope := NewScope(scope)
 	stats := []constructs.Statement{}
 	for _, stmt := range block.List {
@@ -223,12 +253,16 @@ func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *constructs.Bl
 // parseStatement reads a statement.
 // https://golang.org/pkg/go/ast/#Stmt
 func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs.Statement {
-	statScope := NewScope(scope)
 	switch stat := statement.(type) {
 	case *ast.AssignStmt:
-		return src.parseAssignment(statScope, stat)
+		exps := src.parseAssignment(scope, stat)
+		parts := make([]constructs.Statement, len(exps))
+		for i, exp := range exps {
+			parts[i] = exp
+		}
+		return parts
 	case *ast.ExprStmt:
-		return []constructs.Statement{src.parseExpression(statScope, stat.X)}
+		return []constructs.Statement{src.parseExpression(scope, stat.X)}
 	// case *ast.ReturnStmt: dw.writeReturn(st)
 	default:
 		src.log.Error("Unhandled statement type ", reflect.TypeOf(stat))
@@ -239,16 +273,28 @@ func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs
 // parseAssignment reads in an assigment statement.
 // https://golang.org/pkg/go/ast/#AssignStmt
 func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []constructs.Expression {
-	// TODO: Need to update the scope!
-	leftExps := make([]constructs.Expression, len(assign.Lhs))
-	for i, exp := range assign.Lhs {
-		leftExps[i] = src.parseExpression(scope, exp)
-	}
-	rightExps := make([]constructs.Expression, len(assign.Rhs))
+	leftOffset := 0
+	defining := assign.Tok == token.DEFINE
+	results := make([]constructs.Expression, len(assign.Rhs))
 	for i, exp := range assign.Rhs {
-		rightExps[i] = src.parseExpression(scope, exp)
+		right := src.parseExpression(scope, exp)
+		rets := right.ReturnTypes()
+		retCount := len(rets)
+		leftExps := make([]constructs.Expression, retCount)
+		for j := 0; j < retCount; j++ {
+			leftExp := assign.Lhs[leftOffset]
+			leftOffset++
+			if defining {
+				name := leftExp.(*ast.Ident).Name
+				scope.Add(name, rets[j])
+				leftExps[j] = constructs.Identifier(name, rets[j])
+			} else {
+				leftExps[j] = src.parseExpression(scope, leftExp)
+			}
+		}
+		results[i] = constructs.Assignment(leftExps, right)
 	}
-	return Assignments(leftExps, rightExps)
+	return results
 }
 
 // parseExpression reads in some kind of expression.
@@ -257,11 +303,14 @@ func (src *Source) parseExpression(scope *Scope, expr ast.Expr) constructs.Expre
 	switch ex := expr.(type) {
 	case *ast.BasicLit:
 		return src.parseLiteral(scope, ex)
-	// case *ast.BinaryExpr: src.parseBinary(ex)
+	case *ast.BinaryExpr:
+		return src.parseBinary(scope, ex)
 	case *ast.CallExpr:
 		return src.parseCall(scope, ex)
 	case *ast.Ident:
 		return src.parseIdentifier(scope, ex)
+	case *ast.ParenExpr:
+		return src.parseExpression(scope, ex.X)
 	case *ast.SelectorExpr:
 		return src.parseSelector(scope, ex)
 	default:
@@ -305,10 +354,65 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 	}
 }
 
+// parseBinary reads a binary operation.
+// https://golang.org/pkg/go/ast/#Ident
+func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.BinaryOpExp {
+	left := src.parseExpression(scope, bin.X)
+	right := src.parseExpression(scope, bin.Y)
+
+	var resultType constructs.Type
+	if left == nil {
+		src.log.Debug("Left expression in a binary is nil ", bin.Op, ".")
+		resultType = constructs.Variant()
+	} else {
+		rets := left.ReturnTypes()
+		if len(rets) != 1 {
+			src.log.Error("Binary expected only one return type for ", bin.Op, ".")
+			resultType = constructs.Variant()
+		} else {
+			resultType = rets[0]
+		}
+	}
+
+	operand := ""
+	switch bin.Op {
+	case token.ADD: // +
+		operand = constructs.AddOp
+	case token.SUB: // -
+		operand = constructs.SubtractOp
+	case token.MUL: // *
+		operand = constructs.MultiplyOp
+	case token.QUO: // /
+		operand = constructs.QuotentOp
+	case token.REM: // %
+		operand = constructs.RemainderOp
+	case token.AND: // &
+		operand = constructs.AndOp
+	case token.OR: // |
+		operand = constructs.OrOp
+	case token.XOR: // ^
+		operand = constructs.ExclusiveOrOp
+	case token.SHL: // <<
+		operand = constructs.LeftShiftOp
+	case token.SHR: // >>
+		operand = constructs.RightShiftOp
+	case token.AND_NOT: // &^
+		operand = constructs.AndNotOp
+	case token.LAND: // &&
+		operand = constructs.LogicalAndOp
+	case token.LOR: // ||
+		operand = constructs.LogicalOrOp
+	default:
+		src.log.Error("Unhandled binary operand ", bin.Op)
+		return nil
+	}
+	return constructs.BinaryOp(left, right, operand, resultType)
+}
+
 // parseIdentifier reads an identifier.
 // https://golang.org/pkg/go/ast/#Ident
-func (src *Source) parseIdentifier(scope *Scope, sel *ast.Ident) *constructs.IdentifierExp {
-	name := sel.Name
+func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) *constructs.IdentifierExp {
+	name := id.Name
 	if t, ok := scope.Get(name); ok {
 		return constructs.Identifier(name, t)
 	}

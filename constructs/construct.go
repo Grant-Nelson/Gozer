@@ -1,7 +1,5 @@
 package constructs
 
-import "strings"
-
 const nilStr = "nil"
 
 // Construct is the base interface for all objects representing parts of codes.
@@ -17,9 +15,4 @@ func ToString(c Construct) string {
 		return nilStr
 	}
 	return c.String()
-}
-
-// indent returns the given text indented.
-func indent(text string, indent string) string {
-	return indent + strings.Replace(text, "\n", "\n"+indent, -1)
 }

@@ -1,5 +1,7 @@
 package constructs
 
+import "github.com/grant-nelson/Gozer/common"
+
 var _ Type = (*ClassType)(nil)
 
 // ClassType for storing the types of class.
@@ -41,10 +43,10 @@ func (t *ClassType) String() string {
 
 	result := ""
 	if str := ToString(t.Data); (len(str) > 0) && (str != "nil") {
-		result += indent(str, "  ") + "\n"
+		result += common.Indent(str, "  ") + "\n"
 	}
 	if str := ToString(t.Interface); (len(str) > 0) && (str != "interface{}") {
-		result += indent(str, "  ") + "\n"
+		result += common.Indent(str, "  ") + "\n"
 	}
 
 	if len(result) <= 0 {
