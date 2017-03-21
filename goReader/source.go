@@ -313,6 +313,8 @@ func (src *Source) parseExpression(scope *Scope, expr ast.Expr) constructs.Expre
 		return src.parseExpression(scope, ex.X)
 	case *ast.SelectorExpr:
 		return src.parseSelector(scope, ex)
+	case *ast.UnaryExpr:
+		return src.parseUnary(scope, ex)
 	default:
 		src.log.Error("Unhandled expression type ", reflect.TypeOf(ex))
 		return nil
@@ -355,7 +357,7 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 }
 
 // parseBinary reads a binary operation.
-// https://golang.org/pkg/go/ast/#Ident
+// https://golang.org/pkg/go/ast/#BinaryExpr
 func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.BinaryOpExp {
 	left := src.parseExpression(scope, bin.X)
 	right := src.parseExpression(scope, bin.Y)
@@ -374,6 +376,7 @@ func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.Bi
 		}
 	}
 
+	// https://golang.org/pkg/go/token/#Token
 	operand := ""
 	switch bin.Op {
 	case token.ADD: // +
@@ -402,6 +405,24 @@ func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.Bi
 		operand = constructs.LogicalAndOp
 	case token.LOR: // ||
 		operand = constructs.LogicalOrOp
+	case token.EQL: // ==
+		resultType = constructs.Bool()
+		operand = constructs.EqualOp
+	case token.NEQ: // !=
+		resultType = constructs.Bool()
+		operand = constructs.NotEqualOp
+	case token.LSS: // <
+		resultType = constructs.Bool()
+		operand = constructs.LessThanOp
+	case token.LEQ: // <=
+		resultType = constructs.Bool()
+		operand = constructs.LessThanEqualOp
+	case token.GTR: // >
+		resultType = constructs.Bool()
+		operand = constructs.GreaterThanOp
+	case token.GEQ: // >=
+		resultType = constructs.Bool()
+		operand = constructs.GreaterThanEqualOp
 	default:
 		src.log.Error("Unhandled binary operand ", bin.Op)
 		return nil
@@ -439,6 +460,49 @@ func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *construct
 		"\n   Expression: ", exp,
 		"\n   Selector:   ", name)
 	return constructs.Selector(exp, name, constructs.Variant())
+}
+
+// parseUnary reads a unary operation.
+// https://golang.org/pkg/go/ast/#UnaryExpr
+func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *constructs.UnaryOpExp {
+	exp := src.parseExpression(scope, una.X)
+
+	var resultType constructs.Type
+	if exp == nil {
+		src.log.Debug("The expression in a unary is nil ", una.Op, ".")
+		resultType = constructs.Variant()
+	} else {
+		rets := exp.ReturnTypes()
+		if len(rets) != 1 {
+			src.log.Error("Unary expected only one return type for ", una.Op, ".")
+			resultType = constructs.Variant()
+		} else {
+			resultType = rets[0]
+		}
+	}
+
+	// https://golang.org/pkg/go/token/#Token
+	operand := ""
+	switch una.Op {
+	case token.ADD: // +
+		operand = constructs.PosOp
+	case token.SUB: // -
+		operand = constructs.NegateOp
+	case token.INC: // ++
+		operand = constructs.IncrementOp
+	case token.DEC: // --
+		operand = constructs.DecrementOp
+	case token.NOT: // !
+		operand = constructs.NotOp
+	case token.MUL: // *
+		operand = constructs.DereferanceOp
+	case token.AND: // &
+		operand = constructs.ReferanceOp
+	default:
+		src.log.Error("Unhandled unary operand ", una.Op)
+		return nil
+	}
+	return constructs.UnaryOp(exp, operand, resultType)
 }
 
 // parseCall reads a code literal.

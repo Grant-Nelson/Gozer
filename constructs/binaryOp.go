@@ -42,6 +42,24 @@ const (
 
 	// LogicalOrOp is the binary operation for logical OR of two values.
 	LogicalOrOp = "||"
+
+	// EqualOp is the binary operation for equality of two values.
+	EqualOp = "=="
+
+	// NotEqualOp is the binary operation for a value not equal to another.
+	NotEqualOp = "!="
+
+	// LessThanOp is the binary operation for a value is less than another.
+	LessThanOp = "<"
+
+	// LessThanEqualOp is the binary operation for a value is less than or equal to another.
+	LessThanEqualOp = "<="
+
+	// GreaterThanOp is the binary operation for a value is greater than another.
+	GreaterThanOp = ">"
+
+	// GreaterThanEqualOp is the binary operation for a value is greater than or equal to another.
+	GreaterThanEqualOp = ">="
 )
 
 // BinaryOpExp is an expression which combines two values with some operation.
@@ -56,7 +74,7 @@ type BinaryOpExp struct {
 	// Operand is the operations to apply to the two expressions.
 	Operand string
 
-	// Type is the resulting type of the selection.
+	// Type is the resulting type after the operation.
 	Type Type
 }
 

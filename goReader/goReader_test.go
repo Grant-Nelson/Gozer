@@ -127,3 +127,21 @@ func TestGoReader13(t *testing.T) {
 			`b = 4`,
 			`fmt.Print("Value: ", ((a * (0x10 - 1)) >> b))`))
 }
+
+func TestGoReader14(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := 14`,
+			`fmt.Print("Value 1: ", a)`,
+			`a = -8`,
+			`fmt.Print("Value 2: ", -a)`),
+		Lines(
+			`a = 14`,
+			`fmt.Print("Value 1: ", a)`,
+			`a = -8`,
+			`fmt.Print("Value 2: ", -a)`))
+}
+
+//
+// a, b := 10, 12
+// fmt.Println("Value: ", +a - -b)
