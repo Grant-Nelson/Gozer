@@ -273,26 +273,84 @@ func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs
 // parseAssignment reads in an assigment statement.
 // https://golang.org/pkg/go/ast/#AssignStmt
 func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []constructs.Expression {
+	if assign.Tok == token.DEFINE {
+		return src.parseDefinition(scope, assign)
+	}
+
+	results := make([]constructs.Expression, 0, len(assign.Rhs))
+	lefts := make([]constructs.Expression, len(assign.Lhs))
+	for i := len(assign.Lhs) - 1; i >= 0; i-- {
+		lefts[i] = src.parseExpression(scope, assign.Lhs[i])
+	}
+
+	if len(assign.Rhs) == 1 {
+		right := src.parseExpression(scope, assign.Rhs[0])
+		results = append(results, constructs.Assignment(lefts, right))
+	} else {
+		// TODO: Handle variable swaps
+
+		leftOffset := 0
+		tempIDs := make([]*constructs.IdentifierExp, len(assign.Lhs))
+		for _, exp := range assign.Rhs {
+			right := src.parseExpression(scope, exp)
+			rets := right.ReturnTypes()
+			retCount := len(rets)
+			if retCount == 1 {
+				varType := rets[0]
+				tempName := scope.AddTemp(varType)
+				tempIDs[leftOffset] = constructs.Identifier(tempName, varType)
+				leftOffset++
+				results = append(results, constructs.Definition(tempName, varType, right))
+			} else {
+				leftExps := make([]constructs.Expression, retCount)
+				for j := 0; j < retCount; j++ {
+					varType := rets[j]
+					tempName := scope.AddTemp(varType)
+					tempID := constructs.Identifier(tempName, varType)
+					leftExps[j] = tempID
+					tempIDs[leftOffset] = tempID
+					leftOffset++
+					results = append(results, constructs.Definition(tempName, varType, nil))
+				}
+				results = append(results, constructs.Assignment(leftExps, right))
+			}
+		}
+		for i, tempID := range tempIDs {
+			leftExps := []constructs.Expression{lefts[i]}
+			results = append(results, constructs.Assignment(leftExps, tempID))
+		}
+	}
+	return results
+}
+
+// parseDefinition reads in an assigment definition statement.
+func (src *Source) parseDefinition(scope *Scope, assign *ast.AssignStmt) []constructs.Expression {
 	leftOffset := 0
-	defining := assign.Tok == token.DEFINE
-	results := make([]constructs.Expression, len(assign.Rhs))
-	for i, exp := range assign.Rhs {
+	results := make([]constructs.Expression, 0, len(assign.Rhs))
+	for _, exp := range assign.Rhs {
 		right := src.parseExpression(scope, exp)
 		rets := right.ReturnTypes()
 		retCount := len(rets)
-		leftExps := make([]constructs.Expression, retCount)
-		for j := 0; j < retCount; j++ {
+		if retCount == 1 {
 			leftExp := assign.Lhs[leftOffset]
 			leftOffset++
-			if defining {
+			name := leftExp.(*ast.Ident).Name
+			varType := rets[0]
+			scope.Add(name, varType)
+			results = append(results, constructs.Definition(name, varType, right))
+		} else {
+			leftExps := make([]constructs.Expression, retCount)
+			for j := 0; j < retCount; j++ {
+				leftExp := assign.Lhs[leftOffset]
+				leftOffset++
 				name := leftExp.(*ast.Ident).Name
-				scope.Add(name, rets[j])
-				leftExps[j] = constructs.Identifier(name, rets[j])
-			} else {
-				leftExps[j] = src.parseExpression(scope, leftExp)
+				varType := rets[j]
+				scope.Add(name, varType)
+				leftExps[j] = constructs.Identifier(name, varType)
+				results = append(results, constructs.Definition(name, varType, nil))
 			}
+			results = append(results, constructs.Assignment(leftExps, right))
 		}
-		results[i] = constructs.Assignment(leftExps, right)
 	}
 	return results
 }

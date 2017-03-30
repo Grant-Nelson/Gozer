@@ -1,6 +1,10 @@
 package transpiler
 
-import "github.com/grant-nelson/Gozer/constructs"
+import (
+	"fmt"
+
+	"github.com/grant-nelson/Gozer/constructs"
+)
 
 // Scope is the set of identifiers in a program block.
 type Scope struct {
@@ -31,7 +35,21 @@ func (scope *Scope) Get(id string) (constructs.Type, bool) {
 	return scope.Previous.Get(id)
 }
 
-// Add inserts a new identifier and named type into this scope.
+// Add inserts a new identifier and given type into this scope.
 func (scope *Scope) Add(id string, t constructs.Type) {
 	scope.Identifiers[id] = t
+}
+
+// AddTemp inserts a new temporary variable by a unique temporary name
+// with the given type into this scope. The new name is returned.
+func (scope *Scope) AddTemp(t constructs.Type) string {
+	i := 0
+	for {
+		temp := fmt.Sprintf("temp%d", i)
+		if _, exists := scope.Get(temp); !exists {
+			scope.Add(temp, t)
+			return temp
+		}
+		i++
+	}
 }

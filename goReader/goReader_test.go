@@ -74,7 +74,7 @@ func TestGoReader8(t *testing.T) {
 			`msg := "Hello World!"`,
 			`fmt.Print(msg)`),
 		Lines(
-			`msg = "Hello World!"`,
+			`string msg = "Hello World!"`,
 			`fmt.Print(msg)`))
 }
 
@@ -84,8 +84,8 @@ func TestGoReader9(t *testing.T) {
 			`msg, name := "Hello %s!", "World"`,
 			`fmt.Printf(msg, name)`),
 		Lines(
-			`msg = "Hello %s!"`,
-			`name = "World"`,
+			`string msg = "Hello %s!"`,
+			`string name = "World"`,
 			`fmt.Printf(msg, name)`))
 }
 
@@ -101,8 +101,8 @@ func TestGoReader11(t *testing.T) {
 			`a, b := 1, 4`,
 			`fmt.Print("Value: ", a + b)`),
 		Lines(
-			`a = 1`,
-			`b = 4`,
+			`int a = 1`,
+			`int b = 4`,
 			`fmt.Print("Value: ", (a + b))`))
 }
 
@@ -112,8 +112,8 @@ func TestGoReader12(t *testing.T) {
 			`a, b := 1, 4`,
 			`fmt.Print("Value: ", a*0x10 - 1)`),
 		Lines(
-			`a = 1`,
-			`b = 4`,
+			`int a = 1`,
+			`int b = 4`,
 			`fmt.Print("Value: ", ((a * 0x10) - 1))`))
 }
 
@@ -123,8 +123,8 @@ func TestGoReader13(t *testing.T) {
 			`a, b := 1, 4`,
 			`fmt.Print("Value: ", (a*(0x10 - 1))>>b)`),
 		Lines(
-			`a = 1`,
-			`b = 4`,
+			`int a = 1`,
+			`int b = 4`,
 			`fmt.Print("Value: ", ((a * (0x10 - 1)) >> b))`))
 }
 
@@ -136,12 +136,37 @@ func TestGoReader14(t *testing.T) {
 			`a = -8`,
 			`fmt.Print("Value 2: ", -a)`),
 		Lines(
-			`a = 14`,
+			`int a = 14`,
 			`fmt.Print("Value 1: ", a)`,
 			`a = -8`,
 			`fmt.Print("Value 2: ", -a)`))
 }
 
-//
-// a, b := 10, 12
-// fmt.Println("Value: ", +a - -b)
+func TestGoReader15(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a, b := 10, 12`,
+			`fmt.Println("Value: ", +a - -b)`),
+		Lines(
+			`int a = 10`,
+			`int b = 12`,
+			`fmt.Println("Value: ", (+a - -b))`))
+}
+
+func TestGoReader16(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a, b := 10, 12`,
+			`fmt.Println("A: ", a, ", B: ", b)`,
+			`a, b = b, a`, // Swap
+			`fmt.Println("A: ", a, ", B: ", b)`),
+		Lines(
+			`int a = 10`,
+			`int b = 12`,
+			`fmt.Println("A: ", a, ", B: ", b)`,
+			`int temp0 = b`,
+			`int temp1 = a`,
+			`a = temp0`,
+			`b = temp1`,
+			`fmt.Println("A: ", a, ", B: ", b)`))
+}
