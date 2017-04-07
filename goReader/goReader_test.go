@@ -170,3 +170,12 @@ func TestGoReader16(t *testing.T) {
 			`b = temp1`,
 			`fmt.Println("A: ", a, ", B: ", b)`))
 }
+
+func TestGoReader17(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`n, err := fmt.Printf("Two = %d\n", 2)`,
+			`fmt.Println("n: ", n, ", err: ", err)`),
+		Lines(
+			``))
+}

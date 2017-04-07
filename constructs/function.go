@@ -7,6 +7,10 @@ var _ Type = (*FunctionType)(nil)
 // FunctionType for storing the types of function.
 type FunctionType struct {
 
+	// Parent is the parent type for this function.
+	// It is a class, interface, package, or nil.
+	Parent Type
+
 	// Comment is the developer comment for this function.
 	Comment string
 
@@ -86,6 +90,7 @@ func (t *FunctionType) String() string {
 	if t == nil {
 		return nilStr
 	}
+
 	params := "()"
 	if paramsCount := len(t.ParamNames); paramsCount > 0 {
 		paramStrs := make([]string, paramsCount)

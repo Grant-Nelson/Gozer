@@ -296,21 +296,18 @@ func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []const
 			rets := right.ReturnTypes()
 			retCount := len(rets)
 			if retCount == 1 {
-				varType := rets[0]
-				tempName := scope.AddTemp(varType)
-				tempIDs[leftOffset] = constructs.Identifier(tempName, varType)
+				tempID := scope.AddTemp(rets[0])
+				tempIDs[leftOffset] = tempID
 				leftOffset++
-				results = append(results, constructs.Definition(tempName, varType, right))
+				results = append(results, constructs.Definition(tempID, right))
 			} else {
 				leftExps := make([]constructs.Expression, retCount)
 				for j := 0; j < retCount; j++ {
-					varType := rets[j]
-					tempName := scope.AddTemp(varType)
-					tempID := constructs.Identifier(tempName, varType)
+					tempID := scope.AddTemp(rets[j])
 					leftExps[j] = tempID
 					tempIDs[leftOffset] = tempID
 					leftOffset++
-					results = append(results, constructs.Definition(tempName, varType, nil))
+					results = append(results, constructs.Definition(tempID, nil))
 				}
 				results = append(results, constructs.Assignment(leftExps, right))
 			}
@@ -334,20 +331,16 @@ func (src *Source) parseDefinition(scope *Scope, assign *ast.AssignStmt) []const
 		if retCount == 1 {
 			leftExp := assign.Lhs[leftOffset]
 			leftOffset++
-			name := leftExp.(*ast.Ident).Name
-			varType := rets[0]
-			scope.Add(name, varType)
-			results = append(results, constructs.Definition(name, varType, right))
+			tempID := scope.Add(leftExp.(*ast.Ident).Name, rets[0])
+			results = append(results, constructs.Definition(tempID, right))
 		} else {
 			leftExps := make([]constructs.Expression, retCount)
 			for j := 0; j < retCount; j++ {
 				leftExp := assign.Lhs[leftOffset]
 				leftOffset++
-				name := leftExp.(*ast.Ident).Name
-				varType := rets[j]
-				scope.Add(name, varType)
-				leftExps[j] = constructs.Identifier(name, varType)
-				results = append(results, constructs.Definition(name, varType, nil))
+				tempID := scope.Add(leftExp.(*ast.Ident).Name, rets[j])
+				leftExps[j] = tempID
+				results = append(results, constructs.Definition(tempID, nil))
 			}
 			results = append(results, constructs.Assignment(leftExps, right))
 		}
@@ -492,8 +485,8 @@ func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.Bi
 // https://golang.org/pkg/go/ast/#Ident
 func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) *constructs.IdentifierExp {
 	name := id.Name
-	if t, ok := scope.Get(name); ok {
-		return constructs.Identifier(name, t)
+	if id := scope.Get(name); id != nil {
+		return id
 	}
 	src.log.Error("Unable to find ", name, " in scope.")
 	return constructs.Identifier(name, constructs.Variant())

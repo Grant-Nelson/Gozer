@@ -7,6 +7,13 @@ var _ Type = (*ClassType)(nil)
 // ClassType for storing the types of class.
 type ClassType struct {
 
+	// Parent is the parent type for this function.
+	// It is a package or nil.
+	Parent Type
+
+	// Name is the name of the class.
+	Name string
+
 	// Data is the type of the data in this class.
 	// This should not be a package, interface, or class.
 	Data Type
@@ -17,10 +24,13 @@ type ClassType struct {
 
 // Class creates a new class type.
 func Class() *ClassType {
-	return &ClassType{
+	c := &ClassType{
+		Name:      "",
 		Data:      nil,
 		Interface: Interface(),
 	}
+	c.Interface.Parent = c
+	return c
 }
 
 // Find looks up a subtype to this class.
@@ -39,6 +49,9 @@ func (t *ClassType) Find(name string) (Type, bool) {
 func (t *ClassType) String() string {
 	if t == nil {
 		return nilStr
+	}
+	if len(t.Name) > 0 {
+		return t.Name
 	}
 
 	result := ""

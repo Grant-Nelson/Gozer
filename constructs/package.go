@@ -69,6 +69,8 @@ func (t *PackageType) AddDeclaration(name string, decl Type) *PackageType {
 // AddFunction adds a function to this package.
 func (t *PackageType) AddFunction(name string) *FunctionType {
 	tfunc := Function()
+	tfunc.Name = name
+	tfunc.Parent = t
 	t.Functions[name] = tfunc
 	return tfunc
 }
@@ -76,6 +78,8 @@ func (t *PackageType) AddFunction(name string) *FunctionType {
 // AddInterface adds a interface to this package.
 func (t *PackageType) AddInterface(name string) *InterfaceType {
 	inter := Interface()
+	inter.Name = name
+	inter.Parent = t
 	t.Interfaces[name] = inter
 	return inter
 }
@@ -83,6 +87,8 @@ func (t *PackageType) AddInterface(name string) *InterfaceType {
 // AddClass adds a class to this package.
 func (t *PackageType) AddClass(name string) *ClassType {
 	class := Class()
+	class.Name = name
+	class.Parent = t
 	t.Classes[name] = class
 	return class
 }

@@ -10,6 +10,13 @@ var _ Type = (*InterfaceType)(nil)
 // InterfaceType for storing the types of interfaces.
 type InterfaceType struct {
 
+	// Parent is the parent type for this function.
+	// It is a class, package, or nil.
+	Parent Type
+
+	// Name is the name of the interface.
+	Name string
+
 	// Functions is the set of functions for this interface.
 	Functions map[string]*FunctionType
 }
@@ -17,6 +24,7 @@ type InterfaceType struct {
 // Interface creates a new interface type.
 func Interface() *InterfaceType {
 	return &InterfaceType{
+		Name:      "",
 		Functions: map[string]*FunctionType{},
 	}
 }
@@ -38,6 +46,9 @@ func (t *InterfaceType) AddFunction(name string) *FunctionType {
 func (t *InterfaceType) String() string {
 	if t == nil {
 		return nilStr
+	}
+	if len(t.Name) > 0 {
+		return t.Name
 	}
 	if len(t.Functions) <= 0 {
 		return "interface{}"

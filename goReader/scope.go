@@ -25,30 +25,30 @@ func NewScope(prev *Scope) *Scope {
 }
 
 // Get gets the named type with the given name.
-func (scope *Scope) Get(id string) (constructs.Type, bool) {
+func (scope *Scope) Get(id string) *constructs.IdentifierExp {
 	if t, exists := scope.Identifiers[id]; exists {
-		return t, true
+		return constructs.Identifier(id, t)
 	}
 	if scope.Previous == nil {
-		return nil, false
+		return nil
 	}
 	return scope.Previous.Get(id)
 }
 
 // Add inserts a new identifier and given type into this scope.
-func (scope *Scope) Add(id string, t constructs.Type) {
+func (scope *Scope) Add(id string, t constructs.Type) *constructs.IdentifierExp {
 	scope.Identifiers[id] = t
+	return constructs.Identifier(id, t)
 }
 
 // AddTemp inserts a new temporary variable by a unique temporary name
 // with the given type into this scope. The new name is returned.
-func (scope *Scope) AddTemp(t constructs.Type) string {
+func (scope *Scope) AddTemp(t constructs.Type) *constructs.IdentifierExp {
 	i := 0
 	for {
 		temp := fmt.Sprintf("temp%d", i)
-		if _, exists := scope.Get(temp); !exists {
-			scope.Add(temp, t)
-			return temp
+		if id := scope.Get(temp); id == nil {
+			return scope.Add(temp, t)
 		}
 		i++
 	}
