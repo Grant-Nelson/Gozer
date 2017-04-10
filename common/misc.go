@@ -45,5 +45,5 @@ func DiffStringSets(set1 []string, set2 []string) (notInSet1 []string, notInSet2
 
 // Indent returns the given text indented.
 func Indent(text string, indent string) string {
-	return indent + strings.Replace(text, "\n", "\n"+indent, -1)
+	return strings.Replace(text, "\n", "\n"+indent, -1)
 }

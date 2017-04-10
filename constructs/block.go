@@ -2,6 +2,8 @@ package constructs
 
 import (
 	"strings"
+
+	"github.com/grant-nelson/Gozer/common"
 )
 
 var _ Statement = (*BlockStatement)(nil)
@@ -33,5 +35,5 @@ func (s *BlockStatement) String() string {
 	for i, stat := range s.Statements {
 		parts[i] = ToString(stat)
 	}
-	return "{\n  " + strings.Join(parts, "\n  ") + "\n}"
+	return "{\n  " + common.Indent(strings.Join(parts, "\n"), "  ") + "\n}"
 }

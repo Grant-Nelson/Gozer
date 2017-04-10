@@ -56,10 +56,10 @@ func (t *ClassType) String() string {
 
 	result := ""
 	if str := ToString(t.Data); (len(str) > 0) && (str != "nil") {
-		result += common.Indent(str, "  ") + "\n"
+		result += "  " + common.Indent(str, "  ") + "\n"
 	}
 	if str := ToString(t.Interface); (len(str) > 0) && (str != "interface{}") {
-		result += common.Indent(str, "  ") + "\n"
+		result += "  " + common.Indent(str, "  ") + "\n"
 	}
 
 	if len(result) <= 0 {

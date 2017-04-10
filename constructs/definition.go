@@ -23,21 +23,21 @@ func Definition(id *IdentifierExp, exp Expression) *DefinitionExp {
 }
 
 // ReturnTypes are the types this expression resolves to.
-func (e *DefinitionExp) ReturnTypes() []Type {
-	return e.Identifier.ReturnTypes()
+func (s *DefinitionExp) ReturnTypes() []Type {
+	return s.Identifier.ReturnTypes()
 }
 
 // String gets the string for this constuct.
-func (e *DefinitionExp) String() string {
-	if e == nil {
+func (s *DefinitionExp) String() string {
+	if s == nil {
 		return nilStr
 	}
 	result := nilStr
-	if e.Identifier != nil {
-		result = ToString(e.Identifier.Type) + " " + e.Identifier.Identifier
+	if s.Identifier != nil {
+		result = ToString(s.Identifier.Type) + " " + s.Identifier.Identifier
 	}
-	if e.InitialValue != nil {
-		result += " = " + ToString(e.InitialValue)
+	if s.InitialValue != nil {
+		result += " = " + ToString(s.InitialValue)
 	}
 	return result
 }

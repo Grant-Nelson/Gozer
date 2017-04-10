@@ -52,6 +52,6 @@ func (t *ProgramType) String() string {
 	}
 	sort.Strings(parts)
 	return "{\n" +
-		common.Indent(strings.Join(parts, "\n"), "  ") + "\n" +
+		"  " + common.Indent(strings.Join(parts, "\n"), "  ") + "\n" +
 		"}"
 }

@@ -108,7 +108,7 @@ func (t *PackageType) String() string {
 			i++
 		}
 		sort.Strings(parts1)
-		result += common.Indent(strings.Join(parts1, "\n"), "  ") + "\n"
+		result += "  " + common.Indent(strings.Join(parts1, "\n"), "  ") + "\n"
 	}
 
 	if len(t.Declarations) > 0 {
@@ -119,7 +119,7 @@ func (t *PackageType) String() string {
 			i++
 		}
 		sort.Strings(parts2)
-		result += common.Indent(strings.Join(parts2, "\n"), "  ") + "\n"
+		result += "  " + common.Indent(strings.Join(parts2, "\n"), "  ") + "\n"
 	}
 
 	if len(t.Functions) > 0 {
@@ -130,7 +130,7 @@ func (t *PackageType) String() string {
 			i++
 		}
 		sort.Strings(parts3)
-		result += common.Indent(strings.Join(parts3, "\n"), "  ") + "\n"
+		result += "  " + common.Indent(strings.Join(parts3, "\n"), "  ") + "\n"
 	}
 
 	if len(t.Interfaces) > 0 {
@@ -141,7 +141,7 @@ func (t *PackageType) String() string {
 			i++
 		}
 		sort.Strings(parts4)
-		result += common.Indent(strings.Join(parts4, "\n"), "  ") + "\n"
+		result += "  " + common.Indent(strings.Join(parts4, "\n"), "  ") + "\n"
 	}
 
 	if len(t.Classes) > 0 {
@@ -152,7 +152,7 @@ func (t *PackageType) String() string {
 			i++
 		}
 		sort.Strings(parts5)
-		result += common.Indent(strings.Join(parts5, "\n"), "  ") + "\n"
+		result += "  " + common.Indent(strings.Join(parts5, "\n"), "  ") + "\n"
 	}
 
 	if len(result) <= 0 {

@@ -255,19 +255,46 @@ func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *constructs.Bl
 func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs.Statement {
 	switch stat := statement.(type) {
 	case *ast.AssignStmt:
-		exps := src.parseAssignment(scope, stat)
-		parts := make([]constructs.Statement, len(exps))
-		for i, exp := range exps {
-			parts[i] = exp
-		}
-		return parts
+		return src.expSliceToStatSlice(src.parseAssignment(scope, stat))
 	case *ast.ExprStmt:
 		return []constructs.Statement{src.parseExpression(scope, stat.X)}
+	case *ast.IfStmt:
+		return []constructs.Statement{src.parseIfStatement(scope, stat)}
+	case *ast.BlockStmt:
+		return []constructs.Statement{src.parseBlock(scope, stat)}
+
 	// case *ast.ReturnStmt: dw.writeReturn(st)
 	default:
 		src.log.Error("Unhandled statement type ", reflect.TypeOf(stat))
 		return nil
 	}
+}
+
+// parseIfStatement reads in an if-statement.
+// https://golang.org/pkg/go/ast/#IfStmt
+func (src *Source) parseIfStatement(scope *Scope, ifstat *ast.IfStmt) constructs.Statement {
+	init := []constructs.Statement{}
+	if ifstat.Init != nil {
+		init = src.parseStatement(scope, ifstat.Init)
+	}
+
+	cond := src.parseExpression(scope, ifstat.Cond)
+	bodyStat := src.parseBlock(scope, ifstat.Body)
+	var elseStat constructs.Statement
+	if ifstat.Else != nil {
+		stats := src.parseStatement(scope, ifstat.Else)
+		if len(stats) == 1 {
+			elseStat = stats[0]
+		} else {
+			elseStat = constructs.Block(stats...)
+		}
+	}
+
+	if len(init) > 0 {
+		init = append(init, constructs.If(cond, bodyStat, elseStat))
+		return constructs.Block(init...)
+	}
+	return constructs.If(cond, bodyStat, elseStat)
 }
 
 // parseAssignment reads in an assigment statement.
@@ -287,8 +314,6 @@ func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []const
 		right := src.parseExpression(scope, assign.Rhs[0])
 		results = append(results, constructs.Assignment(lefts, right))
 	} else {
-		// TODO: Handle variable swaps
-
 		leftOffset := 0
 		tempIDs := make([]*constructs.IdentifierExp, len(assign.Lhs))
 		for _, exp := range assign.Rhs {
@@ -577,4 +602,13 @@ func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) *constructs.CallE
 	src.log.Error("Called type is not a function handle:",
 		"\n   Expression: ", fnExp)
 	return constructs.Call(nil, fnExp, params)
+}
+
+// expSliceToStatSlice converts a slice of expressions into a slice of statments.
+func (src *Source) expSliceToStatSlice(exps []constructs.Expression) []constructs.Statement {
+	parts := make([]constructs.Statement, len(exps))
+	for i, exp := range exps {
+		parts[i] = exp
+	}
+	return parts
 }

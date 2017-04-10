@@ -166,11 +166,11 @@ func MainMethodBodyTest(t *testing.T, input string, exp string) {
 		`import "fmt"`,
 		``,
 		`func main() {`,
-		common.Indent(input, "  "),
+		`  `+common.Indent(input, "  "),
 		`}`)
 	test.Transpile()
 	test.CheckFunction("test", "main",
 		`func main() {`,
-		common.Indent(exp, "  "),
+		`  `+common.Indent(exp, "  "),
 		`}`)
 }

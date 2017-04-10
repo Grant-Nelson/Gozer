@@ -59,7 +59,7 @@ func (log *Logger) ShowDebug(showDebug bool) {
 }
 
 // StackTrace gets the current stack strace.
-func (log *Logger) StackTrace(scope int, steps int, indent string) string {
+func (log *Logger) StackTrace(scope int, steps int, Indent string) string {
 	stack := string(debug.Stack())
 	lines := strings.Split(stack, "\n")
 	scopeCut := scope*2 + 1
@@ -67,7 +67,7 @@ func (log *Logger) StackTrace(scope int, steps int, indent string) string {
 	if len(lines) > topCut {
 		lines = lines[scopeCut:topCut]
 	}
-	return indent + strings.Join(lines, "\n"+indent)
+	return Indent + strings.Join(lines, "\n"+Indent)
 }
 
 // Write prints the given message to the console or output.

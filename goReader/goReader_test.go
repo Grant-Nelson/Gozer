@@ -177,5 +177,122 @@ func TestGoReader17(t *testing.T) {
 			`n, err := fmt.Printf("Two = %d\n", 2)`,
 			`fmt.Println("n: ", n, ", err: ", err)`),
 		Lines(
-			``))
+			`int n`,
+			`error err`,
+			`n, err = fmt.Printf("Two = %d\n", 2)`,
+			`fmt.Println("n: ", n, ", err: ", err)`))
+}
+
+func TestGoReader18(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := 10 `,
+			`if a > 4 {`,
+			`  fmt.Println("greater: ", a)`,
+			`}`),
+		Lines(
+			`int a = 10`,
+			`if (a > 4) {`,
+			`  fmt.Println("greater: ", a)`,
+			`}`))
+}
+
+func TestGoReader19(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := 10 `,
+			`if a > 4 {`,
+			`  fmt.Println("greater: ", a)`,
+			`} else {`,
+			`  fmt.Println("less: ", a)`,
+			`}`),
+		Lines(
+			`int a = 10`,
+			`if (a > 4) {`,
+			`  fmt.Println("greater: ", a)`,
+			`} else {`,
+			`  fmt.Println("less: ", a)`,
+			`}`))
+}
+
+func TestGoReader20(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := 2`,
+			`if b, c := 10, 4; b > c + a {`,
+			`  fmt.Println("greater: ", a, " > ", c + a)`,
+			`} else {`,
+			`  fmt.Println("less: ", a, " > ", c + a)`,
+			`}`),
+		Lines(
+			`int a = 2`,
+			`{`,
+			`  int b = 10`,
+			`  int c = 4`,
+			`  if (b > (c + a)) {`,
+			`    fmt.Println("greater: ", a, " > ", (c + a))`,
+			`  } else {`,
+			`    fmt.Println("less: ", a, " > ", (c + a))`,
+			`  }`,
+			`}`))
+}
+
+func TestGoReader21(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := 5`,
+			`if a > 10 {`,
+			`  fmt.Println(a, " > 10")`,
+			`} else if a > 8 {`,
+			`  fmt.Println(a, " > 8")`,
+			`} else if a > 0 {`,
+			`  fmt.Println(a, " > 0")`,
+			`} else {`,
+			`  fmt.Println(a, " <= 0")`,
+			`}`),
+		Lines(
+			`int a = 5`,
+			`if (a > 10) {`,
+			`  fmt.Println(a, " > 10")`,
+			`} else if (a > 8) {`,
+			`  fmt.Println(a, " > 8")`,
+			`} else if (a > 0) {`,
+			`  fmt.Println(a, " > 0")`,
+			`} else {`,
+			`  fmt.Println(a, " <= 0")`,
+			`}`))
+}
+
+func TestGoReader22(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := 5`,
+			`if a > 0 {`,
+			`  if a > 10 {`,
+			`    fmt.Println(a, " > 10")`,
+			`  } else {`,
+			`    fmt.Println(a, " > 0")`,
+			`  }`,
+			`} else {`,
+			`  if a < -10 {`,
+			`    fmt.Println(a, " < -10")`,
+			`  } else {`,
+			`    fmt.Println(a, " <= 0")`,
+			`  }`,
+			`}`),
+		Lines(
+			`int a = 5`,
+			`if (a > 0) {`,
+			`  if (a > 10) {`,
+			`    fmt.Println(a, " > 10")`,
+			`  } else {`,
+			`    fmt.Println(a, " > 0")`,
+			`  }`,
+			`} else {`,
+			`  if (a < -10) {`,
+			`    fmt.Println(a, " < -10")`,
+			`  } else {`,
+			`    fmt.Println(a, " <= 0")`,
+			`  }`,
+			`}`))
 }

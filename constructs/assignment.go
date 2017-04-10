@@ -14,7 +14,7 @@ type AssignmentStat struct {
 	RightExp Expression
 }
 
-// Assignment creates a new a assignment statement.
+// Assignment creates a new assignment statement.
 func Assignment(left []Expression, right Expression) *AssignmentStat {
 	return &AssignmentStat{
 		LeftExp:  left,
@@ -23,18 +23,18 @@ func Assignment(left []Expression, right Expression) *AssignmentStat {
 }
 
 // ReturnTypes are the types this expression resolves to.
-func (s *AssignmentStat) ReturnTypes() []Type {
-	return s.RightExp.ReturnTypes()
+func (e *AssignmentStat) ReturnTypes() []Type {
+	return e.RightExp.ReturnTypes()
 }
 
 // String gets the string for this constuct.
-func (s *AssignmentStat) String() string {
-	if s == nil {
+func (e *AssignmentStat) String() string {
+	if e == nil {
 		return nilStr
 	}
-	parts := make([]string, len(s.LeftExp))
-	for i, exp := range s.LeftExp {
+	parts := make([]string, len(e.LeftExp))
+	for i, exp := range e.LeftExp {
 		parts[i] = ToString(exp)
 	}
-	return strings.Join(parts, ", ") + " = " + ToString(s.RightExp)
+	return strings.Join(parts, ", ") + " = " + ToString(e.RightExp)
 }
