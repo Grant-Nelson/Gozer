@@ -296,3 +296,43 @@ func TestGoReader22(t *testing.T) {
 			`  }`,
 			`}`))
 }
+
+func TestGoReader23(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for i := 0; i < 10; i++ {`,
+			`  fmt.Println("index = ", i)`,
+			`}`),
+		Lines(
+			`for(int i = 0; (i < 10); i++) {`,
+			`  fmt.Println("index = ", i)`,
+			`}`))
+}
+
+func TestGoReader24(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for i := 9; i >= 0; i-- {`,
+			`  fmt.Println("index = ", i)`,
+			`}`),
+		Lines(
+			`for(int i = 9; (i >= 0); i--) {`,
+			`  fmt.Println("index = ", i)`,
+			`}`))
+}
+
+func TestGoReader25(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for i, j := 9, 0; j < 10; i, j = i-1, i+1 {`,
+			`  fmt.Println("up = ", i, ", down = ", j)`,
+			`}`),
+		Lines(
+			`{`,
+			`  int i = 9`,
+			`  int j = 0`,
+			`  for(; (j < 10); {int temp0 = (i - 1); int temp1 = (i + 1); i = temp0; j = temp1}) {`,
+			`    fmt.Println("up = ", i, ", down = ", j)`,
+			`  }`,
+			`}`))
+}

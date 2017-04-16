@@ -262,6 +262,10 @@ func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs
 		return []constructs.Statement{src.parseIfStatement(scope, stat)}
 	case *ast.BlockStmt:
 		return []constructs.Statement{src.parseBlock(scope, stat)}
+	case *ast.ForStmt:
+		return []constructs.Statement{src.parseForStatement(scope, stat)}
+	case *ast.IncDecStmt:
+		return []constructs.Statement{src.parseIncDecStatement(scope, stat)}
 
 	// case *ast.ReturnStmt: dw.writeReturn(st)
 	default:
@@ -272,17 +276,17 @@ func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs
 
 // parseIfStatement reads in an if-statement.
 // https://golang.org/pkg/go/ast/#IfStmt
-func (src *Source) parseIfStatement(scope *Scope, ifstat *ast.IfStmt) constructs.Statement {
+func (src *Source) parseIfStatement(scope *Scope, ifStat *ast.IfStmt) constructs.Statement {
 	init := []constructs.Statement{}
-	if ifstat.Init != nil {
-		init = src.parseStatement(scope, ifstat.Init)
+	if ifStat.Init != nil {
+		init = src.parseStatement(scope, ifStat.Init)
 	}
 
-	cond := src.parseExpression(scope, ifstat.Cond)
-	bodyStat := src.parseBlock(scope, ifstat.Body)
+	cond := src.parseExpression(scope, ifStat.Cond)
+	bodyStat := src.parseBlock(scope, ifStat.Body)
 	var elseStat constructs.Statement
-	if ifstat.Else != nil {
-		stats := src.parseStatement(scope, ifstat.Else)
+	if ifStat.Else != nil {
+		stats := src.parseStatement(scope, ifStat.Else)
 		if len(stats) == 1 {
 			elseStat = stats[0]
 		} else {
@@ -295,6 +299,40 @@ func (src *Source) parseIfStatement(scope *Scope, ifstat *ast.IfStmt) constructs
 		return constructs.Block(init...)
 	}
 	return constructs.If(cond, bodyStat, elseStat)
+}
+
+// parseForStatement reads a for-statment
+// https://golang.org/pkg/go/ast/#ForStmt
+func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) constructs.Statement {
+	var inits []constructs.Statement
+	if forStat.Init != nil {
+		inits = src.parseStatement(scope, forStat.Init)
+	}
+	var cond constructs.Expression
+	if forStat.Cond != nil {
+		cond = src.parseExpression(scope, forStat.Cond)
+	}
+	var post []constructs.Statement
+	if forStat.Post != nil {
+		post = src.parseStatement(scope, forStat.Post)
+	}
+	body := src.parseBlock(scope, forStat.Body)
+	var init constructs.Statement
+	if len(inits) == 1 {
+		init = inits[0]
+	}
+	result := constructs.For(init, cond, post, body)
+	if len(inits) > 1 {
+		return constructs.Block(append(inits, result)...)
+	}
+	return result
+}
+
+// parseIncDecStatement reads an increment or decrement statment.
+// https://golang.org/pkg/go/ast/#IncDecStmt
+func (src *Source) parseIncDecStatement(scope *Scope, stmt *ast.IncDecStmt) constructs.Statement {
+	exp := src.parseExpression(scope, stmt.X)
+	return constructs.IncDec(exp, stmt.Tok == token.INC)
 }
 
 // parseAssignment reads in an assigment statement.
