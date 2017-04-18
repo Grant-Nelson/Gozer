@@ -336,3 +336,69 @@ func TestGoReader25(t *testing.T) {
 			`  }`,
 			`}`))
 }
+
+func TestGoReader26(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`i := 0`,
+			`for i < 10 {`,
+			`  fmt.Println("index = ", i)`,
+			`  i++`,
+			`}`),
+		Lines(
+			`int i = 0`,
+			`for(; (i < 10); ) {`,
+			`  fmt.Println("index = ", i)`,
+			`  i++`,
+			`}`))
+}
+
+func TestGoReader27(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for i := 0; true; i++ {`,
+			`  if i < 5 {`,
+			`    fmt.Println("small: ", i)`,
+			`    continue`,
+			`  }`,
+			`  fmt.Println("large: ", i)`,
+			`  if i > 10 {`,
+			`    break`,
+			`  }`,
+			`}`),
+		Lines(
+			`for(int i = 0; true; i++) {`,
+			`  if (i < 5) {`,
+			`    fmt.Println("small: ", i)`,
+			`    continue`,
+			`  }`,
+			`  fmt.Println("large: ", i)`,
+			`  if (i > 10) {`,
+			`    break`,
+			`  }`,
+			`}`))
+}
+
+func TestGoReader28(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for i, first := 0, true; i < 10; i, first = i+1, false {`,
+			`  if first {`,
+			`    fmt.Println("First: ", i)`,
+			`    continue`,
+			`  }`,
+			`  fmt.Println("Rest: ", i)`,
+			`}`),
+		Lines(
+			`{`,
+			`  int i = 0`,
+			`  bool first = true`,
+			`  for(; (i < 10); {int temp0 = (i + 1); bool temp1 = false; i = temp0; first = temp1}) {`,
+			`    if first {`,
+			`      fmt.Println("First: ", i)`,
+			`      continue`,
+			`    }`,
+			`    fmt.Println("Rest: ", i)`,
+			`  }`,
+			`}`))
+}

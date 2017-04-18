@@ -133,9 +133,10 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 		test.fail("Failed to find function ", funcName, " in ", packName, ".")
 	}
 	indent := func(s string) string {
-		return strings.Replace(strings.Replace(s,
-			" ", "\u00B7", -1),
-			"\n", "\n             ", -1)
+		s = strings.Replace(s, " ", "\u00B7", -1)
+		//s = "`" + strings.Replace(s, "\n", "`,\n`", -1) + "`"
+		s = strings.Replace(s, "\n", "\n             ", -1)
+		return s
 	}
 	expResult := Lines(expBody...)
 	if result := tfunc.String(); result != expResult {

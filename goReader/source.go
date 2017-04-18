@@ -266,6 +266,8 @@ func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs
 		return []constructs.Statement{src.parseForStatement(scope, stat)}
 	case *ast.IncDecStmt:
 		return []constructs.Statement{src.parseIncDecStatement(scope, stat)}
+	case *ast.BranchStmt:
+		return []constructs.Statement{src.parseBranchStatement(scope, stat)}
 
 	// case *ast.ReturnStmt: dw.writeReturn(st)
 	default:
@@ -333,6 +335,12 @@ func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) constru
 func (src *Source) parseIncDecStatement(scope *Scope, stmt *ast.IncDecStmt) constructs.Statement {
 	exp := src.parseExpression(scope, stmt.X)
 	return constructs.IncDec(exp, stmt.Tok == token.INC)
+}
+
+// parseBranchStatement reads a branch statment.
+// https://golang.org/pkg/go/ast/#BranchStmt
+func (src *Source) parseBranchStatement(scope *Scope, stmt *ast.BranchStmt) constructs.Statement {
+	return constructs.Branch(stmt.Tok == token.BREAK)
 }
 
 // parseAssignment reads in an assigment statement.
@@ -546,9 +554,11 @@ func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.Bi
 
 // parseIdentifier reads an identifier.
 // https://golang.org/pkg/go/ast/#Ident
-func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) *constructs.IdentifierExp {
+func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) constructs.Expression {
 	name := id.Name
-	if id := scope.Get(name); id != nil {
+	if (name == "true") || (name == "false") {
+		return constructs.Literal(name, constructs.Bool())
+	} else if id := scope.Get(name); id != nil {
 		return id
 	}
 	src.log.Error("Unable to find ", name, " in scope.")
