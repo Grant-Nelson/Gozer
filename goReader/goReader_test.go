@@ -2,7 +2,7 @@ package transpiler
 
 import "testing"
 
-func TestGoReader1(t *testing.T) {
+func TestGoReader001(t *testing.T) {
 	test := NewTestGoReader(t)
 	test.gr.AddCode("test/main.go",
 		`import "fmt"`,
@@ -14,7 +14,7 @@ func TestGoReader1(t *testing.T) {
 		`Failed to add source, test/main.go: test/main.go:1:1: expected 'package', found 'import'`)
 }
 
-func TestGoReader2(t *testing.T) {
+func TestGoReader002(t *testing.T) {
 	test := NewTestGoReader(t)
 	test.AddCode("test/main.go",
 		`package main`,
@@ -34,13 +34,13 @@ func TestGoReader2(t *testing.T) {
 		`}`)
 }
 
-func TestGoReader3(t *testing.T) {
+func TestGoReader003(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines("fmt.Print(`Hello World!`)"),
 		Lines(`fmt.Print("Hello World!")`))
 }
 
-func TestGoReader4(t *testing.T) {
+func TestGoReader004(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			"fmt.Print(`Hello",
@@ -48,13 +48,13 @@ func TestGoReader4(t *testing.T) {
 		Lines(`fmt.Print("Hello\n  World!")`))
 }
 
-func TestGoReader5(t *testing.T) {
+func TestGoReader005(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines("fmt.Print(`\\Hello☕!`)"),
 		Lines(`fmt.Print("\\Hello\u2615!")`))
 }
 
-func TestGoReader7(t *testing.T) {
+func TestGoReader007(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`print("Hello World!\n")`,
@@ -68,7 +68,7 @@ func TestGoReader7(t *testing.T) {
 			`fmt.Println("Hello World!")`))
 }
 
-func TestGoReader8(t *testing.T) {
+func TestGoReader008(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`msg := "Hello World!"`,
@@ -78,7 +78,7 @@ func TestGoReader8(t *testing.T) {
 			`fmt.Print(msg)`))
 }
 
-func TestGoReader9(t *testing.T) {
+func TestGoReader009(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`msg, name := "Hello %s!", "World"`,
@@ -89,13 +89,13 @@ func TestGoReader9(t *testing.T) {
 			`fmt.Printf(msg, name)`))
 }
 
-func TestGoReader10(t *testing.T) {
+func TestGoReader010(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(`fmt.Print("Hello "+"World"+"!")`),
 		Lines(`fmt.Print((("Hello " + "World") + "!"))`))
 }
 
-func TestGoReader11(t *testing.T) {
+func TestGoReader011(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a, b := 1, 4`,
@@ -106,7 +106,7 @@ func TestGoReader11(t *testing.T) {
 			`fmt.Print("Value: ", (a + b))`))
 }
 
-func TestGoReader12(t *testing.T) {
+func TestGoReader012(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a, b := 1, 4`,
@@ -117,7 +117,7 @@ func TestGoReader12(t *testing.T) {
 			`fmt.Print("Value: ", ((a * 0x10) - 1))`))
 }
 
-func TestGoReader13(t *testing.T) {
+func TestGoReader013(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a, b := 1, 4`,
@@ -128,7 +128,7 @@ func TestGoReader13(t *testing.T) {
 			`fmt.Print("Value: ", ((a * (0x10 - 1)) >> b))`))
 }
 
-func TestGoReader14(t *testing.T) {
+func TestGoReader014(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 14`,
@@ -142,7 +142,7 @@ func TestGoReader14(t *testing.T) {
 			`fmt.Print("Value 2: ", -a)`))
 }
 
-func TestGoReader15(t *testing.T) {
+func TestGoReader015(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a, b := 10, 12`,
@@ -153,7 +153,7 @@ func TestGoReader15(t *testing.T) {
 			`fmt.Println("Value: ", (+a - -b))`))
 }
 
-func TestGoReader16(t *testing.T) {
+func TestGoReader016(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a, b := 10, 12`,
@@ -171,7 +171,7 @@ func TestGoReader16(t *testing.T) {
 			`fmt.Println("A: ", a, ", B: ", b)`))
 }
 
-func TestGoReader17(t *testing.T) {
+func TestGoReader017(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`n, err := fmt.Printf("Two = %d\n", 2)`,
@@ -183,7 +183,7 @@ func TestGoReader17(t *testing.T) {
 			`fmt.Println("n: ", n, ", err: ", err)`))
 }
 
-func TestGoReader18(t *testing.T) {
+func TestGoReader018(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 10 `,
@@ -197,7 +197,7 @@ func TestGoReader18(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader19(t *testing.T) {
+func TestGoReader019(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 10 `,
@@ -215,7 +215,7 @@ func TestGoReader19(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader20(t *testing.T) {
+func TestGoReader020(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 2`,
@@ -237,7 +237,7 @@ func TestGoReader20(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader21(t *testing.T) {
+func TestGoReader021(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 5`,
@@ -263,7 +263,7 @@ func TestGoReader21(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader22(t *testing.T) {
+func TestGoReader022(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 5`,
@@ -297,7 +297,7 @@ func TestGoReader22(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader23(t *testing.T) {
+func TestGoReader023(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i := 0; i < 10; i++ {`,
@@ -309,7 +309,7 @@ func TestGoReader23(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader24(t *testing.T) {
+func TestGoReader024(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i := 9; i >= 0; i-- {`,
@@ -321,7 +321,7 @@ func TestGoReader24(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader25(t *testing.T) {
+func TestGoReader025(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i, j := 9, 0; j < 10; i, j = i-1, i+1 {`,
@@ -337,7 +337,7 @@ func TestGoReader25(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader26(t *testing.T) {
+func TestGoReader026(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`i := 0`,
@@ -353,7 +353,7 @@ func TestGoReader26(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader27(t *testing.T) {
+func TestGoReader027(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i := 0; true; i++ {`,
@@ -379,7 +379,7 @@ func TestGoReader27(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader28(t *testing.T) {
+func TestGoReader028(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i, first := 0, true; i < 10; i, first = i+1, false {`,
@@ -402,3 +402,24 @@ func TestGoReader28(t *testing.T) {
 			`  }`,
 			`}`))
 }
+
+func TestGoReader029(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`fmt.Println("Count = ", len(arr))`),
+		Lines(
+			``))
+}
+
+/*
+func TestGoReader030(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`for i := 0; i < len(arr); i++ {`,
+			`  fmt.Println(i, ": ", arr[i])`,
+			`}`),
+		Lines(
+			``))
+}*/

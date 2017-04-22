@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -22,6 +21,25 @@ func TestDiffStringSets(t *testing.T) {
 	checkDiffStringSets(t, "a|b", "c|d", "c|d", "a|b", true)
 	checkDiffStringSets(t, "a|b|c", "c|d|e", "d|e", "a|b", true)
 	checkDiffStringSets(t, "a|c|d|e", "a|b|c|e", "b", "d", true)
+}
+
+func TestMapFormatting(t *testing.T) {
+	checkMap(t, NewMap(),
+		"")
+	checkMap(t, NewMap().
+		Add("A", 1).
+		Add("B", 2),
+		"A: 1",
+		"B: 2")
+	checkMap(t, NewMap().
+		Add("Horse", "Neh").
+		Add("Bird", "Tweet").
+		Add("Dog", "Woof").
+		Add("Cat", "Meow"),
+		"Bird:  Tweet",
+		"Cat:   Meow",
+		"Dog:   Woof",
+		"Horse: Neh")
 }
 
 //============================================================================
@@ -56,14 +74,34 @@ func checkDiffStringSets(t *testing.T, set1Str string, set2Str string, expNotInS
 		}
 	}
 	if failed {
-		t.Fatal(fmt.Sprint("Unexpected result from DiffStringSets:",
-			"\n   Set 1:            [", strings.Join(set1, ", "), "]",
-			"\n   Set 2:            [", strings.Join(set2, ", "), "]",
-			"\n   Diff:             ", diff,
-			"\n   Exp Diff:         ", expDiff,
-			"\n   Not in Set 1:     [", strings.Join(notInSet1, ", "), "]",
-			"\n   Exp Not in Set 1: [", strings.Join(expNotInSet1, ", "), "]",
-			"\n   Not in Set 2:     [", strings.Join(notInSet2, ", "), "]",
-			"\n   Exp Not in Set 2: [", strings.Join(expNotInSet2, ", "), "]"))
+		Failed(t, "Unexpected result from DiffStringSets", NewMap().
+			Add("Set 1", "[", strings.Join(set1, ", "), "]").
+			Add("Set 2", "[", strings.Join(set2, ", "), "]").
+			Add("Diff", diff).
+			Add("Exp Diff", expDiff).
+			Add("Not in Set 1", "[", strings.Join(notInSet1, ", "), "]").
+			Add("Exp Not in Set 1", "[", strings.Join(expNotInSet1, ", "), "]").
+			Add("Not in Set 2", "[", strings.Join(notInSet2, ", "), "]").
+			Add("Exp Not in Set 2", "[", strings.Join(expNotInSet2, ", "), "]"))
 	}
+}
+
+// checkMap checks that a map matches the expected result.
+func checkMap(t *testing.T, m Map, expLines ...string) {
+	result := m.String()
+	exp := strings.Join(expLines, "\n")
+	if result != exp {
+		Failed(t, "Unexpected result from Map", NewMap().
+			Add("Expected", exp).
+			Add("Result", result))
+	}
+}
+
+// Failed indicates a test has failed.
+func Failed(t *testing.T, text string, m Map) {
+	result := ""
+	if len(m) > 0 {
+		result = ":\n   " + m.FormatMap("   ")
+	}
+	t.Fatal(text + result)
 }
