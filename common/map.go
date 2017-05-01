@@ -25,6 +25,11 @@ func (m Map) String() string {
 	return m.FormatMap("")
 }
 
+// Empty indicates if the map is nil or empty.
+func (m Map) Empty() bool {
+	return (m == nil) || (len(m) <= 0)
+}
+
 // FormatMap creates a formatted string for the
 // given map to make the map easily readable.
 func (m Map) FormatMap(indent string) string {

@@ -23,6 +23,7 @@ func TestDiffStringSets(t *testing.T) {
 	checkDiffStringSets(t, "a|c|d|e", "a|b|c|e", "b", "d", true)
 }
 
+// TestMapFormatting test of the Map class.
 func TestMapFormatting(t *testing.T) {
 	checkMap(t, NewMap(),
 		"")
@@ -40,6 +41,19 @@ func TestMapFormatting(t *testing.T) {
 		"Cat:   Meow",
 		"Dog:   Woof",
 		"Horse: Neh")
+	checkMap(t, NewMap().
+		Add("People", NewMap().
+			Add("Bob", 453).
+			Add("Bill", 123).
+			Add("Jill", 8787)).
+		Add("Dogs", NewMap().
+			Add("Gizmo", 736).
+			Add("Spot", 6656)),
+		"Dogs:   Gizmo: 736",
+		"        Spot:  6656",
+		"People: Bill: 123",
+		"        Bob:  453",
+		"        Jill: 8787")
 }
 
 //============================================================================
@@ -74,7 +88,7 @@ func checkDiffStringSets(t *testing.T, set1Str string, set2Str string, expNotInS
 		}
 	}
 	if failed {
-		Failed(t, "Unexpected result from DiffStringSets", NewMap().
+		fail(t, "Unexpected result from DiffStringSets", NewMap().
 			Add("Set 1", "[", strings.Join(set1, ", "), "]").
 			Add("Set 2", "[", strings.Join(set2, ", "), "]").
 			Add("Diff", diff).
@@ -91,16 +105,16 @@ func checkMap(t *testing.T, m Map, expLines ...string) {
 	result := m.String()
 	exp := strings.Join(expLines, "\n")
 	if result != exp {
-		Failed(t, "Unexpected result from Map", NewMap().
+		fail(t, "Unexpected result from Map", NewMap().
 			Add("Expected", exp).
 			Add("Result", result))
 	}
 }
 
 // Failed indicates a test has failed.
-func Failed(t *testing.T, text string, m Map) {
+func fail(t *testing.T, text string, m Map) {
 	result := ""
-	if len(m) > 0 {
+	if !m.Empty() {
 		result = ":\n   " + m.FormatMap("   ")
 	}
 	t.Fatal(text + result)

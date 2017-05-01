@@ -30,16 +30,19 @@ func NewTestGoReader(t *testing.T) *TestGoReader {
 	}
 }
 
-// fail writes a failure to the test session.
-func (test *TestGoReader) fail(msg ...interface{}) {
-	test.t.Log(fmt.Sprint(msg...))
-	test.t.Fail()
+// Fail writes a failure to the test session.
+func (test *TestGoReader) Fail(test string, m common.Map) {
+	result := ""
+	if !m.Empty() {
+		result = ":\n   " + m.FormatMap("   ")
+	}
+	test.t.Fatal(text + result)
 }
 
 // CheckNoErrors checks that no errors have occurred.
 func (test *TestGoReader) CheckNoErrors(msg string) {
 	if test.gr.Logger().ErrorCount() > 0 {
-		test.fail("Errors while ", msg, ":\n", test.logBuf.String())
+		test.Fail(fmt.Sprint("Errors while ", msg, ":\n", test.logBuf.String()))
 	}
 }
 
@@ -49,9 +52,9 @@ func (test *TestGoReader) CheckErrors(expCount int, expMsg ...interface{}) {
 	msg := strings.TrimSpace(test.logBuf.String())
 	count := test.gr.Logger().ErrorCount()
 	if (count != expCount) || (exp != msg) {
-		test.fail("Unexpected or missing errors logged:",
-			"\n   Expected: (", expCount, ") \"", exp, "\"",
-			"\n   Result:   (", count, ") \"", msg, "\"")
+		test.Fail("Unexpected or missing errors logged:", NewMap().
+			Add("Expected", "(", expCount, ") \"", exp, "\"").
+			Add("Result", "(", count, ") \"", msg, "\""))
 	}
 }
 

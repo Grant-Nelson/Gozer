@@ -1,0 +1,36 @@
+package common
+
+import "fmt"
+
+var _ MessageProcessor = (*DataSetter)(nil)
+
+// DataSetter sets data to any message which is logged.
+type DataSetter struct {
+
+	// Key is the key of the data to set.
+	Key string
+
+	// Value is the value of the data to set.
+	Value []interface{}
+}
+
+// NewDataSetter creates a new data setter message processor.
+func NewDataSetter(key string, value ...interface{}) *DataSetter {
+	return &DataSetter{
+		Key:   key,
+		Value: value,
+	}
+}
+
+// Process will set the data of the given message and return the message.
+func (ds *DataSetter) Process(msg *Message) *Message {
+	if msg != nil {
+		msg.AddData(ds.Key, ds.Value...)
+	}
+	return msg
+}
+
+// String gets the string for this message processor.
+func (ds *DataSetter) String() string {
+	return fmt.Sprint("DataSetter(", ds.Key, ": ", fmt.Sprint(ds.Value...), ")")
+}
