@@ -1,4 +1,4 @@
-package common
+package msg
 
 // Logger designed for managing messages and logging data.
 type Logger struct {
@@ -61,9 +61,9 @@ func (log *Logger) Pop() {
 	}
 }
 
-// HasError indicates that an error message has been logged.
-func (log *Logger) HasError() bool {
-	return log.errCount.Count > 0
+// ErrorCount gets the number of error messages that have been logged.
+func (log *Logger) ErrorCount() int {
+	return log.errCount.Count
 }
 
 // adds a new message of the given kind to the logger.
@@ -85,22 +85,22 @@ func (log *Logger) add(msg *Message) *Message {
 
 // Error will log an error to the current output or console.
 func (log *Logger) Error(args ...interface{}) *Message {
-	return log.add(NewMessage(Error, args...))
+	return log.add(NewError(args...))
 }
 
 // Warning will log a warning to the current output or console.
 func (log *Logger) Warning(args ...interface{}) *Message {
-	return log.add(NewMessage(Warning, args...))
+	return log.add(NewWarning(args...))
 }
 
 // Info will log information to the current output or console.
 func (log *Logger) Info(args ...interface{}) *Message {
-	return log.add(NewMessage(Info, args...))
+	return log.add(NewInfo(args...))
 }
 
 // Debug will log debugging information to the current output or console.
 func (log *Logger) Debug(args ...interface{}) *Message {
-	msg := NewMessage(Debug, args...)
-	msg.AddData("stack", StackTrace(1, 30, ""))
+	msg := NewDebug(args...)
+	msg.Add("stack", StackTrace(1, 30, ""))
 	return log.add(msg)
 }

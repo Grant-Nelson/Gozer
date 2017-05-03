@@ -1,4 +1,4 @@
-package common
+package msg
 
 import (
 	"fmt"
@@ -29,14 +29,35 @@ func NewMessage(kind MessageKind, args ...interface{}) *Message {
 	}
 }
 
-// AddData adds a new peice of additional information to the message.
-func (msg *Message) AddData(key string, val ...interface{}) {
+// NewError creates a new error message.
+func NewError(args ...interface{}) *Message {
+	return NewMessage(Error, args...)
+}
+
+// NewWarning creates a new warning message.
+func NewWarning(args ...interface{}) *Message {
+	return NewMessage(Warning, args...)
+}
+
+// NewInfo creates a new information message.
+func NewInfo(args ...interface{}) *Message {
+	return NewMessage(Info, args...)
+}
+
+// NewDebug creates a new debug message.
+func NewDebug(args ...interface{}) *Message {
+	return NewMessage(Debug, args...)
+}
+
+// Add adds a new peice of additional information/data to the message.
+func (msg *Message) Add(key string, val ...interface{}) *Message {
 	msg.Data.Add(key, val...)
+	return msg
 }
 
 // String gets the string for this message.
 func (msg *Message) String() string {
-	result := fmt.Sprintf("%s: %q", msg.Kind.String(), msg.Text)
+	result := fmt.Sprintf("%s: %s", msg.Kind.String(), msg.Text)
 	if !msg.Data.Empty() {
 		result += ":\n   " + msg.Data.FormatMap("   ")
 	}

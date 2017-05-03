@@ -7,15 +7,15 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/msg"
 )
 
 // Source is the information about an input source file.
 type Source struct {
 
 	// log is the logger for reporting transpile issues with.
-	log *common.Logger
+	log *msg.Logger
 
 	// fileSet is the full set of loaded  files.
 	fileSet *token.FileSet
@@ -38,7 +38,7 @@ type Source struct {
 }
 
 // NewSource creates a new source file descriptions.
-func NewSource(log *common.Logger, fileSet *token.FileSet) *Source {
+func NewSource(log *msg.Logger, fileSet *token.FileSet) *Source {
 	return &Source{
 		log:          log,
 		fileSet:      fileSet,
@@ -65,7 +65,7 @@ func (src *Source) ProcessTypes() {
 		case *ast.FuncDecl:
 			src.readFunctionType(scope, data)
 		default:
-			common.ThrowError("Unhandled type declaration: ", decl, " (", reflect.TypeOf(decl), ")")
+			msg.ThrowError("Unhandled type declaration: ", decl, " (", reflect.TypeOf(decl), ")")
 		}
 	}
 }
@@ -110,7 +110,7 @@ func (src *Source) addBasedPackage(scope *Scope, pack *constructs.PackageType) {
 func (src *Source) fillOutScope() *Scope {
 	defer func() {
 		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while filling out the scrope: ", r)
+			msg.ThrowError("Error occurred while filling out the scrope: ", r)
 		}
 	}()
 	scope := NewScope(nil)
@@ -128,7 +128,7 @@ func (src *Source) fillOutScope() *Scope {
 // readType reads a type from the given expression.
 func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool) {
 	if desc == nil {
-		common.ThrowError("Nil type expression")
+		msg.ThrowError("Nil type expression")
 		return nil, false
 	}
 	switch id := desc.(type) {
@@ -138,7 +138,7 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool)
 		desc, _ := src.readType(scope, id.Elt)
 		return constructs.List(desc), true
 	default:
-		common.ThrowError("Unhandled type expression: ", desc, " (", reflect.TypeOf(desc), ")")
+		msg.ThrowError("Unhandled type expression: ", desc, " (", reflect.TypeOf(desc), ")")
 		return nil, false
 	}
 }
@@ -149,7 +149,7 @@ func (src *Source) lookupType(scope *Scope, typeName string) constructs.Type {
 	case "string":
 		return constructs.String()
 	default:
-		common.ThrowError("Unhandled type name: ", typeName)
+		msg.ThrowError("Unhandled type name: ", typeName)
 		return nil
 	}
 }
@@ -181,7 +181,7 @@ func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string,
 func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
 	defer func() {
 		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while reading a generic declaration: ", r)
+			msg.ThrowError("Error occurred while reading a generic declaration: ", r)
 		}
 	}()
 	switch data.Tok {
@@ -189,7 +189,7 @@ func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
 		// Ignore imports while reading generic declarations.
 		return
 	default:
-		common.ThrowError("Unhandled generic declaration: ", data, " (", reflect.TypeOf(data), ")")
+		msg.ThrowError("Unhandled generic declaration: ", data, " (", reflect.TypeOf(data), ")")
 	}
 }
 
@@ -198,7 +198,7 @@ func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
 func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	defer func() {
 		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while reading a function type: ", r)
+			msg.ThrowError("Error occurred while reading a function type: ", r)
 		}
 	}()
 	//ast.Print(src.fileSet, data)
@@ -238,7 +238,7 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *constructs.BlockStatement {
 	defer func() {
 		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while parsing a block: ", r)
+			msg.ThrowError("Error occurred while parsing a block: ", r)
 		}
 	}()
 	blockScope := NewScope(scope)

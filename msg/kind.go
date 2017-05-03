@@ -1,4 +1,4 @@
-package common
+package msg
 
 // MessageKind is type for the kind of the message.
 type MessageKind int

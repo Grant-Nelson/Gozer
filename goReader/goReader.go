@@ -9,9 +9,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs"
 	"github.com/grant-nelson/Gozer/framework"
+	"github.com/grant-nelson/Gozer/msg"
 )
 
 // GoReader is a GO parser and Dart writer for transpileing.
@@ -22,7 +22,7 @@ type GoReader struct {
 
 	fileSet *token.FileSet
 	sources map[string]*Source
-	log     *common.Logger
+	log     *msg.Logger
 	testing bool
 	results map[string]string
 	goPath  string
@@ -35,7 +35,7 @@ func NewGoReader() *GoReader {
 		Program: constructs.Program(),
 		fileSet: token.NewFileSet(),
 		sources: map[string]*Source{},
-		log:     common.NewLogger(),
+		log:     msg.NewLogger(),
 		testing: false,
 		results: map[string]string{},
 		goPath:  os.Getenv("GOPATH"),
@@ -50,7 +50,7 @@ func NewGoReader() *GoReader {
 }
 
 // Logger gets the logger that the parser writes to.
-func (gr *GoReader) Logger() *common.Logger {
+func (gr *GoReader) Logger() *msg.Logger {
 	return gr.log
 }
 

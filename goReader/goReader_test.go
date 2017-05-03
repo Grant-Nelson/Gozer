@@ -11,7 +11,7 @@ func TestGoReader001(t *testing.T) {
 		`  fmt.Print("Hello World!")`,
 		`}`)
 	test.CheckErrors(1,
-		`Failed to add source, test/main.go: test/main.go:1:1: expected 'package', found 'import'`)
+		`Error: Failed to add source, test/main.go: test/main.go:1:1: expected 'package', found 'import'`)
 }
 
 func TestGoReader002(t *testing.T) {

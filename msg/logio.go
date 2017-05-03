@@ -1,8 +1,9 @@
-package common
+package msg
 
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 var _ MessageProcessor = (*LogIO)(nil)
@@ -43,8 +44,9 @@ func (log *LogIO) write(msg *Message) {
 	str := msg.String()
 	if log.Output != nil {
 		io.WriteString(log.Output, str)
+		io.WriteString(log.Output, "\n")
 	} else {
-		fmt.Print(str)
+		fmt.Println(str)
 	}
 }
 
@@ -80,5 +82,18 @@ func (log *LogIO) Process(msg *Message) *Message {
 
 // String gets the string for this message processor.
 func (log *LogIO) String() string {
-	return "LogIO"
+	parts := []string{}
+	if log.Errors {
+		parts = append(parts, "Errors")
+	}
+	if log.Warnings {
+		parts = append(parts, "Warnings")
+	}
+	if log.Info {
+		parts = append(parts, "Info")
+	}
+	if log.Debug {
+		parts = append(parts, "Debug")
+	}
+	return fmt.Sprint("LogIO(", strings.Join(parts, ", "), ")")
 }

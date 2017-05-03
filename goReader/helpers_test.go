@@ -8,53 +8,49 @@ import (
 
 	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/msg"
 )
 
 // TestGoReader is a shell for testing the GoReader.
 type TestGoReader struct {
-	t      *testing.T
-	gr     *GoReader
-	logBuf *bytes.Buffer
+	t     *testing.T
+	gr    *GoReader
+	logIO *msg.LogIO
 }
 
 // NewTestGoReader creates a new GoReader shell for testing.
 func NewTestGoReader(t *testing.T) *TestGoReader {
-	logBuf := &bytes.Buffer{}
+	logIO := msg.NewLogIO(&bytes.Buffer{})
+	logIO.Debug = true
+	logIO.Info = true
+	logIO.Warnings = true
+	logIO.Errors = true
 	gr := NewGoReader()
-	gr.Logger().SetOutput(logBuf)
-	gr.Logger().ShowDebug(true)
+	gr.Logger().Push(logIO)
 	return &TestGoReader{
-		t:      t,
-		gr:     gr,
-		logBuf: logBuf,
+		t:     t,
+		gr:    gr,
+		logIO: logIO,
 	}
-}
-
-// Fail writes a failure to the test session.
-func (test *TestGoReader) Fail(test string, m common.Map) {
-	result := ""
-	if !m.Empty() {
-		result = ":\n   " + m.FormatMap("   ")
-	}
-	test.t.Fatal(text + result)
 }
 
 // CheckNoErrors checks that no errors have occurred.
-func (test *TestGoReader) CheckNoErrors(msg string) {
+func (test *TestGoReader) CheckNoErrors(arg string) {
 	if test.gr.Logger().ErrorCount() > 0 {
-		test.Fail(fmt.Sprint("Errors while ", msg, ":\n", test.logBuf.String()))
+		test.t.Fatal(msg.NewError("Errors while ", arg).
+			Add("Log", test.logIO.Output.(*bytes.Buffer).String()))
 	}
 }
 
 // CheckErrors checks that the given expected errors have been logged.
 func (test *TestGoReader) CheckErrors(expCount int, expMsg ...interface{}) {
 	exp := fmt.Sprint(expMsg...)
-	msg := strings.TrimSpace(test.logBuf.String())
+	result := strings.TrimSpace(test.logIO.Output.(*bytes.Buffer).String())
 	count := test.gr.Logger().ErrorCount()
-	if (count != expCount) || (exp != msg) {
-		test.Fail("Unexpected or missing errors logged:", NewMap().
+	if (count != expCount) || (exp != result) {
+		test.t.Fatal(msg.NewError("Unexpected or missing errors logged").
 			Add("Expected", "(", expCount, ") \"", exp, "\"").
-			Add("Result", "(", count, ") \"", msg, "\""))
+			Add("Result", "(", count, ") \"", result, "\""))
 	}
 }
 
@@ -73,11 +69,11 @@ func (test *TestGoReader) CheckPackages(expPackages ...string) {
 		index++
 	}
 	if missing, extra, diff := common.DiffStringSets(packages, expPackages); diff {
-		test.fail("Unexpected or missing packages:",
-			"\n   Packages: ", strings.Join(packages, ", "),
-			"\n   Expected: ", strings.Join(expPackages, ", "),
-			"\n   Missing:  ", strings.Join(missing, ", "),
-			"\n   Extra:    ", strings.Join(extra, ", "))
+		test.t.Fatal(msg.NewError("Unexpected or missing packages").
+			Add("Packages", strings.Join(packages, ", ")).
+			Add("Expected", strings.Join(expPackages, ", ")).
+			Add("Missing", strings.Join(missing, ", ")).
+			Add("Extra", strings.Join(extra, ", ")))
 	}
 }
 
@@ -85,7 +81,7 @@ func (test *TestGoReader) CheckPackages(expPackages ...string) {
 func (test *TestGoReader) getPack(packName string) *constructs.PackageType {
 	pack, exists := test.gr.Program.Packages[packName]
 	if !exists {
-		test.fail("Failed to find package ", packName, " for CheckImports.")
+		test.t.Fatal(msg.NewError("Failed to find package ", packName, " for CheckImports."))
 	}
 	return pack
 }
@@ -100,12 +96,12 @@ func (test *TestGoReader) CheckImports(packName string, expImports ...string) {
 		index++
 	}
 	if missing, extra, diff := common.DiffStringSets(imports, expImports); diff {
-		test.fail("Unexpected or missing package imports:",
-			"\n   Package:  ", packName,
-			"\n   Imports:  ", strings.Join(imports, ", "),
-			"\n   Expected: ", strings.Join(expImports, ", "),
-			"\n   Missing:  ", strings.Join(missing, ", "),
-			"\n   Extra:    ", strings.Join(extra, ", "))
+		test.t.Fatal(msg.NewError("Unexpected or missing package imports").
+			Add("Package", packName).
+			Add("Imports", strings.Join(imports, ", ")).
+			Add("Expected", strings.Join(expImports, ", ")).
+			Add("Missing", strings.Join(missing, ", ")).
+			Add("Extra", strings.Join(extra, ", ")))
 	}
 }
 
@@ -119,12 +115,12 @@ func (test *TestGoReader) CheckFunctions(packName string, expFunctions ...string
 		index++
 	}
 	if missing, extra, diff := common.DiffStringSets(functions, expFunctions); diff {
-		test.fail("Unexpected or missing package functions:",
-			"\n   Package:   ", packName,
-			"\n   Functions: ", strings.Join(functions, ", "),
-			"\n   Expected:  ", strings.Join(expFunctions, ", "),
-			"\n   Missing:   ", strings.Join(missing, ", "),
-			"\n   Extra:     ", strings.Join(extra, ", "))
+		test.t.Fatal(msg.NewError("Unexpected or missing package functions").
+			Add("Package", packName).
+			Add("Functions", strings.Join(functions, ", ")).
+			Add("Expected", strings.Join(expFunctions, ", ")).
+			Add("Missing", strings.Join(missing, ", ")).
+			Add("Extra", strings.Join(extra, ", ")))
 	}
 }
 
@@ -133,7 +129,7 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 	pack := test.getPack(packName)
 	tfunc, exists := pack.Functions[funcName]
 	if !exists {
-		test.fail("Failed to find function ", funcName, " in ", packName, ".")
+		test.t.Fatal(msg.NewError("Failed to find function ", funcName, " in ", packName, "."))
 	}
 	indent := func(s string) string {
 		s = strings.Replace(s, " ", "\u00B7", -1)
@@ -143,11 +139,11 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 	}
 	expResult := Lines(expBody...)
 	if result := tfunc.String(); result != expResult {
-		test.fail("Unexpected function construct:",
-			"\n   Package:  ", packName,
-			"\n   Function: ", funcName,
-			"\n   Expected: ", indent(expResult),
-			"\n   Result:   ", indent(result))
+		test.t.Fatal(msg.NewError("Unexpected function construct").
+			Add("Package", packName).
+			Add("Function", funcName).
+			Add("Expected", indent(expResult)).
+			Add("Result", indent(result)))
 	}
 }
 

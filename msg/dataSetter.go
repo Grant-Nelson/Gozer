@@ -1,4 +1,4 @@
-package common
+package msg
 
 import "fmt"
 
@@ -25,7 +25,7 @@ func NewDataSetter(key string, value ...interface{}) *DataSetter {
 // Process will set the data of the given message and return the message.
 func (ds *DataSetter) Process(msg *Message) *Message {
 	if msg != nil {
-		msg.AddData(ds.Key, ds.Value...)
+		msg.Add(ds.Key, ds.Value...)
 	}
 	return msg
 }
