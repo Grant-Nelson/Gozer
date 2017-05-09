@@ -132,6 +132,12 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool)
 		return nil, false
 	}
 	switch id := desc.(type) {
+	case *ast.ArrayType:
+		if id.Len != nil {
+			msg.ThrowError("Unhandled array length expression: ", id, " (", reflect.TypeOf(desc), ")")
+		}
+		desc, _ := src.readType(scope, id.Elt)
+		return constructs.List(desc), true
 	case *ast.Ident:
 		return src.lookupType(scope, id.Name), false
 	case *ast.Ellipsis:
@@ -146,8 +152,38 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool)
 // lookupType gets the type for the given Go type name.
 func (src *Source) lookupType(scope *Scope, typeName string) constructs.Type {
 	switch typeName {
+	case "bool":
+		return constructs.Bool()
+	case "byte":
+		return constructs.Byte()
+	case "float32":
+		return constructs.Float32()
+	case "float64":
+		return constructs.Float64()
+	case "int":
+		return constructs.Int()
+	case "int8":
+		return constructs.Int8()
+	case "int16":
+		return constructs.Int16()
+	case "int32":
+		return constructs.Int32()
+	case "int64":
+		return constructs.Int64()
+	case "rune":
+		return constructs.Rune()
 	case "string":
 		return constructs.String()
+	case "uint":
+		return constructs.UInt()
+	case "uint8":
+		return constructs.UInt8()
+	case "uint16":
+		return constructs.UInt16()
+	case "uint32":
+		return constructs.UInt32()
+	case "uint64":
+		return constructs.UInt64()
 	default:
 		msg.ThrowError("Unhandled type name: ", typeName)
 		return nil
@@ -429,6 +465,8 @@ func (src *Source) parseExpression(scope *Scope, expr ast.Expr) constructs.Expre
 		return src.parseBinary(scope, ex)
 	case *ast.CallExpr:
 		return src.parseCall(scope, ex)
+	case *ast.CompositeLit:
+		return src.parseCompositeLit(scope, ex)
 	case *ast.Ident:
 		return src.parseIdentifier(scope, ex)
 	case *ast.ParenExpr:
@@ -476,6 +514,17 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 		src.log.Error("Unhandled literal kind ", lit.Kind)
 		return nil
 	}
+}
+
+// parseCompositeLit reads a composite literial value.
+// https://golang.org/pkg/go/ast/#CompositeLit
+func (src *Source) parseCompositeLit(scope *Scope, exp *ast.CompositeLit) *constructs.CompoundLiteralExp {
+	litType, _ := src.readType(scope, exp.Type)
+	elements := make([]constructs.Expression, len(exp.Elts))
+	for i, elts := range exp.Elts {
+		elements[i] = src.parseExpression(scope, elts)
+	}
+	return constructs.CompoundLiteral(elements, litType)
 }
 
 // parseBinary reads a binary operation.

@@ -54,6 +54,17 @@ func TestMapFormatting(t *testing.T) {
 		"People: Bill: 123",
 		"        Bob:  453",
 		"        Jill: 8787")
+	checkMap(t, NewMap().
+		Add("Animals", "Cat\nDog\nHorse\nCow").
+		Add("Messages", "Hello\nWorld\nGoodBye\nMoon"),
+		"Animals:  Cat",
+		"          Dog",
+		"          Horse",
+		"          Cow",
+		"Messages: Hello",
+		"          World",
+		"          GoodBye",
+		"          Moon")
 }
 
 //============================================================================

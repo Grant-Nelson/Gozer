@@ -409,7 +409,8 @@ func TestGoReader029(t *testing.T) {
 			`arr := []int{4, 1, 3, 2}`,
 			`fmt.Println("Count = ", len(arr))`),
 		Lines(
-			``))
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`fmt.Println("Count = ", len(arr))`))
 }
 
 /*

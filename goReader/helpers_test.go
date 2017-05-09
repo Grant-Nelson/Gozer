@@ -134,7 +134,6 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 	indent := func(s string) string {
 		s = strings.Replace(s, " ", "\u00B7", -1)
 		//s = "`" + strings.Replace(s, "\n", "`,\n`", -1) + "`"
-		s = strings.Replace(s, "\n", "\n             ", -1)
 		return s
 	}
 	expResult := Lines(expBody...)

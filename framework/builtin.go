@@ -18,9 +18,6 @@ func BuiltinPrebuild(prog *c.ProgramType) {
 	pack := c.Package()
 	prog.AddPackage(builtinName, pack)
 
-	// Do not define (special implementaions):
-	// append, cap, close, copy, delete, len, make, new, panic, recover
-
 	pack.AddFunction("print").
 		AddParam("a", c.Interface()).
 		SetEllipse(true)
@@ -33,7 +30,16 @@ func BuiltinPrebuild(prog *c.ProgramType) {
 		AddFunction("Error").
 		AddReturn("", c.String())
 
+	pack.AddFunction("cap").
+		AddParam("a", c.Variant()).
+		AddReturn("", c.Int())
+
+	pack.AddFunction("len").
+		AddParam("a", c.Variant()).
+		AddReturn("", c.Int())
+
 	// TODO: Implement the following:
 	//
 	// complex, imag, real
+	// append, close, copy, delete, make, new, panic, recover
 }
