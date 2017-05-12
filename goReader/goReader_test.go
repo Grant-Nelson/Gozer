@@ -413,7 +413,6 @@ func TestGoReader029(t *testing.T) {
 			`fmt.Println("Count = ", len(arr))`))
 }
 
-/*
 func TestGoReader030(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
@@ -422,5 +421,8 @@ func TestGoReader030(t *testing.T) {
 			`  fmt.Println(i, ": ", arr[i])`,
 			`}`),
 		Lines(
-			``))
-}*/
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`for(int i = 0; (i < len(arr)); i++) {`,
+			`  fmt.Println(i, ": ", arr[i])`,
+			`}`))
+}

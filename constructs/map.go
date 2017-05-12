@@ -1,6 +1,7 @@
 package constructs
 
 var _ Type = (*MapType)(nil)
+var _ IndexableType = (*MapType)(nil)
 
 // MapType for storing the types of maps.
 type MapType struct {
@@ -18,6 +19,11 @@ func Map(key Type, value Type) *MapType {
 		Key:   key,
 		Value: value,
 	}
+}
+
+// Subtype gets the indexable subtype from this type.
+func (t *MapType) Subtype() Type {
+	return t.Value
 }
 
 // String gets the name for this type.

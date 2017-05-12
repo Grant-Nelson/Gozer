@@ -469,6 +469,8 @@ func (src *Source) parseExpression(scope *Scope, expr ast.Expr) constructs.Expre
 		return src.parseCompositeLit(scope, ex)
 	case *ast.Ident:
 		return src.parseIdentifier(scope, ex)
+	case *ast.IndexExpr:
+		return src.parseIndexer(scope, ex)
 	case *ast.ParenExpr:
 		return src.parseExpression(scope, ex.X)
 	case *ast.SelectorExpr:
@@ -612,6 +614,27 @@ func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) constructs.Expre
 	}
 	src.log.Error("Unable to find ", name, " in scope.")
 	return constructs.Identifier(name, constructs.Variant())
+}
+
+// parseIndexer reads an index expression.
+// https://golang.org/pkg/go/ast/#IndexExpr
+func (src *Source) parseIndexer(scope *Scope, ind *ast.IndexExpr) constructs.Expression {
+	exp := src.parseExpression(scope, ind.X)
+	index := src.parseExpression(scope, ind.Index)
+
+	collectionTypes := exp.ReturnTypes()
+	if len(collectionTypes) != 1 {
+		src.log.Error("Expected only one return value for an index.")
+		return nil
+	}
+	indexType, ok := collectionTypes[0].(constructs.IndexableType)
+	if !ok {
+		src.log.Error("Unhandled indexed type: ", indexType)
+		return nil
+	}
+
+	retType := indexType.Subtype()
+	return constructs.Indexer(exp, index, retType)
 }
 
 // parseSelector reads an identifier selector.

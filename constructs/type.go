@@ -9,6 +9,14 @@ type Type interface {
 	String() string
 }
 
+// IndexableType is a type add-on for types which are indexable
+// such as strings, lists, and maps.
+type IndexableType interface {
+
+	// Subtype gets the element type from the indexable type.
+	Subtype() Type
+}
+
 // FindSubtype finds the member, function type, of subtype
 // with the given name inside the given type.
 // If no subtype by that name is found, false is returned.

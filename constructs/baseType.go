@@ -88,13 +88,6 @@ func Rune() *BaseType {
 	return newBaseType("rune")
 }
 
-// String is the set of all strings of 8-bit bytes, conventionally
-// but not necessarily representing UTF-8-encoded text. A string may be empty,
-// but not nil. Values of string type are immutable.
-func String() *BaseType {
-	return newBaseType("string")
-}
-
 // UInt is an unsigned integer type that is at least 32 bits in size.
 // It is a distinct type, however, and not an alias for, say, uint32.
 func UInt() *BaseType {
