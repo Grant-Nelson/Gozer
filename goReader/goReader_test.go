@@ -426,3 +426,91 @@ func TestGoReader030(t *testing.T) {
 			`  fmt.Println(i, ": ", arr[i])`,
 			`}`))
 }
+
+func TestGoReader031(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`arr[2] = 8`,
+			`fmt.Println("arr[2] = ", arr[2])`),
+		Lines(
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`arr[2] = 8`,
+			`fmt.Println("arr[2] = ", arr[2])`))
+}
+
+func TestGoReader032(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`arr = append(arr, 8)`,
+			`fmt.Println("Count = ", len(arr))`),
+		Lines(
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`arr = append(arr, 8)`,
+			`fmt.Println("Count = ", len(arr))`))
+}
+
+/*
+func TestGoReader033(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := make([]int, 4)`,
+			`arr[2] = 8`,
+			`fmt.Println("arr[2] = ", arr[2])`,
+			`fmt.Println("Count = ", len(arr))`,
+			`fmt.Println("Cap = ", cap(arr))`),
+		Lines(
+			``))
+}
+
+func TestGoReader034(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := make([]int, 0, 4)`,
+			`arr = append(arr, 8)`,
+			`fmt.Println("Count = ", len(arr))`,
+			`fmt.Println("Cap = ", cap(arr))`),
+		Lines(
+			``))
+}
+
+func TestGoReader035(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`arr2 := arr[1:2]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`),
+		Lines(
+			``))
+}
+
+func TestGoReader036(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`arr2 := arr[:2]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`),
+		Lines(
+			``))
+}
+
+func TestGoReader037(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`arr2 := arr[1:]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`),
+		Lines(
+			``))
+}
+*/

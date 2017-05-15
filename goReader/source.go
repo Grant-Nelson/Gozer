@@ -501,7 +501,7 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 	case token.FLOAT:
 		return constructs.Literal(lit.Value, constructs.Float64())
 	case token.IMAG:
-		return constructs.Literal(lit.Value, constructs.Imaginary())
+		return constructs.Literal(lit.Value, constructs.Complex128())
 	case token.CHAR:
 		return constructs.Literal(lit.Value, constructs.Rune())
 	case token.STRING:

@@ -18,28 +18,40 @@ func BuiltinPrebuild(prog *c.ProgramType) {
 	pack := c.Package()
 	prog.AddPackage(builtinName, pack)
 
-	pack.AddFunction("print").
-		AddParam("a", c.Interface()).
-		SetEllipse(true)
+	// https://golang.org/src/builtin/builtin.go?h=make#L134
+	pack.AddFunction("append").
+		AddParam("a", c.Variant()).
+		AddParam("b", c.Variant()).
+		SetEllipse(true).
+		AddReturn("", c.Variant())
 
-	pack.AddFunction("println").
-		AddParam("a", c.Interface()).
-		SetEllipse(true)
-
-	pack.AddInterface("error").
-		AddFunction("Error").
-		AddReturn("", c.String())
-
+	// https://golang.org/src/builtin/builtin.go?h=make#L164
 	pack.AddFunction("cap").
 		AddParam("a", c.Variant()).
 		AddReturn("", c.Int())
 
+	// https://golang.org/src/builtin/builtin.go?h=make#L254
+	pack.AddInterface("error").
+		AddFunction("Error").
+		AddReturn("", c.String())
+
+	// https://golang.org/src/builtin/builtin.go?h=make#L155
 	pack.AddFunction("len").
 		AddParam("a", c.Variant()).
 		AddReturn("", c.Int())
 
+	// https://golang.org/src/builtin/builtin.go?h=make#L243
+	pack.AddFunction("print").
+		AddParam("a", c.Interface()).
+		SetEllipse(true)
+
+	// https://golang.org/src/builtin/builtin.go?h=make#L250
+	pack.AddFunction("println").
+		AddParam("a", c.Interface()).
+		SetEllipse(true)
+
 	// TODO: Implement the following:
 	//
 	// complex, imag, real
-	// append, close, copy, delete, make, new, panic, recover
+	// close, copy, delete, make, new, panic, recover
 }
