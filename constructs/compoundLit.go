@@ -24,9 +24,9 @@ func CompoundLiteral(elems []Expression, litType Type) *CompoundLiteralExp {
 	}
 }
 
-// ReturnTypes is an array containing the type of the composite literal.
-func (e *CompoundLiteralExp) ReturnTypes() []Type {
-	return []Type{e.Type}
+// ReturnType is the type of the composite literal.
+func (e *CompoundLiteralExp) ReturnType() Type {
+	return e.Type
 }
 
 // String gets the string for the composite literal.

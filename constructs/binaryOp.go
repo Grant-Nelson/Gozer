@@ -88,9 +88,9 @@ func BinaryOp(left Expression, right Expression, operand string, t Type) *Binary
 	}
 }
 
-// ReturnTypes are the types this expression resolves to.
-func (e *BinaryOpExp) ReturnTypes() []Type {
-	return []Type{e.Type}
+// ReturnType is the type this expression resolves to.
+func (e *BinaryOpExp) ReturnType() Type {
+	return e.Type
 }
 
 // String gets the string for this constuct.

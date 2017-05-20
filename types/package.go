@@ -1,4 +1,4 @@
-package constructs
+package types
 
 import (
 	"sort"
@@ -78,7 +78,6 @@ func (t *PackageType) AddFunction(name string) *FunctionType {
 // AddInterface adds a interface to this package.
 func (t *PackageType) AddInterface(name string) *InterfaceType {
 	inter := Interface()
-	inter.Name = name
 	inter.Parent = t
 	t.Interfaces[name] = inter
 	return inter
@@ -87,7 +86,6 @@ func (t *PackageType) AddInterface(name string) *InterfaceType {
 // AddClass adds a class to this package.
 func (t *PackageType) AddClass(name string) *ClassType {
 	class := Class()
-	class.Name = name
 	class.Parent = t
 	t.Classes[name] = class
 	return class
@@ -125,11 +123,10 @@ func (t *PackageType) String() string {
 	if len(t.Functions) > 0 {
 		i := 0
 		parts3 := make([]string, len(t.Functions))
-		for name, tfunc := range t.Functions {
-			parts3[i] = name + " " + ToString(tfunc)
+		for _, tfunc := range t.Functions {
+			parts3[i] = ToString(tfunc)
 			i++
 		}
-		sort.Strings(parts3)
 		result += "  " + common.Indent(strings.Join(parts3, "\n"), "  ") + "\n"
 	}
 

@@ -26,12 +26,12 @@ func Call(function *FunctionType, receiver Expression, parameters []Expression) 
 	}
 }
 
-// ReturnTypes is the list of return types from the called function.
-func (e *CallExp) ReturnTypes() []Type {
+// ReturnType is the return type from the called function.
+func (e *CallExp) ReturnType() Type {
 	if e.Function == nil {
-		return []Type{}
+		return Void()
 	}
-	return e.Function.ReturnTypes
+	return e.Function.ReturnType
 }
 
 // String gets the string for the call.

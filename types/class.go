@@ -1,4 +1,4 @@
-package constructs
+package types
 
 import "github.com/grant-nelson/Gozer/common"
 

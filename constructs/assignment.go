@@ -22,9 +22,9 @@ func Assignment(left []Expression, right Expression) *AssignmentStat {
 	}
 }
 
-// ReturnTypes are the types this expression resolves to.
-func (e *AssignmentStat) ReturnTypes() []Type {
-	return e.RightExp.ReturnTypes()
+// ReturnType is the type this expression resolves to.
+func (e *AssignmentStat) ReturnType() Type {
+	return e.RightExp.ReturnType()
 }
 
 // String gets the string for this constuct.

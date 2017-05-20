@@ -1,4 +1,4 @@
-package constructs
+package types
 
 var _ Type = (*StringType)(nil)
 var _ IndexableType = (*StringType)(nil)

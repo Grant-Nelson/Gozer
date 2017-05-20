@@ -1,4 +1,4 @@
-package constructs
+package types
 
 var _ Type = (*MapType)(nil)
 var _ IndexableType = (*MapType)(nil)
@@ -23,6 +23,9 @@ func Map(key Type, value Type) *MapType {
 
 // Subtype gets the indexable subtype from this type.
 func (t *MapType) Subtype() Type {
+	if t == nil {
+		return nil
+	}
 	return t.Value
 }
 

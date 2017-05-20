@@ -1,4 +1,4 @@
-package constructs
+package types
 
 import (
 	"sort"
@@ -18,27 +18,36 @@ type InterfaceType struct {
 	Name string
 
 	// Functions is the set of functions for this interface.
-	Functions map[string]*FunctionType
+	Functions []*FunctionType
 }
 
 // Interface creates a new interface type.
 func Interface() *InterfaceType {
 	return &InterfaceType{
 		Name:      "",
-		Functions: map[string]*FunctionType{},
+		Functions: []*FunctionType{},
 	}
 }
 
 // Find looks up a subtype to this interface.
 func (t *InterfaceType) Find(name string) (Type, bool) {
-	t2, exists := t.Functions[name]
-	return t2, exists
+	for _, tfunc := range t.Functions {
+		if tfunc.Name == name {
+			return tfunc, true
+		}
+	}
+	return nil, false
 }
 
 // AddFunction adds a function to this interface.
+// If a function by that name already exists, that function is returned.
 func (t *InterfaceType) AddFunction(name string) *FunctionType {
+	if tfunc, found := t.Find(name); found {
+		return tfunc.(*FunctionType)
+	}
 	tfunc := Function()
-	t.Functions[name] = tfunc
+	tfunc.Name = name
+	t.Functions = append(t.Functions, tfunc)
 	return tfunc
 }
 
@@ -55,8 +64,8 @@ func (t *InterfaceType) String() string {
 	}
 	i := 0
 	parts := make([]string, len(t.Functions))
-	for name, tfunc := range t.Functions {
-		parts[i] = name + " " + ToString(tfunc)
+	for _, tfunc := range t.Functions {
+		parts[i] = ToString(tfunc)
 		i++
 	}
 	sort.Strings(parts)

@@ -22,9 +22,9 @@ func Definition(id *IdentifierExp, exp Expression) *DefinitionExp {
 	}
 }
 
-// ReturnTypes are the types this expression resolves to.
-func (s *DefinitionExp) ReturnTypes() []Type {
-	return s.Identifier.ReturnTypes()
+// ReturnType is the type this expression resolves to.
+func (s *DefinitionExp) ReturnType() Type {
+	return s.Identifier.ReturnType()
 }
 
 // String gets the string for this constuct.

@@ -1,7 +1,6 @@
-package constructs
+package types
 
 import (
-	"sort"
 	"strings"
 )
 
@@ -17,27 +16,43 @@ type StructureType struct {
 	// Name is the name of the structure.
 	Name string
 
-	// Members is the set of members for this structure.
-	Members map[string]Type
+	// MemeberNames is the names of members for this structure.
+	MemeberNames []string
+
+	// MemeberTypes is the types of members for this structure.
+	MemeberTypes []Type
 }
 
 // Structure creates a new struct type.
 func Structure() *StructureType {
 	return &StructureType{
-		Name:    "",
-		Members: map[string]Type{},
+		Name:         "",
+		MemeberNames: []string{},
+		MemeberTypes: []Type{},
 	}
 }
 
 // Find looks up a subtype to this structure.
 func (t *StructureType) Find(name string) (Type, bool) {
-	t2, exists := t.Members[name]
-	return t2, exists
+	for i, other := range t.MemeberNames {
+		if name == other {
+			return t.MemeberTypes[i], true
+		}
+	}
+	return nil, false
 }
 
 // AddMember adds a member to this structure.
+// If the member already exists it will be overwritten with the new type.
 func (t *StructureType) AddMember(name string, tmem Type) *StructureType {
-	t.Members[name] = tmem
+	for i, other := range t.MemeberNames {
+		if name == other {
+			t.MemeberTypes[i] = tmem
+			return t
+		}
+	}
+	t.MemeberNames = append(t.MemeberNames, name)
+	t.MemeberTypes = append(t.MemeberTypes, tmem)
 	return t
 }
 
@@ -49,15 +64,13 @@ func (t *StructureType) String() string {
 	if len(t.Name) > 0 {
 		return t.Name
 	}
-	if len(t.Members) <= 0 {
+	if len(t.MemeberNames) <= 0 {
 		return "struct{}"
 	}
-	i := 0
-	parts := make([]string, len(t.Members))
-	for name, member := range t.Members {
-		parts[i] = name + " " + ToString(member)
+	parts := make([]string, len(t.MemeberNames))
+	for i, name := range t.MemeberNames {
+		parts[i] = ToString(t.MemeberTypes[i]) + " " + name
 		i++
 	}
-	sort.Strings(parts)
 	return "struct{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

@@ -1,6 +1,9 @@
-package constructs
+package types
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 var _ Type = (*FunctionType)(nil)
 
@@ -26,11 +29,9 @@ type FunctionType struct {
 	// Ellipsis indicates if the last parameter is variable length.
 	Ellipsis bool
 
-	// ReturnNames is the names of all the return types.
-	ReturnNames []string
-
-	// ReturnTypes is the types of all the return types.
-	ReturnTypes []Type
+	// ReturnType is the type returned from the function.
+	// Void for no return type.
+	ReturnType Type
 
 	// ReceiverName is the name for the optional receiver class or empty.
 	ReceiverName string
@@ -40,7 +41,8 @@ type FunctionType struct {
 
 	// Body is the statement block for the function
 	// or nil if the function is a forward declaration.
-	Body *BlockStatement
+	// This will be of type *BlockStatement.
+	Body interface{}
 }
 
 // Function creates a new function type description with the given information.
@@ -51,8 +53,7 @@ func Function() *FunctionType {
 		ParamNames:    []string{},
 		ParamTypes:    []Type{},
 		Ellipsis:      false,
-		ReturnNames:   []string{},
-		ReturnTypes:   []Type{},
+		ReturnType:    Void(),
 		ReceiverName:  "",
 		ReceiverClass: nil,
 		Body:          nil,
@@ -78,10 +79,9 @@ func (t *FunctionType) SetEllipse(ellipsis bool) *FunctionType {
 	return t
 }
 
-// AddReturn adds a return type to the function.
-func (t *FunctionType) AddReturn(name string, returnType Type) *FunctionType {
-	t.ReturnNames = append(t.ReturnNames, name)
-	t.ReturnTypes = append(t.ReturnTypes, returnType)
+// SetReturn sets the return type to the function.
+func (t *FunctionType) SetReturn(returnType Type) *FunctionType {
+	t.ReturnType = returnType
 	return t
 }
 
@@ -97,35 +97,21 @@ func (t *FunctionType) String() string {
 		for i, name := range t.ParamNames {
 			paramType := ToString(t.ParamTypes[i])
 			if t.Ellipsis && (i == paramsCount-1) {
-				paramStrs[i] = name + " ..." + paramType
+				paramStrs[i] = paramType + "... " + name
 			} else {
-				paramStrs[i] = name + " " + paramType
+				paramStrs[i] = paramType + " " + name
 			}
 		}
 		params = "(" + strings.Join(paramStrs, ", ") + ")"
 	}
 
-	returns := ""
-	if returnCount := len(t.ReturnNames); returnCount > 0 {
-		returnStrs := make([]string, returnCount)
-		for i, name := range t.ReturnNames {
-			returnType := ToString(t.ReturnTypes[i])
-			if len(name) > 0 {
-				returnStrs[i] = name + " " + returnType
-			} else {
-				returnStrs[i] = returnType
-			}
-		}
-		returns = "(" + strings.Join(returnStrs, ", ") + ")"
-	}
-
 	bodyStr := ""
 	if t.Body != nil {
-		bodyStr = " " + ToString(t.Body)
+		bodyStr = " " + fmt.Sprint(t.Body)
 	}
-	name := ""
+	name := "func"
 	if len(t.Name) > 0 {
-		name = " " + t.Name
+		name = t.Name
 	}
-	return "func" + name + params + returns + bodyStr
+	return ToString(t.ReturnType) + " " + name + params + bodyStr
 }

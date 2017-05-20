@@ -1,6 +1,6 @@
-package constructs
+package types
 
-var _ Construct = (Type)(nil)
+const nilStr = "nil"
 
 // Type is the interface for all types.
 type Type interface {
@@ -15,6 +15,14 @@ type IndexableType interface {
 
 	// Subtype gets the element type from the indexable type.
 	Subtype() Type
+}
+
+// ToString creates a string for the given type.
+func ToString(t Type) string {
+	if t == nil {
+		return nilStr
+	}
+	return t.String()
 }
 
 // FindSubtype finds the member, function type, of subtype

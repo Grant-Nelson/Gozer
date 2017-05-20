@@ -25,9 +25,9 @@ func Selector(exp Expression, id string, t Type) *SelectorExp {
 	}
 }
 
-// ReturnTypes are the types this expression resolves to.
-func (e *SelectorExp) ReturnTypes() []Type {
-	return []Type{e.Type}
+// ReturnType is the type this expression resolves to.
+func (e *SelectorExp) ReturnType() Type {
+	return e.Type
 }
 
 // String gets the string for this constuct.

@@ -24,9 +24,9 @@ func Indexer(exp Expression, index Expression, t Type) *IndexerExp {
 	}
 }
 
-// ReturnTypes are the types this expression resolves to.
-func (e *IndexerExp) ReturnTypes() []Type {
-	return []Type{e.Type}
+// ReturnType is the type this expression resolves to.
+func (e *IndexerExp) ReturnType() Type {
+	return e.Type
 }
 
 // String gets the string for this constuct.

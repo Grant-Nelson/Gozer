@@ -20,9 +20,9 @@ func Literal(value string, litType Type) *LiteralExp {
 	}
 }
 
-// ReturnTypes is an array containing the type of the literal.
-func (e *LiteralExp) ReturnTypes() []Type {
-	return []Type{e.Type}
+// ReturnType is the type of the literal.
+func (e *LiteralExp) ReturnType() Type {
+	return e.Type
 }
 
 // String gets the string for the literal.

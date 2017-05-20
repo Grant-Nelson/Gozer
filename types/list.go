@@ -1,4 +1,4 @@
-package constructs
+package types
 
 var _ Type = (*ListType)(nil)
 var _ IndexableType = (*ListType)(nil)
@@ -19,6 +19,9 @@ func List(element Type) *ListType {
 
 // Subtype gets the indexable subtype from this type.
 func (t *ListType) Subtype() Type {
+	if t == nil {
+		return nil
+	}
 	return t.Element
 }
 

@@ -156,6 +156,10 @@ func (src *Source) lookupType(scope *Scope, typeName string) constructs.Type {
 		return constructs.Bool()
 	case "byte":
 		return constructs.Byte()
+	case "complex64":
+		return constructs.Complex64()
+	case "complex128":
+		return constructs.Complex128()
 	case "float32":
 		return constructs.Float32()
 	case "float64":
