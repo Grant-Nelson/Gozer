@@ -1,4 +1,8 @@
-package constructs
+package expressions
+
+import (
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
 
 var _ Expression = (*BinaryOpExp)(nil)
 
@@ -8,12 +12,6 @@ const (
 
 	// NegateOp is the unary operation which negates a value.
 	NegateOp = "-"
-
-	// IncrementOp is the unary operation which increments a value.
-	IncrementOp = "++"
-
-	// DecrementOp is the unary operation which decrements a value.
-	DecrementOp = "--"
 
 	// NotOp is the unary operation which NOTs a value.
 	NotOp = "!"
@@ -35,11 +33,11 @@ type UnaryOpExp struct {
 	Operand string
 
 	// Type is the resulting type after the operation.
-	Type Type
+	Type types.Type
 }
 
 // UnaryOp creates a new unary operation expression.
-func UnaryOp(exp Expression, operand string, t Type) *UnaryOpExp {
+func UnaryOp(exp Expression, operand string, t types.Type) *UnaryOpExp {
 	return &UnaryOpExp{
 		Exp:     exp,
 		Operand: operand,
@@ -48,8 +46,11 @@ func UnaryOp(exp Expression, operand string, t Type) *UnaryOpExp {
 }
 
 // ReturnTypes are the types this expression resolves to.
-func (e *UnaryOpExp) ReturnTypes() []Type {
-	return []Type{e.Type}
+func (e *UnaryOpExp) ReturnType() types.Type {
+	if e == nil {
+		return nil
+	}
+	return e.Type
 }
 
 // String gets the string for this constuct.

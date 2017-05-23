@@ -1,4 +1,8 @@
-package constructs
+package expressions
+
+import (
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
 
 var _ Expression = (*IdentifierExp)(nil)
 
@@ -10,11 +14,11 @@ type IdentifierExp struct {
 	Identifier string
 
 	// Type is the resulting type of the identifier.
-	Type Type
+	Type types.Type
 }
 
 // Identifier creates a new identifier expression.
-func Identifier(id string, t Type) *IdentifierExp {
+func Identifier(id string, t types.Type) *IdentifierExp {
 	return &IdentifierExp{
 		Identifier: id,
 		Type:       t,
@@ -22,7 +26,10 @@ func Identifier(id string, t Type) *IdentifierExp {
 }
 
 // ReturnType is the type this expression resolves to.
-func (e *IdentifierExp) ReturnType() Type {
+func (e *IdentifierExp) ReturnType() types.Type {
+	if e == nil {
+		return nil
+	}
 	return e.Type
 }
 

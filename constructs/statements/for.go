@@ -1,8 +1,9 @@
-package constructs
+package statements
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/grant-nelson/Gozer/constructs/expressions"
 )
 
 var _ Statement = (*ForStat)(nil)
@@ -14,39 +15,24 @@ type ForStat struct {
 	Init Statement
 
 	// Cond is the expession for the conditional of this for.
-	Cond Expression
+	Cond expressions.Expression
 
 	// Post is the statement to call when the For loop is about to re-evaluate.
 	// Usually used for incrementing some state.
-	Post []Statement
+	Post Statement
 
 	// Body is the statement to call when Cond evaluates to true.
 	Body Statement
 }
 
 // For creates a new for-statement.
-func For(init Statement, cond Expression, post []Statement, body Statement) *ForStat {
+func For(init Statement, cond expressions.Expression, post Statement, body Statement) *ForStat {
 	return &ForStat{
 		Init: init,
 		Cond: cond,
 		Post: post,
 		Body: body,
 	}
-}
-
-// statsToString gets the string for a slice of statements.
-func (s *ForStat) statsToString(stats []Statement) string {
-	if (stats != nil) && (len(stats) > 0) {
-		if len(stats) <= 1 {
-			return ToString(stats[0])
-		}
-		parts := make([]string, len(stats))
-		for i, part := range stats {
-			parts[i] = ToString(part)
-		}
-		return "{" + strings.Join(parts, "; ") + "}"
-	}
-	return ""
 }
 
 // String gets the string for this constuct.
@@ -60,8 +46,11 @@ func (s *ForStat) String() string {
 	}
 	cond := ""
 	if s.Cond != nil {
-		cond = ToString(s.Cond)
+		cond = expressions.ToString(s.Cond)
 	}
-	post := s.statsToString(s.Post)
+	post := ""
+	if s.Post != nil {
+		post = ToString(s.Post)
+	}
 	return fmt.Sprint("for(", init, "; ", cond, "; ", post, ") ", ToString(s.Body))
 }

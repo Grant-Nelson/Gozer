@@ -1,6 +1,10 @@
-package constructs
+package expressions
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
 
 var _ Expression = (*CallExp)(nil)
 
@@ -8,7 +12,7 @@ var _ Expression = (*CallExp)(nil)
 type CallExp struct {
 
 	// Function is the function that is being called
-	Function *FunctionType
+	Function *types.FunctionType
 
 	// Receiver is the experssion to get the function target or nil is static.
 	Receiver Expression
@@ -18,7 +22,7 @@ type CallExp struct {
 }
 
 // Call creates new function call expression.
-func Call(function *FunctionType, receiver Expression, parameters []Expression) *CallExp {
+func Call(function *types.FunctionType, receiver Expression, parameters []Expression) *CallExp {
 	return &CallExp{
 		Function:   function,
 		Receiver:   receiver,
@@ -27,9 +31,9 @@ func Call(function *FunctionType, receiver Expression, parameters []Expression) 
 }
 
 // ReturnType is the return type from the called function.
-func (e *CallExp) ReturnType() Type {
-	if e.Function == nil {
-		return Void()
+func (e *CallExp) ReturnType() types.Type {
+	if (e == nil) || (e.Function == nil) {
+		return nil
 	}
 	return e.Function.ReturnType
 }

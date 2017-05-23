@@ -1,4 +1,4 @@
-package constructs
+package statements
 
 var _ Statement = (*BranchStat)(nil)
 

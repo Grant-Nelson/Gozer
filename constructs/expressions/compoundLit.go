@@ -1,7 +1,9 @@
-package constructs
+package expressions
 
 import (
 	"strings"
+
+	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
 var _ Expression = (*CompoundLiteralExp)(nil)
@@ -13,11 +15,11 @@ type CompoundLiteralExp struct {
 	Elements []Expression
 
 	// Type is the value type of the literal.
-	Type Type
+	Type types.Type
 }
 
 // CompoundLiteral creates new composite literal expression.
-func CompoundLiteral(elems []Expression, litType Type) *CompoundLiteralExp {
+func CompoundLiteral(elems []Expression, litType types.Type) *CompoundLiteralExp {
 	return &CompoundLiteralExp{
 		Elements: elems,
 		Type:     litType,
@@ -25,18 +27,21 @@ func CompoundLiteral(elems []Expression, litType Type) *CompoundLiteralExp {
 }
 
 // ReturnType is the type of the composite literal.
-func (e *CompoundLiteralExp) ReturnType() Type {
+func (e *CompoundLiteralExp) ReturnType() types.Type {
+	if e == nil {
+		return nil
+	}
 	return e.Type
 }
 
 // String gets the string for the composite literal.
 func (e *CompoundLiteralExp) String() string {
 	if e == nil {
-		return ""
+		return nilStr
 	}
 	parts := make([]string, len(e.Elements))
 	for i, elem := range e.Elements {
 		parts[i] = ToString(elem)
 	}
-	return ToString(e.Type) + "{" + strings.Join(parts, ", ") + "}"
+	return types.ToString(e.Type) + "{" + strings.Join(parts, ", ") + "}"
 }

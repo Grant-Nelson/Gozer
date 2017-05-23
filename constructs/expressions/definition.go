@@ -1,6 +1,10 @@
-package constructs
+package expressions
 
-var _ Statement = (*DefinitionExp)(nil)
+import (
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
+
+var _ Expression = (*DefinitionExp)(nil)
 
 // DefinitionExp is an expression which represents
 // the creation of a variable, constant, or some other named construct.
@@ -23,21 +27,24 @@ func Definition(id *IdentifierExp, exp Expression) *DefinitionExp {
 }
 
 // ReturnType is the type this expression resolves to.
-func (s *DefinitionExp) ReturnType() Type {
-	return s.Identifier.ReturnType()
+func (e *DefinitionExp) ReturnType() types.Type {
+	if (e == nil) || (e.Identifier == nil) {
+		return nil
+	}
+	return e.Identifier.ReturnType()
 }
 
 // String gets the string for this constuct.
-func (s *DefinitionExp) String() string {
-	if s == nil {
+func (e *DefinitionExp) String() string {
+	if e == nil {
 		return nilStr
 	}
 	result := nilStr
-	if s.Identifier != nil {
-		result = ToString(s.Identifier.Type) + " " + s.Identifier.Identifier
+	if e.Identifier != nil {
+		result = types.ToString(e.Identifier.Type) + " " + e.Identifier.Identifier
 	}
-	if s.InitialValue != nil {
-		result += " = " + ToString(s.InitialValue)
+	if e.InitialValue != nil {
+		result += " = " + ToString(e.InitialValue)
 	}
 	return result
 }

@@ -1,4 +1,8 @@
-package constructs
+package expressions
+
+import (
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
 
 var _ Expression = (*IndexerExp)(nil)
 
@@ -10,23 +14,23 @@ type IndexerExp struct {
 
 	// IndexExp the name of the index.
 	IndexExp Expression
-
-	// Type is the resulting type of the index.
-	Type Type
 }
 
 // Indexer creates a new index expression.
-func Indexer(exp Expression, index Expression, t Type) *IndexerExp {
+func Indexer(exp Expression, index Expression) *IndexerExp {
 	return &IndexerExp{
 		Expression: exp,
 		IndexExp:   index,
-		Type:       t,
 	}
 }
 
 // ReturnType is the type this expression resolves to.
-func (e *IndexerExp) ReturnType() Type {
-	return e.Type
+func (e *IndexerExp) ReturnType() types.Type {
+	if (e == nil) || (e.Expression == nil) {
+		return nil
+	}
+	t, _ := types.GetIndexableType(e.Expression.ReturnType())
+	return t
 }
 
 // String gets the string for this constuct.

@@ -1,4 +1,8 @@
-package constructs
+package expressions
+
+import (
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
 
 var _ Expression = (*BinaryOpExp)(nil)
 
@@ -75,11 +79,11 @@ type BinaryOpExp struct {
 	Operand string
 
 	// Type is the resulting type after the operation.
-	Type Type
+	Type types.Type
 }
 
 // BinaryOp creates a new binary operation expression.
-func BinaryOp(left Expression, right Expression, operand string, t Type) *BinaryOpExp {
+func BinaryOp(left Expression, right Expression, operand string, t types.Type) *BinaryOpExp {
 	return &BinaryOpExp{
 		Left:    left,
 		Right:   right,
@@ -89,7 +93,10 @@ func BinaryOp(left Expression, right Expression, operand string, t Type) *Binary
 }
 
 // ReturnType is the type this expression resolves to.
-func (e *BinaryOpExp) ReturnType() Type {
+func (e *BinaryOpExp) ReturnType() types.Type {
+	if e == nil {
+		return nil
+	}
 	return e.Type
 }
 

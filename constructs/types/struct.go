@@ -1,8 +1,6 @@
 package types
 
-import (
-	"strings"
-)
+import "strings"
 
 var _ Type = (*StructureType)(nil)
 

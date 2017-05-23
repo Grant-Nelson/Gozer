@@ -21,8 +21,8 @@ func Map(key Type, value Type) *MapType {
 	}
 }
 
-// Subtype gets the indexable subtype from this type.
-func (t *MapType) Subtype() Type {
+// ElementType gets the indexable subtype from this type.
+func (t *MapType) ElementType() Type {
 	if t == nil {
 		return nil
 	}

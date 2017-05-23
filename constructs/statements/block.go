@@ -1,4 +1,4 @@
-package constructs
+package statements
 
 import (
 	"strings"
@@ -6,24 +6,24 @@ import (
 	"github.com/grant-nelson/Gozer/common"
 )
 
-var _ Statement = (*BlockStatement)(nil)
+var _ Statement = (*BlockStat)(nil)
 
-// BlockStatement is a scoped block of statements.
-type BlockStatement struct {
+// BlockStat is a scoped block of statements.
+type BlockStat struct {
 
 	// Statements are the set of statements in this block.
 	Statements []Statement
 }
 
 // Block creates a new block statment.
-func Block(statements ...Statement) *BlockStatement {
-	return &BlockStatement{
+func Block(statements ...Statement) *BlockStat {
+	return &BlockStat{
 		Statements: statements,
 	}
 }
 
 // String gets the string for this block.
-func (s *BlockStatement) String() string {
+func (s *BlockStat) String() string {
 	if s == nil {
 		return nilStr
 	}

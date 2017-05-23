@@ -1,6 +1,10 @@
-package constructs
+package statements
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/grant-nelson/Gozer/constructs/expressions"
+)
 
 var _ Statement = (*IfStat)(nil)
 
@@ -8,7 +12,7 @@ var _ Statement = (*IfStat)(nil)
 type IfStat struct {
 
 	// Cond is the expession for the conditional of this if.
-	Cond Expression
+	Cond expressions.Expression
 
 	// Body is the statement to call when Cond evaluates to true.
 	Body Statement
@@ -19,7 +23,7 @@ type IfStat struct {
 }
 
 // If creates a new if-statement.
-func If(cond Expression, bodyStat Statement, elseStat Statement) *IfStat {
+func If(cond expressions.Expression, bodyStat Statement, elseStat Statement) *IfStat {
 	return &IfStat{
 		Cond: cond,
 		Body: bodyStat,
@@ -32,7 +36,7 @@ func (s *IfStat) String() string {
 	if s == nil {
 		return nilStr
 	}
-	result := fmt.Sprint("if ", ToString(s.Cond), " ", ToString(s.Body))
+	result := fmt.Sprint("if ", expressions.ToString(s.Cond), " ", ToString(s.Body))
 	if s.Else != nil {
 		result = fmt.Sprint(result, " else ", ToString(s.Else))
 	}

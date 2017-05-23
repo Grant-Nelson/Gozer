@@ -1,4 +1,8 @@
-package constructs
+package expressions
+
+import (
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
 
 var _ Expression = (*LiteralExp)(nil)
 
@@ -9,11 +13,11 @@ type LiteralExp struct {
 	Value string
 
 	// Type is the value type of the literal.
-	Type Type
+	Type types.Type
 }
 
 // Literal creates new literal expression.
-func Literal(value string, litType Type) *LiteralExp {
+func Literal(value string, litType types.Type) *LiteralExp {
 	return &LiteralExp{
 		Value: value,
 		Type:  litType,
@@ -21,14 +25,17 @@ func Literal(value string, litType Type) *LiteralExp {
 }
 
 // ReturnType is the type of the literal.
-func (e *LiteralExp) ReturnType() Type {
+func (e *LiteralExp) ReturnType() types.Type {
+	if e == nil {
+		return nil
+	}
 	return e.Type
 }
 
 // String gets the string for the literal.
 func (e *LiteralExp) String() string {
 	if e == nil {
-		return ""
+		return nilStr
 	}
 	return e.Value
 }

@@ -1,4 +1,8 @@
-package constructs
+package expressions
+
+import (
+	"github.com/grant-nelson/Gozer/constructs/types"
+)
 
 var _ Expression = (*SelectorExp)(nil)
 
@@ -13,11 +17,11 @@ type SelectorExp struct {
 	Identifier string
 
 	// Type is the resulting type of the selection.
-	Type Type
+	Type types.Type
 }
 
 // Selector creates a new selector expression.
-func Selector(exp Expression, id string, t Type) *SelectorExp {
+func Selector(exp Expression, id string, t types.Type) *SelectorExp {
 	return &SelectorExp{
 		Expression: exp,
 		Identifier: id,
@@ -26,7 +30,10 @@ func Selector(exp Expression, id string, t Type) *SelectorExp {
 }
 
 // ReturnType is the type this expression resolves to.
-func (e *SelectorExp) ReturnType() Type {
+func (e *SelectorExp) ReturnType() types.Type {
+	if e == nil {
+		return nil
+	}
 	return e.Type
 }
 

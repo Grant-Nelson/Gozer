@@ -13,8 +13,8 @@ func String() *StringType {
 	return &StringType{}
 }
 
-// Subtype gets the indexable subtype from this type.
-func (t *StringType) Subtype() Type {
+// ElementType gets the indexable subtype from this type.
+func (t *StringType) ElementType() Type {
 	return UInt8()
 }
 

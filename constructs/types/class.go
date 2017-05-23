@@ -3,6 +3,7 @@ package types
 import "github.com/grant-nelson/Gozer/common"
 
 var _ Type = (*ClassType)(nil)
+var _ SubtypableType = (*ClassType)(nil)
 
 // ClassType for storing the types of class.
 type ClassType struct {

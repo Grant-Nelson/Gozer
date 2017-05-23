@@ -17,8 +17,8 @@ func List(element Type) *ListType {
 	}
 }
 
-// Subtype gets the indexable subtype from this type.
-func (t *ListType) Subtype() Type {
+// ElementType gets the indexable subtype from this type.
+func (t *ListType) ElementType() Type {
 	if t == nil {
 		return nil
 	}
