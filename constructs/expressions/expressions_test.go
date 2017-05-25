@@ -7,31 +7,6 @@ import (
 	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
-func checkString(t *testing.T, result string, exp ...string) {
-	expStr := strings.Join(exp, "\n")
-	if result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
-	}
-}
-
-func checkExp(t *testing.T, e Expression, exp ...string) {
-	checkString(t, ToString(e), exp...)
-}
-
-func checkReturn(t *testing.T, e Expression, exp ...string) {
-	returnType := e.ReturnType()
-	result := types.ToString(returnType)
-	expStr := strings.Join(exp, "\n")
-	if result != expStr {
-		t.Fatal("Unexpected return type from expression:",
-			"\n   Expression: ", ToString(e),
-			"\n   Expected:   ", expStr,
-			"\n   Gotten:     ", result)
-	}
-}
-
 func TestAssignment(t *testing.T) {
 	checkString(t, ((*AssignmentExp)(nil)).String(), "nil")
 	checkReturn(t, (*AssignmentExp)(nil), "nil")
@@ -161,4 +136,36 @@ func TestUnaryOp(t *testing.T) {
 	bin := UnaryOp(val, NegateOp, types.Float32())
 	checkExp(t, bin, `-2.2`)
 	checkReturn(t, bin, `float32`)
+}
+
+//============================================================================
+
+// checkString checks the the given string matches the given expected lines.
+// The lines will be joined with newlines.
+func checkString(t *testing.T, result string, exp ...string) {
+	expStr := strings.Join(exp, "\n")
+	if result != expStr {
+		t.Fatal("Unexpected construct string:",
+			"\n   Expected: ", expStr,
+			"\n   Gotten:   ", result)
+	}
+}
+
+// checkExp checks that the expression's string matches the given string.
+func checkExp(t *testing.T, e Expression, exp ...string) {
+	checkString(t, ToString(e), exp...)
+}
+
+// checkReturn checks that the given expression returns
+// the given expected type from the ReturnType method.
+func checkReturn(t *testing.T, e Expression, exp ...string) {
+	returnType := e.ReturnType()
+	result := types.ToString(returnType)
+	expStr := strings.Join(exp, "\n")
+	if result != expStr {
+		t.Fatal("Unexpected return type from expression:",
+			"\n   Expression: ", ToString(e),
+			"\n   Expected:   ", expStr,
+			"\n   Gotten:     ", result)
+	}
 }

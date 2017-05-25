@@ -24,6 +24,7 @@ type InterfaceType struct {
 // Interface creates a new interface type.
 func Interface() *InterfaceType {
 	return &InterfaceType{
+		Parent:    nil,
 		Name:      "",
 		Functions: []*FunctionType{},
 	}

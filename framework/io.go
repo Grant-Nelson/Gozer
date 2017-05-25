@@ -1,7 +1,7 @@
 package framework
 
 import (
-	c "github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
 // ioName gets the name for the io package.
@@ -9,7 +9,7 @@ const ioName = "io"
 
 // IoPrebuild adds the scope information for the io package.
 // https://golang.org/pkg/io/
-func IoPrebuild(prog *c.ProgramType) {
+func IoPrebuild(prog *types.ProgramType) {
 	if prog.Contains(ioName) {
 		return
 	}
@@ -18,7 +18,7 @@ func IoPrebuild(prog *c.ProgramType) {
 	BuiltinPrebuild(prog)
 
 	// Describe the io package.
-	pack := c.Package()
+	pack := types.Package()
 	prog.AddPackage(ioName, pack)
 
 	// TODO: Add io package

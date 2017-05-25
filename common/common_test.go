@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// TestDiffStringSets test of the DiffStringSets method.
 func TestDiffStringSets(t *testing.T) {
 	checkDiffStringSets(t, "a|b|c", "a|b|c", "", "", false)
 	checkDiffStringSets(t, "a|b|c", "b|c|a", "", "", false)
@@ -23,7 +22,16 @@ func TestDiffStringSets(t *testing.T) {
 	checkDiffStringSets(t, "a|c|d|e", "a|b|c|e", "b", "d", true)
 }
 
-// TestMapFormatting test of the Map class.
+func TestIndent(t *testing.T) {
+	result := Indent("No Indent\nIndent\nAlso Indented", "   ")
+	exp := "No Indent\n   Indent\n   Also Indented"
+	if result != exp {
+		fail(t, "Unexpected result from Indent", NewMap().
+			Add("Result", result).
+			Add("Expected", exp))
+	}
+}
+
 func TestMapFormatting(t *testing.T) {
 	checkMap(t, NewMap(),
 		"")
@@ -116,9 +124,15 @@ func checkMap(t *testing.T, m Map, expLines ...string) {
 	result := m.String()
 	exp := strings.Join(expLines, "\n")
 	if result != exp {
-		fail(t, "Unexpected result from Map", NewMap().
+		fail(t, "Unexpected string result from Map", NewMap().
 			Add("Expected", exp).
 			Add("Result", result))
+	}
+	if (len(exp) == 0) != m.Empty() {
+		fail(t, "Unexpected empty result from Map", NewMap().
+			Add("Expected", len(exp) == 0).
+			Add("Result", m.Empty()).
+			Add("String", result))
 	}
 }
 

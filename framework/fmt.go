@@ -1,7 +1,7 @@
 package framework
 
 import (
-	c "github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
 // fmtName gets the name for the fmt package.
@@ -9,7 +9,7 @@ const fmtName = "fmt"
 
 // FmtPrebuild adds the package to the transpiler.
 // https://golang.org/pkg/fmt/
-func FmtPrebuild(prog *c.ProgramType) {
+func FmtPrebuild(prog *types.ProgramType) {
 	if prog.Contains(fmtName) {
 		return
 	}
@@ -23,49 +23,49 @@ func FmtPrebuild(prog *c.ProgramType) {
 	errType := builtin.Interfaces["error"]
 
 	// Describe the fmt package.
-	pack := c.Package()
+	pack := types.Package()
 	prog.AddPackage(fmtName, pack)
 
 	pack.AddFunction("Errorf").
-		AddParam("format", c.String()).
-		AddParam("a", c.Interface()).
+		AddParam("format", types.String()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("", errType)
+		SetReturn(errType)
 
 	pack.AddFunction("Print").
-		AddParam("a", c.Interface()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("n", c.Int()).
+		AddReturn("n", types.Int()).
 		AddReturn("err", errType)
 
 	pack.AddFunction("Printf").
-		AddParam("format", c.String()).
-		AddParam("a", c.Interface()).
+		AddParam("format", types.String()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("n", c.Int()).
+		AddReturn("n", types.Int()).
 		AddReturn("err", errType)
 
 	pack.AddFunction("Println").
-		AddParam("a", c.Interface()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("n", c.Int()).
+		AddReturn("n", types.Int()).
 		AddReturn("err", errType)
 
 	pack.AddFunction("Sprint").
-		AddParam("a", c.Interface()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("", c.String())
+		SetReturn(types.String())
 
 	pack.AddFunction("Sprintf").
-		AddParam("format", c.String()).
-		AddParam("a", c.Interface()).
+		AddParam("format", types.String()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("", c.String())
+		SetReturn(types.String())
 
 	pack.AddFunction("Sprintln").
-		AddParam("a", c.Interface()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("", c.String())
+		SetReturn(types.String())
 
 	// TODO: Add the following:
 	//

@@ -8,19 +8,6 @@ import (
 	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
-func checkString(t *testing.T, result string, exp ...string) {
-	expStr := strings.Join(exp, "\n")
-	if result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
-	}
-}
-
-func checkStat(t *testing.T, s Statement, exp ...string) {
-	checkString(t, ToString(s), exp...)
-}
-
 func TestBlock(t *testing.T) {
 	checkString(t, ((*BlockStat)(nil)).String(), "nil")
 	blk := Block()
@@ -76,5 +63,43 @@ func TestFor(t *testing.T) {
 func TestIf(t *testing.T) {
 	checkString(t, ((*IfStat)(nil)).String(), "nil")
 
-	// TODO: Add more for "if"
+	stat := If(nil, nil, nil)
+	checkStat(t, stat, "if nil nil")
+
+	id := expressions.Identifier("name", types.String())
+	stat.Cond = expressions.BinaryOp(id, expressions.Literal(`"World"`, types.String()), expressions.EqualOp, types.Bool())
+	checkStat(t, stat, `if (name == "World") nil`)
+
+	fType := types.Function().AddParam("a", types.String()).SetEllipse(true)
+	stat.Body = expressions.Call(fType,
+		expressions.Identifier("print", fType),
+		[]expressions.Expression{
+			expressions.Literal(`"Hello "`, types.String()),
+			id})
+	checkStat(t, stat, `if (name == "World") print("Hello ", name)`)
+
+	stat.Else = expressions.Call(fType,
+		expressions.Identifier("print", fType),
+		[]expressions.Expression{
+			expressions.Literal(`"Goodnight "`, types.String()),
+			id})
+	checkStat(t, stat, `if (name == "World") print("Hello ", name) else print("Goodnight ", name)`)
+}
+
+//============================================================================
+
+// checkString checks the the given string matches the given expected lines.
+// The lines will be joined with newlines.
+func checkString(t *testing.T, result string, exp ...string) {
+	expStr := strings.Join(exp, "\n")
+	if result != expStr {
+		t.Fatal("Unexpected construct string:",
+			"\n   Expected: ", expStr,
+			"\n   Gotten:   ", result)
+	}
+}
+
+// checkStat checks that the statement's string matches the given string.
+func checkStat(t *testing.T, s Statement, exp ...string) {
+	checkString(t, ToString(s), exp...)
 }

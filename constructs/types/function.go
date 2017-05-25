@@ -48,6 +48,7 @@ type FunctionType struct {
 // Function creates a new function type description with the given information.
 func Function() *FunctionType {
 	return &FunctionType{
+		Parent:        nil,
 		Comment:       "",
 		Name:          "",
 		ParamNames:    []string{},

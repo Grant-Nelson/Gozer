@@ -1,7 +1,7 @@
 package framework
 
 import (
-	c "github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
 // builtinName gets the name for the builtin package.
@@ -9,7 +9,7 @@ const builtinName = "builtin"
 
 // BuiltinPrebuild adds the scope information for the builtin package.
 // https://golang.org/ref/spec#Built-in_functions
-func BuiltinPrebuild(prog *c.ProgramType) {
+func BuiltinPrebuild(prog *types.ProgramType) {
 	if _, exists := prog.Packages[builtinName]; exists {
 		return
 	}
@@ -18,36 +18,38 @@ func BuiltinPrebuild(prog *c.ProgramType) {
 	pack := c.Package()
 	prog.AddPackage(builtinName, pack)
 
-	// https://golang.org/src/builtin/builtin.go?h=make#L134
-	pack.AddFunction("append").
-		AddParam("a", c.Variant()).
-		AddParam("b", c.Variant()).
-		SetEllipse(true).
-		AddReturn("", c.Variant())
-
-	// https://golang.org/src/builtin/builtin.go?h=make#L164
-	pack.AddFunction("cap").
-		AddParam("a", c.Variant()).
-		AddReturn("", c.Int())
-
 	// https://golang.org/src/builtin/builtin.go?h=make#L254
 	pack.AddInterface("error").
 		AddFunction("Error").
-		AddReturn("", c.String())
+		SetReturn("", types.String())
+
+	pack.AddStruct()
+
+	// https://golang.org/src/builtin/builtin.go?h=make#L134
+	pack.AddFunction("append").
+		AddParam("a", types.Variant()).
+		AddParam("b", types.Variant()).
+		SetEllipse(true).
+		SetReturn(types.Variant())
+
+	// https://golang.org/src/builtin/builtin.go?h=make#L164
+	pack.AddFunction("cap").
+		AddParam("a", types.Variant()).
+		SetReturn("", types.Int())
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L155
 	pack.AddFunction("len").
-		AddParam("a", c.Variant()).
-		AddReturn("", c.Int())
+		AddParam("a", types.Variant()).
+		SetReturn("", types.Int())
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L243
 	pack.AddFunction("print").
-		AddParam("a", c.Interface()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true)
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L250
 	pack.AddFunction("println").
-		AddParam("a", c.Interface()).
+		AddParam("a", types.Interface()).
 		SetEllipse(true)
 
 	// TODO: Implement the following:

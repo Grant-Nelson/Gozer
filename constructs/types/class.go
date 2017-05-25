@@ -26,6 +26,7 @@ type ClassType struct {
 // Class creates a new class type.
 func Class() *ClassType {
 	c := &ClassType{
+		Parent:    nil,
 		Name:      "",
 		Data:      nil,
 		Interface: Interface(),

@@ -7,44 +7,6 @@ import (
 	"github.com/grant-nelson/Gozer/common"
 )
 
-func checkString(t *testing.T, result string, exp ...string) {
-	expStr := strings.Join(exp, "\n")
-	if result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
-	}
-}
-
-func checkType(t *testing.T, ty Type, exp ...string) {
-	checkString(t, ToString(ty), exp...)
-}
-
-func checkGetElement(t *testing.T, t1 Type, exp ...string) {
-	t2, found := GetIndexableType(t1)
-	expStr := strings.Join(exp, "\n")
-	if result := ToString(t2); result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Type:     ", ToString(t1),
-			"\n   Found:    ", found,
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
-	}
-}
-
-func checkFind(t *testing.T, t1 Type, name string, exp ...string) {
-	t2, found := FindSubtype(t1, name)
-	expStr := strings.Join(exp, "\n")
-	if result := ToString(t2); result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Type:     ", ToString(t1),
-			"\n   Name:     ", name,
-			"\n   Found:    ", found,
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
-	}
-}
-
 func TestBaseTypes(t *testing.T) {
 	checkString(t, (*BaseType)(nil).String(), "nil")
 	checkString(t, (*StringType)(nil).String(), "nil")
@@ -70,6 +32,30 @@ func TestBaseTypes(t *testing.T) {
 	checkType(t, Variant(), "variant")
 	checkType(t, Void(), "void")
 	checkFind(t, String(), "temp", "nil")
+}
+
+func TestLookupType(t *testing.T) {
+	checkType(t, LookupType("watson"), "nil")
+	checkLookupType(t, Bool())
+	checkLookupType(t, Byte())
+	checkLookupType(t, Complex64())
+	checkLookupType(t, Complex128())
+	checkLookupType(t, Float32())
+	checkLookupType(t, Float64())
+	checkLookupType(t, Int())
+	checkLookupType(t, Int16())
+	checkLookupType(t, Int32())
+	checkLookupType(t, Int64())
+	checkLookupType(t, Int8())
+	checkLookupType(t, Rune())
+	checkLookupType(t, String())
+	checkLookupType(t, UInt())
+	checkLookupType(t, UInt16())
+	checkLookupType(t, UInt32())
+	checkLookupType(t, UInt64())
+	checkLookupType(t, UInt8())
+	checkLookupType(t, Variant())
+	checkLookupType(t, Void())
 }
 
 func TestConstantTypes(t *testing.T) {
@@ -105,12 +91,6 @@ func TestMapTypes(t *testing.T) {
 	checkType(t, Map(String(), Map(Int(), Int())), "map[string]map[int]int")
 }
 
-type testBody struct{}
-
-func (tb *testBody) String() string {
-	return "{\n  print(\"Hello World\")\n}"
-}
-
 func TestFunctionTypes(t *testing.T) {
 	checkString(t, ((*FunctionType)(nil)).String(), "nil")
 	checkType(t, Function(), "void func()")
@@ -123,7 +103,7 @@ func TestFunctionTypes(t *testing.T) {
 	checkType(t, f1, "float32 fibonacci(float32 name)")
 
 	f2 := Function().SetName("main")
-	f2.Body = &testBody{}
+	f2.Body = "{\n  print(\"Hello World\")\n}"
 	checkType(t, f2,
 		`void main() {`,
 		`  print("Hello World")`,
@@ -322,4 +302,64 @@ func TestElementTypes(t *testing.T) {
 	checkType(t, Map(String(), String()).ElementType(), "string")
 	checkType(t, (*StringType)(nil).ElementType(), "uint8")
 	checkType(t, String().ElementType(), "uint8")
+}
+
+//============================================================================
+
+// checkString checks the the given string matches the given expected lines.
+// The lines will be joined with newlines.
+func checkString(t *testing.T, result string, exp ...string) {
+	expStr := strings.Join(exp, "\n")
+	if result != expStr {
+		t.Fatal("Unexpected construct string:",
+			"\n   Expected: ", expStr,
+			"\n   Gotten:   ", result)
+	}
+}
+
+// checkType checks that the type's string matches the given string.
+func checkType(t *testing.T, ty Type, exp ...string) {
+	checkString(t, ToString(ty), exp...)
+}
+
+// checkLookupType checks that the LookupType method returns
+// the given type when the name of the given type is used in it.
+func checkLookupType(t *testing.T, ty Type) {
+	str := ToString(ty)
+	result := LookupType(str)
+	resultStr := ToString(result)
+	if str != resultStr {
+		t.Fatal("Unexpected result from LookupType:",
+			"\n   Expected: ", str,
+			"\n   Gotten:   ", resultStr)
+	}
+}
+
+// checkGetElement checks that the GetIndexableType method run on the
+// given type returns a type matching the given expected string.
+func checkGetElement(t *testing.T, t1 Type, exp ...string) {
+	t2, found := GetIndexableType(t1)
+	expStr := strings.Join(exp, "\n")
+	if result := ToString(t2); result != expStr {
+		t.Fatal("Unexpected construct string:",
+			"\n   Type:     ", ToString(t1),
+			"\n   Found:    ", found,
+			"\n   Expected: ", expStr,
+			"\n   Gotten:   ", result)
+	}
+}
+
+// checkFind checks that the FindSubtype method run on the given type with
+// the given name returns a type matching the given expected string.
+func checkFind(t *testing.T, t1 Type, name string, exp ...string) {
+	t2, found := FindSubtype(t1, name)
+	expStr := strings.Join(exp, "\n")
+	if result := ToString(t2); result != expStr {
+		t.Fatal("Unexpected construct string:",
+			"\n   Type:     ", ToString(t1),
+			"\n   Name:     ", name,
+			"\n   Found:    ", found,
+			"\n   Expected: ", expStr,
+			"\n   Gotten:   ", result)
+	}
 }

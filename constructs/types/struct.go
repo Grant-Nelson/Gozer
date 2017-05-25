@@ -7,7 +7,7 @@ var _ Type = (*StructureType)(nil)
 // StructureType for storing the types of structure.
 type StructureType struct {
 
-	// Parent is the parent type for this function.
+	// Parent is the parent type for this structure.
 	// It is a class, package, or nil.
 	Parent Type
 
@@ -24,6 +24,7 @@ type StructureType struct {
 // Structure creates a new struct type.
 func Structure() *StructureType {
 	return &StructureType{
+		Parent:       nil,
 		Name:         "",
 		MemeberNames: []string{},
 		MemeberTypes: []Type{},

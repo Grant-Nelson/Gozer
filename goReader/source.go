@@ -151,44 +151,8 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool)
 
 // lookupType gets the type for the given Go type name.
 func (src *Source) lookupType(scope *Scope, typeName string) constructs.Type {
-	switch typeName {
-	case "bool":
-		return constructs.Bool()
-	case "byte":
-		return constructs.Byte()
-	case "complex64":
-		return constructs.Complex64()
-	case "complex128":
-		return constructs.Complex128()
-	case "float32":
-		return constructs.Float32()
-	case "float64":
-		return constructs.Float64()
-	case "int":
-		return constructs.Int()
-	case "int8":
-		return constructs.Int8()
-	case "int16":
-		return constructs.Int16()
-	case "int32":
-		return constructs.Int32()
-	case "int64":
-		return constructs.Int64()
-	case "rune":
-		return constructs.Rune()
-	case "string":
-		return constructs.String()
-	case "uint":
-		return constructs.UInt()
-	case "uint8":
-		return constructs.UInt8()
-	case "uint16":
-		return constructs.UInt16()
-	case "uint32":
-		return constructs.UInt32()
-	case "uint64":
-		return constructs.UInt64()
-	default:
+	result := types.LookupType(typeName)
+	if result == nil {
 		msg.ThrowError("Unhandled type name: ", typeName)
 		return nil
 	}
