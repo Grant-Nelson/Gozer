@@ -10,20 +10,18 @@ const builtinName = "builtin"
 // BuiltinPrebuild adds the scope information for the builtin package.
 // https://golang.org/ref/spec#Built-in_functions
 func BuiltinPrebuild(prog *types.ProgramType) {
-	if _, exists := prog.Packages[builtinName]; exists {
+	if prog.Contains(builtinName) {
 		return
 	}
 
 	// Describe the buildin package.
-	pack := c.Package()
+	pack := types.Package()
 	prog.AddPackage(builtinName, pack)
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L254
 	pack.AddInterface("error").
 		AddFunction("Error").
-		SetReturn("", types.String())
-
-	pack.AddStruct()
+		SetReturn(types.String())
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L134
 	pack.AddFunction("append").
@@ -35,12 +33,12 @@ func BuiltinPrebuild(prog *types.ProgramType) {
 	// https://golang.org/src/builtin/builtin.go?h=make#L164
 	pack.AddFunction("cap").
 		AddParam("a", types.Variant()).
-		SetReturn("", types.Int())
+		SetReturn(types.Int())
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L155
 	pack.AddFunction("len").
 		AddParam("a", types.Variant()).
-		SetReturn("", types.Int())
+		SetReturn(types.Int())
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L243
 	pack.AddFunction("print").

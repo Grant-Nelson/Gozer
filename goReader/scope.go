@@ -46,7 +46,7 @@ func (scope *Scope) Add(id string, t constructs.Type) *constructs.IdentifierExp 
 func (scope *Scope) AddTemp(t constructs.Type) *constructs.IdentifierExp {
 	i := 0
 	for {
-		temp := fmt.Sprintf("temp%d", i)
+		temp := fmt.Sprintf("gozerTemp%d", i)
 		if id := scope.Get(temp); id == nil {
 			return scope.Add(temp, t)
 		}

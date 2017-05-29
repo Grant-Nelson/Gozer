@@ -229,6 +229,7 @@ func TestPackageAndProgramTypes(t *testing.T) {
 	f1 := p1.AddFunction("boom")
 	i1 := p1.AddInterface("pow")
 	c1 := p1.AddClass("splat")
+	s1 := p1.AddStructure("bawmp")
 	p1.AddDeclaration("pop", String())
 	checkType(t, p1,
 		`{`,
@@ -236,11 +237,13 @@ func TestPackageAndProgramTypes(t *testing.T) {
 		`  void boom()`,
 		`  pow interface{}`,
 		`  splat {}`,
+		`  bawmp struct{}`,
 		`}`)
 	checkFind(t, p1, "temp", "nil")
 	checkFind(t, p1, "boom", ToString(f1))
 	checkFind(t, p1, "pow", ToString(i1))
 	checkFind(t, p1, "splat", ToString(c1))
+	checkFind(t, p1, "bawmp", ToString(s1))
 	checkFind(t, p1, "pop", ToString(String()))
 	p2 := Package()
 	p2.AddDeclaration("width", Float32())
@@ -258,8 +261,20 @@ func TestPackageAndProgramTypes(t *testing.T) {
 		`  void boom()`,
 		`  pow interface{}`,
 		`  splat {}`,
+		`  bawmp struct{}`,
 		`}`)
 	checkFind(t, p1, "other", ToString(p2))
+
+	badType, foundBad := ((*PackageType)(nil)).Find("bad")
+	if foundBad {
+		t.Fatal("Unexpected result from Find on nil package receiver: found returned true.")
+	}
+	checkType(t, badType, "nil")
+	checkType(t, ((*PackageType)(nil)).AddDeclaration("bad", Int()), "nil")
+	checkType(t, ((*PackageType)(nil)).AddFunction("bad"), "nil")
+	checkType(t, ((*PackageType)(nil)).AddInterface("bad"), "nil")
+	checkType(t, ((*PackageType)(nil)).AddClass("bad"), "nil")
+	checkType(t, ((*PackageType)(nil)).AddStructure("bad"), "nil")
 
 	checkString(t, ((*ProgramType)(nil)).String(), "nil")
 	prog1 := Program()

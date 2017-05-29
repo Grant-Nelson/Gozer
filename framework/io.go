@@ -7,9 +7,9 @@ import (
 // ioName gets the name for the io package.
 const ioName = "io"
 
-// IoPrebuild adds the scope information for the io package.
+// IOPrebuild adds the scope information for the io package.
 // https://golang.org/pkg/io/
-func IoPrebuild(prog *types.ProgramType) {
+func IOPrebuild(prog *types.ProgramType) {
 	if prog.Contains(ioName) {
 		return
 	}

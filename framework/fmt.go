@@ -16,7 +16,7 @@ func FmtPrebuild(prog *types.ProgramType) {
 
 	// Add required imports.
 	BuiltinPrebuild(prog)
-	IoPrebuild(prog)
+	IOPrebuild(prog)
 
 	// Get the types from other packages needed by this package.
 	builtin := prog.Packages[builtinName]
@@ -26,42 +26,51 @@ func FmtPrebuild(prog *types.ProgramType) {
 	pack := types.Package()
 	prog.AddPackage(fmtName, pack)
 
+	// return structure for methods similar to Print and Println
+	lenRet := pack.AddStructure("lengthReturn").
+		AddMember("n", types.Int()).
+		AddMember("err", errType)
+
+	// https://golang.org/pkg/fmt/#Errorf
 	pack.AddFunction("Errorf").
 		AddParam("format", types.String()).
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
 		SetReturn(errType)
 
+	// https://golang.org/pkg/fmt/#Print
 	pack.AddFunction("Print").
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("n", types.Int()).
-		AddReturn("err", errType)
+		SetReturn(lenRet)
 
+	// https://golang.org/pkg/fmt/#Printf
 	pack.AddFunction("Printf").
 		AddParam("format", types.String()).
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("n", types.Int()).
-		AddReturn("err", errType)
+		SetReturn(lenRet)
 
+	// https://golang.org/pkg/fmt/#Println
 	pack.AddFunction("Println").
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		AddReturn("n", types.Int()).
-		AddReturn("err", errType)
+		SetReturn(lenRet)
 
+	// https://golang.org/pkg/fmt/#Sprint
 	pack.AddFunction("Sprint").
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
 		SetReturn(types.String())
 
+	// https://golang.org/pkg/fmt/#Sprintf
 	pack.AddFunction("Sprintf").
 		AddParam("format", types.String()).
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
 		SetReturn(types.String())
 
+	// https://golang.org/pkg/fmt/#Sprintln
 	pack.AddFunction("Sprintln").
 		AddParam("a", types.Interface()).
 		SetEllipse(true).

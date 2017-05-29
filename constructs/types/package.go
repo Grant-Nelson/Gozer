@@ -27,6 +27,9 @@ type PackageType struct {
 
 	// Classes is the set of classes for this package.
 	Classes map[string]*ClassType
+
+	// Structures is the set of structure for this package.
+	Structures map[string]*StructureType
 }
 
 // Package creates a new package description.
@@ -37,11 +40,15 @@ func Package() *PackageType {
 		Functions:    map[string]*FunctionType{},
 		Interfaces:   map[string]*InterfaceType{},
 		Classes:      map[string]*ClassType{},
+		Structures:   map[string]*StructureType{},
 	}
 }
 
 // Find looks up a subtype to this package.
 func (t *PackageType) Find(name string) (Type, bool) {
+	if t == nil {
+		return nil, false
+	}
 	if t2, exists := t.Imports[name]; exists {
 		return t2, true
 	}
@@ -57,17 +64,26 @@ func (t *PackageType) Find(name string) (Type, bool) {
 	if t2, exists := t.Classes[name]; exists {
 		return t2, true
 	}
+	if t2, exists := t.Structures[name]; exists {
+		return t2, true
+	}
 	return nil, false
 }
 
 // AddDeclaration adds a declaration to this package.
 func (t *PackageType) AddDeclaration(name string, decl Type) *PackageType {
+	if t == nil {
+		return nil
+	}
 	t.Declarations[name] = decl
 	return t
 }
 
 // AddFunction adds a function to this package.
 func (t *PackageType) AddFunction(name string) *FunctionType {
+	if t == nil {
+		return nil
+	}
 	tfunc := Function()
 	tfunc.Name = name
 	tfunc.Parent = t
@@ -77,6 +93,9 @@ func (t *PackageType) AddFunction(name string) *FunctionType {
 
 // AddInterface adds a interface to this package.
 func (t *PackageType) AddInterface(name string) *InterfaceType {
+	if t == nil {
+		return nil
+	}
 	inter := Interface()
 	inter.Parent = t
 	t.Interfaces[name] = inter
@@ -85,10 +104,24 @@ func (t *PackageType) AddInterface(name string) *InterfaceType {
 
 // AddClass adds a class to this package.
 func (t *PackageType) AddClass(name string) *ClassType {
+	if t == nil {
+		return nil
+	}
 	class := Class()
 	class.Parent = t
 	t.Classes[name] = class
 	return class
+}
+
+// AddStructure adds a structure to this package.
+func (t *PackageType) AddStructure(name string) *StructureType {
+	if t == nil {
+		return nil
+	}
+	st := Structure()
+	st.Parent = t
+	t.Structures[name] = st
+	return st
 }
 
 // String gets the name for this type.
@@ -150,6 +183,17 @@ func (t *PackageType) String() string {
 		}
 		sort.Strings(parts5)
 		result += "  " + common.Indent(strings.Join(parts5, "\n"), "  ") + "\n"
+	}
+
+	if len(t.Structures) > 0 {
+		i := 0
+		parts6 := make([]string, len(t.Structures))
+		for name, strt := range t.Structures {
+			parts6[i] = name + " " + ToString(strt)
+			i++
+		}
+		sort.Strings(parts6)
+		result += "  " + common.Indent(strings.Join(parts6, "\n"), "  ") + "\n"
 	}
 
 	if len(result) <= 0 {
