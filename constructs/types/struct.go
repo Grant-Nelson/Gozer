@@ -63,13 +63,25 @@ func (t *StructureType) String() string {
 	if len(t.Name) > 0 {
 		return t.Name
 	}
+	return t.FullString()
+}
+
+// FullString gets a string for the structure for this type.
+func (t *StructureType) FullString() string {
+	if t == nil {
+		return nilStr
+	}
+	name := "struct"
+	if len(t.Name) > 0 {
+		name = t.Name
+	}
 	if len(t.MemeberNames) <= 0 {
-		return "struct{}"
+		return name + "{}"
 	}
 	parts := make([]string, len(t.MemeberNames))
 	for i, name := range t.MemeberNames {
 		parts[i] = ToString(t.MemeberTypes[i]) + " " + name
 		i++
 	}
-	return "struct{\n  " + strings.Join(parts, "\n  ") + "\n}"
+	return name + "{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

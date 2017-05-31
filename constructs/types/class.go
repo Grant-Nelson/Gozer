@@ -55,7 +55,18 @@ func (t *ClassType) String() string {
 	if len(t.Name) > 0 {
 		return t.Name
 	}
+	return t.FullString()
+}
 
+// FullString gets a string for the structure for this type.
+func (t *ClassType) FullString() string {
+	if t == nil {
+		return nilStr
+	}
+	name := "class"
+	if len(t.Name) > 0 {
+		name = t.Name
+	}
 	result := ""
 	if str := ToString(t.Data); (len(str) > 0) && (str != "nil") {
 		result += "  " + common.Indent(str, "  ") + "\n"
@@ -63,9 +74,8 @@ func (t *ClassType) String() string {
 	if str := ToString(t.Interface); (len(str) > 0) && (str != "interface{}") {
 		result += "  " + common.Indent(str, "  ") + "\n"
 	}
-
 	if len(result) <= 0 {
-		return "{}"
+		return name + "{}"
 	}
-	return "{\n" + result + "}"
+	return name + "{\n" + result + "}"
 }

@@ -27,7 +27,7 @@ func FmtPrebuild(prog *types.ProgramType) {
 	prog.AddPackage(fmtName, pack)
 
 	// return structure for methods similar to Print and Println
-	lenRet := pack.AddStructure("lengthReturn").
+	printResult := pack.AddStructure("printResult").
 		AddMember("n", types.Int()).
 		AddMember("err", errType)
 
@@ -42,20 +42,20 @@ func FmtPrebuild(prog *types.ProgramType) {
 	pack.AddFunction("Print").
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		SetReturn(lenRet)
+		SetReturn(printResult)
 
 	// https://golang.org/pkg/fmt/#Printf
 	pack.AddFunction("Printf").
 		AddParam("format", types.String()).
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		SetReturn(lenRet)
+		SetReturn(printResult)
 
 	// https://golang.org/pkg/fmt/#Println
 	pack.AddFunction("Println").
 		AddParam("a", types.Interface()).
 		SetEllipse(true).
-		SetReturn(lenRet)
+		SetReturn(printResult)
 
 	// https://golang.org/pkg/fmt/#Sprint
 	pack.AddFunction("Sprint").

@@ -7,7 +7,9 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/constructs/expressions"
+	"github.com/grant-nelson/Gozer/constructs/statements"
+	"github.com/grant-nelson/Gozer/constructs/types"
 	"github.com/grant-nelson/Gozer/msg"
 )
 
@@ -28,13 +30,13 @@ type Source struct {
 
 	// Imports whieh were local to this method.
 	// The key is the short name or path for the import.
-	Imports map[string]*constructs.PackageType
+	Imports map[string]*types.PackageType
 
 	// Package is the package which this method belongs to.
-	Package *constructs.PackageType
+	Package *types.PackageType
 
 	// pendingFuncs is the set of functions which need the body of the function read.
-	pendingFuncs map[*constructs.FunctionType]*ast.BlockStmt
+	pendingFuncs map[*types.FunctionType]*ast.BlockStmt
 }
 
 // NewSource creates a new source file descriptions.
@@ -44,9 +46,9 @@ func NewSource(log *msg.Logger, fileSet *token.FileSet) *Source {
 		fileSet:      fileSet,
 		Path:         "",
 		Data:         nil,
-		Imports:      map[string]*constructs.PackageType{},
+		Imports:      map[string]*types.PackageType{},
 		Package:      nil,
-		pendingFuncs: map[*constructs.FunctionType]*ast.BlockStmt{},
+		pendingFuncs: map[*types.FunctionType]*ast.BlockStmt{},
 	}
 }
 
@@ -88,7 +90,7 @@ func (src *Source) ProcessBodies() {
 }
 
 // addBasedPackage adds a package at the base level, not under a name.
-func (src *Source) addBasedPackage(scope *Scope, pack *constructs.PackageType) {
+func (src *Source) addBasedPackage(scope *Scope, pack *types.PackageType) {
 	for id, t := range pack.Imports {
 		scope.Add(id, t)
 	}
@@ -126,7 +128,7 @@ func (src *Source) fillOutScope() *Scope {
 }
 
 // readType reads a type from the given expression.
-func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool) {
+func (src *Source) readType(scope *Scope, desc ast.Expr) (types.Type, bool) {
 	if desc == nil {
 		msg.ThrowError("Nil type expression")
 		return nil, false
@@ -137,12 +139,12 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool)
 			msg.ThrowError("Unhandled array length expression: ", id, " (", reflect.TypeOf(desc), ")")
 		}
 		desc, _ := src.readType(scope, id.Elt)
-		return constructs.List(desc), true
+		return types.List(desc), true
 	case *ast.Ident:
 		return src.lookupType(scope, id.Name), false
 	case *ast.Ellipsis:
 		desc, _ := src.readType(scope, id.Elt)
-		return constructs.List(desc), true
+		return types.List(desc), true
 	default:
 		msg.ThrowError("Unhandled type expression: ", desc, " (", reflect.TypeOf(desc), ")")
 		return nil, false
@@ -150,19 +152,20 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (constructs.Type, bool)
 }
 
 // lookupType gets the type for the given Go type name.
-func (src *Source) lookupType(scope *Scope, typeName string) constructs.Type {
+func (src *Source) lookupType(scope *Scope, typeName string) types.Type {
 	result := types.LookupType(typeName)
 	if result == nil {
 		msg.ThrowError("Unhandled type name: ", typeName)
 		return nil
 	}
+	return result
 }
 
 // readFieldList reads a list of parameters or returns from the given field.
-func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string, []constructs.Type, bool) {
+func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string, []types.Type, bool) {
 	names := []string{}
-	types := []constructs.Type{}
-	var typeDesc constructs.Type
+	types := []types.Type{}
+	var typeDesc types.Type
 	ellipsis := false
 	if fields != nil {
 		for _, field := range fields.List {
@@ -206,14 +209,14 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 		}
 	}()
 	//ast.Print(src.fileSet, data)
-	fn := constructs.Function()
+	fn := types.Function()
 	fn.Name = data.Name.Name
 
 	// Receiver
 	receiverNames, receiverTypes, _ := src.readFieldList(scope, data.Recv)
 	if len(receiverNames) > 0 {
 		fn.ReceiverName = receiverNames[0]
-		class := receiverTypes[0].(*constructs.ClassType)
+		class := receiverTypes[0].(*types.ClassType)
 		class.Interface.Functions[fn.Name] = fn
 		fn.ReceiverClass = class
 	} else {
@@ -239,39 +242,39 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 
 // parseBlock reads a block statement.
 // https://golang.org/pkg/go/ast/#BlockStmt
-func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *constructs.BlockStatement {
+func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *statements.BlockStat {
 	defer func() {
 		if r := recover(); r != nil {
 			msg.ThrowError("Error occurred while parsing a block: ", r)
 		}
 	}()
 	blockScope := NewScope(scope)
-	stats := []constructs.Statement{}
+	stats := []statements.Statement{}
 	for _, stmt := range block.List {
 		newStates := src.parseStatement(blockScope, stmt)
 		stats = append(stats, newStates...)
 	}
-	return constructs.Block(stats...)
+	return statements.Block(stats...)
 }
 
 // parseStatement reads a statement.
 // https://golang.org/pkg/go/ast/#Stmt
-func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs.Statement {
+func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []statements.Statement {
 	switch stat := statement.(type) {
 	case *ast.AssignStmt:
 		return src.expSliceToStatSlice(src.parseAssignment(scope, stat))
 	case *ast.ExprStmt:
-		return []constructs.Statement{src.parseExpression(scope, stat.X)}
+		return []statements.Statement{src.parseExpression(scope, stat.X)}
 	case *ast.IfStmt:
-		return []constructs.Statement{src.parseIfStatement(scope, stat)}
+		return []statements.Statement{src.parseIfStatement(scope, stat)}
 	case *ast.BlockStmt:
-		return []constructs.Statement{src.parseBlock(scope, stat)}
+		return []statements.Statement{src.parseBlock(scope, stat)}
 	case *ast.ForStmt:
-		return []constructs.Statement{src.parseForStatement(scope, stat)}
+		return []statements.Statement{src.parseForStatement(scope, stat)}
 	case *ast.IncDecStmt:
-		return []constructs.Statement{src.parseIncDecStatement(scope, stat)}
+		return []statements.Statement{src.parseIncDecStatement(scope, stat)}
 	case *ast.BranchStmt:
-		return []constructs.Statement{src.parseBranchStatement(scope, stat)}
+		return []statements.Statement{src.parseBranchStatement(scope, stat)}
 
 	// case *ast.ReturnStmt: dw.writeReturn(st)
 	default:
@@ -282,90 +285,90 @@ func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []constructs
 
 // parseIfStatement reads in an if-statement.
 // https://golang.org/pkg/go/ast/#IfStmt
-func (src *Source) parseIfStatement(scope *Scope, ifStat *ast.IfStmt) constructs.Statement {
-	init := []constructs.Statement{}
+func (src *Source) parseIfStatement(scope *Scope, ifStat *ast.IfStmt) statements.Statement {
+	init := []statements.Statement{}
 	if ifStat.Init != nil {
 		init = src.parseStatement(scope, ifStat.Init)
 	}
 
 	cond := src.parseExpression(scope, ifStat.Cond)
 	bodyStat := src.parseBlock(scope, ifStat.Body)
-	var elseStat constructs.Statement
+	var elseStat statements.Statement
 	if ifStat.Else != nil {
 		stats := src.parseStatement(scope, ifStat.Else)
 		if len(stats) == 1 {
 			elseStat = stats[0]
 		} else {
-			elseStat = constructs.Block(stats...)
+			elseStat = statements.Block(stats...)
 		}
 	}
 
 	if len(init) > 0 {
-		init = append(init, constructs.If(cond, bodyStat, elseStat))
-		return constructs.Block(init...)
+		init = append(init, statements.If(cond, bodyStat, elseStat))
+		return statements.Block(init...)
 	}
-	return constructs.If(cond, bodyStat, elseStat)
+	return statements.If(cond, bodyStat, elseStat)
 }
 
 // parseForStatement reads a for-statment
 // https://golang.org/pkg/go/ast/#ForStmt
-func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) constructs.Statement {
-	var inits []constructs.Statement
+func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) statements.Statement {
+	var inits []statements.Statement
 	if forStat.Init != nil {
 		inits = src.parseStatement(scope, forStat.Init)
 	}
-	var cond constructs.Expression
+	var cond expressions.Expression
 	if forStat.Cond != nil {
 		cond = src.parseExpression(scope, forStat.Cond)
 	}
-	var post []constructs.Statement
+	var post []statements.Statement
 	if forStat.Post != nil {
 		post = src.parseStatement(scope, forStat.Post)
 	}
 	body := src.parseBlock(scope, forStat.Body)
-	var init constructs.Statement
+	var init statements.Statement
 	if len(inits) == 1 {
 		init = inits[0]
 	}
-	result := constructs.For(init, cond, post, body)
+	result := statements.For(init, cond, post, body)
 	if len(inits) > 1 {
-		return constructs.Block(append(inits, result)...)
+		return statements.Block(append(inits, result)...)
 	}
 	return result
 }
 
 // parseIncDecStatement reads an increment or decrement statment.
 // https://golang.org/pkg/go/ast/#IncDecStmt
-func (src *Source) parseIncDecStatement(scope *Scope, stmt *ast.IncDecStmt) constructs.Statement {
+func (src *Source) parseIncDecStatement(scope *Scope, stmt *ast.IncDecStmt) statements.Statement {
 	exp := src.parseExpression(scope, stmt.X)
-	return constructs.IncDec(exp, stmt.Tok == token.INC)
+	return statements.IncDecOp(exp, stmt.Tok == token.INC)
 }
 
 // parseBranchStatement reads a branch statment.
 // https://golang.org/pkg/go/ast/#BranchStmt
-func (src *Source) parseBranchStatement(scope *Scope, stmt *ast.BranchStmt) constructs.Statement {
-	return constructs.Branch(stmt.Tok == token.BREAK)
+func (src *Source) parseBranchStatement(scope *Scope, stmt *ast.BranchStmt) statements.Statement {
+	return statements.Branch(stmt.Tok == token.BREAK)
 }
 
 // parseAssignment reads in an assigment statement.
 // https://golang.org/pkg/go/ast/#AssignStmt
-func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []constructs.Expression {
+func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []expressions.Expression {
 	if assign.Tok == token.DEFINE {
 		return src.parseDefinition(scope, assign)
 	}
 
-	results := make([]constructs.Expression, 0, len(assign.Rhs))
-	lefts := make([]constructs.Expression, len(assign.Lhs))
+	results := make([]expressions.Expression, 0, len(assign.Rhs))
+	lefts := make([]expressions.Expression, len(assign.Lhs))
 	for i := len(assign.Lhs) - 1; i >= 0; i-- {
 		lefts[i] = src.parseExpression(scope, assign.Lhs[i])
 	}
 
 	if len(assign.Rhs) == 1 {
 		right := src.parseExpression(scope, assign.Rhs[0])
-		results = append(results, constructs.Assignment(lefts, right))
+		results = append(results, expressions.Assignment(lefts, right))
 	} else {
 		leftOffset := 0
-		tempIDs := make([]*constructs.IdentifierExp, len(assign.Lhs))
+		tempIDs := make([]*expressions.IdentifierExp, len(assign.Lhs))
 		for _, exp := range assign.Rhs {
 			right := src.parseExpression(scope, exp)
 			rets := right.ReturnTypes()
@@ -374,31 +377,31 @@ func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []const
 				tempID := scope.AddTemp(rets[0])
 				tempIDs[leftOffset] = tempID
 				leftOffset++
-				results = append(results, constructs.Definition(tempID, right))
+				results = append(results, expressions.Definition(tempID, right))
 			} else {
-				leftExps := make([]constructs.Expression, retCount)
+				leftExps := make([]expressions.Expression, retCount)
 				for j := 0; j < retCount; j++ {
 					tempID := scope.AddTemp(rets[j])
 					leftExps[j] = tempID
 					tempIDs[leftOffset] = tempID
 					leftOffset++
-					results = append(results, constructs.Definition(tempID, nil))
+					results = append(results, expressions.Definition(tempID, nil))
 				}
-				results = append(results, constructs.Assignment(leftExps, right))
+				results = append(results, expressions.Assignment(leftExps, right))
 			}
 		}
 		for i, tempID := range tempIDs {
-			leftExps := []constructs.Expression{lefts[i]}
-			results = append(results, constructs.Assignment(leftExps, tempID))
+			leftExps := []expressions.Expression{lefts[i]}
+			results = append(results, expressions.Assignment(leftExps, tempID))
 		}
 	}
 	return results
 }
 
 // parseDefinition reads in an assigment definition statement.
-func (src *Source) parseDefinition(scope *Scope, assign *ast.AssignStmt) []constructs.Expression {
+func (src *Source) parseDefinition(scope *Scope, assign *ast.AssignStmt) []expressions.Expression {
 	leftOffset := 0
-	results := make([]constructs.Expression, 0, len(assign.Rhs))
+	results := make([]expressions.Expression, 0, len(assign.Rhs))
 	for _, exp := range assign.Rhs {
 		right := src.parseExpression(scope, exp)
 		rets := right.ReturnTypes()
@@ -407,17 +410,17 @@ func (src *Source) parseDefinition(scope *Scope, assign *ast.AssignStmt) []const
 			leftExp := assign.Lhs[leftOffset]
 			leftOffset++
 			tempID := scope.Add(leftExp.(*ast.Ident).Name, rets[0])
-			results = append(results, constructs.Definition(tempID, right))
+			results = append(results, expressions.Definition(tempID, right))
 		} else {
-			leftExps := make([]constructs.Expression, retCount)
+			leftExps := make([]expressions.Expression, retCount)
 			for j := 0; j < retCount; j++ {
 				leftExp := assign.Lhs[leftOffset]
 				leftOffset++
 				tempID := scope.Add(leftExp.(*ast.Ident).Name, rets[j])
 				leftExps[j] = tempID
-				results = append(results, constructs.Definition(tempID, nil))
+				results = append(results, expressions.Definition(tempID, nil))
 			}
-			results = append(results, constructs.Assignment(leftExps, right))
+			results = append(results, expressions.Assignment(leftExps, right))
 		}
 	}
 	return results
@@ -425,7 +428,7 @@ func (src *Source) parseDefinition(scope *Scope, assign *ast.AssignStmt) []const
 
 // parseExpression reads in some kind of expression.
 // https://golang.org/pkg/go/ast/#Expr
-func (src *Source) parseExpression(scope *Scope, expr ast.Expr) constructs.Expression {
+func (src *Source) parseExpression(scope *Scope, expr ast.Expr) expressions.Expression {
 	switch ex := expr.(type) {
 	case *ast.BasicLit:
 		return src.parseLiteral(scope, ex)
@@ -454,7 +457,7 @@ func (src *Source) parseExpression(scope *Scope, expr ast.Expr) constructs.Expre
 // parseLiteral reads a code literal.
 // https://golang.org/pkg/go/ast/#BasicLit
 // e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
-func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.LiteralExp {
+func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *expressions.LiteralExp {
 	switch lit.Kind {
 	case token.INT:
 		val, err := strconv.ParseInt(lit.Value, 0, 64)
@@ -463,23 +466,23 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 			return nil
 		}
 		if val > math.MaxInt32 {
-			return constructs.Literal(lit.Value, constructs.Int64())
+			return expressions.Literal(lit.Value, types.Int64())
 		}
-		return constructs.Literal(lit.Value, constructs.Int())
+		return expressions.Literal(lit.Value, types.Int())
 	case token.FLOAT:
-		return constructs.Literal(lit.Value, constructs.Float64())
+		return expressions.Literal(lit.Value, types.Float64())
 	case token.IMAG:
-		return constructs.Literal(lit.Value, constructs.Complex128())
+		return expressions.Literal(lit.Value, types.Complex128())
 	case token.CHAR:
-		return constructs.Literal(lit.Value, constructs.Rune())
+		return expressions.Literal(lit.Value, types.Rune())
 	case token.STRING:
 		str, err := strconv.Unquote(lit.Value)
 		if err != nil {
 			src.log.Error("Unable to unquote literal string: ", lit.Value)
-			return constructs.Literal(lit.Value, constructs.String())
+			return expressions.Literal(lit.Value, types.String())
 		}
 		str = strconv.QuoteToASCII(str)
-		return constructs.Literal(str, constructs.String())
+		return expressions.Literal(str, types.String())
 	default:
 		src.log.Error("Unhandled literal kind ", lit.Kind)
 		return nil
@@ -488,30 +491,30 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *constructs.Lit
 
 // parseCompositeLit reads a composite literial value.
 // https://golang.org/pkg/go/ast/#CompositeLit
-func (src *Source) parseCompositeLit(scope *Scope, exp *ast.CompositeLit) *constructs.CompoundLiteralExp {
+func (src *Source) parseCompositeLit(scope *Scope, exp *ast.CompositeLit) *expressions.CompoundLiteralExp {
 	litType, _ := src.readType(scope, exp.Type)
-	elements := make([]constructs.Expression, len(exp.Elts))
+	elements := make([]expressions.Expression, len(exp.Elts))
 	for i, elts := range exp.Elts {
 		elements[i] = src.parseExpression(scope, elts)
 	}
-	return constructs.CompoundLiteral(elements, litType)
+	return expressions.CompoundLiteral(elements, litType)
 }
 
 // parseBinary reads a binary operation.
 // https://golang.org/pkg/go/ast/#BinaryExpr
-func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.BinaryOpExp {
+func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *expressions.BinaryOpExp {
 	left := src.parseExpression(scope, bin.X)
 	right := src.parseExpression(scope, bin.Y)
 
-	var resultType constructs.Type
+	var resultType types.Type
 	if left == nil {
 		src.log.Debug("Left expression in a binary is nil ", bin.Op, ".")
-		resultType = constructs.Variant()
+		resultType = types.Variant()
 	} else {
 		rets := left.ReturnTypes()
 		if len(rets) != 1 {
 			src.log.Error("Binary expected only one return type for ", bin.Op, ".")
-			resultType = constructs.Variant()
+			resultType = types.Variant()
 		} else {
 			resultType = rets[0]
 		}
@@ -521,72 +524,72 @@ func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *constructs.Bi
 	operand := ""
 	switch bin.Op {
 	case token.ADD: // +
-		operand = constructs.AddOp
+		operand = expressions.AddOp
 	case token.SUB: // -
-		operand = constructs.SubtractOp
+		operand = expressions.SubtractOp
 	case token.MUL: // *
-		operand = constructs.MultiplyOp
+		operand = expressions.MultiplyOp
 	case token.QUO: // /
-		operand = constructs.QuotentOp
+		operand = expressions.QuotentOp
 	case token.REM: // %
-		operand = constructs.RemainderOp
+		operand = expressions.RemainderOp
 	case token.AND: // &
-		operand = constructs.AndOp
+		operand = expressions.AndOp
 	case token.OR: // |
-		operand = constructs.OrOp
+		operand = expressions.OrOp
 	case token.XOR: // ^
-		operand = constructs.ExclusiveOrOp
+		operand = expressions.ExclusiveOrOp
 	case token.SHL: // <<
-		operand = constructs.LeftShiftOp
+		operand = expressions.LeftShiftOp
 	case token.SHR: // >>
-		operand = constructs.RightShiftOp
+		operand = expressions.RightShiftOp
 	case token.AND_NOT: // &^
-		operand = constructs.AndNotOp
+		operand = expressions.AndNotOp
 	case token.LAND: // &&
-		operand = constructs.LogicalAndOp
+		operand = expressions.LogicalAndOp
 	case token.LOR: // ||
-		operand = constructs.LogicalOrOp
+		operand = expressions.LogicalOrOp
 	case token.EQL: // ==
-		resultType = constructs.Bool()
-		operand = constructs.EqualOp
+		resultType = types.Bool()
+		operand = expressions.EqualOp
 	case token.NEQ: // !=
-		resultType = constructs.Bool()
-		operand = constructs.NotEqualOp
+		resultType = types.Bool()
+		operand = expressions.NotEqualOp
 	case token.LSS: // <
-		resultType = constructs.Bool()
-		operand = constructs.LessThanOp
+		resultType = types.Bool()
+		operand = expressions.LessThanOp
 	case token.LEQ: // <=
-		resultType = constructs.Bool()
-		operand = constructs.LessThanEqualOp
+		resultType = types.Bool()
+		operand = expressions.LessThanEqualOp
 	case token.GTR: // >
-		resultType = constructs.Bool()
-		operand = constructs.GreaterThanOp
+		resultType = types.Bool()
+		operand = expressions.GreaterThanOp
 	case token.GEQ: // >=
-		resultType = constructs.Bool()
-		operand = constructs.GreaterThanEqualOp
+		resultType = types.Bool()
+		operand = expressions.GreaterThanEqualOp
 	default:
 		src.log.Error("Unhandled binary operand ", bin.Op)
 		return nil
 	}
-	return constructs.BinaryOp(left, right, operand, resultType)
+	return expressions.BinaryOp(left, right, operand, resultType)
 }
 
 // parseIdentifier reads an identifier.
 // https://golang.org/pkg/go/ast/#Ident
-func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) constructs.Expression {
+func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) expressions.Expression {
 	name := id.Name
 	if (name == "true") || (name == "false") {
-		return constructs.Literal(name, constructs.Bool())
+		return expressions.Literal(name, types.Bool())
 	} else if id := scope.Get(name); id != nil {
 		return id
 	}
 	src.log.Error("Unable to find ", name, " in scope.")
-	return constructs.Identifier(name, constructs.Variant())
+	return expressions.Identifier(name, types.Variant())
 }
 
 // parseIndexer reads an index expression.
 // https://golang.org/pkg/go/ast/#IndexExpr
-func (src *Source) parseIndexer(scope *Scope, ind *ast.IndexExpr) constructs.Expression {
+func (src *Source) parseIndexer(scope *Scope, ind *ast.IndexExpr) expressions.Expression {
 	exp := src.parseExpression(scope, ind.X)
 	index := src.parseExpression(scope, ind.Index)
 
@@ -595,19 +598,19 @@ func (src *Source) parseIndexer(scope *Scope, ind *ast.IndexExpr) constructs.Exp
 		src.log.Error("Expected only one return value for an index.")
 		return nil
 	}
-	indexType, ok := collectionTypes[0].(constructs.IndexableType)
+	indexType, ok := collectionTypes[0].(expressions.IndexableType)
 	if !ok {
 		src.log.Error("Unhandled indexed type: ", indexType)
 		return nil
 	}
 
 	retType := indexType.Subtype()
-	return constructs.Indexer(exp, index, retType)
+	return expressions.Indexer(exp, index, retType)
 }
 
 // parseSelector reads an identifier selector.
 // https://golang.org/pkg/go/ast/#SelectorExpr
-func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *constructs.SelectorExp {
+func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *expressions.SelectorExp {
 	exp := src.parseExpression(scope, sel.X)
 	name := sel.Sel.Name
 	returns := exp.ReturnTypes()
@@ -615,31 +618,31 @@ func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *construct
 		src.log.Error("Too many return values to select from:",
 			"\n   Expression: ", exp,
 			"\n   Selector:   ", name)
-		return constructs.Selector(exp, name, constructs.Variant())
+		return expressions.Selector(exp, name, types.Variant())
 	}
-	if t, exists := constructs.FindSubtype(returns[0], name); exists {
-		return constructs.Selector(exp, name, t)
+	if t, exists := expressions.FindSubtype(returns[0], name); exists {
+		return expressions.Selector(exp, name, t)
 	}
 	src.log.Error("Failed to find subtype for selector:",
 		"\n   Expression: ", exp,
 		"\n   Selector:   ", name)
-	return constructs.Selector(exp, name, constructs.Variant())
+	return expressions.Selector(exp, name, types.Variant())
 }
 
 // parseUnary reads a unary operation.
 // https://golang.org/pkg/go/ast/#UnaryExpr
-func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *constructs.UnaryOpExp {
+func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *expressions.UnaryOpExp {
 	exp := src.parseExpression(scope, una.X)
 
-	var resultType constructs.Type
+	var resultType types.Type
 	if exp == nil {
 		src.log.Debug("The expression in a unary is nil ", una.Op, ".")
-		resultType = constructs.Variant()
+		resultType = types.Variant()
 	} else {
 		rets := exp.ReturnTypes()
 		if len(rets) != 1 {
 			src.log.Error("Unary expected only one return type for ", una.Op, ".")
-			resultType = constructs.Variant()
+			resultType = types.Variant()
 		} else {
 			resultType = rets[0]
 		}
@@ -649,52 +652,52 @@ func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *constructs.Unar
 	operand := ""
 	switch una.Op {
 	case token.ADD: // +
-		operand = constructs.PosOp
+		operand = expressions.PosOp
 	case token.SUB: // -
-		operand = constructs.NegateOp
+		operand = expressions.NegateOp
 	case token.INC: // ++
-		operand = constructs.IncrementOp
+		operand = expressions.IncrementOp
 	case token.DEC: // --
-		operand = constructs.DecrementOp
+		operand = expressions.DecrementOp
 	case token.NOT: // !
-		operand = constructs.NotOp
+		operand = expressions.NotOp
 	case token.MUL: // *
-		operand = constructs.DereferanceOp
+		operand = expressions.DereferanceOp
 	case token.AND: // &
-		operand = constructs.ReferanceOp
+		operand = expressions.ReferanceOp
 	default:
 		src.log.Error("Unhandled unary operand ", una.Op)
 		return nil
 	}
-	return constructs.UnaryOp(exp, operand, resultType)
+	return expressions.UnaryOp(exp, operand, resultType)
 }
 
 // parseCall reads a code literal.
 // https://golang.org/pkg/go/ast/#CallExpr
-func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) *constructs.CallExp {
+func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) *expressions.CallExp {
 	fnExp := src.parseExpression(scope, call.Fun)
 	paramLen := len(call.Args)
-	params := make([]constructs.Expression, paramLen)
+	params := make([]expressions.Expression, paramLen)
 	returns := fnExp.ReturnTypes()
 	if len(returns) != 1 {
 		src.log.Error("Too many return values for a method call:",
 			"\n   Expression: ", fnExp)
-		return constructs.Call(nil, fnExp, params)
+		return expressions.Call(nil, fnExp, params)
 	}
 	for i, param := range call.Args {
 		params[i] = src.parseExpression(scope, param)
 	}
-	if fnHndl, exists := returns[0].(*constructs.FunctionType); exists {
-		return constructs.Call(fnHndl, fnExp, params)
+	if fnHndl, exists := returns[0].(*types.FunctionType); exists {
+		return expressions.Call(fnHndl, fnExp, params)
 	}
 	src.log.Error("Called type is not a function handle:",
 		"\n   Expression: ", fnExp)
-	return constructs.Call(nil, fnExp, params)
+	return expressions.Call(nil, fnExp, params)
 }
 
 // expSliceToStatSlice converts a slice of expressions into a slice of statments.
-func (src *Source) expSliceToStatSlice(exps []constructs.Expression) []constructs.Statement {
-	parts := make([]constructs.Statement, len(exps))
+func (src *Source) expSliceToStatSlice(exps []expressions.Expression) []statements.Statement {
+	parts := make([]statements.Statement, len(exps))
 	for i, exp := range exps {
 		parts[i] = exp
 	}

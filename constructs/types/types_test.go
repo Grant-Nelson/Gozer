@@ -93,6 +93,7 @@ func TestMapTypes(t *testing.T) {
 
 func TestFunctionTypes(t *testing.T) {
 	checkString(t, ((*FunctionType)(nil)).String(), "nil")
+	checkString(t, ((*FunctionType)(nil)).FullString(), "nil")
 	checkType(t, Function(), "void func()")
 	checkType(t, Function().AddParam("name", String()), "void func(string name)")
 	checkType(t, Function().AddParam("fmt", String()).
@@ -100,11 +101,13 @@ func TestFunctionTypes(t *testing.T) {
 	checkType(t, Function().SetReturn(String()), "string func()")
 
 	f1 := Function().SetName("fibonacci").AddParam("name", Float32()).SetReturn(Float32())
-	checkType(t, f1, "float32 fibonacci(float32 name)")
+	checkType(t, f1, "fibonacci")
+	checkString(t, f1.FullString(), "float32 fibonacci(float32 name)")
 
 	f2 := Function().SetName("main")
 	f2.Body = "{\n  print(\"Hello World\")\n}"
-	checkType(t, f2,
+	checkType(t, f2, "main")
+	checkString(t, f2.FullString(),
 		`void main() {`,
 		`  print("Hello World")`,
 		`}`)
@@ -112,6 +115,7 @@ func TestFunctionTypes(t *testing.T) {
 
 func TestInterfaceTypes(t *testing.T) {
 	checkString(t, ((*InterfaceType)(nil)).String(), "nil")
+	checkString(t, ((*InterfaceType)(nil)).FullString(), "nil")
 	i1 := Interface()
 	checkType(t, i1, "interface{}")
 	f1 := i1.AddFunction("print").AddParam("msg", String())
@@ -131,13 +135,15 @@ func TestInterfaceTypes(t *testing.T) {
 	checkFind(t, i1, "print", ToString(f1))
 	checkFind(t, i1, "printf", ToString(f2))
 	f3 := i1.AddFunction("print")
-	checkType(t, f3, `void print(string msg)`)
+	checkString(t, f3.FullString(),
+		`void print(string msg)`)
 	i1.Name = "logger"
 	checkType(t, i1, `logger`)
 }
 
 func TestStructureTypes(t *testing.T) {
 	checkString(t, ((*StructureType)(nil)).String(), "nil")
+	checkString(t, ((*StructureType)(nil)).FullString(), "nil")
 	s1 := Structure()
 	checkType(t, s1, "struct{}")
 	s1.AddMember("name", String())
@@ -166,17 +172,18 @@ func TestStructureTypes(t *testing.T) {
 
 func TestClassTypes(t *testing.T) {
 	checkString(t, ((*ClassType)(nil)).String(), "nil")
+	checkString(t, ((*ClassType)(nil)).FullString(), "nil")
 	c1 := Class()
-	checkType(t, c1, `{}`)
+	checkType(t, c1, `class{}`)
 	c1.Data = Int()
 	checkType(t, c1,
-		`{`,
+		`class{`,
 		`  int`,
 		`}`)
 	c1.Interface.AddFunction("warning").AddParam("text", String()).SetReturn(Int())
 	f1 := c1.Interface.AddFunction("count").AddParam("num", Int()).SetReturn(Int())
 	checkType(t, c1,
-		`{`,
+		`class{`,
 		`  int`,
 		`  interface{`,
 		`    int count(int num)`,
@@ -187,7 +194,7 @@ func TestClassTypes(t *testing.T) {
 	checkFind(t, c1, "count", ToString(f1))
 	c1.Data = nil
 	checkType(t, c1,
-		`{`,
+		`class{`,
 		`  interface{`,
 		`    int count(int num)`,
 		`    int warning(string text)`,
@@ -196,7 +203,7 @@ func TestClassTypes(t *testing.T) {
 	s1 := Structure()
 	c1.Data = s1
 	checkType(t, c1,
-		`{`,
+		`class{`,
 		`  struct{}`,
 		`  interface{`,
 		`    int count(int num)`,
@@ -206,7 +213,7 @@ func TestClassTypes(t *testing.T) {
 	s1.AddMember("first", Float64())
 	s1.AddMember("last", Float32())
 	checkType(t, c1,
-		`{`,
+		`class{`,
 		`  struct{`,
 		`    float64 first`,
 		`    float32 last`,
@@ -220,6 +227,17 @@ func TestClassTypes(t *testing.T) {
 	c1.Name = "logger"
 	checkType(t, c1,
 		`logger`)
+	checkString(t, c1.FullString(),
+		`logger{`,
+		`  struct{`,
+		`    float64 first`,
+		`    float32 last`,
+		`  }`,
+		`  interface{`,
+		`    int count(int num)`,
+		`    int warning(string text)`,
+		`  }`,
+		`}`)
 }
 
 func TestPackageAndProgramTypes(t *testing.T) {
@@ -235,9 +253,9 @@ func TestPackageAndProgramTypes(t *testing.T) {
 		`{`,
 		`  pop string`,
 		`  void boom()`,
-		`  pow interface{}`,
-		`  splat {}`,
-		`  bawmp struct{}`,
+		`  pow{}`,
+		`  splat{}`,
+		`  bawmp{}`,
 		`}`)
 	checkFind(t, p1, "temp", "nil")
 	checkFind(t, p1, "boom", ToString(f1))
@@ -259,9 +277,9 @@ func TestPackageAndProgramTypes(t *testing.T) {
 		`  import other`,
 		`  pop string`,
 		`  void boom()`,
-		`  pow interface{}`,
-		`  splat {}`,
-		`  bawmp struct{}`,
+		`  pow{}`,
+		`  splat{}`,
+		`  bawmp{}`,
 		`}`)
 	checkFind(t, p1, "other", ToString(p2))
 
@@ -294,6 +312,18 @@ func TestPackageAndProgramTypes(t *testing.T) {
 		t.Fatal("Expected contains to return false for pudding:",
 			"\n   Program: ", common.Indent(ToString(prog1), "            "))
 	}
+	p3 := Package()
+	p3.Functions["temp1"] = (*FunctionType)(nil)
+	p3.Interfaces["temp2"] = (*InterfaceType)(nil)
+	p3.Classes["temp3"] = (*ClassType)(nil)
+	p3.Structures["temp4"] = (*StructureType)(nil)
+	checkType(t, p3,
+		`{`,
+		`  nil`,
+		`  nil`,
+		`  nil`,
+		`  nil`,
+		`}`)
 }
 
 func TestIndexable(t *testing.T) {

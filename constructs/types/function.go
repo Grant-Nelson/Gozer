@@ -86,12 +86,22 @@ func (t *FunctionType) SetReturn(returnType Type) *FunctionType {
 	return t
 }
 
-// String gets the name for this type.
+// String gets the name or structure for this type.
 func (t *FunctionType) String() string {
 	if t == nil {
 		return nilStr
 	}
+	if len(t.Name) > 0 {
+		return t.Name
+	}
+	return t.FullString()
+}
 
+// FullString gets a string for the signature and body of this function.
+func (t *FunctionType) FullString() string {
+	if t == nil {
+		return nilStr
+	}
 	params := "()"
 	if paramsCount := len(t.ParamNames); paramsCount > 0 {
 		paramStrs := make([]string, paramsCount)
@@ -105,14 +115,13 @@ func (t *FunctionType) String() string {
 		}
 		params = "(" + strings.Join(paramStrs, ", ") + ")"
 	}
-
-	bodyStr := ""
-	if t.Body != nil {
-		bodyStr = " " + fmt.Sprint(t.Body)
-	}
 	name := "func"
 	if len(t.Name) > 0 {
 		name = t.Name
+	}
+	bodyStr := ""
+	if t.Body != nil {
+		bodyStr = " " + fmt.Sprint(t.Body)
 	}
 	return ToString(t.ReturnType) + " " + name + params + bodyStr
 }

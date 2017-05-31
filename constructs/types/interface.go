@@ -60,15 +60,27 @@ func (t *InterfaceType) String() string {
 	if len(t.Name) > 0 {
 		return t.Name
 	}
+	return t.FullString()
+}
+
+// FullString gets a string for the structure for this type.
+func (t *InterfaceType) FullString() string {
+	if t == nil {
+		return nilStr
+	}
+	name := "interface"
+	if len(t.Name) > 0 {
+		name = t.Name
+	}
 	if len(t.Functions) <= 0 {
-		return "interface{}"
+		return name + "{}"
 	}
 	i := 0
 	parts := make([]string, len(t.Functions))
 	for _, tfunc := range t.Functions {
-		parts[i] = ToString(tfunc)
+		parts[i] = tfunc.FullString()
 		i++
 	}
 	sort.Strings(parts)
-	return "interface{\n  " + strings.Join(parts, "\n  ") + "\n}"
+	return name + "{\n  " + strings.Join(parts, "\n  ") + "\n}"
 }

@@ -97,6 +97,7 @@ func (t *PackageType) AddInterface(name string) *InterfaceType {
 		return nil
 	}
 	inter := Interface()
+	inter.Name = name
 	inter.Parent = t
 	t.Interfaces[name] = inter
 	return inter
@@ -108,6 +109,7 @@ func (t *PackageType) AddClass(name string) *ClassType {
 		return nil
 	}
 	class := Class()
+	class.Name = name
 	class.Parent = t
 	t.Classes[name] = class
 	return class
@@ -119,6 +121,7 @@ func (t *PackageType) AddStructure(name string) *StructureType {
 		return nil
 	}
 	st := Structure()
+	st.Name = name
 	st.Parent = t
 	t.Structures[name] = st
 	return st
@@ -157,17 +160,18 @@ func (t *PackageType) String() string {
 		i := 0
 		parts3 := make([]string, len(t.Functions))
 		for _, tfunc := range t.Functions {
-			parts3[i] = ToString(tfunc)
+			parts3[i] = tfunc.FullString()
 			i++
 		}
+		sort.Strings(parts3)
 		result += "  " + common.Indent(strings.Join(parts3, "\n"), "  ") + "\n"
 	}
 
 	if len(t.Interfaces) > 0 {
 		i := 0
 		parts4 := make([]string, len(t.Interfaces))
-		for name, inter := range t.Interfaces {
-			parts4[i] = name + " " + ToString(inter)
+		for _, inter := range t.Interfaces {
+			parts4[i] = inter.FullString()
 			i++
 		}
 		sort.Strings(parts4)
@@ -177,8 +181,8 @@ func (t *PackageType) String() string {
 	if len(t.Classes) > 0 {
 		i := 0
 		parts5 := make([]string, len(t.Classes))
-		for name, class := range t.Classes {
-			parts5[i] = name + " " + ToString(class)
+		for _, class := range t.Classes {
+			parts5[i] = class.FullString()
 			i++
 		}
 		sort.Strings(parts5)
@@ -188,8 +192,8 @@ func (t *PackageType) String() string {
 	if len(t.Structures) > 0 {
 		i := 0
 		parts6 := make([]string, len(t.Structures))
-		for name, strt := range t.Structures {
-			parts6[i] = name + " " + ToString(strt)
+		for _, strt := range t.Structures {
+			parts6[i] = strt.FullString()
 			i++
 		}
 		sort.Strings(parts6)

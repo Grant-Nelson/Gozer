@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/constructs/types"
 	"github.com/grant-nelson/Gozer/framework"
 	"github.com/grant-nelson/Gozer/msg"
 )
@@ -18,7 +18,7 @@ import (
 type GoReader struct {
 
 	// Program is the program being loaded.
-	Program *constructs.ProgramType
+	Program *types.ProgramType
 
 	fileSet *token.FileSet
 	sources map[string]*Source
@@ -32,7 +32,7 @@ type GoReader struct {
 // NewGoReader creates a new Go reader.
 func NewGoReader() *GoReader {
 	gr := &GoReader{
-		Program: constructs.Program(),
+		Program: types.Program(),
 		fileSet: token.NewFileSet(),
 		sources: map[string]*Source{},
 		log:     msg.NewLogger(),
@@ -45,7 +45,7 @@ func NewGoReader() *GoReader {
 	// Add all prebuilt packages.
 	framework.BuiltinPrebuild(gr.Program)
 	framework.FmtPrebuild(gr.Program)
-	framework.IoPrebuild(gr.Program)
+	framework.IOPrebuild(gr.Program)
 	return gr
 }
 
@@ -66,7 +66,7 @@ func (gr *GoReader) EnableTesting(test bool) {
 }
 
 // AddFolder adds all the files in the given folder.
-func (gr *GoReader) AddFolder(dirPath string) *constructs.PackageType {
+func (gr *GoReader) AddFolder(dirPath string) *types.PackageType {
 	pack := gr.getOrCreatePackage(dirPath)
 	fullPath := gr.getImportPath(dirPath)
 	if len(fullPath) <= 0 {
@@ -113,7 +113,7 @@ func (gr *GoReader) Transpile() {
 	}
 	// TODO: Need to connect all interfaces across all the classes.
 	// for i := gr.packages.Length() - 1; i >= 0; i-- {
-	// 	pack := gr.packages.At(i).Data.(*constructs.PackageType)
+	// 	pack := gr.packages.At(i).Data.(*types.PackageType)
 	// 	pack.ProcessBodies()
 	// }
 }
@@ -153,7 +153,7 @@ func (gr *GoReader) getImportPath(path string) string {
 }
 
 // addSource adds GO source code to the transpiler.
-func (gr *GoReader) addSource(pack *constructs.PackageType, fullPath string, importPath string, code interface{}) (bool, *Source) {
+func (gr *GoReader) addSource(pack *types.PackageType, fullPath string, importPath string, code interface{}) (bool, *Source) {
 	dirPath, fileName := path.Split(importPath)
 	if strings.HasSuffix(dirPath, "/") {
 		dirPath = dirPath[:len(dirPath)-1]
@@ -188,17 +188,17 @@ func (gr *GoReader) addSource(pack *constructs.PackageType, fullPath string, imp
 }
 
 // getOrCreatePackage gets or creates the package for the given path.
-func (gr *GoReader) getOrCreatePackage(dirPath string) *constructs.PackageType {
+func (gr *GoReader) getOrCreatePackage(dirPath string) *types.PackageType {
 	pack, exists := gr.Program.Packages[dirPath]
 	if !exists {
-		pack = constructs.Package()
+		pack = types.Package()
 		gr.Program.Packages[dirPath] = pack
 	}
 	return pack
 }
 
 // addImport adds an import to the given source and package.
-func (gr *GoReader) addImport(pack *constructs.PackageType, source *Source, path string, short string) {
+func (gr *GoReader) addImport(pack *types.PackageType, source *Source, path string, short string) {
 	importPack := gr.resolveImport(path)
 
 	// Add import to source with short name.
@@ -229,7 +229,7 @@ func (gr *GoReader) readImport(spec *ast.ImportSpec) (string, string) {
 
 // resolveImport determines if the import exists, if it is part
 // of the framework, or the import is added into sources.
-func (gr *GoReader) resolveImport(importPath string) *constructs.PackageType {
+func (gr *GoReader) resolveImport(importPath string) *types.PackageType {
 	if pack, exists := gr.Program.Packages[importPath]; exists {
 		return pack
 	}
