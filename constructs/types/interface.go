@@ -6,13 +6,11 @@ import (
 )
 
 var _ Type = (*InterfaceType)(nil)
+var _ NamedType = (*InterfaceType)(nil)
+var _ SubtypableType = (*InterfaceType)(nil)
 
 // InterfaceType for storing the types of interfaces.
 type InterfaceType struct {
-
-	// Parent is the parent type for this function.
-	// It is a class, package, or nil.
-	Parent Type
 
 	// Name is the name of the interface.
 	Name string
@@ -24,10 +22,18 @@ type InterfaceType struct {
 // Interface creates a new interface type.
 func Interface() *InterfaceType {
 	return &InterfaceType{
-		Parent:    nil,
 		Name:      "",
 		Functions: []*FunctionType{},
 	}
+}
+
+// GetName gets the name of the type.
+// May be empty if this type is unnamed.
+func (t *InterfaceType) GetName() string {
+	if t == nil {
+		return ""
+	}
+	return t.Name
 }
 
 // Find looks up a subtype to this interface.

@@ -231,8 +231,14 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 
 	// Return paramters
 	returnNames, returnTypes, _ := src.readFieldList(scope, data.Type.Results)
-	fn.ReturnNames = returnNames
-	fn.ReturnTypes = returnTypes
+
+	// TODO: Create returns
+	// returnType
+	//
+	// fn.ReturnNames = returnNames
+	// fn.ReturnTypes = returnTypes
+	//
+	// fn.SetReturn(returnType)
 
 	// Read the body for the function
 	if data.Body != nil {

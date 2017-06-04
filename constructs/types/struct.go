@@ -3,13 +3,11 @@ package types
 import "strings"
 
 var _ Type = (*StructureType)(nil)
+var _ NamedType = (*StructureType)(nil)
+var _ SubtypableType = (*StructureType)(nil)
 
 // StructureType for storing the types of structure.
 type StructureType struct {
-
-	// Parent is the parent type for this structure.
-	// It is a class, package, or nil.
-	Parent Type
 
 	// Name is the name of the structure.
 	Name string
@@ -24,11 +22,19 @@ type StructureType struct {
 // Structure creates a new struct type.
 func Structure() *StructureType {
 	return &StructureType{
-		Parent:       nil,
 		Name:         "",
 		MemeberNames: []string{},
 		MemeberTypes: []Type{},
 	}
+}
+
+// GetName gets the name of the type.
+// May be empty if this type is unnamed.
+func (t *StructureType) GetName() string {
+	if t == nil {
+		return ""
+	}
+	return t.Name
 }
 
 // Find looks up a subtype to this structure.

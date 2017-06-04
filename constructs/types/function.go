@@ -6,13 +6,10 @@ import (
 )
 
 var _ Type = (*FunctionType)(nil)
+var _ NamedType = (*FunctionType)(nil)
 
 // FunctionType for storing the types of function.
 type FunctionType struct {
-
-	// Parent is the parent type for this function.
-	// It is a class, interface, package, or nil.
-	Parent Type
 
 	// Comment is the developer comment for this function.
 	Comment string
@@ -48,7 +45,6 @@ type FunctionType struct {
 // Function creates a new function type description with the given information.
 func Function() *FunctionType {
 	return &FunctionType{
-		Parent:        nil,
 		Comment:       "",
 		Name:          "",
 		ParamNames:    []string{},
@@ -59,6 +55,15 @@ func Function() *FunctionType {
 		ReceiverClass: nil,
 		Body:          nil,
 	}
+}
+
+// GetName gets the name of the type.
+// May be empty if this type is unnamed.
+func (t *FunctionType) GetName() string {
+	if t == nil {
+		return ""
+	}
+	return t.Name
 }
 
 // SetName sets the name of the function.

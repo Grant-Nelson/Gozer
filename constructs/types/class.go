@@ -3,14 +3,11 @@ package types
 import "github.com/grant-nelson/Gozer/common"
 
 var _ Type = (*ClassType)(nil)
+var _ NamedType = (*ClassType)(nil)
 var _ SubtypableType = (*ClassType)(nil)
 
 // ClassType for storing the types of class.
 type ClassType struct {
-
-	// Parent is the parent type for this function.
-	// It is a package or nil.
-	Parent Type
 
 	// Name is the name of the class.
 	Name string
@@ -26,17 +23,27 @@ type ClassType struct {
 // Class creates a new class type.
 func Class() *ClassType {
 	c := &ClassType{
-		Parent:    nil,
 		Name:      "",
 		Data:      nil,
 		Interface: Interface(),
 	}
-	c.Interface.Parent = c
 	return c
+}
+
+// GetName gets the name of the type.
+// May be empty if this type is unnamed.
+func (t *ClassType) GetName() string {
+	if t == nil {
+		return ""
+	}
+	return t.Name
 }
 
 // Find looks up a subtype to this class.
 func (t *ClassType) Find(name string) (Type, bool) {
+	if t == nil {
+		return nil, false
+	}
 	if t2, exists := t.Interface.Find(name); exists {
 		return t2, true
 	}
