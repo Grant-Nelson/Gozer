@@ -20,14 +20,18 @@ func NewClassSet() *ClassSet {
 }
 
 // AddNew adds a class to this set.
-func (set *ClassSet) AddNew(name string) *ClassType {
+// Returns the new class and true if new, false if already exists.
+func (set *ClassSet) AddNew(name string) (*ClassType, bool) {
 	if set == nil {
-		return nil
+		return nil, false
+	}
+	if class, found := set.Find(name); found {
+		return class, false
 	}
 	class := Class()
 	class.Name = name
 	set.Add(class)
-	return class
+	return class, true
 }
 
 // Add will append all non-nil classes to this set.
@@ -44,15 +48,15 @@ func (set *ClassSet) Add(classes ...*ClassType) {
 
 // Find searches the set of classes to find a class with the given name.
 // If no class by the given name is found, nil is returned.
-func (set *ClassSet) Find(name string) *ClassType {
+func (set *ClassSet) Find(name string) (*ClassType, bool) {
 	if set != nil {
 		for _, class := range set.Classes {
 			if (class != nil) && (class.Name == name) {
-				return class
+				return class, true
 			}
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // Sort will sort the classes by name.

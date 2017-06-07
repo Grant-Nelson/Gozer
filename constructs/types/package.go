@@ -18,14 +18,13 @@ type PackageType struct {
 	Name string
 
 	// Imports are the list of packages used by this package.
-	// The key is the path to the package.
-	Imports map[string]*PackageType
+	Imports *PackageSet
 
 	// Declarations gets the set of constant and variable declarations for this package.
 	Declarations map[string]Type
 
 	// Functions is the set of functions for this package.
-	Functions map[string]*FunctionType
+	Functions *FunctionSet
 
 	// Interfaces is the set of interfaces for this package.
 	Interfaces *InterfaceSet
@@ -34,19 +33,19 @@ type PackageType struct {
 	Classes *ClassSet
 
 	// Structures is the set of structure for this package.
-	Structures map[string]*StructureType
+	Structures *StructureSet
 }
 
 // Package creates a new package description.
 func Package() *PackageType {
 	return &PackageType{
 		Name:         "",
-		Imports:      map[string]*PackageType{},
+		Imports:      &PackageSet{},
 		Declarations: map[string]Type{},
-		Functions:    map[string]*FunctionType{},
+		Functions:    &FunctionSet{},
 		Interfaces:   &InterfaceSet{},
 		Classes:      &ClassSet{},
-		Structures:   map[string]*StructureType{},
+		Structures:   &StructureSet{},
 	}
 }
 
@@ -64,25 +63,34 @@ func (t *PackageType) Find(name string) (Type, bool) {
 	if t == nil {
 		return nil, false
 	}
-	if t2, exists := t.Imports[name]; exists {
+	if t2, found := t.Imports.Find(name); found {
 		return t2, true
 	}
 	if t2, exists := t.Declarations[name]; exists {
 		return t2, true
 	}
-	if t2, exists := t.Functions[name]; exists {
+	if t2, found := t.Functions.Find(name); found {
 		return t2, true
 	}
-	if t2 := t.Interfaces.Find(name); t2 != nil {
+	if t2, found := t.Interfaces.Find(name); found {
 		return t2, true
 	}
-	if t2 := t.Classes.Find(name); t2 != nil {
+	if t2, found := t.Classes.Find(name); found {
 		return t2, true
 	}
-	if t2, exists := t.Structures[name]; exists {
+	if t2, found := t.Structures.Find(name); found {
 		return t2, true
 	}
 	return nil, false
+}
+
+// AddImport adds a package to this package.
+func (t *PackageType) AddImport(name string) *PackageType {
+	if t == nil {
+		return nil
+	}
+	t2, _ := t.Imports.AddNew(name)
+	return t2
 }
 
 // AddDeclaration adds a declaration to this package.
@@ -99,10 +107,8 @@ func (t *PackageType) AddFunction(name string) *FunctionType {
 	if t == nil {
 		return nil
 	}
-	tfunc := Function()
-	tfunc.Name = name
-	t.Functions[name] = tfunc
-	return tfunc
+	t2, _ := t.Functions.AddNew(name)
+	return t2
 }
 
 // AddInterface adds a interface to this package.
@@ -110,7 +116,8 @@ func (t *PackageType) AddInterface(name string) *InterfaceType {
 	if t == nil {
 		return nil
 	}
-	return t.Interfaces.AddNew(name)
+	t2, _ := t.Interfaces.AddNew(name)
+	return t2
 }
 
 // AddClass adds a class to this package.
@@ -118,7 +125,8 @@ func (t *PackageType) AddClass(name string) *ClassType {
 	if t == nil {
 		return nil
 	}
-	return t.Classes.AddNew(name)
+	t2, _ := t.Classes.AddNew(name)
+	return t2
 }
 
 // AddStructure adds a structure to this package.
@@ -126,10 +134,8 @@ func (t *PackageType) AddStructure(name string) *StructureType {
 	if t == nil {
 		return nil
 	}
-	st := Structure()
-	st.Name = name
-	t.Structures[name] = st
-	return st
+	t2, _ := t.Structures.AddNew(name)
+	return t2
 }
 
 // String gets the name for this type.
@@ -137,17 +143,26 @@ func (t *PackageType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	result := ""
+	if len(t.Name) > 0 {
+		return "import " + t.Name
+	}
+	return t.FullString()
+}
 
-	if len(t.Imports) > 0 {
-		i := 0
-		parts1 := make([]string, len(t.Imports))
-		for name := range t.Imports {
-			parts1[i] = "import " + name
-			i++
-		}
-		sort.Strings(parts1)
-		result += "  " + common.Indent(strings.Join(parts1, "\n"), "  ") + "\n"
+// FullString gets the full name for this type.
+func (t *PackageType) FullString() string {
+	if t == nil {
+		return nilStr
+	}
+	name := "import"
+	if len(t.Name) > 0 {
+		name = "import " + t.Name
+	}
+
+	result := ""
+	if t.Imports.Len() > 0 {
+		// Use String not FullString for imports
+		result += "  " + common.Indent(t.Imports.String(), "  ") + "\n"
 	}
 
 	if len(t.Declarations) > 0 {
@@ -161,15 +176,8 @@ func (t *PackageType) String() string {
 		result += "  " + common.Indent(strings.Join(parts2, "\n"), "  ") + "\n"
 	}
 
-	if len(t.Functions) > 0 {
-		i := 0
-		parts3 := make([]string, len(t.Functions))
-		for _, tfunc := range t.Functions {
-			parts3[i] = tfunc.FullString()
-			i++
-		}
-		sort.Strings(parts3)
-		result += "  " + common.Indent(strings.Join(parts3, "\n"), "  ") + "\n"
+	if t.Functions.Len() > 0 {
+		result += "  " + common.Indent(t.Functions.FullString(), "  ") + "\n"
 	}
 
 	if t.Interfaces.Len() > 0 {
@@ -180,19 +188,12 @@ func (t *PackageType) String() string {
 		result += "  " + common.Indent(t.Classes.FullString(), "  ") + "\n"
 	}
 
-	if len(t.Structures) > 0 {
-		i := 0
-		parts6 := make([]string, len(t.Structures))
-		for _, strt := range t.Structures {
-			parts6[i] = strt.FullString()
-			i++
-		}
-		sort.Strings(parts6)
-		result += "  " + common.Indent(strings.Join(parts6, "\n"), "  ") + "\n"
+	if t.Structures.Len() > 0 {
+		result += "  " + common.Indent(t.Structures.FullString(), "  ") + "\n"
 	}
 
 	if len(result) <= 0 {
-		return "{}"
+		return name + " {}"
 	}
-	return "{\n" + result + "}"
+	return name + " {\n" + result + "}"
 }

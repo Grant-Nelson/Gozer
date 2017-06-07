@@ -271,7 +271,7 @@ func TestPackageAndProgramTypes(t *testing.T) {
 		`  height float32`,
 		`  width float32`,
 		`}`)
-	p1.Imports["other"] = p2
+	p1.Imports.Add(p2)
 	checkType(t, p1,
 		`{`,
 		`  import other`,

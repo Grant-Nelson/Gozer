@@ -20,14 +20,18 @@ func NewInterfaceSet() *InterfaceSet {
 }
 
 // AddNew adds a interface to this set.
-func (set *InterfaceSet) AddNew(name string) *InterfaceType {
+// Returns the new interface and true if new, false if already exists.
+func (set *InterfaceSet) AddNew(name string) (*InterfaceType, bool) {
 	if set == nil {
-		return nil
+		return nil, false
+	}
+	if class, found := set.Find(name); found {
+		return class, false
 	}
 	inter := Interface()
 	inter.Name = name
 	set.Add(inter)
-	return inter
+	return inter, true
 }
 
 // Add will append all non-nil interfaces to this set.
@@ -44,15 +48,15 @@ func (set *InterfaceSet) Add(inters ...*InterfaceType) {
 
 // Find searches the set of interfaces to find a interface with the given name.
 // If no interface by the given name is found, nil is returned.
-func (set *InterfaceSet) Find(name string) *InterfaceType {
+func (set *InterfaceSet) Find(name string) (*InterfaceType, bool) {
 	if set != nil {
 		for _, inter := range set.Interfaces {
 			if (inter != nil) && (inter.Name == name) {
-				return inter
+				return inter, true
 			}
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // Sort will sort the interfaces by name.

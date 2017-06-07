@@ -1,10 +1,5 @@
 package types
 
-import (
-	"sort"
-	"strings"
-)
-
 var _ Type = (*InterfaceType)(nil)
 var _ NamedType = (*InterfaceType)(nil)
 var _ SubtypableType = (*InterfaceType)(nil)
@@ -16,14 +11,14 @@ type InterfaceType struct {
 	Name string
 
 	// Functions is the set of functions for this interface.
-	Functions []*FunctionType
+	Functions *FunctionSet
 }
 
 // Interface creates a new interface type.
 func Interface() *InterfaceType {
 	return &InterfaceType{
 		Name:      "",
-		Functions: []*FunctionType{},
+		Functions: &FunctionSet{},
 	}
 }
 
@@ -38,24 +33,20 @@ func (t *InterfaceType) GetName() string {
 
 // Find looks up a subtype to this interface.
 func (t *InterfaceType) Find(name string) (Type, bool) {
-	for _, tfunc := range t.Functions {
-		if tfunc.Name == name {
-			return tfunc, true
-		}
+	if t == nil {
+		return nil, false
 	}
-	return nil, false
+	return t.Functions.Find(name)
 }
 
 // AddFunction adds a function to this interface.
 // If a function by that name already exists, that function is returned.
 func (t *InterfaceType) AddFunction(name string) *FunctionType {
-	if tfunc, found := t.Find(name); found {
-		return tfunc.(*FunctionType)
+	if t == nil {
+		return nil
 	}
-	tfunc := Function()
-	tfunc.Name = name
-	t.Functions = append(t.Functions, tfunc)
-	return tfunc
+	t2, _ := t.Functions.AddNew(name)
+	return t2
 }
 
 // String gets the name for this type.
@@ -78,15 +69,8 @@ func (t *InterfaceType) FullString() string {
 	if len(t.Name) > 0 {
 		name = t.Name
 	}
-	if len(t.Functions) <= 0 {
+	if t.Functions.Len() <= 0 {
 		return name + "{}"
 	}
-	i := 0
-	parts := make([]string, len(t.Functions))
-	for _, tfunc := range t.Functions {
-		parts[i] = tfunc.FullString()
-		i++
-	}
-	sort.Strings(parts)
-	return name + "{\n  " + strings.Join(parts, "\n  ") + "\n}"
+	return name + "{\n  " + t.Functions.FullString() + "\n}"
 }
