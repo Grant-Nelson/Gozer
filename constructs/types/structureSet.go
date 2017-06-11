@@ -8,14 +8,14 @@ import (
 // StructureSet for storing a set of structures.
 type StructureSet struct {
 
-	// Structs is the set of structures.
-	Structs []*StructureType
+	// Structures is the set of structures.
+	Structures []*StructureType
 }
 
 // NewStructureSet creates a new set of structures.
 func NewStructureSet() *StructureSet {
 	return &StructureSet{
-		Structs: []*StructureType{},
+		Structures: []*StructureType{},
 	}
 }
 
@@ -39,7 +39,7 @@ func (set *StructureSet) Add(sts ...*StructureType) {
 	if set != nil {
 		for _, st := range sts {
 			if st != nil {
-				set.Structs = append(set.Structs, st)
+				set.Structures = append(set.Structures, st)
 			}
 		}
 		set.Sort()
@@ -50,7 +50,7 @@ func (set *StructureSet) Add(sts ...*StructureType) {
 // If no structure by the given name is found, nil is returned.
 func (set *StructureSet) Find(name string) (*StructureType, bool) {
 	if set != nil {
-		for _, st := range set.Structs {
+		for _, st := range set.Structures {
 			if (st != nil) && (st.Name == name) {
 				return st, true
 			}
@@ -67,7 +67,7 @@ func (set *StructureSet) Sort() {
 // Len get the number of structures in this set.
 func (set *StructureSet) Len() int {
 	if set != nil {
-		return len(set.Structs)
+		return len(set.Structures)
 	}
 	return 0
 }
@@ -76,7 +76,7 @@ func (set *StructureSet) Len() int {
 func (set *StructureSet) Swap(aIndex, bIndex int) {
 	if (set != nil) && (aIndex >= 0) && (bIndex >= 0) && (aIndex != bIndex) {
 		if length := set.Len(); (aIndex < length) && (bIndex < length) {
-			set.Structs[aIndex], set.Structs[bIndex] = set.Structs[bIndex], set.Structs[aIndex]
+			set.Structures[aIndex], set.Structures[bIndex] = set.Structures[bIndex], set.Structures[aIndex]
 		}
 	}
 }
@@ -86,10 +86,10 @@ func (set *StructureSet) Swap(aIndex, bIndex int) {
 func (set *StructureSet) Less(aIndex, bIndex int) bool {
 	aName, bName := "", ""
 	if set != nil {
-		if a := set.Structs[aIndex]; a != nil {
+		if a := set.Structures[aIndex]; a != nil {
 			aName = a.Name
 		}
-		if b := set.Structs[bIndex]; b != nil {
+		if b := set.Structures[bIndex]; b != nil {
 			bName = b.Name
 		}
 	}
@@ -102,7 +102,7 @@ func (set *StructureSet) String() string {
 		return nilStr
 	}
 	parts := make([]string, set.Len())
-	for i, st := range set.Structs {
+	for i, st := range set.Structures {
 		parts[i] = st.String()
 	}
 	return strings.Join(parts, "\n")
@@ -114,7 +114,7 @@ func (set *StructureSet) FullString() string {
 		return nilStr
 	}
 	parts := make([]string, set.Len())
-	for i, st := range set.Structs {
+	for i, st := range set.Structures {
 		parts[i] = st.FullString()
 	}
 	return strings.Join(parts, "\n")

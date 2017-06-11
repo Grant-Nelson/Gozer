@@ -154,17 +154,17 @@ func TestStructureTypes(t *testing.T) {
 	s1.AddMember("age", Int())
 	checkType(t, s1,
 		`struct{`,
-		`  string name`,
 		`  int age`,
+		`  string name`,
 		`}`)
 	checkFind(t, s1, "temp", "nil")
-	checkFind(t, s1, "name", "string")
-	checkFind(t, s1, "age", "int")
+	checkFind(t, s1, "name", "name")
+	checkFind(t, s1, "age", "age")
 	s1.AddMember("age", Float32())
 	checkType(t, s1,
 		`struct{`,
+		`  int age`,
 		`  string name`,
-		`  float32 age`,
 		`}`)
 	s1.Name = "person"
 	checkType(t, s1, `person`)
@@ -174,11 +174,16 @@ func TestClassTypes(t *testing.T) {
 	checkString(t, ((*ClassType)(nil)).String(), "nil")
 	checkString(t, ((*ClassType)(nil)).FullString(), "nil")
 	c1 := Class()
-	checkType(t, c1, `class{}`)
+	checkType(t, c1,
+		`class{`,
+		`  nil`,
+		`  interface{}`,
+		`}`)
 	c1.Data = Int()
 	checkType(t, c1,
 		`class{`,
 		`  int`,
+		`  interface{}`,
 		`}`)
 	c1.Interface.AddFunction("warning").AddParam("text", String()).SetReturn(Int())
 	f1 := c1.Interface.AddFunction("count").AddParam("num", Int()).SetReturn(Int())
@@ -195,6 +200,7 @@ func TestClassTypes(t *testing.T) {
 	c1.Data = nil
 	checkType(t, c1,
 		`class{`,
+		`  nil`,
 		`  interface{`,
 		`    int count(int num)`,
 		`    int warning(string text)`,
@@ -223,7 +229,7 @@ func TestClassTypes(t *testing.T) {
 		`    int warning(string text)`,
 		`  }`,
 		`}`)
-	checkFind(t, c1, "first", ToString(Float64()))
+	checkFind(t, c1, "first", "first")
 	c1.Name = "logger"
 	checkType(t, c1,
 		`logger`)
@@ -243,18 +249,21 @@ func TestClassTypes(t *testing.T) {
 func TestPackageAndProgramTypes(t *testing.T) {
 	checkString(t, ((*PackageType)(nil)).String(), "nil")
 	p1 := Package()
-	checkType(t, p1, `{}`)
+	checkType(t, p1, `import{}`)
 	f1 := p1.AddFunction("boom")
 	i1 := p1.AddInterface("pow")
 	c1 := p1.AddClass("splat")
 	s1 := p1.AddStructure("bawmp")
-	p1.AddDeclaration("pop", String())
+	d1 := p1.AddDeclaration("pop", String())
 	checkType(t, p1,
-		`{`,
-		`  pop string`,
+		`import{`,
+		`  string pop`,
 		`  void boom()`,
 		`  pow{}`,
-		`  splat{}`,
+		`  splat{`,
+		`    nil`,
+		`    interface{}`,
+		`  }`,
 		`  bawmp{}`,
 		`}`)
 	checkFind(t, p1, "temp", "nil")
@@ -262,23 +271,26 @@ func TestPackageAndProgramTypes(t *testing.T) {
 	checkFind(t, p1, "pow", ToString(i1))
 	checkFind(t, p1, "splat", ToString(c1))
 	checkFind(t, p1, "bawmp", ToString(s1))
-	checkFind(t, p1, "pop", ToString(String()))
+	checkFind(t, p1, "pop", ToString(d1))
 	p2 := Package()
 	p2.AddDeclaration("width", Float32())
 	p2.AddDeclaration("height", Float32())
 	checkType(t, p2,
-		`{`,
-		`  height float32`,
-		`  width float32`,
+		`import{`,
+		`  float32 height`,
+		`  float32 width`,
 		`}`)
-	p1.Imports.Add(p2)
+	p1.Imports.AddWithShort("other", p2)
 	checkType(t, p1,
-		`{`,
+		`import{`,
 		`  import other`,
-		`  pop string`,
+		`  string pop`,
 		`  void boom()`,
 		`  pow{}`,
-		`  splat{}`,
+		`  splat{`,
+		`    nil`,
+		`    interface{}`,
+		`  }`,
 		`  bawmp{}`,
 		`}`)
 	checkFind(t, p1, "other", ToString(p2))
@@ -297,15 +309,20 @@ func TestPackageAndProgramTypes(t *testing.T) {
 	checkString(t, ((*ProgramType)(nil)).String(), "nil")
 	prog1 := Program()
 	checkType(t, prog1, "{}")
-	prog1.AddPackage("sounds", p1)
-	prog1.AddPackage("other", p2)
+	p1.Name = "sounds"
+	prog1.AddPackage(p1)
+	prog1.AddPackageWithShort("orange", p2)
 	checkType(t, prog1,
 		`{`,
-		`  import other`,
+		`  import orange`,
 		`  import sounds`,
 		`}`)
 	if !prog1.Contains("sounds") {
 		t.Fatal("Expected contains to return true for sounds:",
+			"\n   Program: ", common.Indent(ToString(prog1), "            "))
+	}
+	if !prog1.Contains("orange") {
+		t.Fatal("Expected contains to return true for short name orange:",
 			"\n   Program: ", common.Indent(ToString(prog1), "            "))
 	}
 	if prog1.Contains("pudding") {
@@ -313,12 +330,12 @@ func TestPackageAndProgramTypes(t *testing.T) {
 			"\n   Program: ", common.Indent(ToString(prog1), "            "))
 	}
 	p3 := Package()
-	p3.Functions["temp1"] = (*FunctionType)(nil)
-	p3.Interfaces["temp2"] = (*InterfaceType)(nil)
-	p3.Classes["temp3"] = (*ClassType)(nil)
-	p3.Structures["temp4"] = (*StructureType)(nil)
+	p3.Functions.Functions = append(p3.Functions.Functions, nil)
+	p3.Interfaces.Interfaces = append(p3.Interfaces.Interfaces, nil)
+	p3.Classes.Classes = append(p3.Classes.Classes, nil)
+	p3.Structures.Structures = append(p3.Structures.Structures, nil)
 	checkType(t, p3,
-		`{`,
+		`import{`,
 		`  nil`,
 		`  nil`,
 		`  nil`,
@@ -351,14 +368,23 @@ func TestElementTypes(t *testing.T) {
 
 //============================================================================
 
+// Failed indicates a test has failed.
+func fail(t *testing.T, text string, m common.Map) {
+	result := ""
+	if !m.Empty() {
+		result = ":\n   " + m.FormatMap("   ")
+	}
+	t.Fatal(text + result)
+}
+
 // checkString checks the the given string matches the given expected lines.
 // The lines will be joined with newlines.
 func checkString(t *testing.T, result string, exp ...string) {
 	expStr := strings.Join(exp, "\n")
 	if result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
+		fail(t, "Unexpected construct string", common.NewMap().
+			Add("Expected", expStr).
+			Add("Gotten", result))
 	}
 }
 
@@ -374,9 +400,9 @@ func checkLookupType(t *testing.T, ty Type) {
 	result := LookupType(str)
 	resultStr := ToString(result)
 	if str != resultStr {
-		t.Fatal("Unexpected result from LookupType:",
-			"\n   Expected: ", str,
-			"\n   Gotten:   ", resultStr)
+		fail(t, "Unexpected result from LookupType", common.NewMap().
+			Add("Expected", str).
+			Add("Gotten", resultStr))
 	}
 }
 
@@ -386,11 +412,11 @@ func checkGetElement(t *testing.T, t1 Type, exp ...string) {
 	t2, found := GetIndexableType(t1)
 	expStr := strings.Join(exp, "\n")
 	if result := ToString(t2); result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Type:     ", ToString(t1),
-			"\n   Found:    ", found,
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
+		fail(t, "Unexpected construct string", common.NewMap().
+			Add("Type", ToString(t1)).
+			Add("Found", found).
+			Add("Expected", expStr).
+			Add("Gotten", result))
 	}
 }
 
@@ -400,11 +426,11 @@ func checkFind(t *testing.T, t1 Type, name string, exp ...string) {
 	t2, found := FindSubtype(t1, name)
 	expStr := strings.Join(exp, "\n")
 	if result := ToString(t2); result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Type:     ", ToString(t1),
-			"\n   Name:     ", name,
-			"\n   Found:    ", found,
-			"\n   Expected: ", expStr,
-			"\n   Gotten:   ", result)
+		fail(t, "Unexpected construct string", common.NewMap().
+			Add("Type", ToString(t1)).
+			Add("Name", name).
+			Add("Found", found).
+			Add("Expected", expStr).
+			Add("Gotten", result))
 	}
 }

@@ -1,5 +1,7 @@
 package types
 
+import "github.com/grant-nelson/Gozer/common"
+
 var _ Type = (*InterfaceType)(nil)
 var _ NamedType = (*InterfaceType)(nil)
 var _ SubtypableType = (*InterfaceType)(nil)
@@ -72,5 +74,5 @@ func (t *InterfaceType) FullString() string {
 	if t.Functions.Len() <= 0 {
 		return name + "{}"
 	}
-	return name + "{\n  " + t.Functions.FullString() + "\n}"
+	return name + "{\n  " + common.Indent(t.Functions.FullString(), "  ") + "\n}"
 }

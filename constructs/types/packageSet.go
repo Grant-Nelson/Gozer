@@ -8,15 +8,36 @@ import (
 // PackageSet for storing a set of packages.
 type PackageSet struct {
 
-	// Packages is the set of packages.
-	Packages []*PackageType
+	// shorts is the short name for an import.
+	// If the short name isn't given the entry will be an empty string.
+	shorts []string
+
+	// packages is the set of packages.
+	packages []*PackageType
 }
 
 // NewPackageSet creates a new set of packages.
 func NewPackageSet() *PackageSet {
 	return &PackageSet{
-		Packages: []*PackageType{},
+		shorts:   []string{},
+		packages: []*PackageType{},
 	}
+}
+
+// Shorts gets the set of short names for packages.
+func (set *PackageSet) Shorts() []string {
+	if set == nil {
+		return []string{}
+	}
+	return set.shorts
+}
+
+// Packages gets the set of packages.
+func (set *PackageSet) Packages() []*PackageType {
+	if set == nil {
+		return []*PackageType{}
+	}
+	return set.packages
 }
 
 // AddNew adds a package to this set.
@@ -39,19 +60,24 @@ func (set *PackageSet) Add(packages ...*PackageType) {
 	if set != nil {
 		for _, pack := range packages {
 			if pack != nil {
-				set.Packages = append(set.Packages, pack)
+				set.AddWithShort("", pack)
 			}
 		}
-		set.Sort()
 	}
+}
+
+// Add will append all non-nil packages to this set.
+func (set *PackageSet) AddWithShort(short string, pack *PackageType) {
+	set.shorts = append(set.shorts, short)
+	set.packages = append(set.packages, pack)
 }
 
 // Find searches the set of packages to find a package with the given name.
 // If no package by the given name is found, nil is returned.
 func (set *PackageSet) Find(name string) (*PackageType, bool) {
 	if set != nil {
-		for _, pack := range set.Packages {
-			if (pack != nil) && (pack.Name == name) {
+		for i, pack := range set.packages {
+			if (pack != nil) && ((pack.Name == name) || (set.shorts[i] == name)) {
 				return pack, true
 			}
 		}
@@ -67,7 +93,7 @@ func (set *PackageSet) Sort() {
 // Len get the number of packages in this set.
 func (set *PackageSet) Len() int {
 	if set != nil {
-		return len(set.Packages)
+		return len(set.packages)
 	}
 	return 0
 }
@@ -76,7 +102,8 @@ func (set *PackageSet) Len() int {
 func (set *PackageSet) Swap(aIndex, bIndex int) {
 	if (set != nil) && (aIndex >= 0) && (bIndex >= 0) && (aIndex != bIndex) {
 		if length := set.Len(); (aIndex < length) && (bIndex < length) {
-			set.Packages[aIndex], set.Packages[bIndex] = set.Packages[bIndex], set.Packages[aIndex]
+			set.shorts[aIndex], set.shorts[bIndex] = set.shorts[bIndex], set.shorts[aIndex]
+			set.packages[aIndex], set.packages[bIndex] = set.packages[bIndex], set.packages[aIndex]
 		}
 	}
 }
@@ -86,10 +113,14 @@ func (set *PackageSet) Swap(aIndex, bIndex int) {
 func (set *PackageSet) Less(aIndex, bIndex int) bool {
 	aName, bName := "", ""
 	if set != nil {
-		if a := set.Packages[aIndex]; a != nil {
+		if aShort := set.shorts[aIndex]; len(aShort) > 0 {
+			aName = aShort
+		} else if a := set.packages[aIndex]; a != nil {
 			aName = a.Name
 		}
-		if b := set.Packages[bIndex]; b != nil {
+		if bShort := set.shorts[bIndex]; len(bShort) > 0 {
+			bName = bShort
+		} else if b := set.packages[bIndex]; b != nil {
 			bName = b.Name
 		}
 	}
@@ -102,9 +133,26 @@ func (set *PackageSet) String() string {
 		return nilStr
 	}
 	parts := make([]string, set.Len())
-	for i, pack := range set.Packages {
-		parts[i] = pack.String()
+	for i, pack := range set.packages {
+		parts[i] = pack.StringWithShort(set.shorts[i])
 	}
+	return strings.Join(parts, "\n")
+}
+
+// ImportString is the string to show the package as an import.
+func (set *PackageSet) ImportString() string {
+	if set == nil {
+		return nilStr
+	}
+	parts := make([]string, set.Len())
+	for i, pack := range set.packages {
+		if short := set.shorts[i]; len(short) > 0 {
+			parts[i] = "import " + short
+		} else {
+			parts[i] = "import " + pack.Name
+		}
+	}
+	sort.Strings(parts)
 	return strings.Join(parts, "\n")
 }
 
@@ -114,8 +162,8 @@ func (set *PackageSet) FullString() string {
 		return nilStr
 	}
 	parts := make([]string, set.Len())
-	for i, pack := range set.Packages {
-		parts[i] = pack.FullString()
+	for i, pack := range set.packages {
+		parts[i] = pack.FullStringWithShort(set.shorts[i])
 	}
 	return strings.Join(parts, "\n")
 }

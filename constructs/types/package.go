@@ -1,9 +1,6 @@
 package types
 
 import (
-	"sort"
-	"strings"
-
 	"github.com/grant-nelson/Gozer/common"
 )
 
@@ -21,7 +18,7 @@ type PackageType struct {
 	Imports *PackageSet
 
 	// Declarations gets the set of constant and variable declarations for this package.
-	Declarations map[string]Type
+	Declarations *DeclarationSet
 
 	// Functions is the set of functions for this package.
 	Functions *FunctionSet
@@ -41,7 +38,7 @@ func Package() *PackageType {
 	return &PackageType{
 		Name:         "",
 		Imports:      &PackageSet{},
-		Declarations: map[string]Type{},
+		Declarations: &DeclarationSet{},
 		Functions:    &FunctionSet{},
 		Interfaces:   &InterfaceSet{},
 		Classes:      &ClassSet{},
@@ -66,7 +63,7 @@ func (t *PackageType) Find(name string) (Type, bool) {
 	if t2, found := t.Imports.Find(name); found {
 		return t2, true
 	}
-	if t2, exists := t.Declarations[name]; exists {
+	if t2, exists := t.Declarations.Find(name); exists {
 		return t2, true
 	}
 	if t2, found := t.Functions.Find(name); found {
@@ -94,12 +91,12 @@ func (t *PackageType) AddImport(name string) *PackageType {
 }
 
 // AddDeclaration adds a declaration to this package.
-func (t *PackageType) AddDeclaration(name string, decl Type) *PackageType {
+func (t *PackageType) AddDeclaration(name string, data Type) *DeclarationType {
 	if t == nil {
 		return nil
 	}
-	t.Declarations[name] = decl
-	return t
+	t2, _ := t.Declarations.AddNew(name, data)
+	return t2
 }
 
 // AddFunction adds a function to this package.
@@ -140,22 +137,37 @@ func (t *PackageType) AddStructure(name string) *StructureType {
 
 // String gets the name for this type.
 func (t *PackageType) String() string {
+	return t.StringWithShort("")
+}
+
+// StringWithShort gets the name for this type with an optional short name.
+func (t *PackageType) StringWithShort(short string) string {
 	if t == nil {
 		return nilStr
+	}
+	if len(short) > 0 {
+		return "import " + short
 	}
 	if len(t.Name) > 0 {
 		return "import " + t.Name
 	}
-	return t.FullString()
+	return t.FullStringWithShort(short)
 }
 
 // FullString gets the full name for this type.
 func (t *PackageType) FullString() string {
+	return t.FullStringWithShort("")
+}
+
+// FullStringWithShort gets the full name for this type with an optional short name.
+func (t *PackageType) FullStringWithShort(short string) string {
 	if t == nil {
 		return nilStr
 	}
 	name := "import"
-	if len(t.Name) > 0 {
+	if len(short) > 0 {
+		return "import " + short
+	} else if len(t.Name) > 0 {
 		name = "import " + t.Name
 	}
 
@@ -165,15 +177,8 @@ func (t *PackageType) FullString() string {
 		result += "  " + common.Indent(t.Imports.String(), "  ") + "\n"
 	}
 
-	if len(t.Declarations) > 0 {
-		i := 0
-		parts2 := make([]string, len(t.Declarations))
-		for name, decl := range t.Declarations {
-			parts2[i] = name + " " + ToString(decl)
-			i++
-		}
-		sort.Strings(parts2)
-		result += "  " + common.Indent(strings.Join(parts2, "\n"), "  ") + "\n"
+	if t.Declarations.Len() > 0 {
+		result += "  " + common.Indent(t.Declarations.FullString(), "  ") + "\n"
 	}
 
 	if t.Functions.Len() > 0 {
@@ -193,7 +198,7 @@ func (t *PackageType) FullString() string {
 	}
 
 	if len(result) <= 0 {
-		return name + " {}"
+		return name + "{}"
 	}
-	return name + " {\n" + result + "}"
+	return name + "{\n" + result + "}"
 }

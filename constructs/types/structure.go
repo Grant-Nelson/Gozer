@@ -1,6 +1,8 @@
 package types
 
-import "strings"
+import (
+	"github.com/grant-nelson/Gozer/common"
+)
 
 var _ Type = (*StructureType)(nil)
 var _ NamedType = (*StructureType)(nil)
@@ -12,19 +14,15 @@ type StructureType struct {
 	// Name is the name of the structure.
 	Name string
 
-	// MemeberNames is the names of members for this structure.
-	MemeberNames []string
-
-	// MemeberTypes is the types of members for this structure.
-	MemeberTypes []Type
+	// Members is the data members for this structure.
+	Members *DeclarationSet
 }
 
 // Structure creates a new struct type.
 func Structure() *StructureType {
 	return &StructureType{
-		Name:         "",
-		MemeberNames: []string{},
-		MemeberTypes: []Type{},
+		Name:    "",
+		Members: NewDeclarationSet(),
 	}
 }
 
@@ -39,26 +37,17 @@ func (t *StructureType) GetName() string {
 
 // Find looks up a subtype to this structure.
 func (t *StructureType) Find(name string) (Type, bool) {
-	for i, other := range t.MemeberNames {
-		if name == other {
-			return t.MemeberTypes[i], true
-		}
+	if (t == nil) || (t.Members == nil) {
+		return nil, false
 	}
-	return nil, false
+	return t.Members.Find(name)
 }
 
 // AddMember adds a member to this structure.
 // If the member already exists it will be overwritten with the new type.
-func (t *StructureType) AddMember(name string, tmem Type) *StructureType {
-	for i, other := range t.MemeberNames {
-		if name == other {
-			t.MemeberTypes[i] = tmem
-			return t
-		}
-	}
-	t.MemeberNames = append(t.MemeberNames, name)
-	t.MemeberTypes = append(t.MemeberTypes, tmem)
-	return t
+func (t *StructureType) AddMember(name string, data Type) *DeclarationType {
+	t2, _ := t.Members.AddNew(name, data)
+	return t2
 }
 
 // String gets the name for this type.
@@ -81,13 +70,10 @@ func (t *StructureType) FullString() string {
 	if len(t.Name) > 0 {
 		name = t.Name
 	}
-	if len(t.MemeberNames) <= 0 {
+	if t.Members.Len() <= 0 {
 		return name + "{}"
 	}
-	parts := make([]string, len(t.MemeberNames))
-	for i, name := range t.MemeberNames {
-		parts[i] = ToString(t.MemeberTypes[i]) + " " + name
-		i++
-	}
-	return name + "{\n  " + strings.Join(parts, "\n  ") + "\n}"
+	return name + "{\n" +
+		"  " + common.Indent(t.Members.FullString(), "  ") + "\n" +
+		"}"
 }

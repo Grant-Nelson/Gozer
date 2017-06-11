@@ -21,7 +21,7 @@ func NewDeclarationSet() *DeclarationSet {
 
 // AddNew adds a declaration to this set.
 // Returns the new declaration and true if new, false if already exists.
-func (set *DeclarationSet) AddNew(name string) (*DeclarationType, bool) {
+func (set *DeclarationSet) AddNew(name string, data Type) (*DeclarationType, bool) {
 	if set == nil {
 		return nil, false
 	}
@@ -30,6 +30,7 @@ func (set *DeclarationSet) AddNew(name string) (*DeclarationType, bool) {
 	}
 	inter := Declaration()
 	inter.Name = name
+	inter.Data = data
 	set.Add(inter)
 	return inter, true
 }

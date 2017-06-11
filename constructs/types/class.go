@@ -47,7 +47,7 @@ func (t *ClassType) Find(name string) (Type, bool) {
 	if t2, exists := t.Interface.Find(name); exists {
 		return t2, true
 	}
-	if structType, ok := t.Data.(*StructureType); ok {
+	if structType, ok := t.Data.(SubtypableType); ok {
 		t2, exists := structType.Find(name)
 		return t2, exists
 	}
@@ -75,10 +75,10 @@ func (t *ClassType) FullString() string {
 		name = t.Name
 	}
 	result := ""
-	if str := ToString(t.Data); (len(str) > 0) && (str != "nil") {
+	if str := ToString(t.Data); len(str) > 0 {
 		result += "  " + common.Indent(str, "  ") + "\n"
 	}
-	if str := ToString(t.Interface); (len(str) > 0) && (str != "interface{}") {
+	if str := ToString(t.Interface); len(str) > 0 {
 		result += "  " + common.Indent(str, "  ") + "\n"
 	}
 	if len(result) <= 0 {

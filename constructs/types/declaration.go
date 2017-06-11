@@ -68,7 +68,7 @@ func (t *DeclarationType) FullString() string {
 	}
 	data := ""
 	if str := ToString(t.Data); len(str) > 0 {
-		data = "  " + common.Indent(str, "  ")
+		data = common.Indent(str, "  ") + " "
 	}
-	return name + data
+	return data + name
 }

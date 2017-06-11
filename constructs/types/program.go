@@ -1,9 +1,6 @@
 package types
 
 import (
-	"sort"
-	"strings"
-
 	"github.com/grant-nelson/Gozer/common"
 )
 
@@ -14,25 +11,38 @@ type ProgramType struct {
 
 	// Packages are the list of all packages used by this program.
 	// The key is the path to the package.
-	Packages map[string]*PackageType
+	Packages *PackageSet
 }
 
 // Program creates a new program description.
 func Program() *ProgramType {
 	return &ProgramType{
-		Packages: map[string]*PackageType{},
+		Packages: NewPackageSet(),
 	}
 }
 
 // Contains checks if a package with the given name is in this program.
 func (t *ProgramType) Contains(name string) bool {
-	_, exists := t.Packages[name]
+	if t == nil {
+		return false
+	}
+	_, exists := t.Packages.Find(name)
 	return exists
 }
 
 // AddPackage adds a package to this program.
-func (t *ProgramType) AddPackage(name string, pack *PackageType) *ProgramType {
-	t.Packages[name] = pack
+func (t *ProgramType) AddPackage(pack *PackageType) *ProgramType {
+	if t != nil {
+		t.Packages.Add(pack)
+	}
+	return t
+}
+
+// AddPackageWithShort adds a package to this program with a short name.
+func (t *ProgramType) AddPackageWithShort(short string, pack *PackageType) *ProgramType {
+	if t != nil {
+		t.Packages.AddWithShort(short, pack)
+	}
 	return t
 }
 
@@ -41,17 +51,8 @@ func (t *ProgramType) String() string {
 	if t == nil {
 		return nilStr
 	}
-	if len(t.Packages) <= 0 {
+	if t.Packages.Len() <= 0 {
 		return "{}"
 	}
-	i := 0
-	parts := make([]string, len(t.Packages))
-	for name := range t.Packages {
-		parts[i] = "import " + name
-		i++
-	}
-	sort.Strings(parts)
-	return "{\n" +
-		"  " + common.Indent(strings.Join(parts, "\n"), "  ") + "\n" +
-		"}"
+	return "{\n  " + common.Indent(t.Packages.ImportString(), "  ") + "\n}"
 }
