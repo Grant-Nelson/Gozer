@@ -1,9 +1,27 @@
 package common
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
+
+type FatalTestCall struct {
+	Result string
+}
+
+func (ftc *FatalTestCall) Fatal(msg ...interface{}) {
+	ftc.Result = fmt.Sprint(msg...)
+}
+
+func TestTestTools(t *testing.T) {
+	ftc := &FatalTestCall{}
+	CheckString(ftc, "Now", "Never")
+	CheckString(t, ftc.Result,
+		`Unexpected construct string:`,
+		`   Expected: Never`,
+		`   Gotten:   Now`)
+}
 
 func TestDiffStringSets(t *testing.T) {
 	checkDiffStringSets(t, "a|b|c", "a|b|c", "", "", false)
@@ -26,7 +44,7 @@ func TestIndent(t *testing.T) {
 	result := Indent("No Indent\nIndent\nAlso Indented", "   ")
 	exp := "No Indent\n   Indent\n   Also Indented"
 	if result != exp {
-		fail(t, "Unexpected result from Indent", NewMap().
+		Failed(t, "Unexpected result from Indent", NewMap().
 			Add("Result", result).
 			Add("Expected", exp))
 	}
@@ -107,7 +125,7 @@ func checkDiffStringSets(t *testing.T, set1Str string, set2Str string, expNotInS
 		}
 	}
 	if failed {
-		fail(t, "Unexpected result from DiffStringSets", NewMap().
+		Failed(t, "Unexpected result from DiffStringSets", NewMap().
 			Add("Set 1", "[", strings.Join(set1, ", "), "]").
 			Add("Set 2", "[", strings.Join(set2, ", "), "]").
 			Add("Diff", diff).
@@ -124,23 +142,14 @@ func checkMap(t *testing.T, m Map, expLines ...string) {
 	result := m.String()
 	exp := strings.Join(expLines, "\n")
 	if result != exp {
-		fail(t, "Unexpected string result from Map", NewMap().
+		Failed(t, "Unexpected string result from Map", NewMap().
 			Add("Expected", exp).
 			Add("Result", result))
 	}
 	if (len(exp) == 0) != m.Empty() {
-		fail(t, "Unexpected empty result from Map", NewMap().
+		Failed(t, "Unexpected empty result from Map", NewMap().
 			Add("Expected", len(exp) == 0).
 			Add("Result", m.Empty()).
 			Add("String", result))
 	}
-}
-
-// Failed indicates a test has failed.
-func fail(t *testing.T, text string, m Map) {
-	result := ""
-	if !m.Empty() {
-		result = ":\n   " + m.FormatMap("   ")
-	}
-	t.Fatal(text + result)
 }

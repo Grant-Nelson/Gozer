@@ -75,10 +75,10 @@ func (t *ClassType) FullString() string {
 		name = t.Name
 	}
 	result := ""
-	if str := ToString(t.Data); len(str) > 0 {
+	if str := ToString(t.Data); (len(str) > 0) && (str != nilStr) {
 		result += "  " + common.Indent(str, "  ") + "\n"
 	}
-	if str := ToString(t.Interface); len(str) > 0 {
+	if str := ToString(t.Interface); (len(str) > 0) && (str != nilStr) && (str != "interface{}") {
 		result += "  " + common.Indent(str, "  ") + "\n"
 	}
 	if len(result) <= 0 {

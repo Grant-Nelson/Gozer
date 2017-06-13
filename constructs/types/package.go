@@ -37,12 +37,12 @@ type PackageType struct {
 func Package() *PackageType {
 	return &PackageType{
 		Name:         "",
-		Imports:      &PackageSet{},
-		Declarations: &DeclarationSet{},
-		Functions:    &FunctionSet{},
-		Interfaces:   &InterfaceSet{},
-		Classes:      &ClassSet{},
-		Structures:   &StructureSet{},
+		Imports:      NewPackageSet(),
+		Declarations: NewDeclarationSet(),
+		Functions:    NewFunctionSet(),
+		Interfaces:   NewInterfaceSet(),
+		Classes:      NewClassSet(),
+		Structures:   NewStructureSet(),
 	}
 }
 
@@ -166,7 +166,7 @@ func (t *PackageType) FullStringWithShort(short string) string {
 	}
 	name := "import"
 	if len(short) > 0 {
-		return "import " + short
+		name = "import " + short
 	} else if len(t.Name) > 0 {
 		name = "import " + t.Name
 	}
