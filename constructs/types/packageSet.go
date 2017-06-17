@@ -56,7 +56,7 @@ func (set *PackageSet) AddNew(name string) (*PackageType, bool) {
 }
 
 // Add will append all non-nil packages to this set.
-func (set *PackageSet) Add(packages ...*PackageType) {
+func (set *PackageSet) Add(packages ...*PackageType) *PackageSet {
 	if set != nil {
 		for _, pack := range packages {
 			if pack != nil {
@@ -64,6 +64,7 @@ func (set *PackageSet) Add(packages ...*PackageType) {
 			}
 		}
 	}
+	return set
 }
 
 // Add will append all non-nil packages to this set.

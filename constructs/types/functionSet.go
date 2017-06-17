@@ -35,7 +35,7 @@ func (set *FunctionSet) AddNew(name string) (*FunctionType, bool) {
 }
 
 // Add will append all non-nil functions to this set.
-func (set *FunctionSet) Add(sts ...*FunctionType) {
+func (set *FunctionSet) Add(sts ...*FunctionType) *FunctionSet {
 	if set != nil {
 		for _, fn := range sts {
 			if fn != nil {
@@ -44,6 +44,7 @@ func (set *FunctionSet) Add(sts ...*FunctionType) {
 		}
 		set.Sort()
 	}
+	return set
 }
 
 // Find searches the set of functions to find a functions with the given name.

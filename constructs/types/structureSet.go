@@ -35,7 +35,7 @@ func (set *StructureSet) AddNew(name string) (*StructureType, bool) {
 }
 
 // Add will append all non-nil structure to this set.
-func (set *StructureSet) Add(sts ...*StructureType) {
+func (set *StructureSet) Add(sts ...*StructureType) *StructureSet {
 	if set != nil {
 		for _, st := range sts {
 			if st != nil {
@@ -44,6 +44,7 @@ func (set *StructureSet) Add(sts ...*StructureType) {
 		}
 		set.Sort()
 	}
+	return set
 }
 
 // Find searches the set of structures to find a structure with the given name.

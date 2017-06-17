@@ -36,7 +36,7 @@ func (set *DeclarationSet) AddNew(name string, data Type) (*DeclarationType, boo
 }
 
 // Add will append all non-nil declarations to this set.
-func (set *DeclarationSet) Add(inters ...*DeclarationType) {
+func (set *DeclarationSet) Add(inters ...*DeclarationType) *DeclarationSet {
 	if set != nil {
 		for _, inter := range inters {
 			if inter != nil {
@@ -45,6 +45,7 @@ func (set *DeclarationSet) Add(inters ...*DeclarationType) {
 		}
 		set.Sort()
 	}
+	return set
 }
 
 // Find searches the set of declarations to find a declaration with the given name.

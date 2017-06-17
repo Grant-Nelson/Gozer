@@ -20,6 +20,12 @@ func (m Map) Add(key string, val ...interface{}) Map {
 	return m
 }
 
+// Contains determines if a map contains the given key.
+func (m Map) Contains(key string) bool {
+	_, contains := m[key]
+	return contains
+}
+
 // String creates a string for this map.
 func (m Map) String() string {
 	return m.FormatMap("")

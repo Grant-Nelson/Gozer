@@ -35,7 +35,7 @@ func (set *InterfaceSet) AddNew(name string) (*InterfaceType, bool) {
 }
 
 // Add will append all non-nil interfaces to this set.
-func (set *InterfaceSet) Add(inters ...*InterfaceType) {
+func (set *InterfaceSet) Add(inters ...*InterfaceType) *InterfaceSet {
 	if set != nil {
 		for _, inter := range inters {
 			if inter != nil {
@@ -44,6 +44,7 @@ func (set *InterfaceSet) Add(inters ...*InterfaceType) {
 		}
 		set.Sort()
 	}
+	return set
 }
 
 // Find searches the set of interfaces to find a interface with the given name.

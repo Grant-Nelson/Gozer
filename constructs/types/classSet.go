@@ -35,7 +35,7 @@ func (set *ClassSet) AddNew(name string) (*ClassType, bool) {
 }
 
 // Add will append all non-nil classes to this set.
-func (set *ClassSet) Add(classes ...*ClassType) {
+func (set *ClassSet) Add(classes ...*ClassType) *ClassSet {
 	if set != nil {
 		for _, class := range classes {
 			if class != nil {
@@ -44,6 +44,7 @@ func (set *ClassSet) Add(classes ...*ClassType) {
 		}
 		set.Sort()
 	}
+	return set
 }
 
 // Find searches the set of classes to find a class with the given name.
