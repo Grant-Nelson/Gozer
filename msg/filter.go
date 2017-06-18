@@ -2,7 +2,7 @@ package msg
 
 import "fmt"
 
-var _ MessageProcessor = (*Filter)(nil)
+var _ Processor = (*Filter)(nil)
 
 // Filter removes messages from the log.
 type Filter struct {
@@ -21,7 +21,7 @@ func NewFilter(kind MessageKind) *Filter {
 // Process removes any message of the specific message kind.
 // If nil is returned the message is filtered.
 func (f *Filter) Process(msg *Message) *Message {
-	if (msg != nil) && (msg.Kind == f.Kind) {
+	if (f != nil) && (msg != nil) && (msg.Kind == f.Kind) {
 		return nil
 	}
 	return msg
@@ -29,5 +29,8 @@ func (f *Filter) Process(msg *Message) *Message {
 
 // String gets the string for this message processor.
 func (f *Filter) String() string {
-	return fmt.Sprint("Filter(", ")")
+	if f == nil {
+		return nilStr
+	}
+	return fmt.Sprint("Filter(", f.Kind, ")")
 }

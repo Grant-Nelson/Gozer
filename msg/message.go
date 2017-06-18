@@ -6,6 +6,9 @@ import (
 	"github.com/grant-nelson/Gozer/common"
 )
 
+// nilStr is the string to use for nil values.
+const nilStr = "nil"
+
 // Message contains an error, warning, info, or debug message for the log.
 type Message struct {
 
@@ -51,12 +54,17 @@ func NewDebug(args ...interface{}) *Message {
 
 // Add adds a new peice of additional information/data to the message.
 func (msg *Message) Add(key string, val ...interface{}) *Message {
-	msg.Data.Add(key, val...)
+	if msg != nil {
+		msg.Data.Add(key, val...)
+	}
 	return msg
 }
 
 // String gets the string for this message.
 func (msg *Message) String() string {
+	if msg == nil {
+		return nilStr
+	}
 	result := fmt.Sprintf("%s: %s", msg.Kind.String(), msg.Text)
 	if !msg.Data.Empty() {
 		result += ":\n  " + msg.Data.FormatMap("  ")

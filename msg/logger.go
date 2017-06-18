@@ -1,5 +1,7 @@
 package msg
 
+import "github.com/grant-nelson/Gozer/common"
+
 // Logger designed for managing messages and logging data.
 type Logger struct {
 
@@ -7,7 +9,7 @@ type Logger struct {
 	msgs []*Message
 
 	// procs is the stack of message processors.
-	procs []MessageProcessor
+	procs []Processor
 
 	// errCount is the number of errors which have been logged.
 	errCount *Counter
@@ -18,7 +20,7 @@ func NewLogger() *Logger {
 	errCount := NewCounter(Error)
 	return &Logger{
 		msgs:     []*Message{},
-		procs:    []MessageProcessor{errCount},
+		procs:    []Processor{errCount},
 		errCount: errCount,
 	}
 }
@@ -29,8 +31,8 @@ func (log *Logger) Messages() []*Message {
 }
 
 // Process processes all the messages in the log with the given process.
-func (log *Logger) Process(proc MessageProcessor) {
-	if proc != nil {
+func (log *Logger) Process(proc Processor) {
+	if (log != nil) && (proc != nil) {
 		msgs := make([]*Message, 0, len(log.procs))
 		for _, msg := range log.msgs {
 			msg = proc.Process(msg)
@@ -49,7 +51,7 @@ func (log *Logger) PushData(key string, value ...interface{}) *Logger {
 
 // Push adds a new message processor onto the processor stack.
 // The top of the stack processes a message first.
-func (log *Logger) Push(proc MessageProcessor) *Logger {
+func (log *Logger) Push(proc Processor) *Logger {
 	log.procs = append(log.procs, proc)
 	return log
 }
@@ -101,6 +103,6 @@ func (log *Logger) Info(args ...interface{}) *Message {
 // Debug will log debugging information to the current output or console.
 func (log *Logger) Debug(args ...interface{}) *Message {
 	msg := NewDebug(args...)
-	msg.Add("stack", StackTrace(1, 30, ""))
+	msg.Add("stack", common.StackTrace(1, 30))
 	return log.add(msg)
 }

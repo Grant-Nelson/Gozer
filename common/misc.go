@@ -1,6 +1,8 @@
 package common
 
 import (
+	"fmt"
+	"runtime/debug"
 	"sort"
 	"strings"
 )
@@ -43,7 +45,37 @@ func DiffStringSets(set1 []string, set2 []string) (notInSet1 []string, notInSet2
 	return
 }
 
+// ThrowError throws an error via a panic.
+func ThrowError(msg ...interface{}) {
+	panic(fmt.Errorf("%s", fmt.Sprint(msg...)))
+}
+
 // Indent returns the given text indented.
 func Indent(text string, indent string) string {
 	return strings.Replace(text, "\n", "\n"+indent, -1)
+}
+
+// getStack gets the stack trace.
+// Made available for testing.
+var getStack = debug.Stack
+
+// StackTrace gets the current stack trace.
+func StackTrace(offset int, count int) string {
+	if count <= 0 {
+		return ""
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	stack := strings.Split(string(getStack()), "\n")
+	length := len(stack)
+	start := offset*2 + 5
+	if start >= length {
+		start = length - 1
+	}
+	stop := start + count*2
+	if stop >= length {
+		stop = length - 1
+	}
+	return strings.Join(stack[start:stop], "\n")
 }

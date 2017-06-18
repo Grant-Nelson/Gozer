@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"runtime/debug"
 	"strings"
 )
 
@@ -27,30 +26,6 @@ func NewTester(t TestInterface) *Tester {
 	}
 }
 
-// getStack gets the stack trace
-var getStack func() []byte = debug.Stack
-
-// Stack gets the current stack trace.
-func (t *Tester) Stack(offset int, count int) string {
-	if count <= 0 {
-		return ""
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	stack := strings.Split(string(getStack()), "\n")
-	length := len(stack)
-	start := offset*2 + 5
-	if start >= length {
-		start = length - 1
-	}
-	stop := start + count*2
-	if stop >= length {
-		stop = length - 1
-	}
-	return strings.Join(stack[start:stop], "\n")
-}
-
 // Fatal will fail a test and print the given msg.
 func (t *Tester) Fatal(msg ...interface{}) {
 	t.t.Fatal(msg...)
@@ -62,7 +37,7 @@ func (t *Tester) Failed(text string, m Map) {
 		m = NewMap()
 	}
 	if !m.Contains("Stack") {
-		m.Add("Stack", t.Stack(0, 5))
+		m.Add("Stack", StackTrace(0, 5))
 	}
 	result := ""
 	if !m.Empty() {
@@ -79,7 +54,7 @@ func (t *Tester) CheckStr(result string, exp ...string) {
 		m := NewMap().
 			Add("Expected", expStr).
 			Add("Gotten", result).
-			Add("Stack", t.Stack(0, 5))
+			Add("Stack", StackTrace(0, 5))
 		t.Failed("Unexpected string", m)
 	}
 }
@@ -91,7 +66,7 @@ func (t *Tester) CheckInt(result int, exp int, msg ...interface{}) {
 		m := NewMap().
 			Add("Expected", exp).
 			Add("Gotten", result).
-			Add("Stack", t.Stack(0, 5))
+			Add("Stack", StackTrace(0, 5))
 		if len(msg) > 0 {
 			m.Add("Message", fmt.Sprint(msg...))
 		}
@@ -106,7 +81,7 @@ func (t *Tester) CheckBool(result bool, exp bool, msg ...interface{}) {
 		m := NewMap().
 			Add("Expected", exp).
 			Add("Gotten", result).
-			Add("Stack", t.Stack(0, 5))
+			Add("Stack", StackTrace(0, 5))
 		if len(msg) > 0 {
 			m.Add("Message", fmt.Sprint(msg...))
 		}

@@ -2,7 +2,7 @@ package msg
 
 import "fmt"
 
-var _ MessageProcessor = (*DataSetter)(nil)
+var _ Processor = (*DataSetter)(nil)
 
 // DataSetter sets data to any message which is logged.
 type DataSetter struct {
@@ -24,7 +24,7 @@ func NewDataSetter(key string, value ...interface{}) *DataSetter {
 
 // Process will set the data of the given message and return the message.
 func (ds *DataSetter) Process(msg *Message) *Message {
-	if msg != nil {
+	if (ds != nil) && (msg != nil) {
 		msg.Add(ds.Key, ds.Value...)
 	}
 	return msg
@@ -32,5 +32,8 @@ func (ds *DataSetter) Process(msg *Message) *Message {
 
 // String gets the string for this message processor.
 func (ds *DataSetter) String() string {
+	if ds == nil {
+		return nilStr
+	}
 	return fmt.Sprint("DataSetter(", ds.Key, ": ", fmt.Sprint(ds.Value...), ")")
 }

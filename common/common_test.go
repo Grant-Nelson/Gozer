@@ -18,6 +18,10 @@ func TestTestTools(tt *testing.T) {
 	t := NewTester(tt)
 	ftc := &FatalTestCall{}
 	t2 := NewTester(ftc)
+	tempStack := getStack
+	defer func() {
+		getStack = tempStack
+	}()
 	getStack = func() []byte {
 		return []byte(fmt.Sprint(
 			"1. fake stack trace\n",
@@ -56,17 +60,33 @@ func TestTestTools(tt *testing.T) {
 		`  Stack:    6. fake stack trace`,
 		`            7. fake stack trace`)
 
-	t.CheckStr(t2.Stack(1, -1), ``)
-	t.CheckStr(t2.Stack(-1, 2),
+	t.CheckStr(StackTrace(1, -1), ``)
+	t.CheckStr(StackTrace(-1, 2),
 		`6. fake stack trace`,
 		`7. fake stack trace`)
-	t.CheckStr(t2.Stack(2, 4), ``)
+	t.CheckStr(StackTrace(2, 4), ``)
 
 	t2.Failed("Panda", nil)
 	t.CheckStr(ftc.Result,
 		`Panda:`,
 		`  Stack: 6. fake stack trace`,
 		`         7. fake stack trace`)
+}
+
+func TestThrowError(tt *testing.T) {
+	t := NewTester(tt)
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(error); ok {
+				t.CheckStr(fmt.Sprint(err), "Test Panic")
+				return
+			}
+			t.Fatal("panic should have been an error")
+		}
+		t.Fatal("panic should not have been nil")
+	}()
+	ThrowError("Test Panic")
+	t.Fatal("panic did not fire if this line was reached")
 }
 
 func TestDiffStringSets(tt *testing.T) {

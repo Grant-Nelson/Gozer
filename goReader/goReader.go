@@ -14,6 +14,14 @@ import (
 	"github.com/grant-nelson/Gozer/msg"
 )
 
+// AstString gets the string of the tree for the given AST object.
+func AstString(fileSet *token.FileSet, data interface{}) string {
+	buf := bytes.Buffer{}
+	ast.Fprint(&buf, fileSet, data,
+		func(name string, value reflect.Value) bool { return true })
+	return buf.String()
+}
+
 // GoReader is a GO parser and Dart writer for transpileing.
 type GoReader struct {
 

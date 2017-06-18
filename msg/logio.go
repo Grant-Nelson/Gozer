@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var _ MessageProcessor = (*LogIO)(nil)
+var _ Processor = (*LogIO)(nil)
 
 // LogIO is a message processor to write messages to an output.
 type LogIO struct {
@@ -39,6 +39,10 @@ func NewLogIO(output io.Writer) *LogIO {
 	}
 }
 
+// println prints the data to standard out.
+// Made available for testing.
+var println = fmt.Println
+
 // write prints the given message to the console or output.
 func (log *LogIO) write(msg *Message) {
 	str := msg.String()
@@ -46,14 +50,14 @@ func (log *LogIO) write(msg *Message) {
 		io.WriteString(log.Output, str)
 		io.WriteString(log.Output, "\n")
 	} else {
-		fmt.Println(str)
+		println(str)
 	}
 }
 
 // Process writes the message to the given output if it should be written.
 // The given message is returned.
 func (log *LogIO) Process(msg *Message) *Message {
-	if msg != nil {
+	if (log != nil) && (msg != nil) {
 		switch msg.Kind {
 		case Error:
 			if log.Errors {
@@ -82,6 +86,9 @@ func (log *LogIO) Process(msg *Message) *Message {
 
 // String gets the string for this message processor.
 func (log *LogIO) String() string {
+	if log == nil {
+		return nilStr
+	}
 	parts := []string{}
 	if log.Errors {
 		parts = append(parts, "Errors")
