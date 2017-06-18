@@ -33,28 +33,28 @@ func TestTestTools(tt *testing.T) {
 	t2.CheckStr("Now", "Never")
 	t.CheckStr(ftc.Result,
 		`Unexpected string:`,
-		`   Expected: Never`,
-		`   Gotten:   Now`,
-		`   Stack:    6. fake stack trace`,
-		`             7. fake stack trace`)
+		`  Expected: Never`,
+		`  Gotten:   Now`,
+		`  Stack:    6. fake stack trace`,
+		`            7. fake stack trace`)
 
 	t2.CheckInt(12, 34, "Blooop")
 	t.CheckStr(ftc.Result,
 		`Unexpected integer:`,
-		`   Expected: 34`,
-		`   Gotten:   12`,
-		`   Message:  Blooop`,
-		`   Stack:    6. fake stack trace`,
-		`             7. fake stack trace`)
+		`  Expected: 34`,
+		`  Gotten:   12`,
+		`  Message:  Blooop`,
+		`  Stack:    6. fake stack trace`,
+		`            7. fake stack trace`)
 
 	t2.CheckBool(true, false, "Bleep")
 	t.CheckStr(ftc.Result,
 		`Unexpected boolean:`,
-		`   Expected: false`,
-		`   Gotten:   true`,
-		`   Message:  Bleep`,
-		`   Stack:    6. fake stack trace`,
-		`             7. fake stack trace`)
+		`  Expected: false`,
+		`  Gotten:   true`,
+		`  Message:  Bleep`,
+		`  Stack:    6. fake stack trace`,
+		`            7. fake stack trace`)
 
 	t.CheckStr(t2.Stack(1, -1), ``)
 	t.CheckStr(t2.Stack(-1, 2),
@@ -65,8 +65,8 @@ func TestTestTools(tt *testing.T) {
 	t2.Failed("Panda", nil)
 	t.CheckStr(ftc.Result,
 		`Panda:`,
-		`   Stack: 6. fake stack trace`,
-		`          7. fake stack trace`)
+		`  Stack: 6. fake stack trace`,
+		`         7. fake stack trace`)
 }
 
 func TestDiffStringSets(tt *testing.T) {
@@ -89,8 +89,8 @@ func TestDiffStringSets(tt *testing.T) {
 
 func TestIndent(tt *testing.T) {
 	t := NewTester(tt)
-	result := Indent("No Indent\nIndent\nAlso Indented", "   ")
-	exp := "No Indent\n   Indent\n   Also Indented"
+	result := Indent("No Indent\nIndent\nAlso Indented", "  ")
+	exp := "No Indent\n  Indent\n  Also Indented"
 	t.CheckStr(result, exp)
 }
 

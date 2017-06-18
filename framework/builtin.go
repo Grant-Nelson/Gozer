@@ -16,7 +16,8 @@ func BuiltinPrebuild(prog *types.ProgramType) {
 
 	// Describe the buildin package.
 	pack := types.Package()
-	prog.AddPackage(builtinName, pack)
+	pack.Name = builtinName
+	prog.AddPackage(pack)
 
 	// https://golang.org/src/builtin/builtin.go?h=make#L254
 	pack.AddInterface("error").

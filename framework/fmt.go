@@ -19,17 +19,18 @@ func FmtPrebuild(prog *types.ProgramType) {
 	IOPrebuild(prog)
 
 	// Get the types from other packages needed by this package.
-	builtin := prog.Packages[builtinName]
-	errType := builtin.Interfaces["error"]
+	builtin, _ := prog.Packages.Find(builtinName)
+	errType, _ := builtin.Interfaces.Find("error")
 
 	// Describe the fmt package.
 	pack := types.Package()
-	prog.AddPackage(fmtName, pack)
+	pack.Name = fmtName
+	prog.AddPackage(pack)
 
 	// return structure for methods similar to Print and Println
-	printResult := pack.AddStructure("printResult").
-		AddMember("n", types.Int()).
-		AddMember("err", errType)
+	printResult := pack.AddStructure("printResult")
+	printResult.AddMember("n", types.Int())
+	printResult.AddMember("err", errType)
 
 	// https://golang.org/pkg/fmt/#Errorf
 	pack.AddFunction("Errorf").

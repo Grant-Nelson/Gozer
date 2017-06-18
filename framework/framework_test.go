@@ -1,22 +1,22 @@
 package framework
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
-func TestBuiltin(t *testing.T) {
+func TestBuiltin(tt *testing.T) {
+	t := common.NewTester(tt)
 	prog := types.Program()
 	BuiltinPrebuild(prog)
 	// check double loading doesn't cause a problem
 	BuiltinPrebuild(prog)
 
 	// The current values for builtin, will change as parts are added
-	checkType(t, prog.Packages["builtin"],
-		`{`,
+	CheckPackage(t, prog, "builtin",
+		`import builtin{`,
 		`  variant append(variant a, variant... b)`,
 		`  int cap(variant a)`,
 		`  int len(variant a)`,
@@ -28,43 +28,47 @@ func TestBuiltin(t *testing.T) {
 		`}`)
 }
 
-func TestFmt(t *testing.T) {
+func TestFmt(tt *testing.T) {
+	t := common.NewTester(tt)
 	prog := types.Program()
 	FmtPrebuild(prog)
 	// check double loading doesn't cause a problem
 	FmtPrebuild(prog)
 
 	// The current values for fmt, will change as parts are added
-	checkType(t, prog.Packages["fmt"],
-		`{`,
-		`  string Sprintln(interface{}... a)`,
+	CheckPackage(t, prog, "fmt",
+		`import fmt{`,
 		`  error Errorf(string format, interface{}... a)`,
 		`  printResult Print(interface{}... a)`,
 		`  printResult Printf(string format, interface{}... a)`,
 		`  printResult Println(interface{}... a)`,
 		`  string Sprint(interface{}... a)`,
 		`  string Sprintf(string format, interface{}... a)`,
+		`  string Sprintln(interface{}... a)`,
 		`  printResult{`,
-		`    int n`,
 		`    error err`,
+		`    int n`,
 		`  }`,
 		`}`)
 }
 
-func TestIO(t *testing.T) {
+func TestIO(tt *testing.T) {
+	t := common.NewTester(tt)
 	prog := types.Program()
 	IOPrebuild(prog)
 	// Check double loading doesn't cause a problem
 	IOPrebuild(prog)
 
 	// The current values for io, will change as parts are added
-	checkType(t, prog.Packages["io"],
-		`{}`)
+	CheckPackage(t, prog, "io",
+		`import io{}`)
 }
 
 //============================================================================
 
-// checkType checks that the type's string matches the given string.
-func checkType(t *testing.T, ty types.Type, exp ...string) {
-	checkString(t, types.ToString(ty), exp...)
+// CheckPackage checks that the package's string matches the given string.
+func CheckPackage(t *common.Tester, prog *types.ProgramType, packageName string, exp ...string) {
+	pack, found := prog.Packages.Find(packageName)
+	t.CheckBool(found, true, "expected ", packageName, " package")
+	t.CheckStr(pack.FullString(), exp...)
 }

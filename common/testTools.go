@@ -66,7 +66,7 @@ func (t *Tester) Failed(text string, m Map) {
 	}
 	result := ""
 	if !m.Empty() {
-		result = ":\n   " + m.FormatMap("   ")
+		result = ":\n  " + m.FormatMap("  ")
 	}
 	t.Fatal(text + result)
 }

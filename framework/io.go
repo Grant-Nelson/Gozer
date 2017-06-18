@@ -19,7 +19,8 @@ func IOPrebuild(prog *types.ProgramType) {
 
 	// Describe the io package.
 	pack := types.Package()
-	prog.AddPackage(ioName, pack)
+	pack.Name = ioName
+	prog.AddPackage(pack)
 
 	// TODO: Add io package
 }

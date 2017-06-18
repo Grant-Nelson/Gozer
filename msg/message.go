@@ -59,7 +59,7 @@ func (msg *Message) Add(key string, val ...interface{}) *Message {
 func (msg *Message) String() string {
 	result := fmt.Sprintf("%s: %s", msg.Kind.String(), msg.Text)
 	if !msg.Data.Empty() {
-		result += ":\n   " + msg.Data.FormatMap("   ")
+		result += ":\n  " + msg.Data.FormatMap("  ")
 	}
 	return result
 }
