@@ -18,7 +18,7 @@ type Expression interface {
 	String() string
 }
 
-// ToString creates a string for the given construct.
+// ToString creates a string for the given expression.
 func ToString(e Expression) string {
 	if e == nil {
 		return nilStr

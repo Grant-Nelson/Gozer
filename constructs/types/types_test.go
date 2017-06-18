@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -383,9 +384,10 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 
 	prog1.AddPackage(p1)
 	prog1.AddPackageWithShort("orange", p2)
+	p2.Name = "orangeJuice"
 	CheckType(t, prog1,
 		`{`,
-		`  import orange`,
+		`  import orange = orangeJuice`,
 		`  import sounds`,
 		`}`)
 	if !prog1.Contains("sounds") {
@@ -529,6 +531,31 @@ func TestInterfaceSet(tt *testing.T) {
 	CheckType(t, t1, "nil")
 	t.CheckBool(found1, false, "AddNew on a nil interface set")
 	t.CheckInt((*InterfaceSet)(nil).Len(), 0, "AddNew on a nil interface set")
+
+	set := NewInterfaceSet()
+	i1, found1 := set.AddNew("water")
+	t.CheckBool(found1, true, "First created interface in set")
+	i1.AddFunction("wamp")
+
+	i2, found2 := set.AddNew("rocks")
+	t.CheckBool(found2, true, "Second created interface in set")
+	i2.AddFunction("fu").AddParam("name", String())
+
+	i3, found3 := set.AddNew("rocks")
+	t.CheckBool(found3, false, "Finding second created interface in set again")
+	i3.AddFunction("bar").SetReturn(String())
+
+	t.CheckStr(set.String(),
+		`rocks`,
+		`water`)
+	t.CheckStr(set.FullString(),
+		`rocks{`,
+		`  string bar()`,
+		`  void fu(string name)`,
+		`}`,
+		`water{`,
+		`  void wamp()`,
+		`}`)
 }
 
 func TestPackageSet(tt *testing.T) {
@@ -539,6 +566,59 @@ func TestPackageSet(tt *testing.T) {
 	CheckType(t, t1, "nil")
 	t.CheckBool(found1, false, "AddNew on a nil package set")
 	t.CheckInt((*PackageSet)(nil).Len(), 0, "AddNew on a nil package set")
+	t.CheckStr(fmt.Sprint((*PackageSet)(nil).Shorts()), "[]")
+	t.CheckStr(fmt.Sprint((*PackageSet)(nil).Packages()), "[]")
+
+	set := NewPackageSet()
+	p1, found1 := set.AddNew("pirate")
+	t.CheckBool(found1, true, "first pirate creation")
+	p1.AddDeclaration("pegLeg", Int())
+
+	p2, found2 := set.AddNew("zombie")
+	t.CheckBool(found2, true, "first zombie creation")
+	p2.AddDeclaration("brains", String())
+
+	p3, found3 := set.AddNew("robot")
+	t.CheckBool(found3, true, "first robot creation")
+	p3.AddDeclaration("bolt", UInt16())
+
+	p4, found4 := set.AddNew("pirate")
+	t.CheckBool(found4, false, "repeat pirate creation")
+	p4.AddDeclaration("parrot", Rune())
+
+	t.CheckStr(set.String(),
+		`import pirate`,
+		`import robot`,
+		`import zombie`)
+	t.CheckStr(set.FullString(),
+		`import pirate{`,
+		`  rune parrot`,
+		`  int pegLeg`,
+		`}`,
+		`import robot{`,
+		`  uint16 bolt`,
+		`}`,
+		`import zombie{`,
+		`  string brains`,
+		`}`)
+
+	shortSet1 := set.SetShort("ninja", "zombie")
+	t.CheckBool(shortSet1, true, "renaming zombie")
+
+	shortSet2 := set.SetShort("wolf", "moon")
+	t.CheckBool(shortSet2, false, "moon 404")
+
+	shortSet3 := set.SetShort("arnold", "robot")
+	t.CheckBool(shortSet3, true, "renaming robot")
+
+	set.Sort()
+	t.CheckStr(set.String(),
+		`import arnold = robot`,
+		`import ninja = zombie`,
+		`import pirate`)
+
+	t.CheckStr(fmt.Sprint(set.Shorts()), "[arnold ninja ]")
+	t.CheckStr(fmt.Sprint(set.Packages()), "[import robot import zombie import pirate]")
 }
 
 func TestStructureSet(tt *testing.T) {
@@ -549,6 +629,45 @@ func TestStructureSet(tt *testing.T) {
 	CheckType(t, t1, "nil")
 	t.CheckBool(found1, false, "AddNew on a nil structure set")
 	t.CheckInt((*StructureSet)(nil).Len(), 0, "AddNew on a nil structure set")
+
+	set := NewStructureSet()
+	d1, found1 := set.AddNew("address")
+	t.CheckBool(found1, true, "add address")
+	d1.AddMember("street", String())
+	d1.AddMember("zipCode", Int())
+	d1.AddMember("state", String())
+
+	d2, found2 := set.AddNew("customer")
+	t.CheckBool(found2, true, "add customer")
+	d2.AddMember("first", String())
+	d2.AddMember("last", String())
+	d2.AddMember("age", Int())
+
+	d3, found3 := set.AddNew("address")
+	t.CheckBool(found3, false, "find address again")
+	d3.AddMember("county", String())
+
+	t.CheckStr(set.String(),
+		`address`,
+		`customer`)
+
+	d3.Name = "location"
+	set.Sort()
+	t.CheckStr(set.String(),
+		`customer`,
+		`location`)
+	t.CheckStr(set.FullString(),
+		`customer{`,
+		`  int age`,
+		`  string first`,
+		`  string last`,
+		`}`,
+		`location{`,
+		`  string county`,
+		`  string state`,
+		`  string street`,
+		`  int zipCode`,
+		`}`)
 }
 
 //============================================================================

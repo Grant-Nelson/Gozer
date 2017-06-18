@@ -64,17 +64,6 @@ func TestIO(t *testing.T) {
 
 //============================================================================
 
-// checkString checks the the given string matches the given expected lines.
-// The lines will be joined with newlines.
-func checkString(t *testing.T, result string, exp ...string) {
-	expStr := strings.Join(exp, "\n")
-	if result != expStr {
-		t.Fatal("Unexpected construct string:",
-			"\n   Expected: ", common.Indent(expStr, "             "),
-			"\n   Gotten:   ", common.Indent(result, "             "))
-	}
-}
-
 // checkType checks that the type's string matches the given string.
 func checkType(t *testing.T, ty types.Type, exp ...string) {
 	checkString(t, types.ToString(ty), exp...)

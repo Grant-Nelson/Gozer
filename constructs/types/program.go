@@ -54,5 +54,5 @@ func (t *ProgramType) String() string {
 	if t.Packages.Len() <= 0 {
 		return "{}"
 	}
-	return "{\n  " + common.Indent(t.Packages.ImportString(), "  ") + "\n}"
+	return "{\n  " + common.Indent(t.Packages.String(), "  ") + "\n}"
 }

@@ -146,6 +146,9 @@ func (t *PackageType) StringWithShort(short string) string {
 		return nilStr
 	}
 	if len(short) > 0 {
+		if len(t.Name) > 0 {
+			return "import " + short + " = " + t.Name
+		}
 		return "import " + short
 	}
 	if len(t.Name) > 0 {

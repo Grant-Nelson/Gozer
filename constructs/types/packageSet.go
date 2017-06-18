@@ -40,6 +40,19 @@ func (set *PackageSet) Packages() []*PackageType {
 	return set.packages
 }
 
+// SetShort
+func (set *PackageSet) SetShort(short string, name string) bool {
+	if set != nil {
+		for i, pack := range set.packages {
+			if (pack != nil) && (pack.Name == name) {
+				set.shorts[i] = short
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // AddNew adds a package to this set.
 // Returns the new package and true if new, false if already exists.
 func (set *PackageSet) AddNew(name string) (*PackageType, bool) {
@@ -51,7 +64,7 @@ func (set *PackageSet) AddNew(name string) (*PackageType, bool) {
 	}
 	pack := Package()
 	pack.Name = name
-	set.Add(pack)
+	set.AddWithShort("", pack)
 	return pack, true
 }
 
@@ -60,9 +73,11 @@ func (set *PackageSet) Add(packages ...*PackageType) *PackageSet {
 	if set != nil {
 		for _, pack := range packages {
 			if pack != nil {
-				set.AddWithShort("", pack)
+				set.shorts = append(set.shorts, "")
+				set.packages = append(set.packages, pack)
 			}
 		}
+		set.Sort()
 	}
 	return set
 }
@@ -71,6 +86,7 @@ func (set *PackageSet) Add(packages ...*PackageType) *PackageSet {
 func (set *PackageSet) AddWithShort(short string, pack *PackageType) {
 	set.shorts = append(set.shorts, short)
 	set.packages = append(set.packages, pack)
+	set.Sort()
 }
 
 // Find searches the set of packages to find a package with the given name.
@@ -137,23 +153,6 @@ func (set *PackageSet) String() string {
 	for i, pack := range set.packages {
 		parts[i] = pack.StringWithShort(set.shorts[i])
 	}
-	return strings.Join(parts, "\n")
-}
-
-// ImportString is the string to show the package as an import.
-func (set *PackageSet) ImportString() string {
-	if set == nil {
-		return nilStr
-	}
-	parts := make([]string, set.Len())
-	for i, pack := range set.packages {
-		if short := set.shorts[i]; len(short) > 0 {
-			parts[i] = "import " + short
-		} else {
-			parts[i] = "import " + pack.Name
-		}
-	}
-	sort.Strings(parts)
 	return strings.Join(parts, "\n")
 }
 
