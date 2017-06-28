@@ -28,7 +28,7 @@ func FmtPrebuild(prog *types.ProgramType) {
 	prog.AddPackage(pack)
 
 	// return structure for methods similar to Print and Println
-	printResult := pack.AddStructure("printResult")
+	printResult := pack.AddReturnSet("printResult")
 	printResult.AddMember("n", types.Int())
 	printResult.AddMember("err", errType)
 

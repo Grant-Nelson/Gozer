@@ -46,8 +46,8 @@ func TestFmt(tt *testing.T) {
 		`  string Sprintf(string format, interface{}... a)`,
 		`  string Sprintln(interface{}... a)`,
 		`  printResult{`,
-		`    error err`,
 		`    int n`,
+		`    error err`,
 		`  }`,
 		`}`)
 }

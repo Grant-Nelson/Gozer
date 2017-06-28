@@ -8,6 +8,9 @@ import (
 // DeclarationSet for storing a set of declarations.
 type DeclarationSet struct {
 
+	// AutoSort indicates the set should be automatically sorted.
+	AutoSort bool
+
 	// Declarations is the set of declarations.
 	Declarations []*DeclarationType
 }
@@ -15,6 +18,7 @@ type DeclarationSet struct {
 // NewDeclarationSet creates a new set of declarations.
 func NewDeclarationSet() *DeclarationSet {
 	return &DeclarationSet{
+		AutoSort:     true,
 		Declarations: []*DeclarationType{},
 	}
 }
@@ -43,7 +47,9 @@ func (set *DeclarationSet) Add(inters ...*DeclarationType) *DeclarationSet {
 				set.Declarations = append(set.Declarations, inter)
 			}
 		}
-		set.Sort()
+		if set.AutoSort {
+			set.Sort()
+		}
 	}
 	return set
 }

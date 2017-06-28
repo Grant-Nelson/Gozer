@@ -158,3 +158,65 @@ func TestLogIOPrint(tt *testing.T) {
 	t.CheckStr(result,
 		`Error: right`)
 }
+
+func TestLogger(tt *testing.T) {
+	t := common.NewTester(tt)
+	log := NewLogger()
+	log.PushData("rock", "classical")
+	t.CheckInt(log.ErrorCount(), 0, "initial error count")
+
+	log.Error("tea")
+	log.Debug("coffee").Add("stack", "override")
+	t.CheckStr(log.String(),
+		`Error: tea:`,
+		`  rock: classical`,
+		`Debug: coffee:`,
+		`  rock:  classical`,
+		`  stack: override`)
+	t.CheckInt(log.ErrorCount(), 1, "first error count")
+
+	log.Pop()
+	log.Warning("break")
+	t.CheckStr(log.String(),
+		`Error: tea:`,
+		`  rock: classical`,
+		`Debug: coffee:`,
+		`  rock:  classical`,
+		`  stack: override`,
+		`Warning: break`)
+	log.Clear()
+	t.CheckInt(log.ErrorCount(), 0, "cleared error count")
+
+	log.Push(NewFilter(Info))
+	log.Error("salt")
+	log.Info("pepper")
+	log.Warning("crazy")
+	log.Info("truth")
+	t.CheckStr(log.String(),
+		`Error: salt`,
+		`Warning: crazy`)
+	t.CheckInt(log.ErrorCount(), 1, "second error count")
+
+	log.Process(NewFilter(Warning))
+	log.Process(NewDataSetter("danger", "nuts"))
+	t.CheckStr(log.String(),
+		`Error: salt:`,
+		`  danger: nuts`)
+	t.CheckInt(log.ErrorCount(), 1, "third error count")
+
+	log.Pop()
+	log.Pop() // Does nothing
+	log.Pop() // Does nothing
+	log.Info("pepper")
+	log.Info("truth")
+	log.Add(nil)
+	log.Process(NewFilter(Error))
+	t.CheckStr(log.String(),
+		`Info: pepper`,
+		`Info: truth`)
+	t.CheckInt(log.ErrorCount(), 0, "filtered error count")
+
+	(*Logger)(nil).Error("no effect")
+	t.CheckInt((*Logger)(nil).ErrorCount(), 0, "error count on nil")
+	t.CheckStr((*Logger)(nil).String(), ``)
+}

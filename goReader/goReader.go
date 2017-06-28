@@ -1,12 +1,14 @@
 package transpiler
 
 import (
+	"bytes"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 
 	"github.com/grant-nelson/Gozer/constructs/types"
@@ -197,10 +199,11 @@ func (gr *GoReader) addSource(pack *types.PackageType, fullPath string, importPa
 
 // getOrCreatePackage gets or creates the package for the given path.
 func (gr *GoReader) getOrCreatePackage(dirPath string) *types.PackageType {
-	pack, exists := gr.Program.Packages[dirPath]
+	pack, exists := gr.Program.Packages.Find(dirPath)
 	if !exists {
 		pack = types.Package()
-		gr.Program.Packages[dirPath] = pack
+		pack.Name = dirPath
+		gr.Program.Packages.Add(pack)
 	}
 	return pack
 }
@@ -210,10 +213,10 @@ func (gr *GoReader) addImport(pack *types.PackageType, source *Source, path stri
 	importPack := gr.resolveImport(path)
 
 	// Add import to source with short name.
-	source.Imports[short] = importPack
+	source.Imports.AddWithShort(short, importPack)
 
 	// Add import to package with generalized name.
-	pack.Imports[path] = importPack
+	pack.Imports.Add(importPack)
 }
 
 // readImport creates a new import from the given spec.
@@ -238,7 +241,7 @@ func (gr *GoReader) readImport(spec *ast.ImportSpec) (string, string) {
 // resolveImport determines if the import exists, if it is part
 // of the framework, or the import is added into sources.
 func (gr *GoReader) resolveImport(importPath string) *types.PackageType {
-	if pack, exists := gr.Program.Packages[importPath]; exists {
+	if pack, exists := gr.Program.Packages.Find(importPath); exists {
 		return pack
 	}
 	return gr.AddFolder(importPath)

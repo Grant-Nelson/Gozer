@@ -128,5 +128,6 @@ func (t *FunctionType) FullString() string {
 	if t.Body != nil {
 		bodyStr = " " + fmt.Sprint(t.Body)
 	}
-	return ToString(t.ReturnType) + " " + name + params + bodyStr
+	returnStr := ToString(t.ReturnType)
+	return returnStr + " " + name + params + bodyStr
 }

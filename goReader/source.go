@@ -1,12 +1,14 @@
 package transpiler
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"math"
 	"reflect"
 	"strconv"
 
+	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs/expressions"
 	"github.com/grant-nelson/Gozer/constructs/statements"
 	"github.com/grant-nelson/Gozer/constructs/types"
@@ -30,7 +32,7 @@ type Source struct {
 
 	// Imports whieh were local to this method.
 	// The key is the short name or path for the import.
-	Imports map[string]*types.PackageType
+	Imports *types.PackageSet
 
 	// Package is the package which this method belongs to.
 	Package *types.PackageType
@@ -46,7 +48,7 @@ func NewSource(log *msg.Logger, fileSet *token.FileSet) *Source {
 		fileSet:      fileSet,
 		Path:         "",
 		Data:         nil,
-		Imports:      map[string]*types.PackageType{},
+		Imports:      types.NewPackageSet(),
 		Package:      nil,
 		pendingFuncs: map[*types.FunctionType]*ast.BlockStmt{},
 	}
@@ -59,6 +61,7 @@ func (src *Source) ProcessTypes() {
 			src.log.Error("Error occurred while processing types: ", r)
 		}
 	}()
+
 	scope := src.fillOutScope()
 	for _, decl := range src.Data.Decls {
 		switch data := decl.(type) {
@@ -67,7 +70,7 @@ func (src *Source) ProcessTypes() {
 		case *ast.FuncDecl:
 			src.readFunctionType(scope, data)
 		default:
-			msg.ThrowError("Unhandled type declaration: ", decl, " (", reflect.TypeOf(decl), ")")
+			common.ThrowError("Unhandled type declaration: ", decl, " (", reflect.TypeOf(decl), ")")
 		}
 	}
 }
@@ -79,6 +82,7 @@ func (src *Source) ProcessBodies() {
 			src.log.Error("Error occurred while processing bodies: ", r)
 		}
 	}()
+
 	scope := src.fillOutScope()
 	// TODO: fill out Constansts
 	// TODO: fill out Variables
@@ -91,20 +95,25 @@ func (src *Source) ProcessBodies() {
 
 // addBasedPackage adds a package at the base level, not under a name.
 func (src *Source) addBasedPackage(scope *Scope, pack *types.PackageType) {
-	for id, t := range pack.Imports {
-		scope.Add(id, t)
+	shorts := pack.Imports.Shorts()
+	for i, t := range pack.Imports.Packages() {
+		name := t.GetName()
+		if short := shorts[i]; len(short) > 0 {
+			name = short
+		}
+		scope.Add(name, t)
 	}
-	for id, t := range pack.Declarations {
-		scope.Add(id, t)
+	for _, t := range pack.Declarations.Declarations {
+		scope.Add(t.GetName(), t)
 	}
-	for id, t := range pack.Functions {
-		scope.Add(id, t)
+	for _, t := range pack.Functions.Functions {
+		scope.Add(t.GetName(), t)
 	}
-	for id, t := range pack.Interfaces {
-		scope.Add(id, t)
+	for _, t := range pack.Interfaces.Interfaces {
+		scope.Add(t.GetName(), t)
 	}
-	for id, t := range pack.Classes {
-		scope.Add(id, t)
+	for _, t := range pack.Classes.Classes {
+		scope.Add(t.GetName(), t)
 	}
 }
 
@@ -112,11 +121,17 @@ func (src *Source) addBasedPackage(scope *Scope, pack *types.PackageType) {
 func (src *Source) fillOutScope() *Scope {
 	defer func() {
 		if r := recover(); r != nil {
-			msg.ThrowError("Error occurred while filling out the scrope: ", r)
+			common.ThrowError("Error occurred while filling out the scrope: ", r)
 		}
 	}()
+
 	scope := NewScope(nil)
-	for name, pack := range src.Imports {
+	shorts := src.Imports.Shorts()
+	for i, pack := range src.Imports.Packages() {
+		name := pack.GetName()
+		if short := shorts[i]; len(short) > 0 {
+			name = short
+		}
 		if name == "builtin" {
 			src.addBasedPackage(scope, pack)
 		} else {
@@ -130,13 +145,13 @@ func (src *Source) fillOutScope() *Scope {
 // readType reads a type from the given expression.
 func (src *Source) readType(scope *Scope, desc ast.Expr) (types.Type, bool) {
 	if desc == nil {
-		msg.ThrowError("Nil type expression")
+		common.ThrowError("Nil type expression")
 		return nil, false
 	}
 	switch id := desc.(type) {
 	case *ast.ArrayType:
 		if id.Len != nil {
-			msg.ThrowError("Unhandled array length expression: ", id, " (", reflect.TypeOf(desc), ")")
+			common.ThrowError("Unhandled array length expression: ", id, " (", reflect.TypeOf(desc), ")")
 		}
 		desc, _ := src.readType(scope, id.Elt)
 		return types.List(desc), true
@@ -146,7 +161,7 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (types.Type, bool) {
 		desc, _ := src.readType(scope, id.Elt)
 		return types.List(desc), true
 	default:
-		msg.ThrowError("Unhandled type expression: ", desc, " (", reflect.TypeOf(desc), ")")
+		common.ThrowError("Unhandled type expression: ", desc, " (", reflect.TypeOf(desc), ")")
 		return nil, false
 	}
 }
@@ -155,7 +170,7 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (types.Type, bool) {
 func (src *Source) lookupType(scope *Scope, typeName string) types.Type {
 	result := types.LookupType(typeName)
 	if result == nil {
-		msg.ThrowError("Unhandled type name: ", typeName)
+		common.ThrowError("Unhandled type name: ", typeName)
 		return nil
 	}
 	return result
@@ -164,7 +179,7 @@ func (src *Source) lookupType(scope *Scope, typeName string) types.Type {
 // readFieldList reads a list of parameters or returns from the given field.
 func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string, []types.Type, bool) {
 	names := []string{}
-	types := []types.Type{}
+	typeList := []types.Type{}
 	var typeDesc types.Type
 	ellipsis := false
 	if fields != nil {
@@ -173,41 +188,43 @@ func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string,
 			if len(field.Names) > 0 {
 				for _, name := range field.Names {
 					names = append(names, name.Name)
-					types = append(types, typeDesc)
+					typeList = append(typeList, typeDesc)
 				}
 			} else {
 				names = append(names, "")
-				types = append(types, typeDesc)
+				typeList = append(typeList, typeDesc)
 			}
 		}
 	}
-	return names, types, ellipsis
+	return names, typeList, ellipsis
 }
 
 // readGenericDeclaration reads the given generic declaration into the library.
 func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
 	defer func() {
 		if r := recover(); r != nil {
-			msg.ThrowError("Error occurred while reading a generic declaration: ", r)
+			common.ThrowError("Error occurred while reading a generic declaration: ", r)
 		}
 	}()
+
 	switch data.Tok {
 	case token.IMPORT:
 		// Ignore imports while reading generic declarations.
 		return
 	default:
-		msg.ThrowError("Unhandled generic declaration: ", data, " (", reflect.TypeOf(data), ")")
+		common.ThrowError("Unhandled generic declaration: ", data, " (", reflect.TypeOf(data), ")")
 	}
 }
 
-// readFunction reads the given method into the library
+// readFunctionType reads the given method into the library
 // and adds it to a class if the class is defined.
 func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	defer func() {
 		if r := recover(); r != nil {
-			msg.ThrowError("Error occurred while reading a function type: ", r)
+			common.ThrowError("Error occurred while reading a function type: ", r)
 		}
 	}()
+
 	//ast.Print(src.fileSet, data)
 	fn := types.Function()
 	fn.Name = data.Name.Name
@@ -217,10 +234,10 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	if len(receiverNames) > 0 {
 		fn.ReceiverName = receiverNames[0]
 		class := receiverTypes[0].(*types.ClassType)
-		class.Interface.Functions[fn.Name] = fn
+		class.Interface.Functions.Add(fn)
 		fn.ReceiverClass = class
 	} else {
-		src.Package.Functions[fn.Name] = fn
+		src.Package.Functions.Add(fn)
 	}
 
 	// Input parameters
@@ -231,14 +248,27 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 
 	// Return paramters
 	returnNames, returnTypes, _ := src.readFieldList(scope, data.Type.Results)
-
-	// TODO: Create returns
-	// returnType
-	//
-	// fn.ReturnNames = returnNames
-	// fn.ReturnTypes = returnTypes
-	//
-	// fn.SetReturn(returnType)
+	if len(returnTypes) <= 0 {
+		fn.SetReturn(types.Void())
+	} else if len(returnTypes) == 1 {
+		if len(returnNames[0]) > 0 {
+			ret := types.NewReturnSet()
+			ret.AddMember(returnNames[0], returnTypes[0])
+			fn.SetReturn(ret)
+		} else {
+			fn.SetReturn(returnTypes[0])
+		}
+	} else {
+		ret := types.NewReturnSet()
+		for i, retType := range returnTypes {
+			name := returnNames[i]
+			if len(name) <= 0 {
+				name = fmt.Sprintf("val%d", i)
+			}
+			ret.AddMember(name, retType)
+		}
+		fn.SetReturn(ret)
+	}
 
 	// Read the body for the function
 	if data.Body != nil {
@@ -251,9 +281,10 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *statements.BlockStat {
 	defer func() {
 		if r := recover(); r != nil {
-			msg.ThrowError("Error occurred while parsing a block: ", r)
+			common.ThrowError("Error occurred while parsing a block: ", r)
 		}
 	}()
+
 	blockScope := NewScope(scope)
 	stats := []statements.Statement{}
 	for _, stmt := range block.List {
@@ -319,28 +350,45 @@ func (src *Source) parseIfStatement(scope *Scope, ifStat *ast.IfStmt) statements
 // parseForStatement reads a for-statment
 // https://golang.org/pkg/go/ast/#ForStmt
 func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) statements.Statement {
-	var inits []statements.Statement
+	container := statements.Block()
+
+	var init statements.Statement
 	if forStat.Init != nil {
-		inits = src.parseStatement(scope, forStat.Init)
+		inits := src.parseStatement(scope, forStat.Init)
+		if len(inits) == 1 {
+			init = inits[0]
+		} else if len(inits) > 1 {
+			container.Statements = append(container.Statements, inits...)
+		}
 	}
+
 	var cond expressions.Expression
 	if forStat.Cond != nil {
 		cond = src.parseExpression(scope, forStat.Cond)
 	}
-	var post []statements.Statement
+
+	var post statements.Statement
 	if forStat.Post != nil {
-		post = src.parseStatement(scope, forStat.Post)
+		posts := src.parseStatement(scope, forStat.Post)
+		if len(posts) == 1 {
+			post = posts[0]
+		} else if len(posts) > 1 {
+			fn := types.Function()
+			fn.Body = statements.Block(posts...)
+			id := scope.AddTemp(fn)
+			container.Statements = append(container.Statements, id)
+			post = expressions.Call(fn, nil, nil)
+		}
 	}
+
 	body := src.parseBlock(scope, forStat.Body)
-	var init statements.Statement
-	if len(inits) == 1 {
-		init = inits[0]
-	}
 	result := statements.For(init, cond, post, body)
-	if len(inits) > 1 {
-		return statements.Block(append(inits, result)...)
+	container.Statements = append(container.Statements, result)
+
+	if len(container.Statements) == 1 {
+		return container.Statements[0]
 	}
-	return result
+	return container
 }
 
 // parseIncDecStatement reads an increment or decrement statment.
@@ -363,43 +411,48 @@ func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []expre
 		return src.parseDefinition(scope, assign)
 	}
 
-	results := make([]expressions.Expression, 0, len(assign.Rhs))
-	lefts := make([]expressions.Expression, len(assign.Lhs))
-	for i := len(assign.Lhs) - 1; i >= 0; i-- {
-		lefts[i] = src.parseExpression(scope, assign.Lhs[i])
+	// TODO: Handle underscores
+
+	// For single assignment assign it directly
+	if (len(assign.Lhs) == 1) && (len(assign.Rhs) == 1) {
+		left := src.parseExpression(scope, assign.Lhs[0])
+		right := src.parseExpression(scope, assign.Rhs[0])
+		return []expressions.Expression{expressions.Assignment(left, right)}
 	}
 
-	if len(assign.Rhs) == 1 {
-		right := src.parseExpression(scope, assign.Rhs[0])
-		results = append(results, expressions.Assignment(lefts, right))
-	} else {
-		leftOffset := 0
-		tempIDs := make([]*expressions.IdentifierExp, len(assign.Lhs))
-		for _, exp := range assign.Rhs {
-			right := src.parseExpression(scope, exp)
-			rets := right.ReturnTypes()
-			retCount := len(rets)
-			if retCount == 1 {
-				tempID := scope.AddTemp(rets[0])
-				tempIDs[leftOffset] = tempID
-				leftOffset++
-				results = append(results, expressions.Definition(tempID, right))
-			} else {
-				leftExps := make([]expressions.Expression, retCount)
-				for j := 0; j < retCount; j++ {
-					tempID := scope.AddTemp(rets[j])
-					leftExps[j] = tempID
-					tempIDs[leftOffset] = tempID
-					leftOffset++
-					results = append(results, expressions.Definition(tempID, nil))
-				}
-				results = append(results, expressions.Assignment(leftExps, right))
+	// Get all left expressions
+	lefts := make([]expressions.Expression, len(assign.Lhs))
+	for i, exp := range assign.Lhs {
+		lefts[i] = src.parseExpression(scope, exp)
+	}
+
+	// Store all results to temporary locations so that if a swap is occuring
+	// the correct value is still used on the right after the initial assignment.
+	results := make([]expressions.Expression, 0, len(assign.Rhs))
+	tempIDs := make([]expressions.Expression, 0, len(assign.Lhs))
+	for _, exp := range assign.Rhs {
+		right := src.parseExpression(scope, exp)
+
+		// Assign result to single temporary.
+		ret := right.ReturnType()
+		tempID := scope.AddTemp(ret)
+		results = append(results, expressions.Definition(tempID, right))
+
+		// If multi-return then select on temp structure members so results are assigned correctly.
+		if retSet, ok := ret.(*types.ReturnSet); ok {
+			retCount := retSet.Members.Len()
+			for i := 0; i < retCount; i++ {
+				decl := retSet.Members.Declarations[i]
+				tempIDs = append(tempIDs, expressions.Selector(tempID, decl.Name, decl.Data))
 			}
+		} else {
+			tempIDs = append(tempIDs, tempID)
 		}
-		for i, tempID := range tempIDs {
-			leftExps := []expressions.Expression{lefts[i]}
-			results = append(results, expressions.Assignment(leftExps, tempID))
-		}
+	}
+
+	// Write all temporary values to the final values.
+	for i, tempID := range tempIDs {
+		results = append(results, expressions.Assignment(lefts[i], tempID))
 	}
 	return results
 }
@@ -410,23 +463,28 @@ func (src *Source) parseDefinition(scope *Scope, assign *ast.AssignStmt) []expre
 	results := make([]expressions.Expression, 0, len(assign.Rhs))
 	for _, exp := range assign.Rhs {
 		right := src.parseExpression(scope, exp)
-		rets := right.ReturnTypes()
-		retCount := len(rets)
-		if retCount == 1 {
-			leftExp := assign.Lhs[leftOffset]
-			leftOffset++
-			tempID := scope.Add(leftExp.(*ast.Ident).Name, rets[0])
+
+		// If multi-return then store to temp then select on temp structure
+		// members so results are assigned correctly.
+		ret := right.ReturnType()
+		if retSet, ok := ret.(*types.ReturnSet); ok {
+			tempID := scope.AddTemp(ret)
 			results = append(results, expressions.Definition(tempID, right))
-		} else {
-			leftExps := make([]expressions.Expression, retCount)
+			retCount := retSet.Members.Len()
 			for j := 0; j < retCount; j++ {
+				decl := retSet.Members.Declarations[j]
+				rightDef := expressions.Selector(tempID, decl.Name, decl.Data)
+
 				leftExp := assign.Lhs[leftOffset]
 				leftOffset++
-				tempID := scope.Add(leftExp.(*ast.Ident).Name, rets[j])
-				leftExps[j] = tempID
-				results = append(results, expressions.Definition(tempID, nil))
+				id := scope.Add(leftExp.(*ast.Ident).Name, decl.Data)
+				results = append(results, expressions.Definition(id, rightDef))
 			}
-			results = append(results, expressions.Assignment(leftExps, right))
+		} else {
+			leftExp := assign.Lhs[leftOffset]
+			leftOffset++
+			id := scope.Add(leftExp.(*ast.Ident).Name, ret)
+			results = append(results, expressions.Definition(id, right))
 		}
 	}
 	return results
@@ -517,13 +575,7 @@ func (src *Source) parseBinary(scope *Scope, bin *ast.BinaryExpr) *expressions.B
 		src.log.Debug("Left expression in a binary is nil ", bin.Op, ".")
 		resultType = types.Variant()
 	} else {
-		rets := left.ReturnTypes()
-		if len(rets) != 1 {
-			src.log.Error("Binary expected only one return type for ", bin.Op, ".")
-			resultType = types.Variant()
-		} else {
-			resultType = rets[0]
-		}
+		resultType = left.ReturnType()
 	}
 
 	// https://golang.org/pkg/go/token/#Token
@@ -599,19 +651,14 @@ func (src *Source) parseIndexer(scope *Scope, ind *ast.IndexExpr) expressions.Ex
 	exp := src.parseExpression(scope, ind.X)
 	index := src.parseExpression(scope, ind.Index)
 
-	collectionTypes := exp.ReturnTypes()
-	if len(collectionTypes) != 1 {
-		src.log.Error("Expected only one return value for an index.")
-		return nil
-	}
-	indexType, ok := collectionTypes[0].(expressions.IndexableType)
+	collectionType := exp.ReturnType()
+	indexType, ok := collectionType.(types.IndexableType)
 	if !ok {
 		src.log.Error("Unhandled indexed type: ", indexType)
 		return nil
 	}
 
-	retType := indexType.Subtype()
-	return expressions.Indexer(exp, index, retType)
+	return expressions.Indexer(exp, index)
 }
 
 // parseSelector reads an identifier selector.
@@ -619,14 +666,7 @@ func (src *Source) parseIndexer(scope *Scope, ind *ast.IndexExpr) expressions.Ex
 func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *expressions.SelectorExp {
 	exp := src.parseExpression(scope, sel.X)
 	name := sel.Sel.Name
-	returns := exp.ReturnTypes()
-	if len(returns) != 1 {
-		src.log.Error("Too many return values to select from:",
-			"\n   Expression: ", exp,
-			"\n   Selector:   ", name)
-		return expressions.Selector(exp, name, types.Variant())
-	}
-	if t, exists := expressions.FindSubtype(returns[0], name); exists {
+	if t, exists := types.FindSubtype(exp.ReturnType(), name); exists {
 		return expressions.Selector(exp, name, t)
 	}
 	src.log.Error("Failed to find subtype for selector:",
@@ -645,13 +685,7 @@ func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *expressions.Una
 		src.log.Debug("The expression in a unary is nil ", una.Op, ".")
 		resultType = types.Variant()
 	} else {
-		rets := exp.ReturnTypes()
-		if len(rets) != 1 {
-			src.log.Error("Unary expected only one return type for ", una.Op, ".")
-			resultType = types.Variant()
-		} else {
-			resultType = rets[0]
-		}
+		resultType = exp.ReturnType()
 	}
 
 	// https://golang.org/pkg/go/token/#Token
@@ -661,10 +695,6 @@ func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *expressions.Una
 		operand = expressions.PosOp
 	case token.SUB: // -
 		operand = expressions.NegateOp
-	case token.INC: // ++
-		operand = expressions.IncrementOp
-	case token.DEC: // --
-		operand = expressions.DecrementOp
 	case token.NOT: // !
 		operand = expressions.NotOp
 	case token.MUL: // *
@@ -684,16 +714,11 @@ func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) *expressions.Call
 	fnExp := src.parseExpression(scope, call.Fun)
 	paramLen := len(call.Args)
 	params := make([]expressions.Expression, paramLen)
-	returns := fnExp.ReturnTypes()
-	if len(returns) != 1 {
-		src.log.Error("Too many return values for a method call:",
-			"\n   Expression: ", fnExp)
-		return expressions.Call(nil, fnExp, params)
-	}
 	for i, param := range call.Args {
 		params[i] = src.parseExpression(scope, param)
 	}
-	if fnHndl, exists := returns[0].(*types.FunctionType); exists {
+	returnType := fnExp.ReturnType()
+	if fnHndl, exists := returnType.(*types.FunctionType); exists {
 		return expressions.Call(fnHndl, fnExp, params)
 	}
 	src.log.Error("Called type is not a function handle:",

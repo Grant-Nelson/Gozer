@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	"github.com/grant-nelson/Gozer/common"
-	"github.com/grant-nelson/Gozer/constructs"
+	"github.com/grant-nelson/Gozer/constructs/types"
 	"github.com/grant-nelson/Gozer/msg"
 )
 
 // TestGoReader is a shell for testing the GoReader.
 type TestGoReader struct {
-	t     *testing.T
+	t     *common.Tester
 	gr    *GoReader
 	logIO *msg.LogIO
 }
@@ -28,7 +28,7 @@ func NewTestGoReader(t *testing.T) *TestGoReader {
 	gr := NewGoReader()
 	gr.Logger().Push(logIO)
 	return &TestGoReader{
-		t:     t,
+		t:     common.NewTester(t),
 		gr:    gr,
 		logIO: logIO,
 	}
@@ -48,7 +48,7 @@ func (test *TestGoReader) CheckErrors(expCount int, expMsg ...interface{}) {
 	result := strings.TrimSpace(test.logIO.Output.(*bytes.Buffer).String())
 	count := test.gr.Logger().ErrorCount()
 	if (count != expCount) || (exp != result) {
-		test.t.Fatal(msg.NewError("Unexpected or missing errors logged").
+		test.t.Failed("Unexpected or missing errors logged", common.NewMap().
 			Add("Expected", "(", expCount, ") \"", exp, "\"").
 			Add("Result", "(", count, ") \"", result, "\""))
 	}
@@ -62,11 +62,9 @@ func (test *TestGoReader) AddCode(path string, code ...string) {
 
 // CheckPackages checks that the expected packages have been added to the transpiler.
 func (test *TestGoReader) CheckPackages(expPackages ...string) {
-	packages := make([]string, len(test.gr.Program.Packages))
-	index := 0
-	for name := range test.gr.Program.Packages {
-		packages[index] = name
-		index++
+	packages := make([]string, test.gr.Program.Packages.Len())
+	for i, pack := range test.gr.Program.Packages.Packages() {
+		packages[i] = pack.GetName()
 	}
 	if missing, extra, diff := common.DiffStringSets(packages, expPackages); diff {
 		test.t.Fatal(msg.NewError("Unexpected or missing packages").
@@ -78,8 +76,8 @@ func (test *TestGoReader) CheckPackages(expPackages ...string) {
 }
 
 // getPack gets the package for the given name.
-func (test *TestGoReader) getPack(packName string) *constructs.PackageType {
-	pack, exists := test.gr.Program.Packages[packName]
+func (test *TestGoReader) getPack(packName string) *types.PackageType {
+	pack, exists := test.gr.Program.Packages.Find(packName)
 	if !exists {
 		test.t.Fatal(msg.NewError("Failed to find package ", packName, " for CheckImports."))
 	}
@@ -89,11 +87,9 @@ func (test *TestGoReader) getPack(packName string) *constructs.PackageType {
 // CheckImports checks that the given imports are in the given package.
 func (test *TestGoReader) CheckImports(packName string, expImports ...string) {
 	pack := test.getPack(packName)
-	imports := make([]string, len(pack.Imports))
-	index := 0
-	for name := range pack.Imports {
-		imports[index] = name
-		index++
+	imports := make([]string, pack.Imports.Len())
+	for i, importType := range pack.Imports.Packages() {
+		imports[i] = importType.GetName()
 	}
 	if missing, extra, diff := common.DiffStringSets(imports, expImports); diff {
 		test.t.Fatal(msg.NewError("Unexpected or missing package imports").
@@ -108,11 +104,9 @@ func (test *TestGoReader) CheckImports(packName string, expImports ...string) {
 // CheckFunctions checks that the given functions are in the given package.
 func (test *TestGoReader) CheckFunctions(packName string, expFunctions ...string) {
 	pack := test.getPack(packName)
-	functions := make([]string, len(pack.Functions))
-	index := 0
-	for name := range pack.Functions {
-		functions[index] = name
-		index++
+	functions := make([]string, pack.Functions.Len())
+	for i, funcType := range pack.Functions.Functions {
+		functions[i] = funcType.GetName()
 	}
 	if missing, extra, diff := common.DiffStringSets(functions, expFunctions); diff {
 		test.t.Fatal(msg.NewError("Unexpected or missing package functions").
@@ -127,7 +121,7 @@ func (test *TestGoReader) CheckFunctions(packName string, expFunctions ...string
 // CheckFunction checks the function body in the given package's function.
 func (test *TestGoReader) CheckFunction(packName string, funcName string, expBody ...string) {
 	pack := test.getPack(packName)
-	tfunc, exists := pack.Functions[funcName]
+	tfunc, exists := pack.Functions.Find(funcName)
 	if !exists {
 		test.t.Fatal(msg.NewError("Failed to find function ", funcName, " in ", packName, "."))
 	}
@@ -137,7 +131,7 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 		return s
 	}
 	expResult := Lines(expBody...)
-	if result := tfunc.String(); result != expResult {
+	if result := tfunc.FullString(); result != expResult {
 		test.t.Fatal(msg.NewError("Unexpected function construct").
 			Add("Package", packName).
 			Add("Function", funcName).
@@ -169,7 +163,7 @@ func MainMethodBodyTest(t *testing.T, input string, exp string) {
 		`}`)
 	test.Transpile()
 	test.CheckFunction("test", "main",
-		`func main() {`,
+		`void main() {`,
 		`  `+common.Indent(exp, "  "),
 		`}`)
 }

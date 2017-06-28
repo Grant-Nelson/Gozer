@@ -29,7 +29,7 @@ func TestGoReader002(t *testing.T) {
 	test.Transpile()
 	test.CheckFunctions("test", "main")
 	test.CheckFunction("test", "main",
-		`func main() {`,
+		`void main() {`,
 		`  fmt.Print("Hello World!")`,
 		`}`)
 }
@@ -164,10 +164,10 @@ func TestGoReader016(t *testing.T) {
 			`int a = 10`,
 			`int b = 12`,
 			`fmt.Println("A: ", a, ", B: ", b)`,
-			`int temp0 = b`,
-			`int temp1 = a`,
-			`a = temp0`,
-			`b = temp1`,
+			`int gozerTemp0 = b`,
+			`int gozerTemp1 = a`,
+			`a = gozerTemp0`,
+			`b = gozerTemp1`,
 			`fmt.Println("A: ", a, ", B: ", b)`))
 }
 
@@ -177,9 +177,9 @@ func TestGoReader017(t *testing.T) {
 			`n, err := fmt.Printf("Two = %d\n", 2)`,
 			`fmt.Println("n: ", n, ", err: ", err)`),
 		Lines(
-			`int n`,
-			`error err`,
-			`n, err = fmt.Printf("Two = %d\n", 2)`,
+			`printResult gozerTemp0 = fmt.Printf("Two = %d\n", 2)`,
+			`int n = gozerTemp0.n`,
+			`error err = gozerTemp0.err`,
 			`fmt.Println("n: ", n, ", err: ", err)`))
 }
 
@@ -513,4 +513,6 @@ func TestGoReader037(t *testing.T) {
 		Lines(
 			``))
 }
+
+// TODO: Assign to underscore
 */

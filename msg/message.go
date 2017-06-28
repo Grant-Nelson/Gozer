@@ -2,6 +2,7 @@ package msg
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/grant-nelson/Gozer/common"
 )
@@ -70,4 +71,13 @@ func (msg *Message) String() string {
 		result += ":\n  " + msg.Data.FormatMap("  ")
 	}
 	return result
+}
+
+// MessagesToString gets the string for a set of messages.
+func MessagesToString(msgs ...*Message) string {
+	parts := make([]string, len(msgs))
+	for i, msg := range msgs {
+		parts[i] = msg.String()
+	}
+	return strings.Join(parts, "\n")
 }

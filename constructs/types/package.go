@@ -31,6 +31,9 @@ type PackageType struct {
 
 	// Structures is the set of structure for this package.
 	Structures *StructureSet
+
+	// ReturnSets is the set of return sets for this package.
+	ReturnSets *ReturnSetSet
 }
 
 // Package creates a new package description.
@@ -43,6 +46,7 @@ func Package() *PackageType {
 		Interfaces:   NewInterfaceSet(),
 		Classes:      NewClassSet(),
 		Structures:   NewStructureSet(),
+		ReturnSets:   NewReturnSetSet(),
 	}
 }
 
@@ -76,6 +80,9 @@ func (t *PackageType) Find(name string) (Type, bool) {
 		return t2, true
 	}
 	if t2, found := t.Structures.Find(name); found {
+		return t2, true
+	}
+	if t2, found := t.ReturnSets.Find(name); found {
 		return t2, true
 	}
 	return nil, false
@@ -132,6 +139,15 @@ func (t *PackageType) AddStructure(name string) *StructureType {
 		return nil
 	}
 	t2, _ := t.Structures.AddNew(name)
+	return t2
+}
+
+// AddReturnSet adds a return set to this package.
+func (t *PackageType) AddReturnSet(name string) *ReturnSet {
+	if t == nil {
+		return nil
+	}
+	t2, _ := t.ReturnSets.AddNew(name)
 	return t2
 }
 
@@ -198,6 +214,10 @@ func (t *PackageType) FullStringWithShort(short string) string {
 
 	if t.Structures.Len() > 0 {
 		result += "  " + common.Indent(t.Structures.FullString(), "  ") + "\n"
+	}
+
+	if t.ReturnSets.Len() > 0 {
+		result += "  " + common.Indent(t.ReturnSets.FullString(), "  ") + "\n"
 	}
 
 	if len(result) <= 0 {

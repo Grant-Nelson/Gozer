@@ -190,6 +190,56 @@ func TestStructureTypes(tt *testing.T) {
 	s1.Name = "person"
 	CheckType(t, s1, `person`)
 	t.CheckStr(s1.GetName(), "person")
+	t.CheckStr(s1.FullString(),
+		`person{`,
+		`  int age`,
+		`  string name`,
+		`}`)
+}
+
+func TestReturnSet(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr(((*ReturnSet)(nil)).GetName(), "")
+	t.CheckStr(((*ReturnSet)(nil)).String(), "nil")
+	t.CheckStr(((*ReturnSet)(nil)).FullString(), "nil")
+	s1 := NewReturnSet()
+	CheckType(t, s1, "returns{}")
+	s1.AddMember("name", String())
+	CheckType(t, s1,
+		`returns{`,
+		`  string name`,
+		`}`)
+	s1.AddMember("age", Int())
+	CheckType(t, s1,
+		`returns{`,
+		`  string name`,
+		`  int age`,
+		`}`)
+	s1.Members.Sort()
+	CheckType(t, s1,
+		`returns{`,
+		`  int age`,
+		`  string name`,
+		`}`)
+	CheckFind(t, (*ReturnSet)(nil), "age", "nil")
+	CheckFind(t, s1, "temp", "nil")
+	CheckFind(t, s1, "name", "name")
+	CheckFind(t, s1, "age", "age")
+	s1.AddMember("age", Float32())
+	t.CheckStr(s1.GetName(), "")
+	CheckType(t, s1,
+		`returns{`,
+		`  int age`,
+		`  string name`,
+		`}`)
+	s1.Name = "person"
+	CheckType(t, s1, `person`)
+	t.CheckStr(s1.GetName(), "person")
+	t.CheckStr(s1.FullString(),
+		`person{`,
+		`  int age`,
+		`  string name`,
+		`}`)
 }
 
 func TestDeclaration(tt *testing.T) {
@@ -306,6 +356,7 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 	c1 := p1.AddClass("splat")
 	s1 := p1.AddStructure("bawmp")
 	d1 := p1.AddDeclaration("pop", String())
+	r1 := p1.AddReturnSet("zap")
 	CheckType(t, p1,
 		`import{`,
 		`  string pop`,
@@ -313,6 +364,7 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 		`  pow{}`,
 		`  splat{}`,
 		`  bawmp{}`,
+		`  zap{}`,
 		`}`)
 	CheckFind(t, p1, "temp", "nil")
 	CheckFind(t, p1, "boom", ToString(f1))
@@ -320,6 +372,7 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 	CheckFind(t, p1, "splat", ToString(c1))
 	CheckFind(t, p1, "bawmp", ToString(s1))
 	CheckFind(t, p1, "pop", ToString(d1))
+	CheckFind(t, p1, "zap", ToString(r1))
 	p2 := Package()
 	p2.AddDeclaration("width", Float32())
 	p2.AddDeclaration("height", Float32())
@@ -340,6 +393,7 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 		`  pow{}`,
 		`  splat{}`,
 		`  bawmp{}`,
+		`  zap{}`,
 		`}`)
 	CheckFind(t, p1, "other", ToString(p2))
 
@@ -354,6 +408,7 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 	CheckType(t, ((*PackageType)(nil)).AddInterface("bad"), "nil")
 	CheckType(t, ((*PackageType)(nil)).AddClass("bad"), "nil")
 	CheckType(t, ((*PackageType)(nil)).AddStructure("bad"), "nil")
+	CheckType(t, ((*PackageType)(nil)).AddReturnSet("bad"), "nil")
 
 	t.CheckStr(((*ProgramType)(nil)).String(), "nil")
 	prog1 := Program()
@@ -370,6 +425,7 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 		`  pow{}`,
 		`  splat{}`,
 		`  bawmp{}`,
+		`  zap{}`,
 		`}`)
 	t.CheckStr(p1.FullStringWithShort("what"),
 		`import what{`,
@@ -380,6 +436,7 @@ func TestPackageAndProgramTypes(tt *testing.T) {
 		`  pow{}`,
 		`  splat{}`,
 		`  bawmp{}`,
+		`  zap{}`,
 		`}`)
 
 	prog1.AddPackage(p1)
@@ -537,6 +594,11 @@ func TestInterfaceSet(tt *testing.T) {
 	t.CheckBool(found1, true, "First created interface in set")
 	i1.AddFunction("wamp")
 
+	st := NewReturnSet()
+	st.AddMember("val1", Int())
+	st.AddMember("val2", Int())
+	i1.AddFunction("dull").SetReturn(st)
+
 	i2, found2 := set.AddNew("rocks")
 	t.CheckBool(found2, true, "Second created interface in set")
 	i2.AddFunction("fu").AddParam("name", String())
@@ -554,6 +616,10 @@ func TestInterfaceSet(tt *testing.T) {
 		`  void fu(string name)`,
 		`}`,
 		`water{`,
+		`  returns{`,
+		`    int val1`,
+		`    int val2`,
+		`  } dull()`,
 		`  void wamp()`,
 		`}`)
 }
@@ -667,6 +733,55 @@ func TestStructureSet(tt *testing.T) {
 		`  string state`,
 		`  string street`,
 		`  int zipCode`,
+		`}`)
+}
+
+func TestReturnSetSet(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr((*ReturnSetSet)(nil).String(), "nil")
+	t.CheckStr((*ReturnSetSet)(nil).FullString(), "nil")
+	t1, found1 := (*ReturnSetSet)(nil).AddNew("temp")
+	CheckType(t, t1, "nil")
+	t.CheckBool(found1, false, "AddNew on a nil structure set")
+	t.CheckInt((*ReturnSetSet)(nil).Len(), 0, "AddNew on a nil structure set")
+
+	set := NewReturnSetSet()
+	d1, found1 := set.AddNew("address")
+	t.CheckBool(found1, true, "add address")
+	d1.AddMember("street", String())
+	d1.AddMember("zipCode", Int())
+	d1.AddMember("state", String())
+
+	d2, found2 := set.AddNew("customer")
+	t.CheckBool(found2, true, "add customer")
+	d2.AddMember("first", String())
+	d2.AddMember("last", String())
+	d2.AddMember("age", Int())
+
+	d3, found3 := set.AddNew("address")
+	t.CheckBool(found3, false, "find address again")
+	d3.AddMember("county", String())
+
+	t.CheckStr(set.String(),
+		`address`,
+		`customer`)
+
+	d3.Name = "location"
+	set.Sort()
+	t.CheckStr(set.String(),
+		`customer`,
+		`location`)
+	t.CheckStr(set.FullString(),
+		`customer{`,
+		`  string first`,
+		`  string last`,
+		`  int age`,
+		`}`,
+		`location{`,
+		`  string street`,
+		`  int zipCode`,
+		`  string state`,
+		`  string county`,
 		`}`)
 }
 
