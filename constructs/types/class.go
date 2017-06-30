@@ -16,8 +16,8 @@ type ClassType struct {
 	// This should not be a package, interface, or class.
 	Data Type
 
-	// Interface is the interface for this class.
-	Interface *InterfaceType
+	// Functions is the set of functions for this interface.
+	Functions *FunctionSet
 }
 
 // Class creates a new class type.
@@ -25,7 +25,7 @@ func Class() *ClassType {
 	c := &ClassType{
 		Name:      "",
 		Data:      nil,
-		Interface: Interface(),
+		Functions: &FunctionSet{},
 	}
 	return c
 }
@@ -39,12 +39,22 @@ func (t *ClassType) GetName() string {
 	return t.Name
 }
 
+// AddFunction adds a function to this interface.
+// If a function by that name already exists, that function is returned.
+func (t *ClassType) AddFunction(name string) *FunctionType {
+	if t == nil {
+		return nil
+	}
+	t2, _ := t.Functions.AddNew(name)
+	return t2
+}
+
 // Find looks up a subtype to this class.
 func (t *ClassType) Find(name string) (Type, bool) {
 	if t == nil {
 		return nil, false
 	}
-	if t2, exists := t.Interface.Find(name); exists {
+	if t2, exists := t.Functions.Find(name); exists {
 		return t2, true
 	}
 	if structType, ok := t.Data.(SubtypableType); ok {
@@ -75,11 +85,15 @@ func (t *ClassType) FullString() string {
 		name = t.Name
 	}
 	result := ""
-	if str := ToString(t.Data); (len(str) > 0) && (str != nilStr) {
-		result += "  " + common.Indent(str, "  ") + "\n"
+	if t.Data != nil {
+		if str := t.Data.String(); (len(str) > 0) && (str != nilStr) {
+			result += "  " + common.Indent(str, "  ") + "\n"
+		}
 	}
-	if str := ToString(t.Interface); (len(str) > 0) && (str != nilStr) && (str != "interface{}") {
-		result += "  " + common.Indent(str, "  ") + "\n"
+	if t.Functions != nil {
+		if str := t.Functions.FullBodyString(); (len(str) > 0) && (str != nilStr) {
+			result += "  " + common.Indent(str, "  ") + "\n"
+		}
 	}
 	if len(result) <= 0 {
 		return name + "{}"

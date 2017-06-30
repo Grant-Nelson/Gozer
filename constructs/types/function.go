@@ -102,7 +102,8 @@ func (t *FunctionType) String() string {
 	return t.FullString()
 }
 
-// FullString gets a string for the signature and body of this function.
+// FullString gets a string for the signature of this function.
+// This does not print the body of the function.
 func (t *FunctionType) FullString() string {
 	if t == nil {
 		return nilStr
@@ -124,10 +125,18 @@ func (t *FunctionType) FullString() string {
 	if len(t.Name) > 0 {
 		name = t.Name
 	}
+	returnStr := ToString(t.ReturnType)
+	return returnStr + " " + name + params
+}
+
+// FullBodyString gets a string for the signature and body of this function.
+func (t *FunctionType) FullBodyString() string {
+	if t == nil {
+		return nilStr
+	}
 	bodyStr := ""
 	if t.Body != nil {
 		bodyStr = " " + fmt.Sprint(t.Body)
 	}
-	returnStr := ToString(t.ReturnType)
-	return returnStr + " " + name + params + bodyStr
+	return t.FullString() + bodyStr
 }

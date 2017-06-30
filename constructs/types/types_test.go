@@ -103,6 +103,7 @@ func TestFunctionTypes(tt *testing.T) {
 	t.CheckStr(((*FunctionType)(nil)).GetName(), "")
 	t.CheckStr(((*FunctionType)(nil)).String(), "nil")
 	t.CheckStr(((*FunctionType)(nil)).FullString(), "nil")
+	t.CheckStr(((*FunctionType)(nil)).FullBodyString(), "nil")
 	t.CheckStr(Function().GetName(), "")
 	CheckType(t, Function(), "void func()")
 	CheckType(t, Function().AddParam("name", String()), "void func(string name)")
@@ -119,6 +120,8 @@ func TestFunctionTypes(tt *testing.T) {
 	f2.Body = "{\n  print(\"Hello World\")\n}"
 	CheckType(t, f2, "main")
 	t.CheckStr(f2.FullString(),
+		`void main()`)
+	t.CheckStr(f2.FullBodyString(),
 		`void main() {`,
 		`  print("Hello World")`,
 		`}`)
@@ -273,6 +276,7 @@ func TestClassTypes(tt *testing.T) {
 	t.CheckStr(((*ClassType)(nil)).GetName(), "")
 	t.CheckStr(((*ClassType)(nil)).String(), "nil")
 	t.CheckStr(((*ClassType)(nil)).FullString(), "nil")
+	CheckType(t, ((*ClassType)(nil)).AddFunction("nope"), "nil")
 	c1 := Class()
 	CheckType(t, c1,
 		`class{}`)
@@ -282,15 +286,13 @@ func TestClassTypes(tt *testing.T) {
 		`  int`,
 		`}`)
 	t.CheckStr(c1.GetName(), "")
-	c1.Interface.AddFunction("warning").AddParam("text", String()).SetReturn(Int())
-	f1 := c1.Interface.AddFunction("count").AddParam("num", Int()).SetReturn(Int())
+	c1.AddFunction("warning").AddParam("text", String()).SetReturn(Int())
+	f1 := c1.AddFunction("count").AddParam("num", Int()).SetReturn(Int())
 	CheckType(t, c1,
 		`class{`,
 		`  int`,
-		`  interface{`,
-		`    int count(int num)`,
-		`    int warning(string text)`,
-		`  }`,
+		`  int count(int num)`,
+		`  int warning(string text)`,
 		`}`)
 	CheckFind(t, (*ClassType)(nil), "count", "nil")
 	CheckFind(t, c1, "temp", "nil")
@@ -298,20 +300,16 @@ func TestClassTypes(tt *testing.T) {
 	c1.Data = nil
 	CheckType(t, c1,
 		`class{`,
-		`  interface{`,
-		`    int count(int num)`,
-		`    int warning(string text)`,
-		`  }`,
+		`  int count(int num)`,
+		`  int warning(string text)`,
 		`}`)
 	s1 := Structure()
 	c1.Data = s1
 	CheckType(t, c1,
 		`class{`,
 		`  struct{}`,
-		`  interface{`,
-		`    int count(int num)`,
-		`    int warning(string text)`,
-		`  }`,
+		`  int count(int num)`,
+		`  int warning(string text)`,
 		`}`)
 	s1.AddMember("first", Float64())
 	s1.AddMember("last", Float32())
@@ -321,10 +319,8 @@ func TestClassTypes(tt *testing.T) {
 		`    float64 first`,
 		`    float32 last`,
 		`  }`,
-		`  interface{`,
-		`    int count(int num)`,
-		`    int warning(string text)`,
-		`  }`,
+		`  int count(int num)`,
+		`  int warning(string text)`,
 		`}`)
 	CheckFind(t, c1, "first", "first")
 	c1.Name = "logger"
@@ -336,10 +332,8 @@ func TestClassTypes(tt *testing.T) {
 		`    float64 first`,
 		`    float32 last`,
 		`  }`,
-		`  interface{`,
-		`    int count(int num)`,
-		`    int warning(string text)`,
-		`  }`,
+		`  int count(int num)`,
+		`  int warning(string text)`,
 		`}`)
 	t.CheckStr(c1.GetName(), "logger")
 }
@@ -563,20 +557,25 @@ func TestFunctionSet(tt *testing.T) {
 	t := common.NewTester(tt)
 	t.CheckStr((*FunctionSet)(nil).String(), "nil")
 	t.CheckStr((*FunctionSet)(nil).FullString(), "nil")
+	t.CheckStr((*FunctionSet)(nil).FullBodyString(), "nil")
 	t1, found1 := (*FunctionSet)(nil).AddNew("temp")
 	CheckType(t, t1, "nil")
 	t.CheckBool(found1, false, "AddNew on a nil function set")
 	t.CheckInt((*FunctionSet)(nil).Len(), 0, "AddNew on a nil function set")
 
-	set := NewFunctionSet().
-		Add(Function().SetName("fu").AddParam("name", String()),
-			Function().SetName("bar").SetReturn(String()))
+	f1 := Function().SetName("fu").AddParam("name", String())
+	f2 := Function().SetName("bar").SetReturn(String())
+	f2.Body = `{ fu("Hello") }`
+	set := NewFunctionSet().Add(f1, f2)
 
 	t.CheckStr(set.String(),
 		`bar`,
 		`fu`)
 	t.CheckStr(set.FullString(),
 		`string bar()`,
+		`void fu(string name)`)
+	t.CheckStr(set.FullBodyString(),
+		`string bar() { fu("Hello") }`,
 		`void fu(string name)`)
 }
 

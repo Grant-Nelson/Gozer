@@ -234,7 +234,7 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 	if len(receiverNames) > 0 {
 		fn.ReceiverName = receiverNames[0]
 		class := receiverTypes[0].(*types.ClassType)
-		class.Interface.Functions.Add(fn)
+		class.Functions.Add(fn)
 		fn.ReceiverClass = class
 	} else {
 		src.Package.Functions.Add(fn)
@@ -376,8 +376,9 @@ func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) stateme
 			fn := types.Function()
 			fn.Body = statements.Block(posts...)
 			id := scope.AddTemp(fn)
-			container.Statements = append(container.Statements, id)
-			post = expressions.Call(fn, nil, nil)
+			def := expressions.Definition(id, expressions.Lambda(fn))
+			container.Statements = append(container.Statements, def)
+			post = expressions.Call(fn, id, nil)
 		}
 	}
 

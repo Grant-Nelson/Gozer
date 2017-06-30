@@ -201,7 +201,7 @@ func (t *PackageType) FullStringWithShort(short string) string {
 	}
 
 	if t.Functions.Len() > 0 {
-		result += "  " + common.Indent(t.Functions.FullString(), "  ") + "\n"
+		result += "  " + common.Indent(t.Functions.FullBodyString(), "  ") + "\n"
 	}
 
 	if t.Interfaces.Len() > 0 {

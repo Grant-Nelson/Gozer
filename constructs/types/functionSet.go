@@ -120,3 +120,15 @@ func (set *FunctionSet) FullString() string {
 	}
 	return strings.Join(parts, "\n")
 }
+
+// FullBodyString gets the full body string of all the functions in this set.
+func (set *FunctionSet) FullBodyString() string {
+	if set == nil {
+		return nilStr
+	}
+	parts := make([]string, set.Len())
+	for i, fn := range set.Functions {
+		parts[i] = fn.FullBodyString()
+	}
+	return strings.Join(parts, "\n")
+}

@@ -75,6 +75,19 @@ func TestCompoundLit(tt *testing.T) {
 	CheckReturn(t, comp, `[]float32`)
 }
 
+func TestLambda(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr((*LambdaExp)(nil).String(), "nil")
+	CheckReturn(t, (*LambdaExp)(nil), "nil")
+	f1 := types.Function().AddParam("a", types.Int()).
+		AddParam("b", types.Float64()).AddParam("c", types.Bool()).
+		SetReturn(types.Int())
+	f1.Body = "{ doSomething() }"
+	lam1 := Lambda(f1)
+	CheckExp(t, lam1, `int func(int a, float64 b, bool c) { doSomething() }`)
+	CheckReturn(t, lam1, `int func(int a, float64 b, bool c)`)
+}
+
 func TestDefinition(tt *testing.T) {
 	t := common.NewTester(tt)
 	t.CheckStr((*DefinitionExp)(nil).String(), "nil")

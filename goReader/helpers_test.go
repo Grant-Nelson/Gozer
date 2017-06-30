@@ -131,7 +131,7 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 		return s
 	}
 	expResult := Lines(expBody...)
-	if result := tfunc.FullString(); result != expResult {
+	if result := tfunc.FullBodyString(); result != expResult {
 		test.t.Fatal(msg.NewError("Unexpected function construct").
 			Add("Package", packName).
 			Add("Function", funcName).
