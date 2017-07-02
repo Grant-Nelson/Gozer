@@ -153,6 +153,26 @@ func TestIndexer(tt *testing.T) {
 	CheckReturn(t, strIndex, `uint8`)
 }
 
+func TestSubslice(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr((*SubsliceExp)(nil).String(), "nil")
+	CheckReturn(t, (*SubsliceExp)(nil), "nil")
+	exp := Identifier("ages", types.List(types.Int()))
+
+	slice := Subslice(exp, nil, nil, nil)
+	CheckExp(t, slice, `ages[:]`)
+	CheckReturn(t, slice, `[]int`)
+
+	CheckExp(t, Subslice(exp, Literal("4", types.Int()), nil, nil), `ages[4:]`)
+	CheckExp(t, Subslice(exp, nil, Literal("6", types.Int()), nil), `ages[:6]`)
+	CheckExp(t, Subslice(exp, Literal("4", types.Int()), Literal("6", types.Int()), nil), `ages[4:6]`)
+
+	CheckExp(t, Subslice(exp, nil, nil, Literal("8", types.Int())), `ages[::8]`)
+	CheckExp(t, Subslice(exp, Literal("4", types.Int()), nil, Literal("8", types.Int())), `ages[4::8]`)
+	CheckExp(t, Subslice(exp, nil, Literal("6", types.Int()), Literal("8", types.Int())), `ages[:6:8]`)
+	CheckExp(t, Subslice(exp, Literal("4", types.Int()), Literal("6", types.Int()), Literal("8", types.Int())), `ages[4:6:8]`)
+}
+
 func TestLiteral(tt *testing.T) {
 	t := common.NewTester(tt)
 	t.CheckStr((*LiteralExp)(nil).String(), "nil")

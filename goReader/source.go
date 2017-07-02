@@ -511,6 +511,8 @@ func (src *Source) parseExpression(scope *Scope, expr ast.Expr) expressions.Expr
 		return src.parseExpression(scope, ex.X)
 	case *ast.SelectorExpr:
 		return src.parseSelector(scope, ex)
+	case *ast.SliceExpr:
+		return src.parseSlice(scope, ex)
 	case *ast.UnaryExpr:
 		return src.parseUnary(scope, ex)
 	default:
@@ -678,6 +680,24 @@ func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *expressio
 	return expressions.Selector(exp, name, types.Variant())
 }
 
+// parseSlice reads a subslice creation call.
+// https://golang.org/pkg/go/ast/#SliceExpr
+// https://blog.golang.org/go-slices-usage-and-internals
+func (src *Source) parseSlice(scope *Scope, sel *ast.SliceExpr) *expressions.SubsliceExp {
+	exp := src.parseExpression(scope, sel.X)
+	var low, high, max expressions.Expression
+	if sel.Low != nil {
+		low = src.parseExpression(scope, sel.Low)
+	}
+	if sel.High != nil {
+		high = src.parseExpression(scope, sel.High)
+	}
+	if sel.Max != nil {
+		max = src.parseExpression(scope, sel.Max)
+	}
+	return expressions.Subslice(exp, low, high, max)
+}
+
 // parseUnary reads a unary operation.
 // https://golang.org/pkg/go/ast/#UnaryExpr
 func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *expressions.UnaryOpExp {
@@ -711,27 +731,12 @@ func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *expressions.Una
 	return expressions.UnaryOp(exp, operand, resultType)
 }
 
-// parseCall reads a code literal.
+// parseCall reads a code method call expression.
 // https://golang.org/pkg/go/ast/#CallExpr
 func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) expressions.Expression {
 	fnExp := src.parseExpression(scope, call.Fun)
 	if m, ok := fnExp.(*expressions.MakeExp); ok {
-		// Handle the "make" method
-		paramLen := len(call.Args)
-		if (paramLen >= 1) && (paramLen <= 3) {
-			typeDef, _ := src.readType(scope, call.Args[0])
-			m.Type = typeDef
-			if paramLen >= 2 {
-				m.Length = src.parseExpression(scope, call.Args[1])
-			}
-			if paramLen >= 3 {
-				m.Capacity = src.parseExpression(scope, call.Args[2])
-			}
-		} else {
-			src.log.Error("Make call must have 1 to 3 arguments but got ", paramLen, ":",
-				"\n   Expression: ", fnExp)
-		}
-		return m
+		return src.parseMakeCall(scope, call, m)
 	}
 
 	paramLen := len(call.Args)
@@ -746,6 +751,24 @@ func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) expressions.Expre
 	src.log.Error("Called type is not a function handle:",
 		"\n   Expression: ", fnExp)
 	return expressions.Call(nil, fnExp, params)
+}
+
+// parseMakeCall reads a make method call.
+func (src *Source) parseMakeCall(scope *Scope, call *ast.CallExpr, makeExp *expressions.MakeExp) expressions.Expression {
+	paramLen := len(call.Args)
+	if (paramLen >= 1) && (paramLen <= 3) {
+		typeDef, _ := src.readType(scope, call.Args[0])
+		makeExp.Type = typeDef
+		if paramLen >= 2 {
+			makeExp.Length = src.parseExpression(scope, call.Args[1])
+		}
+		if paramLen >= 3 {
+			makeExp.Capacity = src.parseExpression(scope, call.Args[2])
+		}
+	} else {
+		src.log.Error("Make call must have 1 to 3 arguments but got ", paramLen, ".")
+	}
+	return makeExp
 }
 
 // expSliceToStatSlice converts a slice of expressions into a slice of statments.

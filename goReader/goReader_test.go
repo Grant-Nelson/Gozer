@@ -22,8 +22,7 @@ func TestGoReader_ErrorHandling_002(t *testing.T) {
 			`arr := make([]int, 0, 4, 5)`,
 			`fmt.Println("Count = ", len(arr))`),
 		1, Lines(
-			`Error: Make call must have 1 to 3 arguments but got 4:`,
-			`   Expression: make(void)`))
+			`Error: Make call must have 1 to 3 arguments but got 4.`))
 }
 
 // Checks the reading a type name.
@@ -170,6 +169,8 @@ func TestGoReader_Assignment_005(t *testing.T) {
 			`error err = gozerTemp0.err`,
 			`fmt.Println("n: ", n, ", err: ", err)`))
 }
+
+// TODO: Assign to underscore
 
 // Checks concatination of string literals.
 func TestGoReader_BinaryOp_001(t *testing.T) {
@@ -573,7 +574,6 @@ func TestGoReader_Slices_006(t *testing.T) {
 			`fmt.Println("Cap = ", cap(arr))`))
 }
 
-/*
 // Checks creating a subslice and assigning to that subslice.
 func TestGoReader_Slices_007(t *testing.T) {
 	MainMethodBodyTest(t,
@@ -585,7 +585,12 @@ func TestGoReader_Slices_007(t *testing.T) {
 			`fmt.Printf("arr = %v", arr)`,
 			`fmt.Printf("arr2 = %v", arr2)`),
 		Lines(
-			``))
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`[]int arr2 = arr[1:2]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`))
 }
 
 // Checks creating a subslice from the beginning to an index.
@@ -599,7 +604,12 @@ func TestGoReader_Slices_008(t *testing.T) {
 			`fmt.Printf("arr = %v", arr)`,
 			`fmt.Printf("arr2 = %v", arr2)`),
 		Lines(
-			``))
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`[]int arr2 = arr[:2]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`))
 }
 
 // Checks creating a subslice from an index to the end.
@@ -613,8 +623,10 @@ func TestGoReader_Slices_009(t *testing.T) {
 			`fmt.Printf("arr = %v", arr)`,
 			`fmt.Printf("arr2 = %v", arr2)`),
 		Lines(
-			``))
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`[]int arr2 = arr[1:]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`))
 }
-*/
-
-// TODO: Assign to underscore
