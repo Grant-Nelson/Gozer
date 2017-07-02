@@ -2,7 +2,8 @@ package transpiler
 
 import "testing"
 
-func TestGoReader001(t *testing.T) {
+// Check that Go compilation is being checked by parser.
+func TestGoReader_ErrorHandling_001(t *testing.T) {
 	test := NewTestGoReader(t)
 	test.gr.AddCode("test/main.go",
 		`import "fmt"`,
@@ -14,7 +15,29 @@ func TestGoReader001(t *testing.T) {
 		`Error: Failed to add source, test/main.go: test/main.go:1:1: expected 'package', found 'import'`)
 }
 
-func TestGoReader002(t *testing.T) {
+// Checks the make method call with the wrong number of parameters.
+func TestGoReader_ErrorHandling_002(t *testing.T) {
+	MainMethodBodyError(t,
+		Lines(
+			`arr := make([]int, 0, 4, 5)`,
+			`fmt.Println("Count = ", len(arr))`),
+		1, Lines(
+			`Error: Make call must have 1 to 3 arguments but got 4:`,
+			`   Expression: make(void)`))
+}
+
+// Checks the reading a type name.
+func TestGoReader_ErrorHandling_003(t *testing.T) {
+	MainMethodBodyError(t,
+		Lines(
+			`arr := make(badType, 4)`,
+			`fmt.Println("Count = ", len(arr))`),
+		1, `Error: Error occurred while processing bodies: Error occurred while parsing a block: Unhandled type name: badType`)
+}
+
+// Check of basic main method definition, method selection
+// from a package, method call, and literals.
+func TestGoReader_Basics_001(t *testing.T) {
 	test := NewTestGoReader(t)
 	test.AddCode("test/main.go",
 		`package main`,
@@ -34,27 +57,8 @@ func TestGoReader002(t *testing.T) {
 		`}`)
 }
 
-func TestGoReader003(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines("fmt.Print(`Hello World!`)"),
-		Lines(`fmt.Print("Hello World!")`))
-}
-
-func TestGoReader004(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines(
-			"fmt.Print(`Hello",
-			"World!`)"),
-		Lines(`fmt.Print("Hello\n  World!")`))
-}
-
-func TestGoReader005(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines("fmt.Print(`\\Hello☕!`)"),
-		Lines(`fmt.Print("\\Hello\u2615!")`))
-}
-
-func TestGoReader007(t *testing.T) {
+// Checks the print methods found in the built-in and fmt packages.
+func TestGoReader_Basic_002(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`print("Hello World!\n")`,
@@ -68,7 +72,39 @@ func TestGoReader007(t *testing.T) {
 			`fmt.Println("Hello World!")`))
 }
 
-func TestGoReader008(t *testing.T) {
+// Checks string literal with back-tick quotes.
+func TestGoReader_Literals_001(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines("fmt.Print(`Hello World!`)"),
+		Lines(`fmt.Print("Hello World!")`))
+}
+
+// Checks string literal with back-tick quotes with a newline.
+func TestGoReader_Literals_002(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			"fmt.Print(`Hello",
+			"World!`)"),
+		Lines(`fmt.Print("Hello\n  World!")`))
+}
+
+// Checks string literal with unicodes and escape caracters in back-tick quotes.
+func TestGoReader_Literals_003(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines("fmt.Print(`\\Hello☕!`)"),
+		Lines(`fmt.Print("\\Hello\u2615!")`))
+}
+
+// Checks string literal with double quotes with single
+// quote and escaped double quotes.
+func TestGoReader_Literals_004(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(`fmt.Print("'ello \"World\"!")`),
+		Lines(`fmt.Print("'ello \"World\"!")`))
+}
+
+// Checks string assignment and type determination for the variable definition.
+func TestGoReader_Assignment_001(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`msg := "Hello World!"`,
@@ -78,7 +114,8 @@ func TestGoReader008(t *testing.T) {
 			`fmt.Print(msg)`))
 }
 
-func TestGoReader009(t *testing.T) {
+// Checks multiple assignments of string literals.
+func TestGoReader_Assignment_002(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`msg, name := "Hello %s!", "World"`,
@@ -89,71 +126,21 @@ func TestGoReader009(t *testing.T) {
 			`fmt.Printf(msg, name)`))
 }
 
-func TestGoReader010(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines(`fmt.Print("Hello "+"World"+"!")`),
-		Lines(`fmt.Print((("Hello " + "World") + "!"))`))
-}
-
-func TestGoReader011(t *testing.T) {
+// Checks multiple assignments of string literals.
+func TestGoReader_Assignment_003(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
-			`a, b := 1, 4`,
-			`fmt.Print("Value: ", a + b)`),
+			`msg, val := "Answer: %d!", 42`,
+			`fmt.Printf(msg, val)`),
 		Lines(
-			`int a = 1`,
-			`int b = 4`,
-			`fmt.Print("Value: ", (a + b))`))
+			`string msg = "Answer: %d!"`,
+			`int val = 42`,
+			`fmt.Printf(msg, val)`))
 }
 
-func TestGoReader012(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines(
-			`a, b := 1, 4`,
-			`fmt.Print("Value: ", a*0x10 - 1)`),
-		Lines(
-			`int a = 1`,
-			`int b = 4`,
-			`fmt.Print("Value: ", ((a * 0x10) - 1))`))
-}
-
-func TestGoReader013(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines(
-			`a, b := 1, 4`,
-			`fmt.Print("Value: ", (a*(0x10 - 1))>>b)`),
-		Lines(
-			`int a = 1`,
-			`int b = 4`,
-			`fmt.Print("Value: ", ((a * (0x10 - 1)) >> b))`))
-}
-
-func TestGoReader014(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines(
-			`a := 14`,
-			`fmt.Print("Value 1: ", a)`,
-			`a = -8`,
-			`fmt.Print("Value 2: ", -a)`),
-		Lines(
-			`int a = 14`,
-			`fmt.Print("Value 1: ", a)`,
-			`a = -8`,
-			`fmt.Print("Value 2: ", -a)`))
-}
-
-func TestGoReader015(t *testing.T) {
-	MainMethodBodyTest(t,
-		Lines(
-			`a, b := 10, 12`,
-			`fmt.Println("Value: ", +a - -b)`),
-		Lines(
-			`int a = 10`,
-			`int b = 12`,
-			`fmt.Println("Value: ", (+a - -b))`))
-}
-
-func TestGoReader016(t *testing.T) {
+// Checks multiple addignment without declaration including a one line swap.
+// Also tests generating temporary identifiers.
+func TestGoReader_Assignment_004(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a, b := 10, 12`,
@@ -171,7 +158,8 @@ func TestGoReader016(t *testing.T) {
 			`fmt.Println("A: ", a, ", B: ", b)`))
 }
 
-func TestGoReader017(t *testing.T) {
+// Checks assigment from the result of multiple return function.
+func TestGoReader_Assignment_005(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`n, err := fmt.Printf("Two = %d\n", 2)`,
@@ -183,7 +171,80 @@ func TestGoReader017(t *testing.T) {
 			`fmt.Println("n: ", n, ", err: ", err)`))
 }
 
-func TestGoReader018(t *testing.T) {
+// Checks concatination of string literals.
+func TestGoReader_BinaryOp_001(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(`fmt.Print("Hello "+"World"+"!")`),
+		Lines(`fmt.Print((("Hello " + "World") + "!"))`))
+}
+
+// Checks multiple assignment and binary operation of integers.
+func TestGoReader_BinaryOp_002(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a, b := 1, 4`,
+			`fmt.Print("Value: ", a + b)`),
+		Lines(
+			`int a = 1`,
+			`int b = 4`,
+			`fmt.Print("Value: ", (a + b))`))
+}
+
+// Chesks multiplication of integers, subtration, and order of opertaions.
+func TestGoReader_BinaryOp_003(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a, b := 1, 4`,
+			`fmt.Print("Value: ", a*0x10 - 1)`),
+		Lines(
+			`int a = 1`,
+			`int b = 4`,
+			`fmt.Print("Value: ", ((a * 0x10) - 1))`))
+}
+
+// Checks some more binary operations and parentheses for ordering operations.
+func TestGoReader_BinaryOp_004(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a, b := 1, 4`,
+			`fmt.Print("Value: ", (a*(0x10 - 1))>>b)`),
+		Lines(
+			`int a = 1`,
+			`int b = 4`,
+			`fmt.Print("Value: ", ((a * (0x10 - 1)) >> b))`))
+}
+
+// Checks the negation operation and negative integer literals.
+func TestGoReader_UnaryOp_001(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := 14`,
+			`fmt.Print("Value 1: ", a)`,
+			`a = -8`,
+			`fmt.Print("Value 2: ", -a)`),
+		Lines(
+			`int a = 14`,
+			`fmt.Print("Value 1: ", a)`,
+			`a = -8`,
+			`fmt.Print("Value 2: ", -a)`))
+}
+
+// Checks negation and positive unary operations.
+func TestGoReader_UnaryOp_002(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a, b := 10, 12`,
+			`fmt.Println("Value: ", +a - -b)`),
+		Lines(
+			`int a = 10`,
+			`int b = 12`,
+			`fmt.Println("Value: ", (+a - -b))`))
+}
+
+// TODO: Add tests for reference and dereference.
+
+// Checks simple if-statement definitions and a comparitive binary operation.
+func TestGoReader_IfElse_001(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 10 `,
@@ -197,7 +258,8 @@ func TestGoReader018(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader019(t *testing.T) {
+// Checks an if-else-statement definition.
+func TestGoReader_IfElse_002(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 10 `,
@@ -215,7 +277,8 @@ func TestGoReader019(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader020(t *testing.T) {
+// Checks assignment within an if-else-statement and that scoping is working for if-else-statements.
+func TestGoReader_IfElse_003(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 2`,
@@ -237,7 +300,8 @@ func TestGoReader020(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader021(t *testing.T) {
+// Checks else-if-statements in the an if-else-statment.
+func TestGoReader_IfElse_004(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 5`,
@@ -263,7 +327,8 @@ func TestGoReader021(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader022(t *testing.T) {
+// Checks nested if-else-statments.
+func TestGoReader_IfElse_005(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := 5`,
@@ -297,7 +362,10 @@ func TestGoReader022(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader023(t *testing.T) {
+// TODO: Check assignment of varaibles in the else-if part of an if-else-statement.
+
+// Checks for-statement which increments.
+func TestGoReader_For_001(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i := 0; i < 10; i++ {`,
@@ -309,7 +377,8 @@ func TestGoReader023(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader024(t *testing.T) {
+// Checks for-statement which decrements.
+func TestGoReader_For_002(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i := 9; i >= 0; i-- {`,
@@ -321,7 +390,8 @@ func TestGoReader024(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader025(t *testing.T) {
+// Checks for-statement with multi-assignment and multiple post operators.
+func TestGoReader_For_003(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i, j := 9, 0; j < 10; i, j = i-1, i+1 {`,
@@ -343,7 +413,8 @@ func TestGoReader025(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader026(t *testing.T) {
+// Checks for-statement which only the check, a while-statement.
+func TestGoReader_For_004(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`i := 0`,
@@ -359,7 +430,8 @@ func TestGoReader026(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader027(t *testing.T) {
+// Checks break and continue block statements.
+func TestGoReader_For_005(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i := 0; true; i++ {`,
@@ -385,7 +457,8 @@ func TestGoReader027(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader028(t *testing.T) {
+// Checks multiple-type of pre and post statements.
+func TestGoReader_For_006(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`for i, first := 0, true; i < 10; i, first = i+1, false {`,
@@ -415,7 +488,8 @@ func TestGoReader028(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader029(t *testing.T) {
+// Checks the creation of a slicee and the build-in length method.
+func TestGoReader_Slices_001(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := []int{4, 1, 3, 2}`,
@@ -425,7 +499,8 @@ func TestGoReader029(t *testing.T) {
 			`fmt.Println("Count = ", len(arr))`))
 }
 
-func TestGoReader030(t *testing.T) {
+// Checks the indices of a slice expression.
+func TestGoReader_Slices_002(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := []int{4, 1, 3, 2}`,
@@ -439,7 +514,8 @@ func TestGoReader030(t *testing.T) {
 			`}`))
 }
 
-func TestGoReader031(t *testing.T) {
+// Checks assignment of a slice element with an index.
+func TestGoReader_Slices_003(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := []int{4, 1, 3, 2}`,
@@ -451,7 +527,8 @@ func TestGoReader031(t *testing.T) {
 			`fmt.Println("arr[2] = ", arr[2])`))
 }
 
-func TestGoReader032(t *testing.T) {
+// Checks appending to a slice.
+func TestGoReader_Slices_004(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := []int{4, 1, 3, 2}`,
@@ -463,8 +540,9 @@ func TestGoReader032(t *testing.T) {
 			`fmt.Println("Count = ", len(arr))`))
 }
 
-/*
-func TestGoReader033(t *testing.T) {
+// Checks the creation of a slice with a default length
+// and a check of the build-in capacity method.
+func TestGoReader_Slices_005(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := make([]int, 4)`,
@@ -473,10 +551,15 @@ func TestGoReader033(t *testing.T) {
 			`fmt.Println("Count = ", len(arr))`,
 			`fmt.Println("Cap = ", cap(arr))`),
 		Lines(
-			``))
+			`[]int arr = make([]int, 4)`,
+			`arr[2] = 8`,
+			`fmt.Println("arr[2] = ", arr[2])`,
+			`fmt.Println("Count = ", len(arr))`,
+			`fmt.Println("Cap = ", cap(arr))`))
 }
 
-func TestGoReader034(t *testing.T) {
+// Checks the creation of a slice with a default capacity.
+func TestGoReader_Slices_006(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := make([]int, 0, 4)`,
@@ -484,10 +567,15 @@ func TestGoReader034(t *testing.T) {
 			`fmt.Println("Count = ", len(arr))`,
 			`fmt.Println("Cap = ", cap(arr))`),
 		Lines(
-			``))
+			`[]int arr = make([]int, 0, 4)`,
+			`arr = append(arr, 8)`,
+			`fmt.Println("Count = ", len(arr))`,
+			`fmt.Println("Cap = ", cap(arr))`))
 }
 
-func TestGoReader035(t *testing.T) {
+/*
+// Checks creating a subslice and assigning to that subslice.
+func TestGoReader_Slices_007(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := []int{4, 1, 3, 2}`,
@@ -500,7 +588,8 @@ func TestGoReader035(t *testing.T) {
 			``))
 }
 
-func TestGoReader036(t *testing.T) {
+// Checks creating a subslice from the beginning to an index.
+func TestGoReader_Slices_008(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := []int{4, 1, 3, 2}`,
@@ -513,7 +602,8 @@ func TestGoReader036(t *testing.T) {
 			``))
 }
 
-func TestGoReader037(t *testing.T) {
+// Checks creating a subslice from an index to the end.
+func TestGoReader_Slices_009(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`arr := []int{4, 1, 3, 2}`,
@@ -525,6 +615,6 @@ func TestGoReader037(t *testing.T) {
 		Lines(
 			``))
 }
+*/
 
 // TODO: Assign to underscore
-*/

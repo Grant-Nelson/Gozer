@@ -36,14 +36,12 @@ func TestCall(tt *testing.T) {
 	t.CheckStr((*CallExp)(nil).String(), "nil")
 	CheckReturn(t, (*CallExp)(nil), "nil")
 	log := types.Class()
-	print := log.Interface.AddFunction("print").AddParam("msg", types.String()).SetReturn(types.Int())
+	print := log.AddFunction("print").AddParam("msg", types.String()).SetReturn(types.Int())
 	id := Identifier("log", log)
 	CheckExp(t, id, `log`)
 	CheckReturn(t, id,
 		`class{`,
-		`  interface{`,
-		`    int print(string msg)`,
-		`  }`,
+		`  int print(string msg)`,
 		`}`)
 
 	pfun := Selector(id, "print", print)
@@ -86,6 +84,31 @@ func TestLambda(tt *testing.T) {
 	lam1 := Lambda(f1)
 	CheckExp(t, lam1, `int func(int a, float64 b, bool c) { doSomething() }`)
 	CheckReturn(t, lam1, `int func(int a, float64 b, bool c)`)
+}
+
+func TestMake(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr((*MakeExp)(nil).String(), "nil")
+	CheckReturn(t, (*MakeExp)(nil), "nil")
+	m1 := Make()
+	CheckExp(t, m1, `make(void)`)
+	CheckReturn(t, m1, `void`)
+
+	m1.Type = types.List(types.Int())
+	CheckExp(t, m1, `make([]int)`)
+	CheckReturn(t, m1, `[]int`)
+
+	m1.Length = Literal("12", types.Int())
+	CheckExp(t, m1, `make([]int, 12)`)
+	CheckReturn(t, m1, `[]int`)
+
+	m1.Capacity = Literal("36", types.Int())
+	CheckExp(t, m1, `make([]int, 12, 36)`)
+	CheckReturn(t, m1, `[]int`)
+
+	m1.Length = nil
+	CheckExp(t, m1, `make([]int, 0, 36)`)
+	CheckReturn(t, m1, `[]int`)
 }
 
 func TestDefinition(tt *testing.T) {

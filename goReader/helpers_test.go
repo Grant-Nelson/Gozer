@@ -167,3 +167,16 @@ func MainMethodBodyTest(t *testing.T, input string, exp string) {
 		`  `+common.Indent(exp, "  "),
 		`}`)
 }
+
+func MainMethodBodyError(t *testing.T, input string, expErrCount int, expErr string) {
+	test := NewTestGoReader(t)
+	test.AddCode("test/main.go",
+		`package main`,
+		`import "fmt"`,
+		``,
+		`func main() {`,
+		`  `+common.Indent(input, "  "),
+		`}`)
+	test.gr.Transpile()
+	test.CheckErrors(expErrCount, expErr)
+}

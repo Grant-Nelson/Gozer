@@ -641,6 +641,8 @@ func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) expressions.Expr
 		return expressions.Literal(name, types.Bool())
 	} else if id := scope.Get(name); id != nil {
 		return id
+	} else if name == "make" {
+		return expressions.Make()
 	}
 	src.log.Error("Unable to find ", name, " in scope.")
 	return expressions.Identifier(name, types.Variant())
@@ -711,8 +713,27 @@ func (src *Source) parseUnary(scope *Scope, una *ast.UnaryExpr) *expressions.Una
 
 // parseCall reads a code literal.
 // https://golang.org/pkg/go/ast/#CallExpr
-func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) *expressions.CallExp {
+func (src *Source) parseCall(scope *Scope, call *ast.CallExpr) expressions.Expression {
 	fnExp := src.parseExpression(scope, call.Fun)
+	if m, ok := fnExp.(*expressions.MakeExp); ok {
+		// Handle the "make" method
+		paramLen := len(call.Args)
+		if (paramLen >= 1) && (paramLen <= 3) {
+			typeDef, _ := src.readType(scope, call.Args[0])
+			m.Type = typeDef
+			if paramLen >= 2 {
+				m.Length = src.parseExpression(scope, call.Args[1])
+			}
+			if paramLen >= 3 {
+				m.Capacity = src.parseExpression(scope, call.Args[2])
+			}
+		} else {
+			src.log.Error("Make call must have 1 to 3 arguments but got ", paramLen, ":",
+				"\n   Expression: ", fnExp)
+		}
+		return m
+	}
+
 	paramLen := len(call.Args)
 	params := make([]expressions.Expression, paramLen)
 	for i, param := range call.Args {
