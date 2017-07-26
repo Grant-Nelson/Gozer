@@ -24,7 +24,7 @@ func NewDataSetter(key string, value ...interface{}) *DataSetter {
 
 // Process will set the data of the given message and return the message.
 func (ds *DataSetter) Process(msg *Message) *Message {
-	if (ds != nil) && (msg != nil) {
+	if (ds != nil) && (msg != nil) && (!msg.Data.Contains(ds.Key)) {
 		msg.Add(ds.Key, ds.Value...)
 	}
 	return msg

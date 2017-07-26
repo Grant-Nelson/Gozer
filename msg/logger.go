@@ -96,8 +96,7 @@ func (log *Logger) Add(msg *Message) *Message {
 	}
 	for i := len(log.procs) - 1; i >= 0; i-- {
 		if proc := log.procs[i]; proc != nil {
-			msg = proc.Process(msg)
-			if msg == nil {
+			if msg = proc.Process(msg); msg == nil {
 				return nil
 			}
 		}

@@ -64,6 +64,27 @@ func TestFor(tt *testing.T) {
 	CheckStat(t, stat, "for(int a = 0; (a < 10); a++) print(a)")
 }
 
+func TestForeach(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr((*ForeachStat)(nil).String(), "nil")
+
+	stat := Foreach(nil, nil, nil, nil)
+	CheckStat(t, stat, "foreach(nil, nil in nil) nil")
+
+	stat.Key = expressions.Identifier("key", types.Int())
+	stat.Range = expressions.Identifier("list", types.Map(types.Int(), types.String()))
+	CheckStat(t, stat, "foreach(key, nil in list) nil")
+
+	stat.Value = expressions.Identifier("value", types.String())
+	CheckStat(t, stat, "foreach(key, value in list) nil")
+
+	fType := types.Function().AddParam("a", types.String())
+	stat.Body = expressions.Call(fType,
+		expressions.Identifier("print", fType),
+		[]expressions.Expression{stat.Key, expressions.Literal(`"=>"`, types.String()), stat.Value})
+	CheckStat(t, stat, `foreach(key, value in list) print(key, "=>", value)`)
+}
+
 func TestIf(tt *testing.T) {
 	t := common.NewTester(tt)
 	t.CheckStr((*IfStat)(nil).String(), "nil")

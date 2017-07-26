@@ -77,16 +77,21 @@ func (gr *GoReader) EnableTesting(test bool) {
 
 // AddFolder adds all the files in the given folder.
 func (gr *GoReader) AddFolder(dirPath string) *types.PackageType {
+	defer gr.log.PushData("Stage", "AddFolder").Pop()
+	defer gr.log.PushData("Folder", dirPath).Pop()
+
 	pack := gr.getOrCreatePackage(dirPath)
 	fullPath := gr.getImportPath(dirPath)
 	if len(fullPath) <= 0 {
 		return nil
 	}
+
 	files, err := ioutil.ReadDir(fullPath)
 	if err != nil {
 		gr.log.Error("Failed to add folder, \"", fullPath, "\": ", err)
 		return nil
 	}
+
 	for _, file := range files {
 		fileName := file.Name()
 		if strings.HasSuffix(fileName, ".go") {
@@ -102,6 +107,8 @@ func (gr *GoReader) AddFolder(dirPath string) *types.PackageType {
 // AddFile add the file at the given path.
 // Returns true is added, false if path already exists.
 func (gr *GoReader) AddFile(filePath string) (bool, *Source) {
+	defer gr.log.PushData("Stage", "AddFile").Pop()
+	defer gr.log.PushData("Folder", filePath).Pop()
 	fullPath := gr.getImportPath(filePath)
 	return gr.addSource(nil, fullPath, filePath, nil)
 }
@@ -110,11 +117,14 @@ func (gr *GoReader) AddFile(filePath string) (bool, *Source) {
 // The given path is the name to store this code under.
 // Returns true is added, false if path already exists.
 func (gr *GoReader) AddCode(filePath string, code ...string) (bool, *Source) {
+	defer gr.log.PushData("Stage", "AddCode").Pop()
+	defer gr.log.PushData("FilePath", filePath).Pop()
 	return gr.addSource(nil, filePath, filePath, strings.Join(code, "\n"))
 }
 
 // Transpile converts the code and writes the resulting files.
 func (gr *GoReader) Transpile() {
+	defer gr.log.PushData("Stage", "Transpile").Pop()
 	for _, src := range gr.sources {
 		src.ProcessTypes()
 	}

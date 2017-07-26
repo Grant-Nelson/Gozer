@@ -87,10 +87,31 @@ func (src *Source) ProcessBodies() {
 	// TODO: fill out Constansts
 	// TODO: fill out Variables
 	for fn, body := range src.pendingFuncs {
-		fn.Body = src.parseBlock(scope, body)
+		src.processPendingFunc(scope, fn, body)
 	}
 	// TODO: fill out Library Functions
 	// TODO: fill out Class Functions
+}
+
+// processPendingFunc processes the pending function body.
+func (src *Source) processPendingFunc(scope *Scope, fn *types.FunctionType, body *ast.BlockStmt) {
+	defer func() {
+		if r := recover(); r != nil {
+			common.ThrowError("Error occurred while processing a pending function body: ", r)
+		}
+	}()
+
+	defer src.log.PushData("Stage", "Processing pending function body").Pop()
+	defer src.log.PushData("Path", src.getPath(body.Pos())).Pop()
+	defer src.log.PushData("Mathod", fn.GetName()).Pop()
+
+	fn.Body = src.parseBlock(scope, body)
+}
+
+// getPath gets the string for the path given the ast token position.
+func (src *Source) getPath(pos token.Pos) string {
+	loc := src.fileSet.Position(pos)
+	return fmt.Sprint(loc.Filename, ":", loc.Line, ":", loc.Column)
 }
 
 // addBasedPackage adds a package at the base level, not under a name.
@@ -207,6 +228,9 @@ func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
 		}
 	}()
 
+	defer src.log.PushData("Stage", "Reading generic declaration").Pop()
+	defer src.log.PushData("Path", src.getPath(data.Pos())).Pop()
+
 	switch data.Tok {
 	case token.IMPORT:
 		// Ignore imports while reading generic declarations.
@@ -224,6 +248,9 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 			common.ThrowError("Error occurred while reading a function type: ", r)
 		}
 	}()
+
+	defer src.log.PushData("Stage", "Reading function declaration").Pop()
+	defer src.log.PushData("Path", src.getPath(data.Pos())).Pop()
 
 	//ast.Print(src.fileSet, data)
 	fn := types.Function()
@@ -300,18 +327,20 @@ func (src *Source) parseStatement(scope *Scope, statement ast.Stmt) []statements
 	switch stat := statement.(type) {
 	case *ast.AssignStmt:
 		return src.expSliceToStatSlice(src.parseAssignment(scope, stat))
-	case *ast.ExprStmt:
-		return []statements.Statement{src.parseExpression(scope, stat.X)}
-	case *ast.IfStmt:
-		return []statements.Statement{src.parseIfStatement(scope, stat)}
 	case *ast.BlockStmt:
 		return []statements.Statement{src.parseBlock(scope, stat)}
-	case *ast.ForStmt:
-		return []statements.Statement{src.parseForStatement(scope, stat)}
-	case *ast.IncDecStmt:
-		return []statements.Statement{src.parseIncDecStatement(scope, stat)}
 	case *ast.BranchStmt:
 		return []statements.Statement{src.parseBranchStatement(scope, stat)}
+	case *ast.ExprStmt:
+		return []statements.Statement{src.parseExpression(scope, stat.X)}
+	case *ast.ForStmt:
+		return []statements.Statement{src.parseForStatement(scope, stat)}
+	case *ast.IfStmt:
+		return []statements.Statement{src.parseIfStatement(scope, stat)}
+	case *ast.IncDecStmt:
+		return []statements.Statement{src.parseIncDecStatement(scope, stat)}
+	case *ast.RangeStmt:
+		return []statements.Statement{src.parseRangeStatement(scope, stat)}
 
 	// case *ast.ReturnStmt: dw.writeReturn(st)
 	default:
@@ -347,7 +376,7 @@ func (src *Source) parseIfStatement(scope *Scope, ifStat *ast.IfStmt) statements
 	return statements.If(cond, bodyStat, elseStat)
 }
 
-// parseForStatement reads a for-statment
+// parseForStatement reads a for-statement
 // https://golang.org/pkg/go/ast/#ForStmt
 func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) statements.Statement {
 	container := statements.Block()
@@ -392,14 +421,133 @@ func (src *Source) parseForStatement(scope *Scope, forStat *ast.ForStmt) stateme
 	return container
 }
 
-// parseIncDecStatement reads an increment or decrement statment.
+// parseRangeStatement reads a range-statement (for-each-statement) for a list, string, or map.
+// https://golang.org/pkg/go/ast/#RangeStmt
+func (src *Source) parseRangeStatement(scope *Scope, stmt *ast.RangeStmt) statements.Statement {
+	rangeExp := src.parseExpression(scope, stmt.X)
+	switch t := rangeExp.ReturnType().(type) {
+	case *types.StringType, *types.ListType:
+		return src.parseListRangeStatement(scope, stmt, rangeExp)
+	case *types.MapType:
+		return src.parseMapRangeStatement(scope, stmt, rangeExp)
+	default:
+		src.log.Error("Unhandled foreach type ", reflect.TypeOf(t))
+		return nil
+	}
+}
+
+// parseListRangeStatement reads a range-statement (for-each-statement) for a list or string.
+func (src *Source) parseListRangeStatement(scope *Scope, stmt *ast.RangeStmt, rangeExp expressions.Expression) statements.Statement {
+	definition := stmt.Tok == token.DEFINE
+	innerScope := NewScope(scope)
+
+	// rangeIsID := false
+	// switch rangeExp.(type) {
+	// case *expressions.IdentifierExp:
+	// 	rangeIsID = true
+	// }
+
+	var indexID *expressions.IdentifierExp
+	if stmt.Key != nil {
+		if definition {
+			indexID = innerScope.Add(stmt.Key.(*ast.Ident).Name, types.Int())
+		} else {
+			indexID = src.parseExpression(innerScope, stmt.Key).(*expressions.IdentifierExp)
+		}
+	} else {
+		indexID = innerScope.AddTemp(types.Int())
+	}
+	init := expressions.Definition(indexID, expressions.Literal("0", types.Int()))
+
+	body := src.parseBlock(innerScope, stmt.Body)
+	if stmt.Value != nil {
+		var valueID *expressions.IdentifierExp
+		if definition {
+			var valueType types.Type
+			switch exp := rangeExp.ReturnType().(type) {
+			case types.IndexableType:
+				valueType = exp.ElementType()
+			default:
+				src.log.Error("Unhandled list range type ", reflect.TypeOf(exp))
+			}
+			valueID = innerScope.Add(stmt.Value.(*ast.Ident).Name, valueType)
+		} else {
+			valueID = src.parseExpression(innerScope, stmt.Value).(*expressions.IdentifierExp)
+		}
+		value := expressions.Definition(valueID, expressions.Indexer(rangeExp, indexID))
+		body.Statements = append([]statements.Statement{value}, body.Statements...)
+	}
+
+	lenFunc := scope.Get("len")
+	condLen := expressions.Call(lenFunc.Type.(*types.FunctionType), lenFunc, []expressions.Expression{rangeExp})
+	cond := expressions.BinaryOp(indexID, condLen, expressions.LessThanOp, types.Bool())
+	post := statements.IncDecOp(indexID, true)
+	return statements.For(init, cond, post, body)
+}
+
+// parseMapRangeStatement reads a range-statement (for-each-statement) for maps.
+func (src *Source) parseMapRangeStatement(scope *Scope, stmt *ast.RangeStmt, rangeExp expressions.Expression) statements.Statement {
+	definition := stmt.Tok == token.DEFINE
+	innerScope := NewScope(scope)
+
+	var key expressions.Expression
+	if stmt.Key != nil {
+		if definition {
+			var keyType types.Type
+			switch exp := rangeExp.ReturnType().(type) {
+			case *types.StringType:
+				keyType = types.Int()
+			case *types.ListType:
+				keyType = types.Int()
+			case *types.MapType:
+				keyType = exp.Key
+			}
+			keyID := innerScope.Add(stmt.Key.(*ast.Ident).Name, keyType)
+			key = expressions.Definition(keyID, nil)
+		} else {
+			key = src.parseExpression(innerScope, stmt.Key)
+		}
+	}
+
+	var value expressions.Expression
+	if stmt.Value != nil {
+		if definition {
+			var valueType types.Type
+			switch exp := rangeExp.ReturnType().(type) {
+			case *types.StringType:
+				valueType = exp.ElementType()
+			case *types.ListType:
+				valueType = exp.ElementType()
+			case *types.MapType:
+				valueType = exp.Value
+			}
+			valueID := innerScope.Add(stmt.Value.(*ast.Ident).Name, valueType)
+			value = expressions.Definition(valueID, nil)
+		} else {
+			value = src.parseExpression(innerScope, stmt.Value)
+		}
+	}
+
+	body := src.parseBlock(innerScope, stmt.Body)
+
+	// rangeIsID := false
+	// switch rangeExp.(type) {
+	// case *expressions.IdentifierExp:
+	// 	rangeIsID = true
+	// }
+
+	// TODO: Finish
+	return statements.Foreach(key, value, rangeExp, body)
+}
+
+// parseIncDecStatement reads an increment or decrement statement.
 // https://golang.org/pkg/go/ast/#IncDecStmt
 func (src *Source) parseIncDecStatement(scope *Scope, stmt *ast.IncDecStmt) statements.Statement {
 	exp := src.parseExpression(scope, stmt.X)
 	return statements.IncDecOp(exp, stmt.Tok == token.INC)
 }
 
-// parseBranchStatement reads a branch statment.
+// parseBranchStatement reads a branch statement.
 // https://golang.org/pkg/go/ast/#BranchStmt
 func (src *Source) parseBranchStatement(scope *Scope, stmt *ast.BranchStmt) statements.Statement {
 	return statements.Branch(stmt.Tok == token.BREAK)
@@ -646,7 +794,7 @@ func (src *Source) parseIdentifier(scope *Scope, id *ast.Ident) expressions.Expr
 	} else if name == "make" {
 		return expressions.Make()
 	}
-	src.log.Error("Unable to find ", name, " in scope.")
+	src.log.Error("Unable to find ", name, " in scope")
 	return expressions.Identifier(name, types.Variant())
 }
 
@@ -674,9 +822,9 @@ func (src *Source) parseSelector(scope *Scope, sel *ast.SelectorExpr) *expressio
 	if t, exists := types.FindSubtype(exp.ReturnType(), name); exists {
 		return expressions.Selector(exp, name, t)
 	}
-	src.log.Error("Failed to find subtype for selector:",
-		"\n   Expression: ", exp,
-		"\n   Selector:   ", name)
+	src.log.Error("Failed to find subtype for selector").
+		Add("Expression", exp).
+		Add("Selector", name)
 	return expressions.Selector(exp, name, types.Variant())
 }
 
@@ -766,12 +914,12 @@ func (src *Source) parseMakeCall(scope *Scope, call *ast.CallExpr, makeExp *expr
 			makeExp.Capacity = src.parseExpression(scope, call.Args[2])
 		}
 	} else {
-		src.log.Error("Make call must have 1 to 3 arguments but got ", paramLen, ".")
+		src.log.Error("Make call must have 1 to 3 arguments but got ", paramLen)
 	}
 	return makeExp
 }
 
-// expSliceToStatSlice converts a slice of expressions into a slice of statments.
+// expSliceToStatSlice converts a slice of expressions into a slice of statements.
 func (src *Source) expSliceToStatSlice(exps []expressions.Expression) []statements.Statement {
 	parts := make([]statements.Statement, len(exps))
 	for i, exp := range exps {

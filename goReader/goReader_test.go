@@ -11,8 +11,10 @@ func TestGoReader_ErrorHandling_001(t *testing.T) {
 		`func main() {`,
 		`  fmt.Print("Hello World!")`,
 		`}`)
-	test.CheckErrors(1,
-		`Error: Failed to add source, test/main.go: test/main.go:1:1: expected 'package', found 'import'`)
+	test.CheckErrors(1, Lines(
+		`Error: Failed to add source, test/main.go: test/main.go:1:1: expected 'package', found 'import':`,
+		`  FilePath: test/main.go`,
+		`  Stage:    AddCode`))
 }
 
 // Checks the make method call with the wrong number of parameters.
@@ -22,7 +24,10 @@ func TestGoReader_ErrorHandling_002(t *testing.T) {
 			`arr := make([]int, 0, 4, 5)`,
 			`fmt.Println("Count = ", len(arr))`),
 		1, Lines(
-			`Error: Make call must have 1 to 3 arguments but got 4.`))
+			`Error: Make call must have 1 to 3 arguments but got 4:`,
+			`  Mathod: main`,
+			`  Path:   test/main.go:4:13`,
+			`  Stage:  Processing pending function body`))
 }
 
 // Checks the reading a type name.
@@ -31,7 +36,9 @@ func TestGoReader_ErrorHandling_003(t *testing.T) {
 		Lines(
 			`arr := make(badType, 4)`,
 			`fmt.Println("Count = ", len(arr))`),
-		1, `Error: Error occurred while processing bodies: Error occurred while parsing a block: Unhandled type name: badType`)
+		1, Lines(
+			`Error: Error occurred while processing bodies: Error occurred while processing a pending function body: Error occurred while parsing a block: Unhandled type name: badType:`,
+			`  Stage: Transpile`))
 }
 
 // Check of basic main method definition, method selection
@@ -489,6 +496,71 @@ func TestGoReader_For_006(t *testing.T) {
 			`}`))
 }
 
+// Checks foreach on list with only index.
+func TestGoReader_ForRange_001(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := []int{1, 2, 3, 4}`,
+			`for i := range a {`,
+			`  fmt.Println("Index: ", i)`,
+			`}`),
+		Lines(
+			`[]int a = []int{1, 2, 3, 4}`,
+			`foreach(int i, nil in a) {`,
+			`  fmt.Println("Index: ", i)`,
+			`}`))
+}
+
+// Checks foreach on list with index and value.
+func TestGoReader_ForRange_002(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := []int{1, 2, 3, 4}`,
+			`for i, val := range a {`,
+			`  fmt.Println("Index: ", i, ", Value: ", val)`,
+			`}`),
+		Lines(
+			`[]int a = []int{1, 2, 3, 4}`,
+			`foreach(int i, int val in a) {`,
+			`  fmt.Println("Index: ", i, ", Value: ", val)`,
+			`}`))
+}
+
+// Checks foreach with predefined value and index on list.
+func TestGoReader_ForRange_003(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := []int{1, 2, 3, 4}`,
+			`val, i := -1, -2`,
+			`for i, val = range a {`,
+			`  fmt.Println("Index: ", i, ", Value: ", val)`,
+			`}`),
+		Lines(
+			`[]int a = []int{1, 2, 3, 4}`,
+			`int val = -1`,
+			`int i = -2`,
+			`foreach(i, val in a) {`,
+			`  fmt.Println("Index: ", i, ", Value: ", val)`,
+			`}`))
+}
+
+// Checks foreach on a list with no iterators.
+func TestGoReader_ForRange_004(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := []int{1, 2, 3, 4}`,
+			`for range a {`,
+			`  fmt.Println("Bleep")`,
+			`}`),
+		Lines(
+			`[]int a = []int{1, 2, 3, 4}`,
+			`foreach(nil, nil in a) {`,
+			`  fmt.Println("Bleep")`,
+			`}`))
+}
+
+// TODO: Check _ for index and value
+
 // Checks the creation of a slicee and the build-in length method.
 func TestGoReader_Slices_001(t *testing.T) {
 	MainMethodBodyTest(t,
@@ -630,3 +702,49 @@ func TestGoReader_Slices_009(t *testing.T) {
 			`fmt.Printf("arr = %v", arr)`,
 			`fmt.Printf("arr2 = %v", arr2)`))
 }
+
+// Checks creating a subslice from an index to the end.
+func TestGoReader_Slices_010(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`arr := []int{4, 1, 3, 2}`,
+			`arr2 := arr[1:2:3]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`),
+		Lines(
+			`[]int arr = []int{4, 1, 3, 2}`,
+			`[]int arr2 = arr[1:2:3]`,
+			`arr2[0] = 8`,
+			`arr[2] = 7`,
+			`fmt.Printf("arr = %v", arr)`,
+			`fmt.Printf("arr2 = %v", arr2)`))
+}
+
+// TODO: Switch, Class, Struct defs, etc
+
+/*
+// TODO: complex for-each indices
+package main
+
+import (
+	"fmt"
+)
+
+type A struct {
+	i int
+	v float64
+}
+
+func (a A) String() string {
+	return fmt.Sprint("<", a.i,", ", a.v, ">")
+}
+
+func main() {
+	a := A{i: -1, v: -1.0}
+	for a.i, a.v = range []float64{0.12, 0.23, 0.34, 0.45} {
+		fmt.Print("A = ", a, "\n")
+	}
+}
+*/

@@ -37,7 +37,7 @@ func (t *Tester) Failed(text string, m Map) {
 		m = NewMap()
 	}
 	if !m.Contains("Stack") {
-		m.Add("Stack", StackTrace(0, 5))
+		m.Add("Stack", StackTrace(1, 5))
 	}
 	result := ""
 	if !m.Empty() {

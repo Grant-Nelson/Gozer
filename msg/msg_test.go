@@ -216,6 +216,17 @@ func TestLogger(tt *testing.T) {
 		`Info: truth`)
 	t.CheckInt(log.ErrorCount(), 0, "filtered error count")
 
+	log.Clear()
+	log.PushData("danger", "bread")
+	log.Error("crunchy")
+	log.PushData("danger", "powder")
+	log.Error("crispy")
+	t.CheckStr(log.String(),
+		`Error: crunchy:`,
+		`  danger: bread`,
+		`Error: crispy:`,
+		`  danger: powder`)
+
 	(*Logger)(nil).Error("no effect")
 	t.CheckInt((*Logger)(nil).ErrorCount(), 0, "error count on nil")
 	t.CheckStr((*Logger)(nil).String(), ``)

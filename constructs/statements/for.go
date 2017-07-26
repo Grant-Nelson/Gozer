@@ -8,7 +8,7 @@ import (
 
 var _ Statement = (*ForStat)(nil)
 
-// ForStat is an for statement.
+// ForStat is an for-statement.
 type ForStat struct {
 
 	// Init is the statement to call when the For loop starts.
@@ -21,7 +21,7 @@ type ForStat struct {
 	// Usually used for incrementing some state.
 	Post Statement
 
-	// Body is the statement to call when Cond evaluates to true.
+	// Body is the statement to call for each loop.
 	Body Statement
 }
 
