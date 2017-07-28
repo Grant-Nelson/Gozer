@@ -497,7 +497,7 @@ func TestGoReader_For_006(t *testing.T) {
 }
 
 // Checks foreach on list with only index.
-func TestGoReader_ForRange_001(t *testing.T) {
+func TestGoReader_ForListRange_001(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := []int{1, 2, 3, 4}`,
@@ -506,13 +506,13 @@ func TestGoReader_ForRange_001(t *testing.T) {
 			`}`),
 		Lines(
 			`[]int a = []int{1, 2, 3, 4}`,
-			`foreach(int i, nil in a) {`,
+			`for(int i = 0; (i < len(a)); i++) {`,
 			`  fmt.Println("Index: ", i)`,
 			`}`))
 }
 
 // Checks foreach on list with index and value.
-func TestGoReader_ForRange_002(t *testing.T) {
+func TestGoReader_ForListRange_002(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := []int{1, 2, 3, 4}`,
@@ -521,13 +521,14 @@ func TestGoReader_ForRange_002(t *testing.T) {
 			`}`),
 		Lines(
 			`[]int a = []int{1, 2, 3, 4}`,
-			`foreach(int i, int val in a) {`,
+			`for(int i = 0; (i < len(a)); i++) {`,
+			`  int val = a[i]`,
 			`  fmt.Println("Index: ", i, ", Value: ", val)`,
 			`}`))
 }
 
 // Checks foreach with predefined value and index on list.
-func TestGoReader_ForRange_003(t *testing.T) {
+func TestGoReader_ForListRange_003(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := []int{1, 2, 3, 4}`,
@@ -539,13 +540,14 @@ func TestGoReader_ForRange_003(t *testing.T) {
 			`[]int a = []int{1, 2, 3, 4}`,
 			`int val = -1`,
 			`int i = -2`,
-			`foreach(i, val in a) {`,
+			`for(i = 0; (i < len(a)); i++) {`,
+			`  val = a[i]`,
 			`  fmt.Println("Index: ", i, ", Value: ", val)`,
 			`}`))
 }
 
 // Checks foreach on a list with no iterators.
-func TestGoReader_ForRange_004(t *testing.T) {
+func TestGoReader_ForListRange_004(t *testing.T) {
 	MainMethodBodyTest(t,
 		Lines(
 			`a := []int{1, 2, 3, 4}`,
@@ -554,8 +556,74 @@ func TestGoReader_ForRange_004(t *testing.T) {
 			`}`),
 		Lines(
 			`[]int a = []int{1, 2, 3, 4}`,
-			`foreach(nil, nil in a) {`,
+			`for(int gozerTemp0 = 0; (gozerTemp0 < len(a)); gozerTemp0++) {`,
 			`  fmt.Println("Bleep")`,
+			`}`))
+}
+
+// Checks foreach with predefined value and no index on list.
+func TestGoReader_ForListRange_005(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`a := []int{1, 2, 3, 4}`,
+			`for _, val := range a {`,
+			`  fmt.Println("Value: ", val)`,
+			`}`),
+		Lines(
+			`[]int a = []int{1, 2, 3, 4}`,
+			`for(int gozerTemp0 = 0; (gozerTemp0 < len(a)); gozerTemp0++) {`,
+			`  int val = a[gozerTemp0]`,
+			`  fmt.Println("Value: ", val)`,
+			`}`))
+}
+
+// Checks foreach with predefined value and index on unidentified list.
+func TestGoReader_ForListRange_006(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for i, val := range []int{1, 2, 3, 4} {`,
+			`  fmt.Println("Index: ", i, ", Value: ", val)`,
+			`}`),
+		Lines(
+			`{`,
+			`  []int gozerTemp0 = []int{1, 2, 3, 4}`,
+			`  for(int i = 0; (i < len(gozerTemp0)); i++) {`,
+			`    int val = gozerTemp0[i]`,
+			`    fmt.Println("Index: ", i, ", Value: ", val)`,
+			`  }`,
+			`}`))
+}
+
+// Checks foreach with predefined value and no index on unidentified list.
+func TestGoReader_ForListRange_007(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for _, val := range []int{1, 2, 3, 4} {`,
+			`  fmt.Println("Value: ", val)`,
+			`}`),
+		Lines(
+			`{`,
+			`  []int gozerTemp0 = []int{1, 2, 3, 4}`,
+			`  for(int gozerTemp1 = 0; (gozerTemp1 < len(gozerTemp0)); gozerTemp1++) {`,
+			`    int val = gozerTemp0[gozerTemp1]`,
+			`    fmt.Println("Value: ", val)`,
+			`  }`,
+			`}`))
+}
+
+// Checks foreach with predefined no value and no index on unidentified list.
+func TestGoReader_ForListRange_008(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`for _, _ := range []int{1, 2, 3, 4} {`,
+			`  fmt.Println("Bleep")`,
+			`}`),
+		Lines(
+			`{`,
+			`  []int gozerTemp0 = []int{1, 2, 3, 4}`,
+			`  for(int gozerTemp1 = 0; (gozerTemp1 < len(gozerTemp0)); gozerTemp1++) {`,
+			`    fmt.Println("Bleep")`,
+			`  }`,
 			`}`))
 }
 

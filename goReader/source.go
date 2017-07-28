@@ -75,6 +75,14 @@ func (src *Source) ProcessTypes() {
 	}
 }
 
+// IsUnderscore determines if the given value is an underscore no-op identifier.
+func (src *Source) IsUnderscore(x interface{}) bool {
+	if stmt, ok := x.(*ast.Ident); ok && stmt.Name == "_" {
+		return true
+	}
+	return false
+}
+
 // ProcessBodies transpiles the bodies of the functions and expressions of constants.
 func (src *Source) ProcessBodies() {
 	defer func() {
@@ -441,26 +449,32 @@ func (src *Source) parseListRangeStatement(scope *Scope, stmt *ast.RangeStmt, ra
 	definition := stmt.Tok == token.DEFINE
 	innerScope := NewScope(scope)
 
-	// rangeIsID := false
-	// switch rangeExp.(type) {
-	// case *expressions.IdentifierExp:
-	// 	rangeIsID = true
-	// }
+	tempRangeID := false
+	var rangeID *expressions.IdentifierExp
+	if idExp, ok := rangeExp.(*expressions.IdentifierExp); ok {
+		rangeID = idExp
+	} else {
+		tempRangeID = true
+		rangeID = innerScope.AddTemp(rangeExp.ReturnType())
+	}
 
 	var indexID *expressions.IdentifierExp
-	if stmt.Key != nil {
+	var init expressions.Expression
+	if (stmt.Key != nil) && !src.IsUnderscore(stmt.Key) {
 		if definition {
 			indexID = innerScope.Add(stmt.Key.(*ast.Ident).Name, types.Int())
+			init = expressions.Definition(indexID, expressions.Literal("0", types.Int()))
 		} else {
 			indexID = src.parseExpression(innerScope, stmt.Key).(*expressions.IdentifierExp)
+			init = expressions.Assignment(indexID, expressions.Literal("0", types.Int()))
 		}
 	} else {
 		indexID = innerScope.AddTemp(types.Int())
+		init = expressions.Definition(indexID, expressions.Literal("0", types.Int()))
 	}
-	init := expressions.Definition(indexID, expressions.Literal("0", types.Int()))
 
-	body := src.parseBlock(innerScope, stmt.Body)
-	if stmt.Value != nil {
+	var value expressions.Expression
+	if (stmt.Value != nil) && !src.IsUnderscore(stmt.Value) {
 		var valueID *expressions.IdentifierExp
 		if definition {
 			var valueType types.Type
@@ -471,18 +485,30 @@ func (src *Source) parseListRangeStatement(scope *Scope, stmt *ast.RangeStmt, ra
 				src.log.Error("Unhandled list range type ", reflect.TypeOf(exp))
 			}
 			valueID = innerScope.Add(stmt.Value.(*ast.Ident).Name, valueType)
+			value = expressions.Definition(valueID, expressions.Indexer(rangeID, indexID))
 		} else {
 			valueID = src.parseExpression(innerScope, stmt.Value).(*expressions.IdentifierExp)
+			value = expressions.Assignment(valueID, expressions.Indexer(rangeID, indexID))
 		}
-		value := expressions.Definition(valueID, expressions.Indexer(rangeExp, indexID))
+	}
+
+	body := src.parseBlock(innerScope, stmt.Body)
+	if value != nil {
 		body.Statements = append([]statements.Statement{value}, body.Statements...)
 	}
 
 	lenFunc := scope.Get("len")
-	condLen := expressions.Call(lenFunc.Type.(*types.FunctionType), lenFunc, []expressions.Expression{rangeExp})
+	condLen := expressions.Call(lenFunc.Type.(*types.FunctionType), lenFunc, []expressions.Expression{rangeID})
 	cond := expressions.BinaryOp(indexID, condLen, expressions.LessThanOp, types.Bool())
 	post := statements.IncDecOp(indexID, true)
-	return statements.For(init, cond, post, body)
+	result := statements.For(init, cond, post, body)
+
+	if tempRangeID {
+		return statements.Block(
+			expressions.Definition(rangeID, rangeExp),
+			result)
+	}
+	return result
 }
 
 // parseMapRangeStatement reads a range-statement (for-each-statement) for maps.
