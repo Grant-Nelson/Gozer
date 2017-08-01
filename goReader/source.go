@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs/expressions"
 	"github.com/grant-nelson/Gozer/constructs/statements"
 	"github.com/grant-nelson/Gozer/constructs/types"
@@ -56,11 +55,8 @@ func NewSource(log *msg.Logger, fileSet *token.FileSet) *Source {
 
 // ProcessTypes determines all the class signatures, interfaces, functions, and handles.
 func (src *Source) ProcessTypes() {
-	defer func() {
-		if r := recover(); r != nil {
-			src.log.Error("Error occurred while processing types: ", r)
-		}
-	}()
+	defer src.log.RecoverError()
+	defer src.log.PushPretext("Error occurred while processing types").Pop()
 
 	scope := src.fillOutScope()
 	for _, decl := range src.Data.Decls {
@@ -70,7 +66,7 @@ func (src *Source) ProcessTypes() {
 		case *ast.FuncDecl:
 			src.readFunctionType(scope, data)
 		default:
-			common.ThrowError("Unhandled type declaration: ", decl, " (", reflect.TypeOf(decl), ")")
+			src.log.ThrowError("Unhandled type declaration: ", decl, " (", reflect.TypeOf(decl), ")")
 		}
 	}
 }
@@ -85,11 +81,8 @@ func (src *Source) IsUnderscore(x interface{}) bool {
 
 // ProcessBodies transpiles the bodies of the functions and expressions of constants.
 func (src *Source) ProcessBodies() {
-	defer func() {
-		if r := recover(); r != nil {
-			src.log.Error("Error occurred while processing bodies: ", r)
-		}
-	}()
+	defer src.log.RecoverError()
+	defer src.log.PushPretext("Error occurred while processing bodies").Pop()
 
 	scope := src.fillOutScope()
 	// TODO: fill out Constansts
@@ -103,12 +96,7 @@ func (src *Source) ProcessBodies() {
 
 // processPendingFunc processes the pending function body.
 func (src *Source) processPendingFunc(scope *Scope, fn *types.FunctionType, body *ast.BlockStmt) {
-	defer func() {
-		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while processing a pending function body: ", r)
-		}
-	}()
-
+	defer src.log.RethrowError()
 	defer src.log.PushData("Stage", "Processing pending function body").Pop()
 	defer src.log.PushData("Path", src.getPath(body.Pos())).Pop()
 	defer src.log.PushData("Mathod", fn.GetName()).Pop()
@@ -148,11 +136,8 @@ func (src *Source) addBasedPackage(scope *Scope, pack *types.PackageType) {
 
 // fillOutScope fills out the scope for the containing package.
 func (src *Source) fillOutScope() *Scope {
-	defer func() {
-		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while filling out the scrope: ", r)
-		}
-	}()
+	defer src.log.RethrowError()
+	defer src.log.PushPretext("Error occurred while filling out the scrope").Pop()
 
 	scope := NewScope(nil)
 	shorts := src.Imports.Shorts()
@@ -173,24 +158,30 @@ func (src *Source) fillOutScope() *Scope {
 
 // readType reads a type from the given expression.
 func (src *Source) readType(scope *Scope, desc ast.Expr) (types.Type, bool) {
+	defer src.log.PushData("Path", src.getPath(desc.Pos())).Pop()
+
 	if desc == nil {
-		common.ThrowError("Nil type expression")
+		src.log.ThrowError("Nil type expression")
 		return nil, false
 	}
 	switch id := desc.(type) {
 	case *ast.ArrayType:
 		if id.Len != nil {
-			common.ThrowError("Unhandled array length expression: ", id, " (", reflect.TypeOf(desc), ")")
+			src.log.ThrowError("Unhandled array length expression: ", id, " (", reflect.TypeOf(desc), ")")
 		}
-		desc, _ := src.readType(scope, id.Elt)
-		return types.List(desc), true
+		element, _ := src.readType(scope, id.Elt)
+		return types.List(element), false
+	case *ast.MapType:
+		key, _ := src.readType(scope, id.Key)
+		value, _ := src.readType(scope, id.Value)
+		return types.Map(key, value), false
 	case *ast.Ident:
 		return src.lookupType(scope, id.Name), false
 	case *ast.Ellipsis:
 		desc, _ := src.readType(scope, id.Elt)
 		return types.List(desc), true
 	default:
-		common.ThrowError("Unhandled type expression: ", desc, " (", reflect.TypeOf(desc), ")")
+		src.log.ThrowError("Unhandled type expression: ", desc, " (", reflect.TypeOf(desc), ")")
 		return nil, false
 	}
 }
@@ -199,7 +190,7 @@ func (src *Source) readType(scope *Scope, desc ast.Expr) (types.Type, bool) {
 func (src *Source) lookupType(scope *Scope, typeName string) types.Type {
 	result := types.LookupType(typeName)
 	if result == nil {
-		common.ThrowError("Unhandled type name: ", typeName)
+		src.log.ThrowError("Unhandled type name: ", typeName)
 		return nil
 	}
 	return result
@@ -230,12 +221,8 @@ func (src *Source) readFieldList(scope *Scope, fields *ast.FieldList) ([]string,
 
 // readGenericDeclaration reads the given generic declaration into the library.
 func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
-	defer func() {
-		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while reading a generic declaration: ", r)
-		}
-	}()
-
+	defer src.log.RethrowError()
+	defer src.log.PushPretext("Error occurred while reading a generic declaration").Pop()
 	defer src.log.PushData("Stage", "Reading generic declaration").Pop()
 	defer src.log.PushData("Path", src.getPath(data.Pos())).Pop()
 
@@ -244,19 +231,15 @@ func (src *Source) readGenericDeclaration(scope *Scope, data *ast.GenDecl) {
 		// Ignore imports while reading generic declarations.
 		return
 	default:
-		common.ThrowError("Unhandled generic declaration: ", data, " (", reflect.TypeOf(data), ")")
+		src.log.ThrowError("Unhandled generic declaration: ", data, " (", reflect.TypeOf(data), ")")
 	}
 }
 
 // readFunctionType reads the given method into the library
 // and adds it to a class if the class is defined.
 func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
-	defer func() {
-		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while reading a function type: ", r)
-		}
-	}()
-
+	defer src.log.RethrowError()
+	defer src.log.PushPretext("Error occurred while reading a function type").Pop()
 	defer src.log.PushData("Stage", "Reading function declaration").Pop()
 	defer src.log.PushData("Path", src.getPath(data.Pos())).Pop()
 
@@ -314,11 +297,8 @@ func (src *Source) readFunctionType(scope *Scope, data *ast.FuncDecl) {
 // parseBlock reads a block statement.
 // https://golang.org/pkg/go/ast/#BlockStmt
 func (src *Source) parseBlock(scope *Scope, block *ast.BlockStmt) *statements.BlockStat {
-	defer func() {
-		if r := recover(); r != nil {
-			common.ThrowError("Error occurred while parsing a block: ", r)
-		}
-	}()
+	defer src.log.RethrowError()
+	defer src.log.PushPretext("Error occurred while parsing a block").Pop()
 
 	blockScope := NewScope(scope)
 	stats := []statements.Statement{}
@@ -517,7 +497,7 @@ func (src *Source) parseMapRangeStatement(scope *Scope, stmt *ast.RangeStmt, ran
 	innerScope := NewScope(scope)
 
 	var key expressions.Expression
-	if stmt.Key != nil {
+	if (stmt.Key != nil) && !src.IsUnderscore(stmt.Key) {
 		if definition {
 			var keyType types.Type
 			switch exp := rangeExp.ReturnType().(type) {
@@ -536,7 +516,7 @@ func (src *Source) parseMapRangeStatement(scope *Scope, stmt *ast.RangeStmt, ran
 	}
 
 	var value expressions.Expression
-	if stmt.Value != nil {
+	if (stmt.Value != nil) && !src.IsUnderscore(stmt.Value) {
 		if definition {
 			var valueType types.Type
 			switch exp := rangeExp.ReturnType().(type) {
@@ -587,6 +567,7 @@ func (src *Source) parseAssignment(scope *Scope, assign *ast.AssignStmt) []expre
 	}
 
 	// TODO: Handle underscores
+	// TODO: Confirm type compatability
 
 	// For single assignment assign it directly
 	if (len(assign.Lhs) == 1) && (len(assign.Rhs) == 1) {
@@ -681,6 +662,8 @@ func (src *Source) parseExpression(scope *Scope, expr ast.Expr) expressions.Expr
 		return src.parseIdentifier(scope, ex)
 	case *ast.IndexExpr:
 		return src.parseIndexer(scope, ex)
+	case *ast.KeyValueExpr:
+		return src.parseKeyValue(scope, ex)
 	case *ast.ParenExpr:
 		return src.parseExpression(scope, ex.X)
 	case *ast.SelectorExpr:
@@ -730,15 +713,23 @@ func (src *Source) parseLiteral(scope *Scope, lit *ast.BasicLit) *expressions.Li
 	}
 }
 
-// parseCompositeLit reads a composite literial value.
+// parseCompositeLit reads a composite literial value for a slice.
 // https://golang.org/pkg/go/ast/#CompositeLit
-func (src *Source) parseCompositeLit(scope *Scope, exp *ast.CompositeLit) *expressions.CompoundLiteralExp {
+func (src *Source) parseCompositeLit(scope *Scope, exp *ast.CompositeLit) *expressions.CompositeLiteralExp {
 	litType, _ := src.readType(scope, exp.Type)
 	elements := make([]expressions.Expression, len(exp.Elts))
 	for i, elts := range exp.Elts {
 		elements[i] = src.parseExpression(scope, elts)
 	}
-	return expressions.CompoundLiteral(elements, litType)
+	return expressions.CompositeLiteral(elements, litType)
+}
+
+// parseMapLit reads a composite literial value for a map.
+// https://golang.org/pkg/go/ast/#KeyValueExpr
+func (src *Source) parseKeyValue(scope *Scope, exp *ast.KeyValueExpr) *expressions.KeyValueExp {
+	key := src.parseExpression(scope, exp.Key)
+	value := src.parseExpression(scope, exp.Value)
+	return expressions.KeyValue(key, value)
 }
 
 // parseBinary reads a binary operation.

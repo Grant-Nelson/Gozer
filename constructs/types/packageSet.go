@@ -40,7 +40,7 @@ func (set *PackageSet) Packages() []*PackageType {
 	return set.packages
 }
 
-// SetShort
+// SetShort adds a new package with a short name.
 func (set *PackageSet) SetShort(short string, name string) bool {
 	if set != nil {
 		for i, pack := range set.packages {
@@ -82,7 +82,7 @@ func (set *PackageSet) Add(packages ...*PackageType) *PackageSet {
 	return set
 }
 
-// Add will append all non-nil packages to this set.
+// AddWithShort will append all non-nil packages to this set.
 func (set *PackageSet) AddWithShort(short string, pack *PackageType) {
 	set.shorts = append(set.shorts, short)
 	set.packages = append(set.packages, pack)

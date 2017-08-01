@@ -6,28 +6,28 @@ import (
 	"github.com/grant-nelson/Gozer/constructs/types"
 )
 
-var _ Expression = (*CompoundLiteralExp)(nil)
+var _ Expression = (*CompositeLiteralExp)(nil)
 
-// CompoundLiteralExp is a list definition typed value.
-type CompoundLiteralExp struct {
+// CompositeLiteralExp is a list or map definition typed value.
+type CompositeLiteralExp struct {
 
-	// Elements is the set of values to initialize this list with.
+	// Elements is the set of values to initialize.
 	Elements []Expression
 
 	// Type is the value type of the literal.
 	Type types.Type
 }
 
-// CompoundLiteral creates new composite literal expression.
-func CompoundLiteral(elems []Expression, litType types.Type) *CompoundLiteralExp {
-	return &CompoundLiteralExp{
+// CompositeLiteral creates new composite literal expression.
+func CompositeLiteral(elems []Expression, litType types.Type) *CompositeLiteralExp {
+	return &CompositeLiteralExp{
 		Elements: elems,
 		Type:     litType,
 	}
 }
 
 // ReturnType is the type of the composite literal.
-func (e *CompoundLiteralExp) ReturnType() types.Type {
+func (e *CompositeLiteralExp) ReturnType() types.Type {
 	if e == nil {
 		return nil
 	}
@@ -35,7 +35,7 @@ func (e *CompoundLiteralExp) ReturnType() types.Type {
 }
 
 // String gets the string for the composite literal.
-func (e *CompoundLiteralExp) String() string {
+func (e *CompositeLiteralExp) String() string {
 	if e == nil {
 		return nilStr
 	}

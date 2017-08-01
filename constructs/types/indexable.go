@@ -13,7 +13,7 @@ type IndexableType interface {
 	String() string
 }
 
-// GetElementType gets the element type from an indexable type.
+// GetIndexableType gets the element type from an indexable type.
 // If no element type exists, false is returned.
 func GetIndexableType(t Type) (Type, bool) {
 	if t != nil {

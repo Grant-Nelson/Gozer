@@ -45,7 +45,7 @@ func UnaryOp(exp Expression, operand string, t types.Type) *UnaryOpExp {
 	}
 }
 
-// ReturnTypes are the types this expression resolves to.
+// ReturnType is the types this expression resolves to.
 func (e *UnaryOpExp) ReturnType() types.Type {
 	if e == nil {
 		return nil

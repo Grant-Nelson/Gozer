@@ -61,16 +61,25 @@ func TestCall(tt *testing.T) {
 	CheckReturn(t, call2, "nil")
 }
 
-func TestCompoundLit(tt *testing.T) {
+func TestCompositeLit(tt *testing.T) {
 	t := common.NewTester(tt)
-	t.CheckStr((*CompoundLiteralExp)(nil).String(), "nil")
-	CheckReturn(t, (*CompoundLiteralExp)(nil), "nil")
+	t.CheckStr((*CompositeLiteralExp)(nil).String(), "nil")
+	CheckReturn(t, (*CompositeLiteralExp)(nil), "nil")
 	val1 := Literal("1.2", types.Float32())
 	val2 := Literal("2.3", types.Float32())
 	val3 := Literal("3.4", types.Float32())
-	comp := CompoundLiteral([]Expression{val1, val2, val3}, types.List(types.Float32()))
+	comp := CompositeLiteral([]Expression{val1, val2, val3}, types.List(types.Float32()))
 	CheckExp(t, comp, `[]float32{1.2, 2.3, 3.4}`)
 	CheckReturn(t, comp, `[]float32`)
+}
+
+func TestKeyValue(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr((*KeyValueExp)(nil).String(), "nil")
+	CheckReturn(t, (*KeyValueExp)(nil), "nil")
+	pair := KeyValue(Literal("bleep", types.String()), Literal("1.2", types.Float32()))
+	CheckExp(t, pair, `bleep: 1.2`)
+	CheckReturn(t, pair, `pair[string]float32`)
 }
 
 func TestLambda(tt *testing.T) {

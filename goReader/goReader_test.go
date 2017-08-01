@@ -24,7 +24,7 @@ func TestGoReader_ErrorHandling_002(t *testing.T) {
 			`arr := make([]int, 0, 4, 5)`,
 			`fmt.Println("Count = ", len(arr))`),
 		1, Lines(
-			`Error: Make call must have 1 to 3 arguments but got 4:`,
+			`Error: Error occurred while processing bodies: Error occurred while parsing a block: Make call must have 1 to 3 arguments but got 4:`,
 			`  Mathod: main`,
 			`  Path:   test/main.go:4:13`,
 			`  Stage:  Processing pending function body`))
@@ -37,8 +37,10 @@ func TestGoReader_ErrorHandling_003(t *testing.T) {
 			`arr := make(badType, 4)`,
 			`fmt.Println("Count = ", len(arr))`),
 		1, Lines(
-			`Error: Error occurred while processing bodies: Error occurred while processing a pending function body: Error occurred while parsing a block: Unhandled type name: badType:`,
-			`  Stage: Transpile`))
+			`Error: Error occurred while processing bodies: Error occurred while parsing a block: Unhandled type name: badType:`,
+			`  Mathod: main`,
+			`  Path:   test/main.go:5:15`,
+			`  Stage:  Processing pending function body`))
 }
 
 // Check of basic main method definition, method selection
@@ -627,7 +629,7 @@ func TestGoReader_ForListRange_008(t *testing.T) {
 			`}`))
 }
 
-// TODO: Check _ for index and value
+// TODO: For-each map
 
 // Checks the creation of a slicee and the build-in length method.
 func TestGoReader_Slices_001(t *testing.T) {
@@ -790,6 +792,45 @@ func TestGoReader_Slices_010(t *testing.T) {
 			`fmt.Printf("arr2 = %v", arr2)`))
 }
 
+// Checks initialization of a map.
+func TestGoReader_Maps_001(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`numbers := map[int]string{4: "four", 1: "one", 3: "three", 2: "two"}`,
+			`fmt.Println("Count = ", len(numbers))`),
+		Lines(
+			`map[int]string numbers = map[int]string{4: "four", 1: "one", 3: "three", 2: "two"}`,
+			`fmt.Println("Count = ", len(numbers))`))
+}
+
+// Checks assignment of a map element with an int key.
+func TestGoReader_Maps_002(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`numbers := map[int]string{4: "four", 1: "one", 3: "three", 2: "two"}`,
+			`numbers[2] = "duo"`,
+			`fmt.Println("numbers[2] = ", numbers[2])`),
+		Lines(
+			`map[int]string numbers = map[int]string{4: "four", 1: "one", 3: "three", 2: "two"}`,
+			`numbers[2] = "duo"`,
+			`fmt.Println("numbers[2] = ", numbers[2])`))
+}
+
+// Checks assignment of a map element with an string key.
+func TestGoReader_Maps_003(t *testing.T) {
+	MainMethodBodyTest(t,
+		Lines(
+			`numbers := map[string]int{"four": 4, "one": 1, "three": 3, "two": 2}`,
+			`numbers["two"] = 42`,
+			`fmt.Println("numbers[two] = ", numbers["two"])`),
+		Lines(
+			`map[string]int numbers = map[string]int{"four": 4, "one": 1, "three": 3, "two": 2}`,
+			`numbers["two"] = 42`,
+			`fmt.Println("numbers[two] = ", numbers["two"])`))
+}
+
+// TODO: maps
+
 // TODO: Switch, Class, Struct defs, etc
 
 /*
@@ -815,4 +856,10 @@ func main() {
 		fmt.Print("A = ", a, "\n")
 	}
 }
+*/
+
+/*
+	Need to make the following fail because of types not matching
+	`numbers := map[int]string{4: "four", 1: "one", 3: "three", 2: "two"}`,
+	`numbers[2] = 8`,
 */

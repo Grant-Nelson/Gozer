@@ -73,22 +73,6 @@ func TestTestTools(tt *testing.T) {
 		`         7. fake stack trace`)
 }
 
-func TestThrowError(tt *testing.T) {
-	t := NewTester(tt)
-	defer func() {
-		if r := recover(); r != nil {
-			if err, ok := r.(error); ok {
-				t.CheckStr(fmt.Sprint(err), "Test Panic")
-				return
-			}
-			t.Fatal("panic should have been an error")
-		}
-		t.Fatal("panic should not have been nil")
-	}()
-	ThrowError("Test Panic")
-	t.Fatal("panic did not fire if this line was reached")
-}
-
 func TestDiffStringSets(tt *testing.T) {
 	t := NewTester(tt)
 	t.CheckDiffStringSets("a|b|c", "a|b|c", "", "", false)

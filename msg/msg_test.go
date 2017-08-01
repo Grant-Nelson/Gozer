@@ -61,6 +61,21 @@ func TestDataSetter(tt *testing.T) {
 		`  prodigy: last`)
 }
 
+func TestPrepender(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr((*Prepender)(nil).String(), `nil`)
+	p1 := NewPrepender("lloyd ", 4)
+	t.CheckStr(p1.String(), `Prepender(lloyd 4)`)
+	p2 := NewPrepender(2, " scott")
+	t.CheckStr(p2.String(), `Prepender(2 scott)`)
+	t.CheckStr(p1.Process(p2.Process(NewError("great"))).String(),
+		`Error: lloyd 4: 2 scott: great`)
+	t.CheckStr(p2.Process(p1.Process(NewDebug("harry"))).String(),
+		`Debug: 2 scott: lloyd 4: harry`)
+	t.CheckStr(p1.Process(NewWarning("")).String(),
+		`Warning: lloyd 4`)
+}
+
 func TestFilter(tt *testing.T) {
 	t := common.NewTester(tt)
 	t.CheckStr((*Filter)(nil).String(), `nil`)
@@ -220,14 +235,52 @@ func TestLogger(tt *testing.T) {
 	log.PushData("danger", "bread")
 	log.Error("crunchy")
 	log.PushData("danger", "powder")
+	log.PushPretext("toasted")
 	log.Error("crispy")
 	t.CheckStr(log.String(),
 		`Error: crunchy:`,
 		`  danger: bread`,
-		`Error: crispy:`,
+		`Error: toasted: crispy:`,
 		`  danger: powder`)
 
 	(*Logger)(nil).Error("no effect")
 	t.CheckInt((*Logger)(nil).ErrorCount(), 0, "error count on nil")
 	t.CheckStr((*Logger)(nil).String(), ``)
+}
+
+func TestThrowError(tt *testing.T) {
+	t := common.NewTester(tt)
+	log := NewLogger()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.CheckStr(fmt.Sprint(r), "Error: chuck")
+			t.CheckInt(log.ErrorCount(), 1, "thrown error count")
+			t.CheckStr(log.String(), "Error: chuck")
+		}
+	}()
+	defer log.RethrowError()
+
+	log.ThrowError("chuck")
+}
+
+func TestRethrowError(tt *testing.T) {
+	t := common.NewTester(tt)
+	log := NewLogger()
+
+	func() {
+		defer log.RecoverError()
+		defer log.RethrowError()
+		panic(fmt.Errorf("ping"))
+	}()
+
+	func() {
+		defer log.RecoverError()
+		panic(fmt.Errorf("pong"))
+	}()
+
+	t.CheckStr(log.String(),
+		"Error: ping",
+		"Error: pong")
+	t.CheckInt(log.ErrorCount(), 2, "rethrown error count")
 }

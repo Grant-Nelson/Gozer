@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -43,11 +42,6 @@ func DiffStringSets(set1 []string, set2 []string) (notInSet1 []string, notInSet2
 		diff = true
 	}
 	return
-}
-
-// ThrowError throws an error via a panic.
-func ThrowError(msg ...interface{}) {
-	panic(fmt.Errorf("%s", fmt.Sprint(msg...)))
 }
 
 // Indent returns the given text indented.

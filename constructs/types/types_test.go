@@ -98,6 +98,15 @@ func TestMapTypes(tt *testing.T) {
 	CheckType(t, Map(String(), Map(Int(), Int())), "map[string]map[int]int")
 }
 
+func TestPairTypes(tt *testing.T) {
+	t := common.NewTester(tt)
+	t.CheckStr(((*PairType)(nil)).String(), "nil")
+	CheckType(t, Pair(nil, nil), "pair[nil]nil")
+	CheckType(t, Pair(Int(), Int()), "pair[int]int")
+	CheckType(t, Pair(String(), List(Pointer(Int()))), "pair[string][]*int")
+	CheckType(t, Pair(String(), Pair(Int(), Int())), "pair[string]pair[int]int")
+}
+
 func TestFunctionTypes(tt *testing.T) {
 	t := common.NewTester(tt)
 	t.CheckStr(((*FunctionType)(nil)).GetName(), "")
@@ -477,8 +486,11 @@ func TestIndexable(tt *testing.T) {
 	CheckGetElement(t, List(Int()), "int")
 	CheckGetElement(t, List(String()), "string")
 	CheckGetElement(t, (*MapType)(nil), "nil")
+	CheckGetElement(t, (*PairType)(nil), "nil")
 	CheckGetElement(t, Map(Int(), Int()), "int")
 	CheckGetElement(t, Map(String(), String()), "string")
+	CheckGetElement(t, Pair(Int(), Int()), "int")
+	CheckGetElement(t, Pair(String(), String()), "string")
 	CheckGetElement(t, (*StringType)(nil), "uint8")
 	CheckGetElement(t, String(), "uint8")
 }
@@ -489,8 +501,11 @@ func TestElementTypes(tt *testing.T) {
 	CheckType(t, List(Int()).ElementType(), "int")
 	CheckType(t, List(String()).ElementType(), "string")
 	CheckType(t, (*MapType)(nil).ElementType(), "nil")
+	CheckType(t, (*PairType)(nil).ElementType(), "nil")
 	CheckType(t, Map(Int(), Int()).ElementType(), "int")
 	CheckType(t, Map(String(), String()).ElementType(), "string")
+	CheckType(t, Pair(Int(), Int()).ElementType(), "int")
+	CheckType(t, Pair(String(), String()).ElementType(), "string")
 	CheckType(t, (*StringType)(nil).ElementType(), "uint8")
 	CheckType(t, String().ElementType(), "uint8")
 }
