@@ -829,7 +829,7 @@ func TestGoReader_Maps_003(t *testing.T) {
 			`fmt.Println("numbers[two] = ", numbers["two"])`))
 }
 
-// TODO: maps
+// TODO: delete map
 
 // TODO: Switch, Class, Struct defs, etc
 

@@ -19,6 +19,7 @@ func TestBuiltin(tt *testing.T) {
 		`import builtin{`,
 		`  variant append(variant a, variant... b)`,
 		`  int cap(variant a)`,
+		`  void delete(variant m, variant key)`,
 		`  int len(variant a)`,
 		`  void print(interface{}... a)`,
 		`  void println(interface{}... a)`,

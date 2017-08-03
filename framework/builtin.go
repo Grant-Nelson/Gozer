@@ -41,6 +41,11 @@ func BuiltinPrebuild(prog *types.ProgramType) {
 		AddParam("a", types.Variant()).
 		SetReturn(types.Int())
 
+	// https://golang.org/src/builtin/builtin.go?h=delete#L146
+	pack.AddFunction("delete").
+		AddParam("m", types.Variant()).
+		AddParam("key", types.Variant())
+
 	// https://golang.org/src/builtin/builtin.go?h=print#L243
 	pack.AddFunction("print").
 		AddParam("a", types.Interface()).
@@ -54,5 +59,5 @@ func BuiltinPrebuild(prog *types.ProgramType) {
 	// TODO: Implement the following:
 	//
 	// complex, imag, real
-	// close, copy, delete, new, panic, recover
+	// close, copy, new, panic, recover
 }
