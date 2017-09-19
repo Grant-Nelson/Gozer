@@ -1,4 +1,4 @@
-package transpiler
+package goReader
 
 import (
 	"bytes"
@@ -27,35 +27,44 @@ func AstString(fileSet *token.FileSet, data interface{}) string {
 // GoReader is a GO parser and Dart writer for transpileing.
 type GoReader struct {
 
-	// Program is the program being loaded.
-	Program *types.ProgramType
+	// program is the constructs being loaded this reader.
+	program *types.ProgramType
 
+	// fileSet is the set of file information used while transpiling.
 	fileSet *token.FileSet
+
+	// source is the input ready to be transpiled.
 	sources map[string]*Source
-	log     *msg.Logger
+
+	// log is the logger used to output warnings, errors, and information during the transpile.
+	log *msg.Logger
+
+	// testing indicates that _test files will be included into the transpile.
 	testing bool
-	results map[string]string
-	goPath  string
-	goRoot  string
+
+	// goPath is the path to the Go path folder as specified in the GOPATH envirnment variable.
+	goPath string
+
+	// goRoot is the path to the Go root folder as specified in the GOROOT envirnment variable.
+	goRoot string
 }
 
 // NewGoReader creates a new Go reader.
 func NewGoReader() *GoReader {
 	gr := &GoReader{
-		Program: types.Program(),
+		program: types.Program(),
 		fileSet: token.NewFileSet(),
 		sources: map[string]*Source{},
 		log:     msg.NewLogger(),
 		testing: false,
-		results: map[string]string{},
 		goPath:  os.Getenv("GOPATH"),
 		goRoot:  os.Getenv("GOROOT"),
 	}
 
 	// Add all prebuilt packages.
-	framework.BuiltinPrebuild(gr.Program)
-	framework.FmtPrebuild(gr.Program)
-	framework.IOPrebuild(gr.Program)
+	framework.BuiltinPrebuild(gr.program)
+	framework.FmtPrebuild(gr.program)
+	framework.IOPrebuild(gr.program)
 	return gr
 }
 
@@ -80,6 +89,7 @@ func (gr *GoReader) AddFolder(dirPath string) *types.PackageType {
 	defer gr.log.PushData("Stage", "AddFolder").Pop()
 	defer gr.log.PushData("Folder", dirPath).Pop()
 
+	// TODO: Need to get the package name from the code not directory.
 	pack := gr.getOrCreatePackage(dirPath)
 	fullPath := gr.getImportPath(dirPath)
 	if len(fullPath) <= 0 {
@@ -138,9 +148,9 @@ func (gr *GoReader) Transpile() {
 	// }
 }
 
-// Results gets the transpiled results.
-func (gr *GoReader) Results() map[string]string {
-	return gr.results
+// Results gets the transpiled program.
+func (gr *GoReader) Results() *types.ProgramType {
+	return gr.program
 }
 
 //============================================================================
@@ -209,11 +219,11 @@ func (gr *GoReader) addSource(pack *types.PackageType, fullPath string, importPa
 
 // getOrCreatePackage gets or creates the package for the given path.
 func (gr *GoReader) getOrCreatePackage(dirPath string) *types.PackageType {
-	pack, exists := gr.Program.Packages.Find(dirPath)
+	pack, exists := gr.program.Packages.Find(dirPath)
 	if !exists {
 		pack = types.Package()
 		pack.Name = dirPath
-		gr.Program.Packages.Add(pack)
+		gr.program.Packages.Add(pack)
 	}
 	return pack
 }
@@ -251,7 +261,7 @@ func (gr *GoReader) readImport(spec *ast.ImportSpec) (string, string) {
 // resolveImport determines if the import exists, if it is part
 // of the framework, or the import is added into sources.
 func (gr *GoReader) resolveImport(importPath string) *types.PackageType {
-	if pack, exists := gr.Program.Packages.Find(importPath); exists {
+	if pack, exists := gr.program.Packages.Find(importPath); exists {
 		return pack
 	}
 	return gr.AddFolder(importPath)

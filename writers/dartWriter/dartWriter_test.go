@@ -1,4 +1,4 @@
-package goReader
+package dartWriter
 
 import (
 	"testing"
@@ -55,8 +55,7 @@ func TestErrorHandling001(t *testing.T) {
 
 // TestErrorHandling002 checks the make method call with the wrong number of parameters.
 func TestErrorHandling002(t *testing.T) {
-	test := NewTestGoReader(t)
-	test.MainMethodBodyError(
+	MainMethodBodyError(t,
 		tests.Lines(
 			`arr := make([]int, 0, 4, 5)`,
 			`fmt.Println("Count = ", len(arr))`),
@@ -69,8 +68,7 @@ func TestErrorHandling002(t *testing.T) {
 
 // TestErrorHandling003 checks the reading a type name.
 func TestErrorHandling003(t *testing.T) {
-	test := NewTestGoReader(t)
-	test.MainMethodBodyError(
+	MainMethodBodyError(t,
 		tests.Lines(
 			`arr := make(badType, 4)`,
 			`fmt.Println("Count = ", len(arr))`),

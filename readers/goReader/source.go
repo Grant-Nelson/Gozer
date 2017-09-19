@@ -1,4 +1,4 @@
-package transpiler
+package goReader
 
 import (
 	"fmt"

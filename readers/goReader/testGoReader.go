@@ -1,4 +1,4 @@
-package transpiler
+package goReader
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"github.com/grant-nelson/Gozer/common"
 	"github.com/grant-nelson/Gozer/constructs/types"
 	"github.com/grant-nelson/Gozer/msg"
+	"github.com/grant-nelson/Gozer/tests"
 )
 
 // TestGoReader is a shell for testing the GoReader.
@@ -32,6 +33,35 @@ func NewTestGoReader(t *testing.T) *TestGoReader {
 		gr:    gr,
 		logIO: logIO,
 	}
+}
+
+// MainMethodBodyTest checks transpilation using code in only the main method.
+func (test *TestGoReader) MainMethodBodyTest(input string, exp string) {
+	test.AddCode("test/main.go",
+		`package main`,
+		`import "fmt"`,
+		``,
+		`func main() {`,
+		`  `+common.Indent(input, "  "),
+		`}`)
+	test.Transpile()
+	test.CheckFunction("test", "main",
+		`void main() {`,
+		`  `+common.Indent(exp, "  "),
+		`}`)
+}
+
+// MainMethodBodyError checks that the main method transpilation returns an error.
+func (test *TestGoReader) MainMethodBodyError(input string, expErrCount int, expErr string) {
+	test.AddCode("test/main.go",
+		`package main`,
+		`import "fmt"`,
+		``,
+		`func main() {`,
+		`  `+common.Indent(input, "  "),
+		`}`)
+	test.gr.Transpile()
+	test.CheckErrors(expErrCount, expErr)
 }
 
 // CheckNoErrors checks that no errors have occurred.
@@ -62,8 +92,8 @@ func (test *TestGoReader) AddCode(path string, code ...string) {
 
 // CheckPackages checks that the expected packages have been added to the transpiler.
 func (test *TestGoReader) CheckPackages(expPackages ...string) {
-	packages := make([]string, test.gr.Program.Packages.Len())
-	for i, pack := range test.gr.Program.Packages.Packages() {
+	packages := make([]string, test.gr.Results().Packages.Len())
+	for i, pack := range test.gr.Results().Packages.Packages() {
 		packages[i] = pack.GetName()
 	}
 	if missing, extra, diff := common.DiffStringSets(packages, expPackages); diff {
@@ -77,7 +107,7 @@ func (test *TestGoReader) CheckPackages(expPackages ...string) {
 
 // getPack gets the package for the given name.
 func (test *TestGoReader) getPack(packName string) *types.PackageType {
-	pack, exists := test.gr.Program.Packages.Find(packName)
+	pack, exists := test.gr.Results().Packages.Find(packName)
 	if !exists {
 		test.t.Fatal(msg.NewError("Failed to find package ", packName, " for CheckImports."))
 	}
@@ -98,6 +128,18 @@ func (test *TestGoReader) CheckImports(packName string, expImports ...string) {
 			Add("Expected", strings.Join(expImports, ", ")).
 			Add("Missing", strings.Join(missing, ", ")).
 			Add("Extra", strings.Join(extra, ", ")))
+	}
+}
+
+// CheckPackage checks that the given package is in the given package.
+func (test *TestGoReader) CheckPackage(packName string, expBody ...string) {
+	pack := test.getPack(packName)
+	expResult := tests.Lines(expBody...)
+	if result := pack.FullString(); result != expResult {
+		test.t.Fatal(msg.NewError("Unexpected package body").
+			Add("Package", packName).
+			Add("Result", result).
+			Add("Expected", expResult))
 	}
 }
 
@@ -130,7 +172,7 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 		//s = "`" + strings.Replace(s, "\n", "`,\n`", -1) + "`"
 		return s
 	}
-	expResult := Lines(expBody...)
+	expResult := tests.Lines(expBody...)
 	if result := tfunc.FullBodyString(); result != expResult {
 		test.t.Fatal(msg.NewError("Unexpected function construct").
 			Add("Package", packName).
@@ -144,39 +186,4 @@ func (test *TestGoReader) CheckFunction(packName string, funcName string, expBod
 func (test *TestGoReader) Transpile() {
 	test.gr.Transpile()
 	test.CheckNoErrors("transpiling")
-}
-
-//==========================================================================
-
-func Lines(code ...string) string {
-	return strings.Join(code, "\n")
-}
-
-func MainMethodBodyTest(t *testing.T, input string, exp string) {
-	test := NewTestGoReader(t)
-	test.AddCode("test/main.go",
-		`package main`,
-		`import "fmt"`,
-		``,
-		`func main() {`,
-		`  `+common.Indent(input, "  "),
-		`}`)
-	test.Transpile()
-	test.CheckFunction("test", "main",
-		`void main() {`,
-		`  `+common.Indent(exp, "  "),
-		`}`)
-}
-
-func MainMethodBodyError(t *testing.T, input string, expErrCount int, expErr string) {
-	test := NewTestGoReader(t)
-	test.AddCode("test/main.go",
-		`package main`,
-		`import "fmt"`,
-		``,
-		`func main() {`,
-		`  `+common.Indent(input, "  "),
-		`}`)
-	test.gr.Transpile()
-	test.CheckErrors(expErrCount, expErr)
 }
