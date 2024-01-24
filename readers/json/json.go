@@ -12,6 +12,8 @@ func New() readers.Reader { return &readerImp{} }
 
 type readerImp struct{}
 
+func (r *readerImp) Name() string { return `json` }
+
 func (r *readerImp) Read(cfg *readers.Config) (*constructs.CProject, error) {
 	// TODO: Implement
 	return nil, terror.New(`not implemented`)

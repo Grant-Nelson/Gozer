@@ -8,5 +8,6 @@ type Config struct {
 }
 
 type Writer interface {
+	Name() string
 	Write(cfg *Config, proj *constructs.CProject) error
 }
