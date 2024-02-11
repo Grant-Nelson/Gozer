@@ -31,34 +31,47 @@ func (t *toolImp) Description() string {
 		`roasted in the depths of the Sloar that day, I can tell you.`
 }
 
-func (t *toolImp) Run(ctx *tools.Context) (int, error) {
+func (t *toolImp) Run(ctx tools.Context) (int, error) {
 	argN := len(ctx.Args())
 	switch {
 	case argN < 3:
-		parts := make([]string, len(ctx.Tools()))
-		for i, t := range ctx.Tools() {
-			names := append([]string{t.Name()}, t.Aliases()...)
-			parts[i] = fmt.Sprintf("\t%s:\n\t%s\n", strings.Join(names, `, `), t.Summary())
-		}
-		sort.Strings(parts)
-		_, _ = fmt.Print("Gozer has the following tools available:\n", strings.Join(parts, ``))
-		return 0, nil
+		return t.showSummaries(ctx)
 
 	case argN == 3:
-		toolName := ctx.Args()[2]
-		tool := ctx.GetTool(toolName)
-		if tool == nil {
-			fmt.Printf("No tool by the name %q exists.\nPlease provide the "+
-				"tool you wish to get help for:\n\t%s\n",
-				toolName, strings.Join(ctx.ToolNames(), "\n\t"))
-			return 1, nil
-		}
-
-		fmt.Printf("%s:\n%s\n", toolName, tool.Description())
-		return 0, nil
+		return t.showToolDetails(ctx)
 
 	default:
 		fmt.Println(`Unexpected arguments for help. Please provide only one tool to get help for.`)
 		return 1, nil
 	}
+}
+
+func (t *toolImp) showSummaries(ctx tools.Context) (int, error) {
+	count := ctx.Tools().Count()
+	parts := make([]string, count)
+	for i := count - 1; i >= 0; i-- {
+		t := ctx.Tools().At(i)
+
+		names := append([]string{t.Name()}, t.Aliases()...)
+		parts[i] = fmt.Sprintf("\t%s:\n\t%s\n", strings.Join(names, `, `), t.Summary())
+	}
+	sort.Strings(parts)
+
+	_, _ = fmt.Print("Gozer has the following tools available:\n", strings.Join(parts, ``))
+	return 0, nil
+}
+
+func (t *toolImp) showToolDetails(ctx tools.Context) (int, error) {
+	toolName := ctx.Args()[2]
+	tool := ctx.Tools().Get(toolName)
+
+	if tool != nil {
+		_, _ = fmt.Printf("%s:\n%s\n", toolName, tool.Description())
+		return 0, nil
+	}
+
+	fmt.Printf("No tool by the name %q exists.\nPlease provide the "+
+		"tool you wish to get help for:\n\t%s\n",
+		toolName, strings.Join(ctx.Tools().Names(), "\n\t"))
+	return 1, nil
 }

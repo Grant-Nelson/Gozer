@@ -5,5 +5,5 @@ type Tool interface {
 	Summary() string
 	Aliases() []string
 	Description() string
-	Run(ctx *Context) (int, error)
+	Run(ctx Context) (int, error)
 }

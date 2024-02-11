@@ -7,14 +7,15 @@ import (
 
 	"github.com/Snow-Gremlin/Gozer/tools"
 	"github.com/Snow-Gremlin/Gozer/tools/abstract"
+	"github.com/Snow-Gremlin/Gozer/tools/context"
 	"github.com/Snow-Gremlin/Gozer/tools/convert"
 	"github.com/Snow-Gremlin/Gozer/tools/help"
 )
 
-func addAllTools(ctx *tools.Context) {
-	ctx.AddTool(help.New())
-	ctx.AddTool(convert.New())
-	ctx.AddTool(abstract.New())
+func addAllTools(ts tools.ToolSet) {
+	ts.Add(help.New())
+	ts.Add(convert.New())
+	ts.Add(abstract.New())
 }
 
 func main() {
@@ -25,20 +26,20 @@ func main() {
 		}
 	}()
 
-	ctx := tools.NewContext()
-	addAllTools(ctx)
+	ctx := context.New()
+	addAllTools(ctx.Tools())
 
 	if len(ctx.Args()) <= 1 {
 		fmt.Printf("Please provide the tool you wish to use:\n\t%s\n",
-			strings.Join(ctx.ToolNames(), "\n\t"))
+			strings.Join(ctx.Tools().Names(), "\n\t"))
 		os.Exit(1)
 	}
 
 	toolName := ctx.Args()[1]
-	tool := ctx.GetTool(toolName)
+	tool := ctx.Tools().Get(toolName)
 	if tool == nil {
 		fmt.Printf("Invalid tool name %s.\nPlease provide the tool you wish to use:\n\t%s\n",
-			toolName, strings.Join(ctx.ToolNames(), "\n\t"))
+			toolName, strings.Join(ctx.Tools().Names(), "\n\t"))
 		os.Exit(1)
 	}
 

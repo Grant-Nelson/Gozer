@@ -23,7 +23,7 @@ func (t *toolImp) Description() string {
 	return `` // TODO: Implement
 }
 
-func (t *toolImp) Run(ctx *tools.Context) (int, error) {
+func (t *toolImp) Run(ctx tools.Context) (int, error) {
 
 	// TODO: Implement
 	return 0, terror.New(`convert not implemented yet`)

@@ -1,8 +1,13 @@
 package abstract
 
 import (
+	"fmt"
+
+	"github.com/Snow-Gremlin/goToolbox/argers/args"
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 
+	"github.com/Snow-Gremlin/Gozer/readers"
+	"github.com/Snow-Gremlin/Gozer/readers/golang"
 	"github.com/Snow-Gremlin/Gozer/tools"
 )
 
@@ -29,8 +34,22 @@ func (t *toolImp) Description() string {
 		`membership map called a participation matrix.`
 }
 
-func (t *toolImp) Run(ctx *tools.Context) (int, error) {
+func (t *toolImp) Run(ctx tools.Context) (int, error) {
+	input := `.`
+	output := `.`
 
-	// TODO: Implement
+	args.New().
+		NamedStr(&input, `i`, `input`).
+		NamedStr(&output, `o`, `output`)
+
+	proj, err := golang.New().Read(&readers.Config{
+		MainProject: input,
+	})
+	if err != nil {
+		return 1, err
+	}
+
+	fmt.Println(proj)
+
 	return 0, terror.New(`abstraction not implemented yet`)
 }
