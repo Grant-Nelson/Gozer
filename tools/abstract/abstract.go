@@ -40,16 +40,17 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 
 	args.New().
 		NamedStr(&input, `i`, `input`).
-		NamedStr(&output, `o`, `output`)
+		NamedStr(&output, `o`, `output`).
+		Process(ctx.Args()[2:])
 
 	proj, err := golang.New().Read(&readers.Config{
-		MainProject: input,
+		MainPackageDir: input,
 	})
 	if err != nil {
 		return 1, err
 	}
 
-	fmt.Println(proj)
+	fmt.Printf(">> result: %+v\n", proj) // TODO: REMOVE
 
 	return 0, terror.New(`abstraction not implemented yet`)
 }

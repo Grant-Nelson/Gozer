@@ -3,7 +3,7 @@ package readers
 import "github.com/Snow-Gremlin/Gozer/constructs"
 
 type Config struct {
-	MainProject string
+	MainPackageDir string
 }
 
 type Reader interface {

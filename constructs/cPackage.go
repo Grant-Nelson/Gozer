@@ -1,11 +1,16 @@
 package constructs
 
 type CPackage struct {
-	Name string
+	Name    string
+	Path    string
+	Imports []*CImport
 }
 
-func NewPackage(name string) *CPackage {
-	return &CPackage{
-		Name: name,
+func (p *CPackage) ImportForPath(path string) *CImport {
+	for _, i := range p.Imports {
+		if i.Path == path {
+			return i
+		}
 	}
+	return nil
 }
