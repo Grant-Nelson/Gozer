@@ -4,20 +4,20 @@ import (
 	"go/build"
 
 	"github.com/Snow-Gremlin/goToolbox/collections"
+	"github.com/Snow-Gremlin/goToolbox/collections/dictionary"
 )
 
 type PackageSet interface {
 	Context() build.Context
 
-	MainPackage() *build.Package
+	Add(mainPackageDirPath string) error
 
 	Packages() collections.ReadonlyDictionary[string, *build.Package]
 }
 
-func New(mainPackageDirPath string) (PackageSet, error) {
-	ps := newPackageSet()
-	if err := ps.loadAllPackages(mainPackageDirPath); err != nil {
-		return nil, err
+func New(context build.Context) PackageSet {
+	return &packageSetImp{
+		context:  context,
+		packages: dictionary.New[string, *build.Package](),
 	}
-	return ps, nil
 }
