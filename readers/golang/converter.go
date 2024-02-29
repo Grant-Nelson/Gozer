@@ -1,4 +1,4 @@
-package converter
+package golang
 
 import (
 	"go/ast"
@@ -14,65 +14,32 @@ import (
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 
 	"github.com/Snow-Gremlin/Gozer/constructs"
-	"github.com/Snow-Gremlin/Gozer/readers/golang/packageSet"
 )
 
-type Converter interface {
-	Convert(pkg *build.Package) (cPkg *constructs.CPackage, err error)
-}
-
 type converter struct {
+	p        *constructs.CPackage
 	pkg      *build.Package
-	pkgSet   packageSet.PackageSet
 	fSet     *token.FileSet
 	proj     *constructs.CProject
-	cPkg     *constructs.CPackage
-	fImports collections.Dictionary[string, *constructs.CImport]
+	fImports collections.Dictionary[string, *constructs.CPackage]
 }
 
-func New(pkgSet packageSet.PackageSet, fSet *token.FileSet, proj *constructs.CProject) Converter {
-	return &converter{
-		pkg:      nil,
-		pkgSet:   pkgSet,
+func convertPackage(p *constructs.CPackage, pkg *build.Package, fSet *token.FileSet, proj *constructs.CProject) {
+	con := &converter{
+		p:        p,
+		pkg:      pkg,
 		fSet:     fSet,
 		proj:     proj,
-		cPkg:     nil,
-		fImports: dictionary.New[string, *constructs.CImport](),
+		fImports: dictionary.New[string, *constructs.CPackage](),
 	}
-}
-
-func (con *converter) Convert(pkg *build.Package) (cPkg *constructs.CPackage, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			cPkg = nil
-			err = terror.RecoveredPanic(r).
-				With(`package name`, pkg.Name)
-		}
-	}()
-
-	con.pkg = pkg
-	con.createCPackage()
-	con.createCImports()
 	enumerator.Enumerate(pkg.GoFiles...).Foreach(con.addFile)
-	con.pkg = nil
-	return cPkg, nil
-}
-
-func (con *converter) createCPackage() {
-	con.cPkg = constructs.NewPackage(con.pkg.Name, con.pkg.Dir)
-}
-
-func (con *converter) createCImports() {
-	con.cPkg.Imports.AddFrom(enumerator.Select(
-		enumerator.Enumerate(con.pkg.Imports...),
-		constructs.NewImport))
 }
 
 func (con *converter) addFile(fileName string) {
+	con.fImports.Clear()
 	fileName = con.prepareFileName(fileName)
 	f := con.parseFile(fileName)
 	enumerator.Enumerate(f.Decls...).Foreach(con.addDecl)
-	con.finishFile()
 }
 
 func (con *converter) prepareFileName(fileName string) string {
@@ -83,7 +50,7 @@ func (con *converter) prepareFileName(fileName string) string {
 }
 
 func (con *converter) parseFile(fileName string) *ast.File {
-	f, err := parser.ParseFile(con.pkgSet.FileSet(), fileName, nil, parser.ParseComments)
+	f, err := parser.ParseFile(con.fSet, fileName, nil, parser.ParseComments)
 	if err != nil {
 		panic(terror.New(`error parsing file`, err).
 			With(`file name`, fileName))
@@ -91,12 +58,8 @@ func (con *converter) parseFile(fileName string) *ast.File {
 	return f
 }
 
-func (con *converter) finishFile() {
-	con.fImports.Clear()
-}
-
 func (con *converter) pos(p token.Pos) string {
-	return con.pkgSet.FileSet().Position(p).String()
+	return con.fSet.Position(p).String()
 }
 
 func (con *converter) addDecl(decl ast.Decl) {
@@ -114,7 +77,9 @@ func (con *converter) addDecl(decl ast.Decl) {
 }
 
 func (con *converter) addFunc(funcDecl *ast.FuncDecl) {
+
 	// TODO: Implement
+
 }
 
 func (con *converter) addGenDecl(gDecl *ast.GenDecl) {
@@ -153,9 +118,9 @@ func (con *converter) getImportName(iSpec *ast.ImportSpec) string {
 	}
 
 	path := con.getImportPath(iSpec)
-	other, has := con.pkgSet.Packages().TryGet(path)
+	other, has := con.proj.Packages.TryGet(path)
 	if !has {
-		panic(terror.New(`failed to find package for import path`).
+		panic(terror.New(`failed to find package for package name`).
 			With(`path`, path).
 			With(`from`, con.pos(iSpec.Pos())).
 			With(`to`, con.pos(iSpec.End())))
@@ -172,21 +137,30 @@ func (con *converter) addImportSpec(iSpec *ast.ImportSpec) {
 	// If name is `.` for an anomalous dot import, use it as is.
 
 	path := con.getImportPath(iSpec)
-	im := con.cPkg.ImportForPath(path)
-	if older, exists := con.fImports.TryGet(name); exists && im != older {
+	other, has := con.proj.Packages.TryGet(path)
+	if !has {
+		panic(terror.New(`failed to find package for import path`).
+			With(`path`, path).
+			With(`from`, con.pos(iSpec.Pos())).
+			With(`to`, con.pos(iSpec.End())))
+	}
+	if older, exists := con.fImports.TryGet(name); exists && other != older {
 		panic(terror.New(`import name already used`).
 			With(`name`, name).
 			With(`older`, older).
-			With(`newer`, im))
+			With(`newer`, other))
 	}
-	con.fImports.Add(name, im)
+	con.fImports.Add(name, other)
 }
 
 func (con *converter) addTypeSpec(tSpec *ast.TypeSpec) {
 
 	// TODO: Implement
+
 }
 
 func (con *converter) addValueSpec(vSpec *ast.ValueSpec) {
+
 	// TODO: Implement
+
 }

@@ -1,7 +1,6 @@
 package golang
 
 import (
-	"fmt"
 	"go/build"
 	"go/token"
 
@@ -9,8 +8,6 @@ import (
 
 	"github.com/Snow-Gremlin/Gozer/constructs"
 	"github.com/Snow-Gremlin/Gozer/readers"
-	"github.com/Snow-Gremlin/Gozer/readers/golang/converter"
-	"github.com/Snow-Gremlin/Gozer/readers/golang/packageSet"
 )
 
 // New creates a new source reader for Golang
@@ -20,22 +17,39 @@ type readerImp struct{}
 
 func (r *readerImp) Name() string { return `golang` }
 
-func (r *readerImp) Read(cfg *readers.Config) (*constructs.CProject, error) {
-	pkgSet := packageSet.New(build.Default)
-	if err := pkgSet.Add(cfg.MainPackageDir); err != nil {
-		return nil, err
-	}
+func (r *readerImp) Read(cfg *readers.Config) (proj *constructs.CProject, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			proj = nil
+			err = terror.RecoveredPanic(r)
+		}
+	}()
 
+	context := build.Default
 	fSet := token.NewFileSet()
-	proj := constructs.NewProject(cfg.MainPackageDir)
+	proj = constructs.NewProject(cfg.MainPackageDir)
+	readPackage(cfg.MainPackageDir, context, fSet, proj)
+	return proj, nil
+}
 
-	p, err := converter.Convert(pkgSet.MainPackage(), pkgSet, fSet, proj)
-	if err != nil {
-		return nil, err
+func readPackage(path string, context build.Context, fSet *token.FileSet, proj *constructs.CProject) *constructs.CPackage {
+	if p, exists := proj.Packages.TryGet(path); exists {
+		return p
 	}
 
-	fmt.Println(p)
+	p := constructs.NewPackage(path)
+	proj.Packages.Add(p)
 
-	// TODO: Implement
-	return nil, terror.New(`not implemented`)
+	pkg, err := context.ImportDir(path, build.FindOnly)
+	if err != nil {
+		panic(err)
+	}
+
+	p.Name = pkg.Name
+	for _, inPath := range pkg.Imports {
+		p.Imports.Add(readPackage(inPath, context, fSet, proj))
+	}
+
+	convertPackage(p, pkg, fSet, proj)
+	return p
 }
