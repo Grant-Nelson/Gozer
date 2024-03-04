@@ -8,5 +8,5 @@ type Config struct {
 
 type Reader interface {
 	Name() string
-	Read(cfg *Config) (*constructs.CProject, error)
+	Read(cfg *Config) (constructs.CProject, error)
 }

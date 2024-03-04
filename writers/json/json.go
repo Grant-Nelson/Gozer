@@ -14,7 +14,7 @@ type writerImp struct{}
 
 func (w *writerImp) Name() string { return `json` }
 
-func (w *writerImp) Write(cfg *writers.Config, proj *constructs.CProject) error {
+func (w *writerImp) Write(cfg *writers.Config, proj constructs.CProject) error {
 	// TODO: Implement
 	return terror.New(`not implemented`)
 }

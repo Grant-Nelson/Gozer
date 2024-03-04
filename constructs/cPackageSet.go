@@ -1,24 +1,8 @@
 package constructs
 
-import (
-	"github.com/Snow-Gremlin/goToolbox/collections"
-	"github.com/Snow-Gremlin/goToolbox/collections/set"
-)
+import "github.com/Snow-Gremlin/goToolbox/collections"
 
-type CPackageSet struct {
-	collections.Set[*CPackage]
-}
-
-func NewPackageSet() *CPackageSet {
-	return &CPackageSet{
-		Set: set.New[*CPackage](),
-	}
-}
-
-func (p *CPackageSet) TryGet(path string) (*CPackage, bool) {
-	return p.Set.Enumerate().Where(p.getIsPath(path)).First()
-}
-
-func (p *CPackageSet) getIsPath(path string) collections.Predicate[*CPackage] {
-	return func(ci *CPackage) bool { return ci.Path == path }
+type CPackageSet interface {
+	collections.Set[CPackage]
+	TryGetByPath(path string) (CPackage, bool)
 }

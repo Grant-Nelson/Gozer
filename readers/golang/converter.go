@@ -1,12 +1,15 @@
 package golang
 
 import (
+	"fmt"
 	"go/ast"
 	"go/build"
 	"go/parser"
 	"go/token"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"sync"
 
 	"github.com/Snow-Gremlin/goToolbox/collections"
 	"github.com/Snow-Gremlin/goToolbox/collections/dictionary"
@@ -17,29 +20,31 @@ import (
 )
 
 type converter struct {
-	p        *constructs.CPackage
+	p        constructs.CPackage
 	pkg      *build.Package
 	fSet     *token.FileSet
-	proj     *constructs.CProject
-	fImports collections.Dictionary[string, *constructs.CPackage]
+	proj     constructs.CProject
+	fImports collections.Dictionary[string, constructs.CPackage]
 }
 
-func convertPackage(p *constructs.CPackage, pkg *build.Package, fSet *token.FileSet, proj *constructs.CProject) {
-	con := &converter{
+func newConverter(p constructs.CPackage, pkg *build.Package, fSet *token.FileSet, proj constructs.CProject) *converter {
+	return &converter{
 		p:        p,
 		pkg:      pkg,
 		fSet:     fSet,
 		proj:     proj,
-		fImports: dictionary.New[string, *constructs.CPackage](),
+		fImports: dictionary.New[string, constructs.CPackage](),
 	}
-	enumerator.Enumerate(pkg.GoFiles...).Foreach(con.addFile)
+}
+
+func (con *converter) convertPackage() {
+	enumerator.Enumerate(con.pkg.GoFiles...).Foreach(con.addFile)
 }
 
 func (con *converter) addFile(fileName string) {
-	con.fImports.Clear()
 	fileName = con.prepareFileName(fileName)
 	f := con.parseFile(fileName)
-	enumerator.Enumerate(f.Decls...).Foreach(con.addDecl)
+	con.addFileNode(f)
 }
 
 func (con *converter) prepareFileName(fileName string) string {
@@ -56,6 +61,11 @@ func (con *converter) parseFile(fileName string) *ast.File {
 			With(`file name`, fileName))
 	}
 	return f
+}
+
+func (con *converter) addFileNode(f *ast.File) {
+	con.fImports.Clear()
+	enumerator.Enumerate(f.Decls...).Foreach(con.addDecl)
 }
 
 func (con *converter) pos(p token.Pos) string {
@@ -76,24 +86,74 @@ func (con *converter) addDecl(decl ast.Decl) {
 	}
 }
 
+var directiveMatch = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^\/(?:\/|\*)\w+:\w+.*$`)
+})
+
+func (con *converter) readDirectives(comments ...*ast.CommentGroup) []string {
+	found := []string{}
+	for _, cs := range comments {
+		if cs != nil {
+			for _, c := range cs.List {
+				if directiveMatch().MatchString(c.Text) {
+					found = append(found, c.Text)
+				}
+			}
+		}
+	}
+	return found
+}
+
+func funcReceiverIdent(funcDecl *ast.FuncDecl) string {
+	if funcDecl == nil || funcDecl.Recv == nil || len(funcDecl.Recv.List) == 0 {
+		return ``
+	}
+	recv := funcDecl.Recv.List[0].Type
+	for {
+		switch r := recv.(type) {
+		case *ast.IndexListExpr:
+			recv = r.X
+		case *ast.IndexExpr:
+			recv = r.X
+		case *ast.StarExpr:
+			recv = r.X
+		case *ast.Ident:
+			return r.Name
+		default:
+			panic(terror.New(`unexpected type in receiver of function`).
+				With(`type`, recv).
+				With(`function`, funcDecl))
+		}
+	}
+}
+
 func (con *converter) addFunc(funcDecl *ast.FuncDecl) {
+	/*
+		m := cMethod.New()
+		m.SetName(funcDecl.Name.Name)
+		m.Directives = con.readDirectives(funcDecl.Doc)
+		recvId := funcReceiverIdent(funcDecl)
+	*/
 
 	// TODO: Implement
 
 }
 
 func (con *converter) addGenDecl(gDecl *ast.GenDecl) {
-	enumerator.Enumerate(gDecl.Specs...).Foreach(con.addSpec)
+	directives := con.readDirectives(gDecl.Doc)
+	for _, spec := range gDecl.Specs {
+		con.addSpec(spec, directives)
+	}
 }
 
-func (con *converter) addSpec(spec ast.Spec) {
+func (con *converter) addSpec(spec ast.Spec, declDirectives []string) {
 	switch tSpec := spec.(type) {
 	case *ast.ImportSpec:
-		con.addImportSpec(tSpec)
+		con.addImportSpec(tSpec, declDirectives)
 	case *ast.TypeSpec:
-		con.addTypeSpec(tSpec)
+		con.addTypeSpec(tSpec, declDirectives)
 	case *ast.ValueSpec:
-		con.addValueSpec(tSpec)
+		con.addValueSpec(tSpec, declDirectives)
 	default:
 		panic(terror.New(`unknown specification in code`).
 			With(`spec node`, spec).
@@ -118,17 +178,18 @@ func (con *converter) getImportName(iSpec *ast.ImportSpec) string {
 	}
 
 	path := con.getImportPath(iSpec)
-	other, has := con.proj.Packages.TryGet(path)
+	other, has := con.proj.Packages().TryGetByPath(path)
 	if !has {
 		panic(terror.New(`failed to find package for package name`).
 			With(`path`, path).
 			With(`from`, con.pos(iSpec.Pos())).
 			With(`to`, con.pos(iSpec.End())))
 	}
-	return other.Name
+	return other.Name()
 }
 
-func (con *converter) addImportSpec(iSpec *ast.ImportSpec) {
+func (con *converter) addImportSpec(iSpec *ast.ImportSpec, declDirectives []string) {
+	//directives := con.readDirectives(iSpec.Doc, iSpec.Comment)
 	name := con.getImportName(iSpec)
 	if name == `_` {
 		// Don't add reference to blanked import.
@@ -137,7 +198,7 @@ func (con *converter) addImportSpec(iSpec *ast.ImportSpec) {
 	// If name is `.` for an anomalous dot import, use it as is.
 
 	path := con.getImportPath(iSpec)
-	other, has := con.proj.Packages.TryGet(path)
+	other, has := con.proj.Packages().TryGetByPath(path)
 	if !has {
 		panic(terror.New(`failed to find package for import path`).
 			With(`path`, path).
@@ -153,13 +214,18 @@ func (con *converter) addImportSpec(iSpec *ast.ImportSpec) {
 	con.fImports.Add(name, other)
 }
 
-func (con *converter) addTypeSpec(tSpec *ast.TypeSpec) {
+func (con *converter) addTypeSpec(tSpec *ast.TypeSpec, declDirectives []string) {
+	//directives := con.readDirectives(tSpec.Doc, tSpec.Comment)
+	name := tSpec.Name.Name
+	//aliased := tSpec.Assign == token.NoPos
+
+	fmt.Printf("%s: %+v\n", name, tSpec)
 
 	// TODO: Implement
-
 }
 
-func (con *converter) addValueSpec(vSpec *ast.ValueSpec) {
+func (con *converter) addValueSpec(vSpec *ast.ValueSpec, declDirectives []string) {
+	//directives := con.readDirectives(vSpec.Doc, vSpec.Comment)
 
 	// TODO: Implement
 
