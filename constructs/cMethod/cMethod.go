@@ -1,20 +1,17 @@
-package constructs
+package cMethod
 
 import (
 	"github.com/Snow-Gremlin/Gozer/constructs"
-	"github.com/Snow-Gremlin/Gozer/constructs/cDirectives"
 )
 
 func New() constructs.CMethod {
 	return &methodImp{
-		name:       `unnamed`,
-		directives: cDirectives.New(),
+		name: `unnamed`,
 	}
 }
 
 type methodImp struct {
-	name       string
-	directives constructs.CDirectives
+	name string
 }
 
 func (imp *methodImp) Name() string {
@@ -23,8 +20,4 @@ func (imp *methodImp) Name() string {
 
 func (imp *methodImp) SetName(name string) {
 	imp.name = name
-}
-
-func (imp *methodImp) Directives() constructs.CDirectives {
-	return imp.directives
 }

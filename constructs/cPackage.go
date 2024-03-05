@@ -6,4 +6,5 @@ type CPackage interface {
 	SetPath(path string)
 	Imports() CPackageSet
 	Methods() CMethodSet
+	Objects() CObjectSet
 }

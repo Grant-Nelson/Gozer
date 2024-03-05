@@ -3,6 +3,7 @@ package cPackage
 import (
 	"github.com/Snow-Gremlin/Gozer/constructs"
 	"github.com/Snow-Gremlin/Gozer/constructs/cMethodSet"
+	"github.com/Snow-Gremlin/Gozer/constructs/cObjectSet"
 	"github.com/Snow-Gremlin/Gozer/constructs/cPackageSet"
 )
 
@@ -12,6 +13,7 @@ func New() constructs.CPackage {
 		path:    ``,
 		imports: cPackageSet.New(),
 		methods: cMethodSet.New(),
+		objects: cObjectSet.New(),
 	}
 }
 
@@ -20,6 +22,7 @@ type packageImp struct {
 	path    string
 	imports constructs.CPackageSet
 	methods constructs.CMethodSet
+	objects constructs.CObjectSet
 }
 
 func (imp *packageImp) Name() string {
@@ -44,4 +47,8 @@ func (imp *packageImp) Imports() constructs.CPackageSet {
 
 func (imp *packageImp) Methods() constructs.CMethodSet {
 	return imp.methods
+}
+
+func (imp *packageImp) Objects() constructs.CObjectSet {
+	return imp.objects
 }

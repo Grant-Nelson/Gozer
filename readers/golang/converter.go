@@ -1,7 +1,6 @@
 package golang
 
 import (
-	"fmt"
 	"go/ast"
 	"go/build"
 	"go/parser"
@@ -20,20 +19,26 @@ import (
 )
 
 type converter struct {
-	p        constructs.CPackage
-	pkg      *build.Package
-	fSet     *token.FileSet
-	proj     constructs.CProject
-	fImports collections.Dictionary[string, constructs.CPackage]
+	p    constructs.CPackage
+	pkg  *build.Package
+	fSet *token.FileSet
+	proj constructs.CProject
+
+	tempImports   collections.Dictionary[string, constructs.CPackage]
+	tempReceiver  string
+	tempTypeParam collections.Dictionary[string, constructs.CType]
 }
 
 func newConverter(p constructs.CPackage, pkg *build.Package, fSet *token.FileSet, proj constructs.CProject) *converter {
 	return &converter{
-		p:        p,
-		pkg:      pkg,
-		fSet:     fSet,
-		proj:     proj,
-		fImports: dictionary.New[string, constructs.CPackage](),
+		p:    p,
+		pkg:  pkg,
+		fSet: fSet,
+		proj: proj,
+
+		tempImports:   dictionary.New[string, constructs.CPackage](),
+		tempReceiver:  ``,
+		tempTypeParam: dictionary.New[string, constructs.CType](),
 	}
 }
 
@@ -64,7 +69,7 @@ func (con *converter) parseFile(fileName string) *ast.File {
 }
 
 func (con *converter) addFileNode(f *ast.File) {
-	con.fImports.Clear()
+	con.tempImports.Clear()
 	enumerator.Enumerate(f.Decls...).Foreach(con.addDecl)
 }
 
@@ -102,41 +107,6 @@ func (con *converter) readDirectives(comments ...*ast.CommentGroup) []string {
 		}
 	}
 	return found
-}
-
-func funcReceiverIdent(funcDecl *ast.FuncDecl) string {
-	if funcDecl == nil || funcDecl.Recv == nil || len(funcDecl.Recv.List) == 0 {
-		return ``
-	}
-	recv := funcDecl.Recv.List[0].Type
-	for {
-		switch r := recv.(type) {
-		case *ast.IndexListExpr:
-			recv = r.X
-		case *ast.IndexExpr:
-			recv = r.X
-		case *ast.StarExpr:
-			recv = r.X
-		case *ast.Ident:
-			return r.Name
-		default:
-			panic(terror.New(`unexpected type in receiver of function`).
-				With(`type`, recv).
-				With(`function`, funcDecl))
-		}
-	}
-}
-
-func (con *converter) addFunc(funcDecl *ast.FuncDecl) {
-	/*
-		m := cMethod.New()
-		m.SetName(funcDecl.Name.Name)
-		m.Directives = con.readDirectives(funcDecl.Doc)
-		recvId := funcReceiverIdent(funcDecl)
-	*/
-
-	// TODO: Implement
-
 }
 
 func (con *converter) addGenDecl(gDecl *ast.GenDecl) {
@@ -189,7 +159,15 @@ func (con *converter) getImportName(iSpec *ast.ImportSpec) string {
 }
 
 func (con *converter) addImportSpec(iSpec *ast.ImportSpec, declDirectives []string) {
-	//directives := con.readDirectives(iSpec.Doc, iSpec.Comment)
+	directives := con.readDirectives(iSpec.Doc, iSpec.Comment)
+	if len(directives) > 0 || len(declDirectives) > 0 {
+		panic(terror.New(`unexpected directive(s) on import`).
+			With(`spec directives`, declDirectives).
+			With(`decl directives`, declDirectives).
+			With(`from`, con.pos(iSpec.Pos())).
+			With(`to`, con.pos(iSpec.End())))
+	}
+
 	name := con.getImportName(iSpec)
 	if name == `_` {
 		// Don't add reference to blanked import.
@@ -205,28 +183,11 @@ func (con *converter) addImportSpec(iSpec *ast.ImportSpec, declDirectives []stri
 			With(`from`, con.pos(iSpec.Pos())).
 			With(`to`, con.pos(iSpec.End())))
 	}
-	if older, exists := con.fImports.TryGet(name); exists && other != older {
+	if older, exists := con.tempImports.TryGet(name); exists && other != older {
 		panic(terror.New(`import name already used`).
 			With(`name`, name).
 			With(`older`, older).
 			With(`newer`, other))
 	}
-	con.fImports.Add(name, other)
-}
-
-func (con *converter) addTypeSpec(tSpec *ast.TypeSpec, declDirectives []string) {
-	//directives := con.readDirectives(tSpec.Doc, tSpec.Comment)
-	name := tSpec.Name.Name
-	//aliased := tSpec.Assign == token.NoPos
-
-	fmt.Printf("%s: %+v\n", name, tSpec)
-
-	// TODO: Implement
-}
-
-func (con *converter) addValueSpec(vSpec *ast.ValueSpec, declDirectives []string) {
-	//directives := con.readDirectives(vSpec.Doc, vSpec.Comment)
-
-	// TODO: Implement
-
+	con.tempImports.Add(name, other)
 }
