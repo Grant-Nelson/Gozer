@@ -5,6 +5,7 @@ import (
 
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 
+	"github.com/Snow-Gremlin/Gozer/constructs"
 	"github.com/Snow-Gremlin/Gozer/constructs/cMethod"
 	"github.com/Snow-Gremlin/Gozer/constructs/cObject"
 )
@@ -14,6 +15,7 @@ func funcReceiverIdent(funcDecl *ast.FuncDecl) string {
 		return ``
 	}
 	recv := funcDecl.Recv.List[0].Type
+
 	for {
 		switch r := recv.(type) {
 		case *ast.IndexListExpr:
@@ -32,6 +34,13 @@ func funcReceiverIdent(funcDecl *ast.FuncDecl) string {
 	}
 }
 
+func (con *converter) createPlaceholderObject(recvName string) constructs.CObject {
+	obj := cObject.New()
+	obj.SetName(recvName)
+	con.p.Objects().Add(obj)
+	return obj
+}
+
 func (con *converter) addFunc(funcDecl *ast.FuncDecl) {
 	m := cMethod.New()
 	m.SetName(funcDecl.Name.Name)
@@ -42,10 +51,7 @@ func (con *converter) addFunc(funcDecl *ast.FuncDecl) {
 	if recvName := funcReceiverIdent(funcDecl); len(recvName) > 0 {
 		obj, exists := con.p.Objects().TryGetByName(recvName)
 		if !exists {
-			// Create placeholder object to add this function to
-			obj = cObject.New()
-			obj.SetName(recvName)
-			con.p.Objects().Add(obj)
+			obj = con.createPlaceholderObject(recvName)
 		}
 		mSet = obj.Methods()
 	}
