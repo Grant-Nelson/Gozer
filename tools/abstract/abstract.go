@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
-	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 
 	"github.com/Snow-Gremlin/Gozer/readers"
 	"github.com/Snow-Gremlin/Gozer/readers/golang"
@@ -52,5 +51,5 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 
 	fmt.Printf(">> result: %+v\n", proj) // TODO: REMOVE
 
-	return 0, terror.New(`abstraction not implemented yet`)
+	return 0, nil
 }

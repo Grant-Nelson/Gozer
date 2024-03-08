@@ -8,5 +8,5 @@ type Config struct{}
 
 type Optimizer interface {
 	Name() string
-	Perform(cfg *Config, proj *constructs.CProject) error
+	Perform(cfg *Config, proj constructs.IProject) error
 }

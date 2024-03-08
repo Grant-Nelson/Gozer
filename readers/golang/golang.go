@@ -1,14 +1,16 @@
 package golang
 
 import (
+	"go/ast"
 	"go/build"
+	"go/parser"
 	"go/token"
+	"go/types"
+	"path/filepath"
 
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 
 	"github.com/Snow-Gremlin/Gozer/constructs"
-	"github.com/Snow-Gremlin/Gozer/constructs/cPackage"
-	"github.com/Snow-Gremlin/Gozer/constructs/cProject"
 	"github.com/Snow-Gremlin/Gozer/readers"
 )
 
@@ -19,42 +21,122 @@ type readerImp struct{}
 
 func (r *readerImp) Name() string { return `golang` }
 
-func (r *readerImp) Read(cfg *readers.Config) (proj constructs.CProject, err error) {
+func (r *readerImp) Read(cfg *readers.Config) (cProj constructs.IProject, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			proj = nil
+			cProj = nil
 			err = terror.RecoveredPanic(r)
 		}
 	}()
 
-	context := build.Default
-	fSet := token.NewFileSet()
-	proj = cProject.New()
-	proj.SetName(cfg.MainPackageDir)
-	readPackage(cfg.MainPackageDir, context, fSet, proj)
-	return proj, nil
+	proj := &goProject{
+		context: &build.Default,
+		fileSet: token.NewFileSet(),
+		config:  &types.Config{},
+		info: &types.Info{
+			Types:      map[ast.Expr]types.TypeAndValue{},
+			Instances:  map[*ast.Ident]types.Instance{},
+			Defs:       map[*ast.Ident]types.Object{},
+			Uses:       map[*ast.Ident]types.Object{},
+			Implicits:  map[ast.Node]types.Object{},
+			Selections: map[*ast.SelectorExpr]*types.Selection{},
+			Scopes:     map[ast.Node]*types.Scope{},
+		},
+		packages: make(map[string]*goPackage),
+	}
+	proj.config.Importer = proj
+	proj.mainPkg = createPackage(proj, cfg.MainPackageDir)
+	return convert(proj), nil
 }
 
-func readPackage(path string, context build.Context, fSet *token.FileSet, proj constructs.CProject) constructs.CPackage {
-	if p, exists := proj.Packages().TryGetByPath(path); exists {
+type (
+	goProject struct {
+		context  *build.Context
+		fileSet  *token.FileSet
+		config   *types.Config
+		info     *types.Info
+		mainPkg  *goPackage
+		packages map[string]*goPackage
+	}
+
+	goPackage struct {
+		proj         *goProject
+		order        int
+		buildPackage *build.Package
+		typesPackage *types.Package
+		imports      []*goPackage
+		files        []*ast.File
+	}
+)
+
+func createPackage(proj *goProject, path string) *goPackage {
+	if p, exists := proj.packages[path]; exists {
 		return p
 	}
 
-	p := cPackage.New()
-	p.SetPath(path)
-	proj.Packages().Add(p)
-
-	pkg, err := context.ImportDir(path, build.FindOnly)
+	pkg, err := proj.context.ImportDir(path, build.FindOnly)
 	if err != nil {
 		panic(err)
 	}
 
-	p.SetName(pkg.Name)
-	for _, inPath := range pkg.Imports {
-		p.Imports().Add(readPackage(inPath, context, fSet, proj))
+	p := &goPackage{
+		proj:         proj,
+		buildPackage: pkg,
+		imports:      make([]*goPackage, len(pkg.Imports)),
 	}
 
-	newConverter(p, pkg, fSet, proj).
-		convertPackage()
+	proj.packages[path] = p
+	for i, inPath := range pkg.Imports {
+		p.imports[i] = createPackage(proj, inPath)
+	}
+
+	p.updateOrder()
+	p.populateFiles()
+	// TODO: add optional Go file augmentation here
+	p.populateInfo()
 	return p
+}
+
+func (p *goPackage) updateOrder() {
+	maxImportOrder := -1
+	for _, in := range p.imports {
+		maxImportOrder = max(maxImportOrder, in.order)
+	}
+	p.order = maxImportOrder + 1
+}
+
+func (p *goPackage) populateFiles() {
+	bp := p.buildPackage
+	p.files = make([]*ast.File, len(bp.GoFiles))
+	for i, fileName := range bp.GoFiles {
+		if !filepath.IsAbs(fileName) {
+			fileName = filepath.Join(bp.Dir, fileName)
+		}
+
+		f, err := parser.ParseFile(p.proj.fileSet, fileName, nil, parser.ParseComments)
+		if err != nil {
+			panic(terror.New(`error parsing file`, err).
+				With(`file name`, fileName))
+		}
+
+		p.files[i] = f
+	}
+}
+
+func (p *goPackage) populateInfo() {
+	tp, err := p.proj.config.Check(p.buildPackage.Dir, p.proj.fileSet, p.files, p.proj.info)
+	if err != nil {
+		panic(terror.New(`type checker error`).
+			With(`path`, p.buildPackage.Dir).
+			WithError(err))
+	}
+	p.typesPackage = tp
+}
+
+func (proj *goProject) Import(path string) (*types.Package, error) {
+	if p, exists := proj.packages[path]; exists {
+		return p.typesPackage, nil
+	}
+	return nil, terror.New(`parser error: checker requested package not preloaded`).
+		With(`path`, path)
 }
