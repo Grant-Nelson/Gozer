@@ -1,8 +1,6 @@
 package reader
 
 import (
-	"fmt"
-
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
 
 	"github.com/Snow-Gremlin/Gozer/reader"
@@ -41,15 +39,13 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 		NamedStr(&output, `o`, `output`).
 		Process(ctx.Args()[2:])
 
-	proj, err := reader.Read(&reader.Config{
+	err := reader.Read(&reader.Config{
 		Name:            input,
 		MainPackagePath: input,
 	})
 	if err != nil {
 		return 1, err
 	}
-
-	fmt.Printf(">> result: %+v\n", proj) // TODO: REMOVE
 
 	return 0, nil
 }

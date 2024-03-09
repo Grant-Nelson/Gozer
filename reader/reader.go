@@ -9,70 +9,103 @@ import (
 	"path/filepath"
 
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
-
-	"github.com/Snow-Gremlin/Gozer/constructs"
 )
 
 type Config struct {
 	Name            string
 	MainPackagePath string
 	Context         *build.Context
-	AugmentFiles    func(path string, fileSet *token.FileSet, files []*ast.File) []*ast.File
+	AugmentFiles    func(args *AugmentFilesArgs) []*ast.File
+	ConvertPackage  func(args *ConvertPackageArgs)
 }
 
-func Read(config *Config) (_ constructs.IProject, err error) {
+type AugmentFilesArgs struct {
+	Path    string
+	FileSet *token.FileSet
+	Files   []*ast.File
+}
+
+type ConvertPackageArgs struct {
+	FileSet *token.FileSet
+	Package *types.Package
+	Info    *types.Info
+	Files   []*ast.File
+}
+
+func Read(config *Config) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = terror.RecoveredPanic(r)
 		}
 	}()
 
-	proj := newProject(config)
+	proj := newReader(config)
 	proj.parsePackage(config.MainPackagePath)
-	return proj.project, nil
+	return nil
 }
 
-type goProject struct {
-	*Config
+type reader struct {
+	config   *Config
 	packages map[string]*types.Package
-	project  constructs.IProject
 }
 
-func newProject(config *Config) *goProject {
+func newReader(config *Config) *reader {
 	if config.Context == nil {
 		config.Context = &build.Default
 	}
-	return &goProject{
-		Config:   config,
-		project:  constructs.NewProject(config.Name),
+	return &reader{
+		config:   config,
 		packages: make(map[string]*types.Package),
 	}
 }
 
-func (proj *goProject) Import(path string) (_ *types.Package, err error) {
+func (r *reader) Import(path string) (_ *types.Package, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = terror.RecoveredPanic(r)
 		}
 	}()
 
-	return proj.parsePackage(path), nil
+	return r.parsePackage(path), nil
 }
 
-func (proj *goProject) parsePackage(path string) *types.Package {
-	if p, exists := proj.packages[path]; exists {
+func (r *reader) parsePackage(path string) *types.Package {
+	if p, exists := r.packages[path]; exists {
 		return p
 	}
 
-	paths := proj.findPackageFiles(path)
+	paths := r.findPackageFiles(path)
 	fileSet, files := parseFiles(paths)
-	tPack, info := proj.getInfo(path, fileSet, files)
-	convert(proj.project, fileSet, tPack, info, files)
-	return tPack
+	files = r.tryAugmentFiles(path, fileSet, files)
+	pkg, info := r.getInfo(path, fileSet, files)
+	r.tryConvertPackage(fileSet, pkg, info, files)
+	return pkg
 }
 
-func (proj *goProject) findPackageFiles(path string) []string {
-	buildPackage, err := proj.Context.ImportDir(path, build.FindOnly)
+func (r *reader) tryAugmentFiles(path string, fileSet *token.FileSet, files []*ast.File) []*ast.File {
+	if r.config.AugmentFiles != nil {
+		files = r.config.AugmentFiles(&AugmentFilesArgs{
+			Path:    path,
+			FileSet: fileSet,
+			Files:   files,
+		})
+	}
+	return files
+}
+
+func (r *reader) tryConvertPackage(fileSet *token.FileSet, pkg *types.Package, info *types.Info, files []*ast.File) {
+	if r.config.ConvertPackage != nil {
+		r.config.ConvertPackage(&ConvertPackageArgs{
+			FileSet: fileSet,
+			Package: pkg,
+			Info:    info,
+			Files:   files,
+		})
+	}
+}
+
+func (r *reader) findPackageFiles(path string) []string {
+	buildPackage, err := r.config.Context.ImportDir(path, build.FindOnly)
 	if err != nil {
 		panic(terror.New(`error reading import directory`, err).
 			With(`path`, path))
@@ -105,7 +138,7 @@ func parseFiles(paths []string) (*token.FileSet, []*ast.File) {
 	return fileSet, files
 }
 
-func (proj *goProject) getInfo(path string, fileSet *token.FileSet, files []*ast.File) (*types.Package, *types.Info) {
+func (r *reader) getInfo(path string, fileSet *token.FileSet, files []*ast.File) (*types.Package, *types.Info) {
 	info := &types.Info{
 		Types:      map[ast.Expr]types.TypeAndValue{},
 		Instances:  map[*ast.Ident]types.Instance{},
@@ -117,7 +150,7 @@ func (proj *goProject) getInfo(path string, fileSet *token.FileSet, files []*ast
 	}
 
 	config := &types.Config{
-		Importer: proj,
+		Importer: r,
 	}
 
 	pkg, err := config.Check(path, fileSet, files, info)
@@ -127,6 +160,6 @@ func (proj *goProject) getInfo(path string, fileSet *token.FileSet, files []*ast
 			WithError(err))
 	}
 
-	proj.packages[path] = pkg
+	r.packages[path] = pkg
 	return pkg, info
 }
