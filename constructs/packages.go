@@ -7,6 +7,8 @@ import (
 
 type IPackage interface {
 	INamed
+	Path() string
+	Imports() collections.List[IPackage]
 	SubPackages() collections.List[IPackage]
 	Interfaces() collections.List[IInterface]
 	Objects() collections.List[IObject]
@@ -17,6 +19,8 @@ type IPackage interface {
 
 type packageImp struct {
 	namedImp
+	path        string
+	imports     collections.List[IPackage]
 	subPackages collections.List[IPackage]
 	interfaces  collections.List[IInterface]
 	objects     collections.List[IObject]
@@ -25,6 +29,14 @@ type packageImp struct {
 }
 
 func (imp *packageImp) _packageConstruct() {}
+
+func (imp *packageImp) Path() string {
+	return imp.path
+}
+
+func (imp *packageImp) Imports() collections.List[IPackage] {
+	return imp.imports
+}
 
 func (imp *packageImp) SubPackages() collections.List[IPackage] {
 	return imp.subPackages
@@ -46,9 +58,11 @@ func (imp *packageImp) Values() collections.List[IValue] {
 	return imp.values
 }
 
-func NewPackage(name string) IPackage {
+func NewPackage(name, path string) IPackage {
 	return &packageImp{
 		namedImp:    newName(name),
+		path:        path,
+		imports:     list.New[IPackage](),
 		subPackages: list.New[IPackage](),
 		interfaces:  list.New[IInterface](),
 		objects:     list.New[IObject](),

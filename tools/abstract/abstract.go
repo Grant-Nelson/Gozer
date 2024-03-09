@@ -1,12 +1,11 @@
-package abstract
+package reader
 
 import (
 	"fmt"
 
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
 
-	"github.com/Snow-Gremlin/Gozer/readers"
-	"github.com/Snow-Gremlin/Gozer/readers/golang"
+	"github.com/Snow-Gremlin/Gozer/reader"
 	"github.com/Snow-Gremlin/Gozer/tools"
 )
 
@@ -42,8 +41,9 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 		NamedStr(&output, `o`, `output`).
 		Process(ctx.Args()[2:])
 
-	proj, err := golang.New().Read(&readers.Config{
-		MainPackageDir: input,
+	proj, err := reader.Read(&reader.Config{
+		Name:            input,
+		MainPackagePath: input,
 	})
 	if err != nil {
 		return 1, err
