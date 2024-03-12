@@ -1,4 +1,4 @@
-package reader
+package abstract
 
 import (
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
@@ -39,9 +39,11 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 		NamedStr(&output, `o`, `output`).
 		Process(ctx.Args()[2:])
 
+	a := &abstractor{}
 	err := reader.Read(&reader.Config{
 		Name:            input,
 		MainPackagePath: input,
+		ConvertPackage:  a.abstractPackage,
 	})
 	if err != nil {
 		return 1, err

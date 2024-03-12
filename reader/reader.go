@@ -1,6 +1,7 @@
 package reader
 
 import (
+	"fmt"
 	"go/ast"
 	"go/build"
 	"go/parser"
@@ -39,6 +40,10 @@ func Read(config *Config) (err error) {
 		}
 	}()
 
+	if config.Context == nil {
+		config.Context = &build.Default
+	}
+
 	proj := newReader(config)
 	proj.parsePackage(config.MainPackagePath)
 	return nil
@@ -50,9 +55,6 @@ type reader struct {
 }
 
 func newReader(config *Config) *reader {
-	if config.Context == nil {
-		config.Context = &build.Default
-	}
 	return &reader{
 		config:   config,
 		packages: make(map[string]*types.Package),
@@ -70,8 +72,11 @@ func (r *reader) Import(path string) (_ *types.Package, err error) {
 }
 
 func (r *reader) parsePackage(path string) *types.Package {
-	if p, exists := r.packages[path]; exists {
-		return p
+	fmt.Println(`Path: ` + path)
+
+	if pkg, exists := r.packages[path]; exists {
+		fmt.Println(`Found:`, pkg)
+		return pkg
 	}
 
 	paths := r.findPackageFiles(path)
@@ -79,6 +84,8 @@ func (r *reader) parsePackage(path string) *types.Package {
 	files = r.tryAugmentFiles(path, fileSet, files)
 	pkg, info := r.getInfo(path, fileSet, files)
 	r.tryConvertPackage(fileSet, pkg, info, files)
+
+	fmt.Println(`Created:`, pkg)
 	return pkg
 }
 
@@ -105,21 +112,27 @@ func (r *reader) tryConvertPackage(fileSet *token.FileSet, pkg *types.Package, i
 }
 
 func (r *reader) findPackageFiles(path string) []string {
-	buildPackage, err := r.config.Context.ImportDir(path, build.FindOnly)
+	buildPackage, err := r.config.Context.Import(path, ``, 0)
 	if err != nil {
 		panic(terror.New(`error reading import directory`, err).
 			With(`path`, path))
 	}
 
 	paths := buildPackage.GoFiles
-	return normalizePaths(buildPackage.Dir, paths)
+	paths = normalizePaths(buildPackage.Dir, paths)
+	return paths
+}
+
+func normalizePath(dir, path string) string {
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dir, path)
+	}
+	return path
 }
 
 func normalizePaths(dir string, paths []string) []string {
 	for i, path := range paths {
-		if !filepath.IsAbs(path) {
-			paths[i] = filepath.Join(dir, path)
-		}
+		paths[i] = normalizePath(dir, path)
 	}
 	return paths
 }
