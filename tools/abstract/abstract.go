@@ -1,6 +1,8 @@
 package abstract
 
 import (
+	"fmt"
+
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
 
 	"github.com/Snow-Gremlin/Gozer/reader"
@@ -31,22 +33,26 @@ func (t *toolImp) Description() string {
 }
 
 func (t *toolImp) Run(ctx tools.Context) (int, error) {
+	verbose := false
 	input := `.`
 	output := `.`
 
 	args.New().
+		Flag(&verbose, `v`, `verbose`).
 		NamedStr(&input, `i`, `input`).
 		NamedStr(&output, `o`, `output`).
 		Process(ctx.Args()[2:])
 
-	a := &abstractor{}
-	err := reader.Read(&reader.Config{
-		Name:            input,
+	proj, err := reader.Read(&reader.Config{
+		Verbose:         verbose,
 		MainPackagePath: input,
-		ConvertPackage:  a.abstractPackage,
 	})
 	if err != nil {
 		return 1, err
+	}
+
+	for _, p := range proj.PreOrder() {
+		fmt.Println(p)
 	}
 
 	return 0, nil

@@ -1,178 +1,103 @@
 package reader
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
-	"go/build"
 	"go/parser"
 	"go/token"
-	"go/types"
-	"path/filepath"
+
+	"golang.org/x/tools/go/packages"
 
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 )
 
 type Config struct {
-	Name            string
+	Verbose         bool
 	MainPackagePath string
-	Context         *build.Context
-	AugmentFiles    func(args *AugmentFilesArgs) []*ast.File
-	ConvertPackage  func(args *ConvertPackageArgs)
+	Context         context.Context
+	Tests           bool
+	BuildFlags      []string
+	AugmentFile     func(args *AugmentFileArgs) error
 }
 
-type AugmentFilesArgs struct {
-	Path    string
-	FileSet *token.FileSet
-	Files   []*ast.File
+type AugmentFileArgs struct {
+	Filename string
+	FileSet  *token.FileSet
+	File     *ast.File
 }
 
-type ConvertPackageArgs struct {
-	FileSet *token.FileSet
-	Package *types.Package
-	Info    *types.Info
-	Files   []*ast.File
-}
+const allNeeds = packages.NeedName |
+	packages.NeedFiles |
+	packages.NeedCompiledGoFiles |
+	packages.NeedImports |
+	packages.NeedDeps |
+	packages.NeedExportFile |
+	packages.NeedTypes |
+	packages.NeedSyntax |
+	packages.NeedTypesInfo |
+	packages.NeedTypesSizes |
+	packages.NeedModule |
+	packages.NeedEmbedFiles |
+	packages.NeedEmbedPatterns
 
-func Read(config *Config) (err error) {
+func Read(config *Config) (_ *Project, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = terror.RecoveredPanic(r)
 		}
 	}()
 
-	if config.Context == nil {
-		config.Context = &build.Default
-	}
-
-	proj := newReader(config)
-	proj.parsePackage(config.MainPackagePath)
-	return nil
-}
-
-type reader struct {
-	config   *Config
-	packages map[string]*types.Package
-}
-
-func newReader(config *Config) *reader {
-	return &reader{
-		config:   config,
-		packages: make(map[string]*types.Package),
-	}
-}
-
-func (r *reader) Import(path string) (_ *types.Package, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = terror.RecoveredPanic(r)
-		}
-	}()
-
-	return r.parsePackage(path), nil
-}
-
-func (r *reader) parsePackage(path string) *types.Package {
-	fmt.Println(`Path: ` + path)
-
-	if pkg, exists := r.packages[path]; exists {
-		fmt.Println(`Found:`, pkg)
-		return pkg
-	}
-
-	paths := r.findPackageFiles(path)
-	fileSet, files := parseFiles(paths)
-	files = r.tryAugmentFiles(path, fileSet, files)
-	pkg, info := r.getInfo(path, fileSet, files)
-	r.tryConvertPackage(fileSet, pkg, info, files)
-
-	fmt.Println(`Created:`, pkg)
-	return pkg
-}
-
-func (r *reader) tryAugmentFiles(path string, fileSet *token.FileSet, files []*ast.File) []*ast.File {
-	if r.config.AugmentFiles != nil {
-		files = r.config.AugmentFiles(&AugmentFilesArgs{
-			Path:    path,
-			FileSet: fileSet,
-			Files:   files,
-		})
-	}
-	return files
-}
-
-func (r *reader) tryConvertPackage(fileSet *token.FileSet, pkg *types.Package, info *types.Info, files []*ast.File) {
-	if r.config.ConvertPackage != nil {
-		r.config.ConvertPackage(&ConvertPackageArgs{
-			FileSet: fileSet,
-			Package: pkg,
-			Info:    info,
-			Files:   files,
-		})
-	}
-}
-
-func (r *reader) findPackageFiles(path string) []string {
-	buildPackage, err := r.config.Context.Import(path, ``, 0)
+	cfg := getParseConfigs(config)
+	mainPackages, err := packages.Load(cfg, config.MainPackagePath)
 	if err != nil {
-		panic(terror.New(`error reading import directory`, err).
-			With(`path`, path))
+		panic(err)
 	}
 
-	paths := buildPackage.GoFiles
-	paths = normalizePaths(buildPackage.Dir, paths)
-	return paths
+	p := &Project{Packages: mainPackages}
+	err = newError(p.Errors())
+	return p, err
 }
 
-func normalizePath(dir, path string) string {
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(dir, path)
+func getParseConfigs(config *Config) *packages.Config {
+	cfg := &packages.Config{
+		Dir:        config.MainPackagePath,
+		BuildFlags: config.BuildFlags,
+		Context:    config.Context,
+		Mode:       allNeeds,
+		Tests:      config.Tests,
 	}
-	return path
-}
 
-func normalizePaths(dir string, paths []string) []string {
-	for i, path := range paths {
-		paths[i] = normalizePath(dir, path)
+	if config.AugmentFile != nil {
+		fa := fileAugmenter{AugmentFile: config.AugmentFile}
+		cfg.ParseFile = fa.parseFile
 	}
-	return paths
-}
 
-func parseFiles(paths []string) (*token.FileSet, []*ast.File) {
-	fileSet := token.NewFileSet()
-	files := make([]*ast.File, len(paths))
-	for i, path := range paths {
-		f, err := parser.ParseFile(fileSet, path, nil, parser.ParseComments)
-		if err != nil {
-			panic(terror.New(`error parsing file`, err).
-				With(`path`, path))
+	if config.Verbose {
+		cfg.Logf = func(format string, args ...any) {
+			_, err := fmt.Printf(format, args...)
+			panic(err)
 		}
-		files[i] = f
 	}
-	return fileSet, files
+
+	return cfg
 }
 
-func (r *reader) getInfo(path string, fileSet *token.FileSet, files []*ast.File) (*types.Package, *types.Info) {
-	info := &types.Info{
-		Types:      map[ast.Expr]types.TypeAndValue{},
-		Instances:  map[*ast.Ident]types.Instance{},
-		Defs:       map[*ast.Ident]types.Object{},
-		Uses:       map[*ast.Ident]types.Object{},
-		Implicits:  map[ast.Node]types.Object{},
-		Selections: map[*ast.SelectorExpr]*types.Selection{},
-		Scopes:     map[ast.Node]*types.Scope{},
-	}
+type fileAugmenter struct {
+	AugmentFile func(args *AugmentFileArgs) error
+}
 
-	config := &types.Config{
-		Importer: r,
-	}
-
-	pkg, err := config.Check(path, fileSet, files, info)
+func (fa *fileAugmenter) parseFile(fileSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
+	const mode = parser.AllErrors | parser.ParseComments
+	f, err := parser.ParseFile(fileSet, filename, src, mode)
 	if err != nil {
-		panic(terror.New(`type checker error`).
-			With(`path`, path).
-			WithError(err))
+		return nil, err
 	}
 
-	r.packages[path] = pkg
-	return pkg, info
+	err = fa.AugmentFile(&AugmentFileArgs{
+		Filename: filename,
+		FileSet:  fileSet,
+		File:     f,
+	})
+	return f, err
 }
