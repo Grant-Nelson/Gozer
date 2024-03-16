@@ -1,7 +1,6 @@
 package reader
 
 import (
-	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -12,19 +11,21 @@ import (
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 )
 
-type Config struct {
-	Verbose         bool
-	MainPackagePath string
-	Context         context.Context
-	Tests           bool
-	BuildFlags      []string
-	AugmentFile     func(args *AugmentFileArgs) error
-}
+// Read reads a project and all its packages and files.
+func Read(config *Config) (proj *Project, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = terror.RecoveredPanic(r)
+		}
+	}()
 
-type AugmentFileArgs struct {
-	Filename string
-	FileSet  *token.FileSet
-	File     *ast.File
+	proj = &Project{}
+	cfg := getParseConfigs(config)
+	proj.Packages, err = packages.Load(cfg, config.Path)
+	if err != nil {
+		return proj, err
+	}
+	return proj, proj.Errors()
 }
 
 const allNeeds = packages.NeedName |
@@ -41,27 +42,9 @@ const allNeeds = packages.NeedName |
 	packages.NeedEmbedFiles |
 	packages.NeedEmbedPatterns
 
-func Read(config *Config) (_ *Project, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = terror.RecoveredPanic(r)
-		}
-	}()
-
-	cfg := getParseConfigs(config)
-	mainPackages, err := packages.Load(cfg, config.MainPackagePath)
-	if err != nil {
-		panic(err)
-	}
-
-	p := &Project{Packages: mainPackages}
-	err = newError(p.Errors())
-	return p, err
-}
-
 func getParseConfigs(config *Config) *packages.Config {
 	cfg := &packages.Config{
-		Dir:        config.MainPackagePath,
+		Dir:        config.Path,
 		BuildFlags: config.BuildFlags,
 		Context:    config.Context,
 		Mode:       allNeeds,
@@ -89,7 +72,7 @@ type fileAugmenter struct {
 
 func (fa *fileAugmenter) parseFile(fileSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
 	const mode = parser.AllErrors | parser.ParseComments
-	f, err := parser.ParseFile(fileSet, filename, src, mode)
+	file, err := parser.ParseFile(fileSet, filename, src, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +80,7 @@ func (fa *fileAugmenter) parseFile(fileSet *token.FileSet, filename string, src 
 	err = fa.AugmentFile(&AugmentFileArgs{
 		Filename: filename,
 		FileSet:  fileSet,
-		File:     f,
+		File:     file,
 	})
-	return f, err
+	return file, err
 }

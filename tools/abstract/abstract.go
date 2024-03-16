@@ -44,8 +44,8 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 		Process(ctx.Args()[2:])
 
 	proj, err := reader.Read(&reader.Config{
-		Verbose:         verbose,
-		MainPackagePath: input,
+		Verbose: verbose,
+		Path:    input,
 	})
 	if err != nil {
 		return 1, err

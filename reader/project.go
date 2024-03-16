@@ -4,10 +4,15 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+// Project is the collection of packages that were parsed.
 type Project struct {
 	Packages []*packages.Package
 }
 
+// PreOrder returns all the packages with the imports after the package
+// importing them. This will output via depth first traversal.
+// The packages will only be outputted once, duplicates will be skipped.
+// The packages are outputted in a consistent order.
 func (p *Project) PreOrder() []*packages.Package {
 	all := []*packages.Package{}
 	packages.Visit(p.Packages, func(dep *packages.Package) bool {
@@ -17,6 +22,10 @@ func (p *Project) PreOrder() []*packages.Package {
 	return all
 }
 
+// PostOrder returns all the packages with the imports before the package
+// importing them. This will output via depth first traversal.
+// The packages will only be outputted once, duplicates will be skipped.
+// The packages are outputted in a consistent order.
 func (p *Project) PostOrder() []*packages.Package {
 	all := []*packages.Package{}
 	packages.Visit(p.Packages, nil, func(dep *packages.Package) {
@@ -25,12 +34,20 @@ func (p *Project) PostOrder() []*packages.Package {
 	return all
 }
 
-func (p *Project) Errors() []error {
-	errs := []error{}
+// Errors returns nil if there were no errors, a package error if here was
+// only one, or a project error if there were multiple errors.
+func (p *Project) Errors() error {
+	pe := &ProjectErrors{}
 	packages.Visit(p.Packages, nil, func(pkg *packages.Package) {
-		for _, err := range pkg.Errors {
-			errs = append(errs, err)
-		}
+		pe.Errs = append(pe.Errs, pkg.Errors...)
 	})
-	return errs
+
+	switch pe.Count() {
+	case 0:
+		return nil
+	case 1:
+		return pe.Errs[0]
+	default:
+		return pe
+	}
 }
