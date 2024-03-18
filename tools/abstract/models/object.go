@@ -11,8 +11,10 @@ type objectImp struct {
 	index      uint64
 	typeIndex  uint64
 	name       string
+	implements collections.List[InterfaceModel]
+	extends    collections.List[TypeModel]
 	typeParams collections.List[TypeModel]
-	fields     collections.List[FieldModel]
+	fields     collections.List[TypeModel]
 }
 
 func NewObject(name string) ObjectModel {
@@ -20,8 +22,10 @@ func NewObject(name string) ObjectModel {
 		index:      0,
 		typeIndex:  0,
 		name:       name,
+		implements: list.New[InterfaceModel](),
+		extends:    list.New[TypeModel](),
 		typeParams: list.New[TypeModel](),
-		fields:     list.New[FieldModel](),
+		fields:     list.New[TypeModel](),
 	}
 }
 
@@ -31,15 +35,19 @@ func (imp *objectImp) TypeIndex() uint64         { return imp.typeIndex }
 func (imp *objectImp) setTypeIndex(index uint64) { imp.typeIndex = index }
 func (imp *objectImp) Name() string              { return imp.name }
 
-func (imp *objectImp) TypeParams() collections.List[TypeModel] { return imp.typeParams }
-func (imp *objectImp) Fields() collections.List[FieldModel]    { return imp.fields }
+func (imp *objectImp) Implements() collections.List[InterfaceModel] { return imp.implements }
+func (imp *objectImp) Extends() collections.List[TypeModel]         { return imp.extends }
+func (imp *objectImp) TypeParams() collections.List[TypeModel]      { return imp.typeParams }
+func (imp *objectImp) Fields() collections.List[TypeModel]          { return imp.fields }
 
 func (imp *objectImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
 	addName(data, imp.name)
 	addIndex(data, `index`, imp.index)
 	addIndex(data, `typeIndex`, imp.typeIndex)
+	addIndices(data, `implements`, imp.implements)
+	addTypeIndices(data, `extends`, imp.extends)
 	addTypeIndices(data, `typeParams`, imp.typeParams)
-	addIndices(data, `fields`, imp.fields)
+	addTypeIndices(data, `fields`, imp.fields)
 	return json.Marshal(data)
 }

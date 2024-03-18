@@ -10,7 +10,6 @@ type (
 		AllObjects() collections.List[ObjectModel]
 		AllSignatures() collections.List[SignatureModel]
 		AllMethods() collections.List[MethodModel]
-		AllFields() collections.List[FieldModel]
 	}
 
 	IndexedModel interface {
@@ -34,7 +33,7 @@ type (
 		Interfaces() collections.List[InterfaceModel]
 		Objects() collections.List[ObjectModel]
 		Methods() collections.List[MethodModel]
-		StaticData() collections.List[FieldModel]
+		Statics() collections.List[TypeModel]
 	}
 
 	InterfaceModel interface {
@@ -49,8 +48,10 @@ type (
 		IndexedModel
 		TypeModel
 		NamedModel
+		Implements() collections.List[InterfaceModel]
+		Extends() collections.List[TypeModel]
 		TypeParams() collections.List[TypeModel]
-		Fields() collections.List[FieldModel]
+		Fields() collections.List[TypeModel]
 	}
 
 	SignatureModel interface {
@@ -68,11 +69,6 @@ type (
 		Signature() SignatureModel
 		// TODO: Writes
 		// TODO: Reads
-	}
-
-	FieldModel interface {
-		IndexedModel
-		NamedModel
-		Type() TypeModel
+		// TODO: LineCount & other metrics
 	}
 )

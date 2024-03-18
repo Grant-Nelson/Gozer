@@ -14,7 +14,7 @@ type packageImp struct {
 	interfaces collections.List[InterfaceModel]
 	objects    collections.List[ObjectModel]
 	methods    collections.List[MethodModel]
-	staticData collections.List[FieldModel]
+	statics    collections.List[TypeModel]
 }
 
 func NewPackage(parent PackageModel, name string) PackageModel {
@@ -25,7 +25,7 @@ func NewPackage(parent PackageModel, name string) PackageModel {
 		interfaces: list.New[InterfaceModel](),
 		objects:    list.New[ObjectModel](),
 		methods:    list.New[MethodModel](),
-		staticData: list.New[FieldModel](),
+		statics:    list.New[TypeModel](),
 	}
 }
 
@@ -37,7 +37,7 @@ func (imp *packageImp) Parent() PackageModel  { return imp.parent }
 func (imp *packageImp) Interfaces() collections.List[InterfaceModel] { return imp.interfaces }
 func (imp *packageImp) Objects() collections.List[ObjectModel]       { return imp.objects }
 func (imp *packageImp) Methods() collections.List[MethodModel]       { return imp.methods }
-func (imp *packageImp) StaticData() collections.List[FieldModel]     { return imp.staticData }
+func (imp *packageImp) Statics() collections.List[TypeModel]         { return imp.statics }
 
 func (imp *packageImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
@@ -47,6 +47,6 @@ func (imp *packageImp) MarshalJSON() ([]byte, error) {
 	addIndices(data, `interfaces`, imp.interfaces)
 	addIndices(data, `objects`, imp.objects)
 	addIndices(data, `methods`, imp.methods)
-	addIndices(data, `staticData`, imp.staticData)
+	addTypeIndices(data, `statics`, imp.statics)
 	return json.Marshal(data)
 }

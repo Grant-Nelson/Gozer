@@ -23,12 +23,6 @@ func addIndexed(data map[string]any, name string, indexed IndexedModel) {
 	}
 }
 
-func addTypeIndex(data map[string]any, name string, indexed TypeModel) {
-	if indexed != nil {
-		addIndex(data, name, indexed.TypeIndex())
-	}
-}
-
 func addData[T any](data map[string]any, name string, list collections.List[T]) {
 	if !list.Empty() {
 		data[name] = list.ToSlice()

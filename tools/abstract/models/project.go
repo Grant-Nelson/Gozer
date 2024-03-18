@@ -14,7 +14,6 @@ type projectImp struct {
 	allObjects    collections.List[ObjectModel]
 	allSignatures collections.List[SignatureModel]
 	allMethods    collections.List[MethodModel]
-	allFields     collections.List[FieldModel]
 }
 
 func NewProject(path string) ProjectModel {
@@ -25,7 +24,6 @@ func NewProject(path string) ProjectModel {
 		allObjects:    list.New[ObjectModel](),
 		allSignatures: list.New[SignatureModel](),
 		allMethods:    list.New[MethodModel](),
-		allFields:     list.New[FieldModel](),
 	}
 }
 
@@ -36,7 +34,6 @@ func (imp *projectImp) AllInterfaces() collections.List[InterfaceModel] { return
 func (imp *projectImp) AllObjects() collections.List[ObjectModel]       { return imp.allObjects }
 func (imp *projectImp) AllSignatures() collections.List[SignatureModel] { return imp.allSignatures }
 func (imp *projectImp) AllMethods() collections.List[MethodModel]       { return imp.allMethods }
-func (imp *projectImp) AllFields() collections.List[FieldModel]         { return imp.allFields }
 
 func (imp *projectImp) MarshalJSON() ([]byte, error) {
 	setIndices(imp.allPackages)
@@ -44,7 +41,6 @@ func (imp *projectImp) MarshalJSON() ([]byte, error) {
 	setIndices(imp.allObjects)
 	setIndices(imp.allSignatures)
 	setIndices(imp.allMethods)
-	setIndices(imp.allFields)
 
 	var typeIndex uint64
 	setTypeIndices(&typeIndex, imp.allInterfaces)
@@ -55,8 +51,7 @@ func (imp *projectImp) MarshalJSON() ([]byte, error) {
 	addData(data, `packages`, imp.allPackages)
 	addData(data, `interfaces`, imp.allInterfaces)
 	addData(data, `objects`, imp.allObjects)
-	addData(data, `methods`, imp.allMethods)
 	addData(data, `signatures`, imp.allSignatures)
-	addData(data, `fields`, imp.allFields)
+	addData(data, `methods`, imp.allMethods)
 	return json.Marshal(data)
 }
