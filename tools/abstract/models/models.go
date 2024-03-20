@@ -1,6 +1,9 @@
 package models
 
-import "github.com/Snow-Gremlin/goToolbox/collections"
+import (
+	"github.com/Snow-Gremlin/goToolbox/collections"
+	"golang.org/x/tools/go/packages"
+)
 
 type (
 	ProjectModel interface {
@@ -29,7 +32,8 @@ type (
 	PackageModel interface {
 		IndexedModel
 		NamedModel
-		Parent() PackageModel
+		Path() string
+		Source() *packages.Package
 		Interfaces() collections.List[InterfaceModel]
 		Objects() collections.List[ObjectModel]
 		Methods() collections.List[MethodModel]

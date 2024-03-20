@@ -48,10 +48,10 @@ func (imp *projectImp) MarshalJSON() ([]byte, error) {
 	setTypeIndices(&typeIndex, imp.allSignatures)
 
 	data := map[string]any{`path`: imp.path}
-	addData(data, `packages`, imp.allPackages)
-	addData(data, `interfaces`, imp.allInterfaces)
-	addData(data, `objects`, imp.allObjects)
-	addData(data, `signatures`, imp.allSignatures)
-	addData(data, `methods`, imp.allMethods)
+	addData(data, `packages`, imp.AllPackages())
+	addData(data, `interfaces`, imp.AllInterfaces())
+	addData(data, `objects`, imp.AllObjects())
+	addData(data, `signatures`, imp.AllSignatures())
+	addData(data, `methods`, imp.AllMethods())
 	return json.Marshal(data)
 }

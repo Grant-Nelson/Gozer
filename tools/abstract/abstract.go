@@ -1,7 +1,8 @@
 package abstract
 
 import (
-	"fmt"
+	"encoding/json"
+	"os"
 
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
 
@@ -35,7 +36,7 @@ func (t *toolImp) Description() string {
 func (t *toolImp) Run(ctx tools.Context) (int, error) {
 	verbose := false
 	input := `.`
-	output := `.`
+	output := `output.json`
 
 	args.New().
 		Flag(&verbose, `v`, `verbose`).
@@ -51,8 +52,15 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 		return 1, err
 	}
 
-	for _, p := range proj.PreOrder() {
-		fmt.Println(p)
+	model := abstract(proj)
+	data, err := json.Marshal(model)
+	if err != nil {
+		return 1, err
+	}
+
+	err = os.WriteFile(output, data, 0666)
+	if err != nil {
+		return 1, err
 	}
 
 	return 0, nil

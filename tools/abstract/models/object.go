@@ -42,12 +42,12 @@ func (imp *objectImp) Fields() collections.List[TypeModel]          { return imp
 
 func (imp *objectImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
-	addName(data, imp.name)
-	addIndex(data, `index`, imp.index)
-	addIndex(data, `typeIndex`, imp.typeIndex)
-	addIndices(data, `implements`, imp.implements)
-	addTypeIndices(data, `extends`, imp.extends)
-	addTypeIndices(data, `typeParams`, imp.typeParams)
-	addTypeIndices(data, `fields`, imp.fields)
+	addString(data, `name`, imp.Name())
+	addIndex(data, `index`, imp.Index())
+	addIndex(data, `typeIndex`, imp.TypeIndex())
+	addIndices(data, `implements`, imp.Implements())
+	addTypeIndices(data, `extends`, imp.Extends())
+	addTypeIndices(data, `typeParams`, imp.TypeParams())
+	addTypeIndices(data, `fields`, imp.Fields())
 	return json.Marshal(data)
 }

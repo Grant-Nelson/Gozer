@@ -5,21 +5,15 @@ import (
 	"github.com/Snow-Gremlin/goToolbox/collections/enumerator"
 )
 
-func addName(data map[string]any, name string) {
-	if len(name) > 0 {
-		data[`name`] = name
+func addString(data map[string]any, name, value string) {
+	if len(value) > 0 {
+		data[name] = value
 	}
 }
 
 func addIndex(data map[string]any, name string, index uint64) {
 	if index > 0 {
 		data[name] = index
-	}
-}
-
-func addIndexed(data map[string]any, name string, indexed IndexedModel) {
-	if indexed != nil {
-		addIndex(data, name, indexed.Index())
 	}
 }
 
