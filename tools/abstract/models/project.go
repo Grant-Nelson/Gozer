@@ -8,50 +8,35 @@ import (
 )
 
 type projectImp struct {
-	path          string
-	allPackages   collections.List[PackageModel]
-	allInterfaces collections.List[InterfaceModel]
-	allObjects    collections.List[ObjectModel]
-	allSignatures collections.List[SignatureModel]
-	allMethods    collections.List[MethodModel]
+	path     string
+	packages collections.List[PackageModel]
+	types    TypeCollectionModel
+	methods  collections.List[MethodModel]
 }
 
 func NewProject(path string) ProjectModel {
 	return &projectImp{
-		path:          path,
-		allPackages:   list.New[PackageModel](),
-		allInterfaces: list.New[InterfaceModel](),
-		allObjects:    list.New[ObjectModel](),
-		allSignatures: list.New[SignatureModel](),
-		allMethods:    list.New[MethodModel](),
+		path:     path,
+		packages: list.New[PackageModel](),
+		types:    NewTypeCollection(),
+		methods:  list.New[MethodModel](),
 	}
 }
 
 func (imp *projectImp) Path() string { return imp.path }
 
-func (imp *projectImp) AllPackages() collections.List[PackageModel]     { return imp.allPackages }
-func (imp *projectImp) AllInterfaces() collections.List[InterfaceModel] { return imp.allInterfaces }
-func (imp *projectImp) AllObjects() collections.List[ObjectModel]       { return imp.allObjects }
-func (imp *projectImp) AllSignatures() collections.List[SignatureModel] { return imp.allSignatures }
-func (imp *projectImp) AllMethods() collections.List[MethodModel]       { return imp.allMethods }
+func (imp *projectImp) Packages() collections.List[PackageModel] { return imp.packages }
+func (imp *projectImp) Types() TypeCollectionModel               { return imp.types }
+func (imp *projectImp) Methods() collections.List[MethodModel]   { return imp.methods }
 
 func (imp *projectImp) MarshalJSON() ([]byte, error) {
-	setIndices(imp.allPackages)
-	setIndices(imp.allInterfaces)
-	setIndices(imp.allObjects)
-	setIndices(imp.allSignatures)
-	setIndices(imp.allMethods)
+	setIndices(imp.packages)
+	setIndices(imp.methods)
 
-	var typeIndex uint64
-	setTypeIndices(&typeIndex, imp.allInterfaces)
-	setTypeIndices(&typeIndex, imp.allObjects)
-	setTypeIndices(&typeIndex, imp.allSignatures)
-
-	data := map[string]any{`path`: imp.path}
-	addData(data, `packages`, imp.AllPackages())
-	addData(data, `interfaces`, imp.AllInterfaces())
-	addData(data, `objects`, imp.AllObjects())
-	addData(data, `signatures`, imp.AllSignatures())
-	addData(data, `methods`, imp.AllMethods())
+	data := map[string]any{}
+	addString(data, `path`, imp.path)
+	addData(data, `packages`, imp.Packages())
+	data[`types`] = imp.Types()
+	addData(data, `methods`, imp.Methods())
 	return json.Marshal(data)
 }

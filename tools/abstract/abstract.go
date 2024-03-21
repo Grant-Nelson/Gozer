@@ -2,12 +2,14 @@ package abstract
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
 
 	"github.com/Snow-Gremlin/Gozer/reader"
 	"github.com/Snow-Gremlin/Gozer/tools"
+	"github.com/Snow-Gremlin/Gozer/tools/abstract/models"
 )
 
 // New creates a new abstract tool.
@@ -35,11 +37,13 @@ func (t *toolImp) Description() string {
 
 func (t *toolImp) Run(ctx tools.Context) (int, error) {
 	verbose := false
+	minimize := false
 	input := `.`
-	output := `output.json`
+	output := ``
 
 	args.New().
 		Flag(&verbose, `v`, `verbose`).
+		Flag(&minimize, `m`, `min`).
 		NamedStr(&input, `i`, `input`).
 		NamedStr(&output, `o`, `output`).
 		Process(ctx.Args()[2:])
@@ -53,15 +57,32 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 	}
 
 	model := abstract(proj)
-	data, err := json.Marshal(model)
+
+	data, err := jsonMarshal(minimize, model)
 	if err != nil {
 		return 1, err
 	}
 
-	err = os.WriteFile(output, data, 0666)
+	err = writeJson(output, data)
 	if err != nil {
 		return 1, err
 	}
 
 	return 0, nil
+}
+
+func jsonMarshal(minimize bool, model models.ProjectModel) ([]byte, error) {
+	if minimize {
+		return json.Marshal(model)
+	}
+	return json.MarshalIndent(model, ``, `  `)
+}
+
+func writeJson(path string, data []byte) error {
+	if len(path) > 0 {
+		return os.WriteFile(path, data, 0666)
+	}
+
+	_, err := fmt.Println(string(data))
+	return err
 }

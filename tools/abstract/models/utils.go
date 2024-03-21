@@ -11,12 +11,6 @@ func addString(data map[string]any, name, value string) {
 	}
 }
 
-func addIndex(data map[string]any, name string, index uint64) {
-	if index > 0 {
-		data[name] = index
-	}
-}
-
 func addData[T any](data map[string]any, name string, list collections.List[T]) {
 	if !list.Empty() {
 		data[name] = list.ToSlice()

@@ -37,8 +37,6 @@ func (imp *interfaceImp) Signatures() collections.List[SignatureModel] { return 
 func (imp *interfaceImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
 	addString(data, `name`, imp.Name())
-	addIndex(data, `index`, imp.Index())
-	addIndex(data, `typeIndex`, imp.TypeIndex())
 	addTypeIndices(data, `typeParams`, imp.TypeParams())
 	addIndices(data, `signatures`, imp.Signatures())
 	return json.Marshal(data)

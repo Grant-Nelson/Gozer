@@ -44,7 +44,6 @@ func (imp *packageImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
 	addString(data, `name`, imp.Name())
 	addString(data, `path`, imp.Path())
-	addIndex(data, `index`, imp.Index())
 	addIndices(data, `interfaces`, imp.Interfaces())
 	addIndices(data, `objects`, imp.Objects())
 	addIndices(data, `methods`, imp.Methods())

@@ -40,8 +40,6 @@ func (imp *signatureImp) Returns() collections.List[TypeModel]    { return imp.r
 func (imp *signatureImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
 	addString(data, `name`, imp.Name())
-	addIndex(data, `index`, imp.Index())
-	addIndex(data, `typeIndex`, imp.TypeIndex())
 	addTypeIndices(data, `typeParams`, imp.TypeParams())
 	addTypeIndices(data, `params`, imp.Params())
 	addTypeIndices(data, `returns`, imp.Returns())

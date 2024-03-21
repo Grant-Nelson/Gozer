@@ -8,11 +8,16 @@ import (
 type (
 	ProjectModel interface {
 		Path() string
-		AllPackages() collections.List[PackageModel]
-		AllInterfaces() collections.List[InterfaceModel]
-		AllObjects() collections.List[ObjectModel]
-		AllSignatures() collections.List[SignatureModel]
-		AllMethods() collections.List[MethodModel]
+		Packages() collections.List[PackageModel]
+		Types() TypeCollectionModel
+		Methods() collections.List[MethodModel]
+	}
+
+	TypeCollectionModel interface {
+		Interfaces() collections.List[InterfaceModel]
+		Objects() collections.List[ObjectModel]
+		Signatures() collections.List[SignatureModel]
+		ExtraTypes() collections.List[ExtraTypeModel]
 	}
 
 	IndexedModel interface {
@@ -65,6 +70,12 @@ type (
 		TypeParams() collections.List[TypeModel]
 		Params() collections.List[TypeModel]
 		Returns() collections.List[TypeModel]
+	}
+
+	ExtraTypeModel interface {
+		IndexedModel
+		TypeModel
+		NamedModel
 	}
 
 	MethodModel interface {
