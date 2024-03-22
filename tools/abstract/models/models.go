@@ -1,86 +1,96 @@
 package models
 
 import (
+	"go/token"
+
+	"github.com/Snow-Gremlin/Gozer/reader"
 	"github.com/Snow-Gremlin/goToolbox/collections"
 	"golang.org/x/tools/go/packages"
 )
 
 type (
-	ProjectModel interface {
-		Path() string
-		Packages() collections.List[PackageModel]
-		Types() TypeCollectionModel
-		Methods() collections.List[MethodModel]
+	// Identifier is part of a model which
+	// identifies the model with a unique value.
+	Identifier interface {
+		// Id is the unique value for the model.
+		// The zero Id indicates not set.
+		Id() uint64
 	}
 
-	TypeCollectionModel interface {
+	// TypeModel is a model which defines a type.
+	TypeModel interface {
+		Identifier
+		_typeModel()
+	}
+
+	// ProjectModel is the main model containing
+	// the information needed for an application.
+	ProjectModel interface {
+		nextId() uint64
+		Source() *reader.Project
+		Path() string
+
+		Packages() collections.List[PackageModel]
 		Interfaces() collections.List[InterfaceModel]
 		Objects() collections.List[ObjectModel]
 		Signatures() collections.List[SignatureModel]
 		ExtraTypes() collections.List[ExtraTypeModel]
-	}
+		Methods() collections.List[MethodModel]
 
-	IndexedModel interface {
-		Index() uint64
-		setIndex(index uint64)
-	}
-
-	TypeModel interface {
-		TypeIndex() uint64
-		setTypeIndex(index uint64)
-	}
-
-	NamedModel interface {
-		Name() string
+		AddPackage(pkg *packages.Package) PackageModel
+		AddSignature() SignatureModel
+		AddExtraType(name string) ExtraTypeModel
 	}
 
 	PackageModel interface {
-		IndexedModel
-		NamedModel
+		Identifier
+		Name() string
 		Path() string
+		Project() ProjectModel
 		Source() *packages.Package
+		PosPath(pos token.Pos) string
+
 		Interfaces() collections.List[InterfaceModel]
 		Objects() collections.List[ObjectModel]
 		Methods() collections.List[MethodModel]
 		Statics() collections.List[TypeModel]
+
+		AddInterface(name string) InterfaceModel
+		AddObject(name string) ObjectModel
+		AddMethod(name string, sig SignatureModel) MethodModel
 	}
 
 	InterfaceModel interface {
-		IndexedModel
 		TypeModel
-		NamedModel
+		Name() string
 		TypeParams() collections.List[TypeModel]
 		Signatures() collections.List[SignatureModel]
 	}
 
 	ObjectModel interface {
-		IndexedModel
 		TypeModel
-		NamedModel
-		Implements() collections.List[InterfaceModel]
+		Name() string
 		Extends() collections.List[TypeModel]
 		TypeParams() collections.List[TypeModel]
-		Fields() collections.List[TypeModel]
+		FieldTypes() collections.List[TypeModel]
 	}
 
 	SignatureModel interface {
-		IndexedModel
 		TypeModel
-		NamedModel
 		TypeParams() collections.List[TypeModel]
 		Params() collections.List[TypeModel]
 		Returns() collections.List[TypeModel]
 	}
 
 	ExtraTypeModel interface {
-		IndexedModel
 		TypeModel
-		NamedModel
+		Name() string
+		Extends() collections.List[TypeModel]
 	}
 
 	MethodModel interface {
-		IndexedModel
-		NamedModel
+		Identifier
+		Name() string
 		Signature() SignatureModel
 		// TODO: Writes
 		// TODO: Reads

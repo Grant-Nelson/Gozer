@@ -8,36 +8,36 @@ import (
 )
 
 type interfaceImp struct {
-	index      uint64
-	typeIndex  uint64
+	id         uint64
 	name       string
 	typeParams collections.List[TypeModel]
 	signatures collections.List[SignatureModel]
 }
 
-func NewInterface(name string) InterfaceModel {
-	return &interfaceImp{
-		index:      0,
-		typeIndex:  0,
+func (pkg *packageImp) AddInterface(name string) InterfaceModel {
+	imp := &interfaceImp{
+		id:         pkg.Project().nextId(),
 		name:       name,
 		typeParams: list.New[TypeModel](),
 		signatures: list.New[SignatureModel](),
 	}
+	pkg.Project().Interfaces().Append(imp)
+	pkg.Interfaces().Append(imp)
+	return imp
 }
 
-func (imp *interfaceImp) Index() uint64             { return imp.index }
-func (imp *interfaceImp) setIndex(index uint64)     { imp.index = index }
-func (imp *interfaceImp) TypeIndex() uint64         { return imp.typeIndex }
-func (imp *interfaceImp) setTypeIndex(index uint64) { imp.typeIndex = index }
-func (imp *interfaceImp) Name() string              { return imp.name }
+func (imp *interfaceImp) _typeModel()  {}
+func (imp *interfaceImp) Id() uint64   { return imp.id }
+func (imp *interfaceImp) Name() string { return imp.name }
 
 func (imp *interfaceImp) TypeParams() collections.List[TypeModel]      { return imp.typeParams }
 func (imp *interfaceImp) Signatures() collections.List[SignatureModel] { return imp.signatures }
 
 func (imp *interfaceImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
-	addString(data, `name`, imp.Name())
-	addTypeIndices(data, `typeParams`, imp.TypeParams())
-	addIndices(data, `signatures`, imp.Signatures())
+	addVal(data, `id`, imp.Id())
+	addVal(data, `name`, imp.Name())
+	addIds(data, `typeParams`, imp.TypeParams())
+	addIds(data, `signatures`, imp.Signatures())
 	return json.Marshal(data)
 }

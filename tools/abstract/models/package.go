@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"go/token"
 
 	"golang.org/x/tools/go/packages"
 
@@ -10,7 +11,8 @@ import (
 )
 
 type packageImp struct {
-	index      uint64
+	id         uint64
+	proj       *projectImp
 	pkg        *packages.Package
 	interfaces collections.List[InterfaceModel]
 	objects    collections.List[ObjectModel]
@@ -18,22 +20,26 @@ type packageImp struct {
 	statics    collections.List[TypeModel]
 }
 
-func NewPackage(pkg *packages.Package) PackageModel {
-	return &packageImp{
-		index:      0,
+func (proj *projectImp) AddPackage(pkg *packages.Package) PackageModel {
+	imp := &packageImp{
+		id:         proj.nextId(),
+		proj:       proj,
 		pkg:        pkg,
 		interfaces: list.New[InterfaceModel](),
 		objects:    list.New[ObjectModel](),
 		methods:    list.New[MethodModel](),
 		statics:    list.New[TypeModel](),
 	}
+	proj.Packages().Append(imp)
+	return imp
 }
 
-func (imp *packageImp) Index() uint64             { return imp.index }
-func (imp *packageImp) setIndex(index uint64)     { imp.index = index }
-func (imp *packageImp) Name() string              { return imp.pkg.Name }
-func (imp *packageImp) Path() string              { return imp.pkg.PkgPath }
-func (imp *packageImp) Source() *packages.Package { return imp.pkg }
+func (imp *packageImp) Id() uint64                   { return imp.id }
+func (imp *packageImp) Name() string                 { return imp.pkg.Name }
+func (imp *packageImp) Path() string                 { return imp.pkg.PkgPath }
+func (imp *packageImp) Source() *packages.Package    { return imp.pkg }
+func (imp *packageImp) Project() ProjectModel        { return imp.proj }
+func (imp *packageImp) PosPath(pos token.Pos) string { return imp.pkg.Fset.Position(pos).String() }
 
 func (imp *packageImp) Interfaces() collections.List[InterfaceModel] { return imp.interfaces }
 func (imp *packageImp) Objects() collections.List[ObjectModel]       { return imp.objects }
@@ -42,11 +48,12 @@ func (imp *packageImp) Statics() collections.List[TypeModel]         { return im
 
 func (imp *packageImp) MarshalJSON() ([]byte, error) {
 	data := map[string]any{}
-	addString(data, `name`, imp.Name())
-	addString(data, `path`, imp.Path())
-	addIndices(data, `interfaces`, imp.Interfaces())
-	addIndices(data, `objects`, imp.Objects())
-	addIndices(data, `methods`, imp.Methods())
-	addTypeIndices(data, `statics`, imp.Statics())
+	addVal(data, `id`, imp.Id())
+	addVal(data, `name`, imp.Name())
+	addVal(data, `path`, imp.Path())
+	addIds(data, `interfaces`, imp.Interfaces())
+	addIds(data, `objects`, imp.Objects())
+	addIds(data, `methods`, imp.Methods())
+	addIds(data, `statics`, imp.Statics())
 	return json.Marshal(data)
 }
