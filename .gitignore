@@ -28,4 +28,5 @@ packages
 pubspec.lock
 
 # Gozer output
+temp.txt
 output.json

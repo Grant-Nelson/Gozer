@@ -13,13 +13,13 @@ func addVal(data map[string]any, name string, value any) {
 	}
 }
 
-func addList[T any](data map[string]any, name string, list collections.List[T]) {
+func addList[T any](data map[string]any, name string, list collections.ReadonlyList[T]) {
 	if !list.Empty() {
 		data[name] = list.ToSlice()
 	}
 }
 
-func addIds[T Identifier](data map[string]any, name string, list collections.List[T]) {
+func addIds[T Identifier](data map[string]any, name string, list collections.ReadonlyList[T]) {
 	if !list.Empty() {
 		data[name] = enumerator.Select(list.Enumerate(),
 			func(i T) uint64 { return i.Id() }).

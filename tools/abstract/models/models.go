@@ -17,12 +17,6 @@ type (
 		Id() uint64
 	}
 
-	// TypeModel is a model which defines a type.
-	TypeModel interface {
-		Identifier
-		_typeModel()
-	}
-
 	// ProjectModel is the main model containing
 	// the information needed for an application.
 	ProjectModel interface {
@@ -31,15 +25,15 @@ type (
 		Path() string
 
 		Packages() collections.List[PackageModel]
-		Interfaces() collections.List[InterfaceModel]
-		Objects() collections.List[ObjectModel]
-		Signatures() collections.List[SignatureModel]
+		AllInterfaces() collections.List[InterfaceModel]
+		AllObjects() collections.List[ObjectModel]
+		AllSignatures() collections.List[SignatureModel]
 		ExtraTypes() collections.List[ExtraTypeModel]
 		Methods() collections.List[MethodModel]
 
 		AddPackage(pkg *packages.Package) PackageModel
-		AddSignature() SignatureModel
-		AddExtraType(name string) ExtraTypeModel
+		AddSignature(name string, exported bool) SignatureModel
+		AddExtraType(name string, exported bool) ExtraTypeModel
 	}
 
 	PackageModel interface {
@@ -55,37 +49,40 @@ type (
 		Methods() collections.List[MethodModel]
 		Statics() collections.List[TypeModel]
 
-		AddInterface(name string) InterfaceModel
-		AddObject(name string) ObjectModel
-		AddMethod(name string, sig SignatureModel) MethodModel
+		AddInterface(name string, exported bool) InterfaceModel
+		AddObject(name string, exported bool) ObjectModel
+		AddMethod(name string, exported bool, sig SignatureModel) MethodModel
+	}
+
+	// TypeModel is a model which defines a type.
+	TypeModel interface {
+		Identifier
+		Name() string
+		Exported() bool
+		TypeParams() collections.List[TypeModel]
+		Extends() collections.List[TypeModel]
+		_typeModel()
 	}
 
 	InterfaceModel interface {
 		TypeModel
-		Name() string
-		TypeParams() collections.List[TypeModel]
 		Signatures() collections.List[SignatureModel]
 	}
 
 	ObjectModel interface {
 		TypeModel
-		Name() string
-		Extends() collections.List[TypeModel]
-		TypeParams() collections.List[TypeModel]
 		FieldTypes() collections.List[TypeModel]
 	}
 
 	SignatureModel interface {
 		TypeModel
-		TypeParams() collections.List[TypeModel]
 		Params() collections.List[TypeModel]
 		Returns() collections.List[TypeModel]
 	}
 
 	ExtraTypeModel interface {
 		TypeModel
-		Name() string
-		Extends() collections.List[TypeModel]
+		_extraType()
 	}
 
 	MethodModel interface {
