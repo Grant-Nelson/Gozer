@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"go/types"
 
 	"github.com/Snow-Gremlin/goToolbox/collections"
 	"github.com/Snow-Gremlin/goToolbox/collections/list"
@@ -9,18 +10,16 @@ import (
 
 type interfaceImp struct {
 	id         uint64
-	name       string
-	exported   bool
+	obj        types.Object
 	typeParams collections.List[TypeModel]
 	extends    collections.List[TypeModel]
 	signatures collections.List[SignatureModel]
 }
 
-func (pkg *packageImp) AddInterface(name string, exported bool) InterfaceModel {
+func (pkg *packageImp) AddInterface(obj types.Object) InterfaceModel {
 	imp := &interfaceImp{
 		id:         pkg.Project().nextId(),
-		name:       name,
-		exported:   exported,
+		obj:        obj,
 		typeParams: list.New[TypeModel](),
 		extends:    list.New[TypeModel](),
 		signatures: list.New[SignatureModel](),
@@ -32,8 +31,8 @@ func (pkg *packageImp) AddInterface(name string, exported bool) InterfaceModel {
 
 func (imp *interfaceImp) _typeModel()    {}
 func (imp *interfaceImp) Id() uint64     { return imp.id }
-func (imp *interfaceImp) Name() string   { return imp.name }
-func (imp *interfaceImp) Exported() bool { return imp.exported }
+func (imp *interfaceImp) Name() string   { return imp.obj.Id() }
+func (imp *interfaceImp) Exported() bool { return imp.obj.Exported() }
 
 func (imp *interfaceImp) TypeParams() collections.List[TypeModel]      { return imp.typeParams }
 func (imp *interfaceImp) Extends() collections.List[TypeModel]         { return imp.extends }

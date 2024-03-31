@@ -2,6 +2,7 @@ package models
 
 import (
 	"go/token"
+	"go/types"
 
 	"github.com/Snow-Gremlin/Gozer/reader"
 	"github.com/Snow-Gremlin/goToolbox/collections"
@@ -49,8 +50,8 @@ type (
 		Methods() collections.List[MethodModel]
 		Statics() collections.List[TypeModel]
 
-		AddInterface(name string, exported bool) InterfaceModel
-		AddObject(name string, exported bool) ObjectModel
+		AddInterface(obj types.Object) InterfaceModel
+		AddObject(obj types.Object) ObjectModel
 		AddMethod(name string, exported bool, sig SignatureModel) MethodModel
 	}
 

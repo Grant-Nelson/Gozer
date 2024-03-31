@@ -1,8 +1,6 @@
 package reader
 
-import (
-	"golang.org/x/tools/go/packages"
-)
+import "golang.org/x/tools/go/packages"
 
 // Project is the collection of packages that were parsed.
 type Project struct {
@@ -50,4 +48,8 @@ func (p *Project) Errors() error {
 	default:
 		return pe
 	}
+}
+
+func (p *Project) AddSource(path string, sourceLines ...string) {
+
 }

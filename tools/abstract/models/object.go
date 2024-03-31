@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"go/types"
 
 	"github.com/Snow-Gremlin/goToolbox/collections"
 	"github.com/Snow-Gremlin/goToolbox/collections/list"
@@ -9,18 +10,16 @@ import (
 
 type objectImp struct {
 	id         uint64
-	name       string
-	exported   bool
+	obj        types.Object
 	extends    collections.List[TypeModel]
 	typeParams collections.List[TypeModel]
 	fields     collections.List[TypeModel]
 }
 
-func (pkg *packageImp) AddObject(name string, exported bool) ObjectModel {
+func (pkg *packageImp) AddObject(obj types.Object) ObjectModel {
 	imp := &objectImp{
 		id:         pkg.Project().nextId(),
-		name:       name,
-		exported:   exported,
+		obj:        obj,
 		extends:    list.New[TypeModel](),
 		typeParams: list.New[TypeModel](),
 		fields:     list.New[TypeModel](),
@@ -32,8 +31,8 @@ func (pkg *packageImp) AddObject(name string, exported bool) ObjectModel {
 
 func (imp *objectImp) _typeModel()    {}
 func (imp *objectImp) Id() uint64     { return imp.id }
-func (imp *objectImp) Name() string   { return imp.name }
-func (imp *objectImp) Exported() bool { return imp.exported }
+func (imp *objectImp) Name() string   { return imp.obj.Id() }
+func (imp *objectImp) Exported() bool { return imp.obj.Exported() }
 
 func (imp *objectImp) Extends() collections.List[TypeModel]    { return imp.extends }
 func (imp *objectImp) TypeParams() collections.List[TypeModel] { return imp.typeParams }

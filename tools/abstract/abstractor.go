@@ -3,6 +3,7 @@ package abstract
 import (
 	"fmt"
 	"go/ast"
+	"go/types"
 	"strings"
 
 	"github.com/Snow-Gremlin/Gozer/reader"
@@ -22,18 +23,18 @@ func abstract(projIn *reader.Project) models.ProjectModel {
 
 	proj.Packages().Enumerate().Foreach(func(pkg models.PackageModel) {
 		for _, f := range pkg.Source().Syntax {
-			addFile(pkg, f)
+			handleFile(pkg, f)
 		}
 	})
 
 	return proj
 }
 
-func addFile(pkg models.PackageModel, f *ast.File) {
+func handleFile(pkg models.PackageModel, f *ast.File) {
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
 		case *ast.GenDecl:
-			addGenDecl(pkg, d)
+			handleGenDecl(pkg, d)
 		case *ast.FuncDecl:
 			addFuncDecl(pkg, d)
 		default:
@@ -42,35 +43,70 @@ func addFile(pkg models.PackageModel, f *ast.File) {
 	}
 }
 
-func addGenDecl(pkg models.PackageModel, decl *ast.GenDecl) {
+func handleGenDecl(pkg models.PackageModel, decl *ast.GenDecl) {
 	for _, spec := range decl.Specs {
 		switch s := spec.(type) {
 		case *ast.ImportSpec:
 			// ignore
 		case *ast.TypeSpec:
-			addTypeSpec(pkg, s)
+			handleTypeSpec(pkg, s)
 		case *ast.ValueSpec:
-			addValueSpec(pkg, s)
+			handleValueSpec(pkg, s)
 		default:
 			panic(fmt.Errorf(`unexpected specification: %s`, pkg.PosPath(decl.Pos())))
 		}
 	}
 }
 
-func addTypeSpec(pkg models.PackageModel, spec *ast.TypeSpec) {
-	// TODO: Add methods
+func handleTypeSpec(pkg models.PackageModel, spec *ast.TypeSpec) {
+	defs := pkg.Source().TypesInfo.Defs
+	def := defs[spec.Name]
+
+	n, ok := def.Type().(*types.Named)
+	if !ok {
+		panic(fmt.Errorf(`unexpected type for object, %T: %s`, def.Type(), def))
+	}
+	addType(pkg, n.Underlying())
 }
 
-func addValueSpec(pkg models.PackageModel, spec *ast.ValueSpec) {
-	defs := pkg.Source().TypesInfo.Defs
-	for _, name := range spec.Names {
-		def := defs[name]
-		if def.Exported() {
-			fmt.Printf(">>> %s\n", def.String())
+func handleValueSpec(pkg models.PackageModel, spec *ast.ValueSpec) {
+	// TODO: Implement
+
+	/*
+		defs := pkg.Source().TypesInfo.Defs
+		for _, name := range spec.Names {
+			def := defs[name]
+			fmt.Printf(">>>(Value) %s\n", def.String())
 		}
-	}
+	*/
 }
 
 func addFuncDecl(pkg models.PackageModel, decl *ast.FuncDecl) {
-	// TODO: Add methods
+
+	// TODO: Implement
+
+}
+
+func addType(pkg models.PackageModel, t types.Type) models.TypeModel {
+	switch t2 := t.(type) {
+	case *types.Basic:
+		fmt.Println(">>>(Basic)", t2)
+	case *types.Struct:
+		fmt.Println(">>>(Struct)", t2)
+	case *types.Interface:
+		fmt.Println(">>>(Interface)", t2)
+	case *types.Signature:
+		fmt.Println(">>>(Signature)", t2)
+	case *types.Pointer:
+		panic(fmt.Errorf(`pointer is unimplemented: %s`, t2))
+	case *types.Slice:
+		panic(fmt.Errorf(`slice is unimplemented: %s`, t2))
+	case *types.Map:
+		panic(fmt.Errorf(`map is unimplemented: %s`, t2))
+	case *types.Chan:
+		panic(fmt.Errorf(`channel is unimplemented: %s`, t2))
+	default:
+		panic(fmt.Errorf(`unhandled type, %T: %s`, t, t))
+	}
+	return nil
 }
