@@ -49,7 +49,3 @@ func (p *Project) Errors() error {
 		return pe
 	}
 }
-
-func (p *Project) AddSource(path string, sourceLines ...string) {
-
-}

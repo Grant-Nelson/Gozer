@@ -1,15 +1,10 @@
 package abstract
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
 
 	"github.com/Snow-Gremlin/Gozer/reader"
 	"github.com/Snow-Gremlin/Gozer/tools"
-	"github.com/Snow-Gremlin/Gozer/tools/abstract/models"
 )
 
 // New creates a new abstract tool.
@@ -56,33 +51,10 @@ func (t *toolImp) Run(ctx tools.Context) (int, error) {
 		return 1, err
 	}
 
-	model := abstract(proj)
-
-	data, err := jsonMarshal(minimize, model)
+	data := abstractProject(proj)
+	err = writeJson(output, minimize, data)
 	if err != nil {
 		return 1, err
 	}
-
-	err = writeJson(output, data)
-	if err != nil {
-		return 1, err
-	}
-
 	return 0, nil
-}
-
-func jsonMarshal(minimize bool, model models.ProjectModel) ([]byte, error) {
-	if minimize {
-		return json.Marshal(model)
-	}
-	return json.MarshalIndent(model, ``, `  `)
-}
-
-func writeJson(path string, data []byte) error {
-	if len(path) > 0 {
-		return os.WriteFile(path, data, 0666)
-	}
-
-	_, err := fmt.Println(string(data))
-	return err
 }

@@ -3,110 +3,175 @@ package abstract
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/types"
-	"strings"
+
+	"golang.org/x/tools/go/packages"
 
 	"github.com/Snow-Gremlin/Gozer/reader"
-	"github.com/Snow-Gremlin/Gozer/tools/abstract/models"
 )
 
-func abstract(projIn *reader.Project) models.ProjectModel {
-	proj := models.NewProject(projIn)
-
-	// Add all packages under the projects root path.
-	rootPath := proj.Path() + `/`
-	for _, pkg := range proj.Source().PreOrder() {
-		if strings.HasPrefix(pkg.PkgPath, rootPath) {
-			proj.AddPackage(pkg)
-		}
+func abstractProject(proj *reader.Project) jsonData {
+	pkgData := jsonList{}
+	for _, pkg := range proj.PreOrder() {
+		pkgData.add(abstractPackage(pkg))
 	}
-
-	proj.Packages().Enumerate().Foreach(func(pkg models.PackageModel) {
-		for _, f := range pkg.Source().Syntax {
-			handleFile(pkg, f)
-		}
-	})
-
-	return proj
+	projData := jsonMap{}
+	projData.addNotEmpty(`packages`, pkgData)
+	return projData
 }
 
-func handleFile(pkg models.PackageModel, f *ast.File) {
+func abstractPackage(pkg *packages.Package) jsonData {
+	pkgData := jsonMap{}
+	pkgData.addNotEmpty(`path`, pkg.PkgPath)
+	for _, f := range pkg.Syntax {
+		addFile(pkg, f, pkgData)
+	}
+	return pkgData
+}
+
+func pos(pkg *packages.Package, pos token.Pos) string {
+	return pkg.Fset.Position(pos).String()
+}
+
+func addFile(pkg *packages.Package, f *ast.File, pkgData jsonMap) {
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
 		case *ast.GenDecl:
-			handleGenDecl(pkg, d)
+			addGenDecl(pkg, d, pkgData)
 		case *ast.FuncDecl:
-			addFuncDecl(pkg, d)
+			abstractFuncDecl(pkg, d, pkgData)
 		default:
-			panic(fmt.Errorf(`unexpected declaration: %s`, pkg.PosPath(decl.Pos())))
+			panic(fmt.Errorf(`unexpected declaration: %s`, pos(pkg, decl.Pos())))
 		}
 	}
 }
 
-func handleGenDecl(pkg models.PackageModel, decl *ast.GenDecl) {
+func addGenDecl(pkg *packages.Package, decl *ast.GenDecl, pkgData jsonMap) {
 	for _, spec := range decl.Specs {
 		switch s := spec.(type) {
 		case *ast.ImportSpec:
 			// ignore
 		case *ast.TypeSpec:
-			handleTypeSpec(pkg, s)
+			abstractTypeSpec(pkg, s, pkgData)
 		case *ast.ValueSpec:
-			handleValueSpec(pkg, s)
+			abstractValueSpec(pkg, s, pkgData)
 		default:
-			panic(fmt.Errorf(`unexpected specification: %s`, pkg.PosPath(decl.Pos())))
+			panic(fmt.Errorf(`unexpected specification: %s`, pos(pkg, spec.Pos())))
 		}
 	}
 }
 
-func handleTypeSpec(pkg models.PackageModel, spec *ast.TypeSpec) {
-	defs := pkg.Source().TypesInfo.Defs
-	def := defs[spec.Name]
-
-	n, ok := def.Type().(*types.Named)
-	if !ok {
-		panic(fmt.Errorf(`unexpected type for object, %T: %s`, def.Type(), def))
+func abstractTypeSpec(pkg *packages.Package, spec *ast.TypeSpec, pkgData jsonMap) {
+	tv, has := pkg.TypesInfo.Types[spec.Type]
+	if !has {
+		panic(fmt.Errorf(`type specification not found in types info: %s`, pos(pkg, spec.Type.Pos())))
 	}
-	addType(pkg, n.Underlying())
+	pkgData.append(`types`, convertType(tv.Type))
 }
 
-func handleValueSpec(pkg models.PackageModel, spec *ast.ValueSpec) {
+func abstractValueSpec(pkg *packages.Package, spec *ast.ValueSpec, pkgData jsonMap) {
 	// TODO: Implement
 
-	/*
-		defs := pkg.Source().TypesInfo.Defs
-		for _, name := range spec.Names {
-			def := defs[name]
-			fmt.Printf(">>>(Value) %s\n", def.String())
-		}
-	*/
+	//	defs := pkg.Source().TypesInfo.Defs
+	//	for _, name := range spec.Names {
+	//		def := defs[name]
+	//		fmt.Printf(">>>(Value) %s\n", def.String())
+	//	}
 }
 
-func addFuncDecl(pkg models.PackageModel, decl *ast.FuncDecl) {
+func abstractFuncDecl(pkg *packages.Package, decl *ast.FuncDecl, pkgData jsonMap) {
 
 	// TODO: Implement
 
 }
 
-func addType(pkg models.PackageModel, t types.Type) models.TypeModel {
+func convertType(t types.Type) jsonData {
 	switch t2 := t.(type) {
+	case *types.Array:
+		return convertArray(t2)
 	case *types.Basic:
-		fmt.Println(">>>(Basic)", t2)
-	case *types.Struct:
-		fmt.Println(">>>(Struct)", t2)
-	case *types.Interface:
-		fmt.Println(">>>(Interface)", t2)
-	case *types.Signature:
-		fmt.Println(">>>(Signature)", t2)
-	case *types.Pointer:
-		panic(fmt.Errorf(`pointer is unimplemented: %s`, t2))
-	case *types.Slice:
-		panic(fmt.Errorf(`slice is unimplemented: %s`, t2))
-	case *types.Map:
-		panic(fmt.Errorf(`map is unimplemented: %s`, t2))
+		return convertBasic(t2)
 	case *types.Chan:
-		panic(fmt.Errorf(`channel is unimplemented: %s`, t2))
+		return convertChan(t2)
+	case *types.Interface:
+		return convertInterface(t2)
+	case *types.Map:
+		return convertMap(t2)
+	case *types.Pointer:
+		return convertPointer(t2)
+	case *types.Signature:
+		return convertSignature(t2)
+	case *types.Slice:
+		return convertSlice(t2)
+	case *types.Struct:
+		return convertStruct(t2)
 	default:
 		panic(fmt.Errorf(`unhandled type, %T: %s`, t, t))
 	}
-	return nil
+}
+
+func convertArray(t *types.Array) jsonData {
+	return jsonMap{
+		`kind`: `list`,
+		`type`: convertType(t.Elem()),
+	}
+}
+
+func convertBasic(t *types.Basic) jsonData {
+	return t.Name()
+}
+
+func convertChan(t *types.Chan) jsonData {
+	panic(fmt.Errorf(`chan is unimplemented: %s`, t))
+}
+
+func convertInterface(t *types.Interface) jsonData {
+	t = t.Complete()
+	methods := jsonList{}
+	for i := range t.NumMethods() {
+		methods.add(convertFunc(t.Method(i)))
+	}
+	return jsonMap{
+		`kind`:    `interface`,
+		`methods`: methods,
+	}
+}
+
+func convertMap(t *types.Map) jsonData {
+	panic(fmt.Errorf(`map is unimplemented: %s`, t))
+}
+
+func convertFunc(t *types.Func) jsonData {
+	visibility := `internal`
+	if t.Exported() {
+		visibility = `public`
+	}
+	return jsonMap{
+		`name`:       t.Name,
+		`visibility`: visibility,
+		`signature`:  convertType(t.Type()),
+	}
+}
+
+func convertPointer(t *types.Pointer) jsonData {
+	return jsonMap{
+		`kind`: `pointer`,
+		`type`: convertType(t.Elem()),
+	}
+}
+
+func convertSignature(t *types.Signature) jsonData {
+	panic(fmt.Errorf(`signature is unimplemented: %s`, t))
+}
+
+func convertSlice(t *types.Slice) jsonData {
+	return jsonMap{
+		`kind`: `list`,
+		`type`: convertType(t.Elem()),
+	}
+}
+
+func convertStruct(t *types.Struct) jsonData {
+	panic(fmt.Errorf(`struct is unimplemented: %s`, t))
 }
