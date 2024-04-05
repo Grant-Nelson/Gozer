@@ -16,7 +16,9 @@ func abstractProject(proj *reader.Project) jsonData {
 	for _, pkg := range proj.PreOrder() {
 		pkgData.add(abstractPackage(pkg))
 	}
-	projData := jsonMap{}
+	projData := jsonMap{
+		`duckTyping`: `true`,
+	}
 	projData.addNotEmpty(`packages`, pkgData)
 	return projData
 }
@@ -98,6 +100,8 @@ func convertType(t types.Type) jsonData {
 		return convertInterface(t2)
 	case *types.Map:
 		return convertMap(t2)
+	case *types.Named:
+		return convertNamed(t2)
 	case *types.Pointer:
 		return convertPointer(t2)
 	case *types.Signature:
@@ -106,6 +110,8 @@ func convertType(t types.Type) jsonData {
 		return convertSlice(t2)
 	case *types.Struct:
 		return convertStruct(t2)
+	case *types.TypeParam:
+		return convertTypeParam(t2)
 	default:
 		panic(fmt.Errorf(`unhandled type, %T: %s`, t, t))
 	}
@@ -114,7 +120,7 @@ func convertType(t types.Type) jsonData {
 func convertArray(t *types.Array) jsonData {
 	return jsonMap{
 		`kind`: `list`,
-		`type`: convertType(t.Elem()),
+		`elem`: convertType(t.Elem()),
 	}
 }
 
@@ -123,34 +129,40 @@ func convertBasic(t *types.Basic) jsonData {
 }
 
 func convertChan(t *types.Chan) jsonData {
-	panic(fmt.Errorf(`chan is unimplemented: %s`, t))
+	return jsonMap{
+		`kind`: `chan`,
+		`elem`: convertType(t.Elem()),
+	}
 }
 
 func convertInterface(t *types.Interface) jsonData {
 	t = t.Complete()
-	methods := jsonList{}
+	data := jsonMap{
+		`kind`: `interface`,
+	}
+
 	for i := range t.NumMethods() {
-		methods.add(convertFunc(t.Method(i)))
+		data.append(`methods`, convertFunc(t.Method(i)))
 	}
-	return jsonMap{
-		`kind`:    `interface`,
-		`methods`: methods,
-	}
+	return data
 }
 
 func convertMap(t *types.Map) jsonData {
-	panic(fmt.Errorf(`map is unimplemented: %s`, t))
+	return jsonMap{
+		`kind`: `map`,
+		`key`:  convertType(t.Key()),
+		`elem`: convertType(t.Elem()),
+	}
+}
+
+func convertNamed(t *types.Named) jsonData {
+	return t.String()
 }
 
 func convertFunc(t *types.Func) jsonData {
-	visibility := `internal`
-	if t.Exported() {
-		visibility = `public`
-	}
 	return jsonMap{
-		`name`:       t.Name,
-		`visibility`: visibility,
-		`signature`:  convertType(t.Type()),
+		`name`:      t.Name(),
+		`signature`: convertType(t.Type()),
 	}
 }
 
@@ -162,7 +174,20 @@ func convertPointer(t *types.Pointer) jsonData {
 }
 
 func convertSignature(t *types.Signature) jsonData {
-	panic(fmt.Errorf(`signature is unimplemented: %s`, t))
+	data := jsonMap{
+		`kind`: `signature`,
+	}
+	data.addNotEmpty(`variadic`, t.Variadic())
+	data.addNotEmpty(`params`, convertTuple(t.Params()))
+	data.addNotEmpty(`returns`, convertTuple(t.Results()))
+
+	if t.Recv() != nil {
+		data.add(`receiver`, convertVar(t.Recv()))
+		data.addNotEmpty(`typeParams`, convertTypeParamList(t.RecvTypeParams()))
+	} else {
+		data.addNotEmpty(`typeParams`, convertTypeParamList(t.TypeParams()))
+	}
+	return data
 }
 
 func convertSlice(t *types.Slice) jsonData {
@@ -173,5 +198,48 @@ func convertSlice(t *types.Slice) jsonData {
 }
 
 func convertStruct(t *types.Struct) jsonData {
-	panic(fmt.Errorf(`struct is unimplemented: %s`, t))
+	fields := jsonList{}
+	for i := range t.NumFields() {
+		fields.add(convertVar(t.Field(i)))
+	}
+
+	data := jsonMap{
+		`kind`: `struct`,
+	}
+	data.addNotEmpty(`fields`, fields)
+	return data
+}
+
+func convertTuple(t *types.Tuple) jsonData {
+	data := jsonList{}
+	for i := range t.Len() {
+		data.add(convertVar(t.At(i)))
+	}
+	return data
+}
+
+func convertTypeParam(t *types.TypeParam) jsonData {
+	return jsonMap{
+		`kind`:       `typeParam`,
+		`index`:      t.Index(),
+		`constraint`: convertType(t.Constraint()),
+	}
+}
+
+func convertTypeParamList(t *types.TypeParamList) jsonData {
+	data := jsonList{}
+	for i := range t.Len() {
+		if p := t.At(i); p.Index() >= 0 {
+			data.add(convertTypeParam(p))
+		}
+	}
+	return data
+}
+
+func convertVar(t *types.Var) jsonData {
+	data := jsonMap{
+		`type`: convertType(t.Type()),
+	}
+	data.addNotEmpty(`name`, t.Name())
+	return data
 }
