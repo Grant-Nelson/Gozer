@@ -1,6 +1,6 @@
 package writers
 
-import "github.com/Snow-Gremlin/Gozer/constructs"
+import "github.com/Snow-Gremlin/Gozer/internal/constructs"
 
 type Config struct {
 	OutPath string

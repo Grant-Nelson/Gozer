@@ -8,24 +8,39 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/Snow-Gremlin/Gozer/reader"
+	"github.com/Snow-Gremlin/Gozer/internal/reader"
+
+	"github.com/Snow-Gremlin/goToolbox/utils"
 )
 
+// TODO:
+// - Figure out implemented interfaces.
+// - Determine what to do with pointer receivers to make it similar o Java.
+// - Add analytics:
+//   - Add cyclomatic complexity per method.
+//   - The set of variables with locations that are read from and written
+//     to in each method. Used in Tight Class Cohesion (TCC) and
+//     Design Recovery (DR).
+//   - The set of all methods called in each method. Used for
+//     Access to Foreign Data (ATFD) and Design Recovery (DR)
+
 func abstractProject(proj *reader.Project) jsonData {
+	projData := jsonMap{
+		`duckTyping`: `true`,
+		`language`:   `go`,
+	}
 	pkgData := jsonList{}
 	for _, pkg := range proj.PreOrder() {
 		pkgData.add(abstractPackage(pkg))
-	}
-	projData := jsonMap{
-		`duckTyping`: `true`,
 	}
 	projData.addNotEmpty(`packages`, pkgData)
 	return projData
 }
 
 func abstractPackage(pkg *packages.Package) jsonData {
-	pkgData := jsonMap{}
-	pkgData.addNotEmpty(`path`, pkg.PkgPath)
+	pkgData := jsonMap{}.
+		addNotEmpty(`path`, pkg.PkgPath).
+		addNotEmpty(`imports`, utils.SortedKeys(pkg.Imports))
 	for _, f := range pkg.Syntax {
 		addFile(pkg, f, pkgData)
 	}
@@ -69,23 +84,47 @@ func abstractTypeSpec(pkg *packages.Package, spec *ast.TypeSpec, pkgData jsonMap
 	if !has {
 		panic(fmt.Errorf(`type specification not found in types info: %s`, pos(pkg, spec.Type.Pos())))
 	}
-	pkgData.append(`types`, convertType(tv.Type))
+	data := jsonMap{
+		`name`: spec.Name.Name,
+		`type`: convertType(tv.Type),
+	}
+	pkgData.append(`types`, data)
 }
 
 func abstractValueSpec(pkg *packages.Package, spec *ast.ValueSpec, pkgData jsonMap) {
-	// TODO: Implement
-
-	//	defs := pkg.Source().TypesInfo.Defs
-	//	for _, name := range spec.Names {
-	//		def := defs[name]
-	//		fmt.Printf(">>>(Value) %s\n", def.String())
-	//	}
+	for _, name := range spec.Names {
+		if name.Name != `_` {
+			tv, has := pkg.TypesInfo.Defs[name]
+			if !has {
+				panic(fmt.Errorf(`value specification not found in types info: %s`, pos(pkg, spec.Type.Pos())))
+			}
+			data := jsonMap{
+				`name`: name.Name,
+				`type`: convertType(tv.Type()),
+			}
+			pkgData.append(`values`, data)
+		}
+	}
 }
 
 func abstractFuncDecl(pkg *packages.Package, decl *ast.FuncDecl, pkgData jsonMap) {
+	obj := pkg.TypesInfo.Defs[decl.Name]
+	data := jsonMap{
+		`name`:      decl.Name.Name,
+		`signature`: convertSignature(obj.Type().(*types.Signature), false),
+	}
 
-	// TODO: Implement
+	if decl.Recv != nil && decl.Recv.NumFields() > 0 {
+		if decl.Recv.NumFields() != 1 {
+			panic(fmt.Errorf(`function declaration has unexpected receiver fields: %s`, pos(pkg, decl.Pos())))
+		}
+		tv := pkg.TypesInfo.Types[decl.Recv.List[0].Type]
+		data.add(`receiver`, convertType(tv.Type))
+	}
 
+	// TODO: Add cyclomatic complexity and other information
+
+	pkgData.append(`methods`, data)
 }
 
 func convertType(t types.Type) jsonData {
@@ -105,7 +144,7 @@ func convertType(t types.Type) jsonData {
 	case *types.Pointer:
 		return convertPointer(t2)
 	case *types.Signature:
-		return convertSignature(t2)
+		return convertSignature(t2, true)
 	case *types.Slice:
 		return convertSlice(t2)
 	case *types.Struct:
@@ -137,10 +176,13 @@ func convertChan(t *types.Chan) jsonData {
 
 func convertInterface(t *types.Interface) jsonData {
 	t = t.Complete()
+	if t.NumMethods() == 0 {
+		return `any`
+	}
+
 	data := jsonMap{
 		`kind`: `interface`,
 	}
-
 	for i := range t.NumMethods() {
 		data.append(`methods`, convertFunc(t.Method(i)))
 	}
@@ -162,7 +204,7 @@ func convertNamed(t *types.Named) jsonData {
 func convertFunc(t *types.Func) jsonData {
 	return jsonMap{
 		`name`:      t.Name(),
-		`signature`: convertType(t.Type()),
+		`signature`: convertSignature(t.Type().(*types.Signature), false),
 	}
 }
 
@@ -173,19 +215,15 @@ func convertPointer(t *types.Pointer) jsonData {
 	}
 }
 
-func convertSignature(t *types.Signature) jsonData {
-	data := jsonMap{
-		`kind`: `signature`,
-	}
-	data.addNotEmpty(`variadic`, t.Variadic())
-	data.addNotEmpty(`params`, convertTuple(t.Params()))
-	data.addNotEmpty(`returns`, convertTuple(t.Results()))
-
-	if t.Recv() != nil {
-		data.add(`receiver`, convertVar(t.Recv()))
-		data.addNotEmpty(`typeParams`, convertTypeParamList(t.RecvTypeParams()))
-	} else {
-		data.addNotEmpty(`typeParams`, convertTypeParamList(t.TypeParams()))
+func convertSignature(t *types.Signature, showKind bool) jsonData {
+	// Don't output receiver or receiver type here.
+	data := jsonMap{}.
+		addNotEmpty(`variadic`, t.Variadic()).
+		addNotEmpty(`params`, convertTuple(t.Params())).
+		addNotEmpty(`returns`, convertTuple(t.Results())).
+		addNotEmpty(`typeParams`, convertTypeParamList(t.TypeParams()))
+	if showKind {
+		data.add(`kind`, `signature`)
 	}
 	return data
 }
@@ -198,15 +236,12 @@ func convertSlice(t *types.Slice) jsonData {
 }
 
 func convertStruct(t *types.Struct) jsonData {
-	fields := jsonList{}
-	for i := range t.NumFields() {
-		fields.add(convertVar(t.Field(i)))
-	}
-
 	data := jsonMap{
 		`kind`: `struct`,
 	}
-	data.addNotEmpty(`fields`, fields)
+	for i := range t.NumFields() {
+		data.append(`fields`, convertVar(t.Field(i)))
+	}
 	return data
 }
 

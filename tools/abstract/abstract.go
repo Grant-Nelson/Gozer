@@ -3,7 +3,7 @@ package abstract
 import (
 	"github.com/Snow-Gremlin/goToolbox/argers/args"
 
-	"github.com/Snow-Gremlin/Gozer/reader"
+	"github.com/Snow-Gremlin/Gozer/internal/reader"
 	"github.com/Snow-Gremlin/Gozer/tools"
 )
 

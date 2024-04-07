@@ -3,8 +3,8 @@ package java
 import (
 	"github.com/Snow-Gremlin/goToolbox/terrors/terror"
 
-	"github.com/Snow-Gremlin/Gozer/constructs"
-	"github.com/Snow-Gremlin/Gozer/writers"
+	"github.com/Snow-Gremlin/Gozer/internal/constructs"
+	"github.com/Snow-Gremlin/Gozer/internal/writers"
 )
 
 // New creates a new source writer for Java
