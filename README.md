@@ -1,8 +1,9 @@
 # Gozer
-*The Transpiler*
+
+The Transpiler
 
 ![Gozer](/docs/Gozer.png)
 
-#### Getting Started
+## Getting Started
 
 [WIP]
