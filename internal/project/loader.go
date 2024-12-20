@@ -46,13 +46,13 @@ func Load(cfg Config) (*Project, error) {
 		Tests:      cfg.Tests,
 		Overlay:    cfg.Overlay,
 	}
-	pkgs, err := packages.Load(c, cfg.Patterns...)
+	packages, err := packages.Load(c, cfg.Patterns...)
 	if err != nil {
 		return nil, err
 	}
 	proj := &Project{
-		fSet: fSet,
-		pkgs: pkgs,
+		fSet:     fSet,
+		packages: packages,
 	}
 	return proj, nil
 }

@@ -7,6 +7,6 @@ import (
 )
 
 type Project struct {
-	fSet *token.FileSet
-	pkgs []*packages.Package
+	fSet     *token.FileSet
+	packages []*packages.Package
 }
