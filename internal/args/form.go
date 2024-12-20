@@ -22,6 +22,7 @@ const (
 	pos        = `pos`
 	trueStr    = `true`
 	falseStr   = `false`
+	indent     = "\t"
 )
 
 type (

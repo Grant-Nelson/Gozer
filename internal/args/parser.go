@@ -3,14 +3,24 @@ package args
 import (
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
 )
 
-func parseArgs(f *form, val reflect.Value, args []string, out io.Writer) bool {
-	p := &parserNode{
+func parseArgs(f *form, val reflect.Value, args []string, stdOut, stdErr io.Writer) bool {
+	if len(args) < 1 {
+		panic(ErrTooFewArgs)
+	}
+	if stdOut == nil {
+		stdOut = os.Stdout
+	}
+	if stdErr == nil {
+		stdErr = os.Stderr
+	}
+	p := &parser{
 		cmdPath:    args[0],
 		form:       f,
 		foundFlags: map[*flagForm]bool{},
@@ -18,12 +28,13 @@ func parseArgs(f *form, val reflect.Value, args []string, out io.Writer) bool {
 		atPos:      0,
 		val:        val,
 		args:       args[1:],
-		out:        out,
+		stdOut:     stdOut,
+		stdErr:     stdErr,
 	}
 	return p.Parse()
 }
 
-type parserNode struct {
+type parser struct {
 	cmdPath    string
 	form       *form
 	foundFlags map[*flagForm]bool
@@ -31,37 +42,44 @@ type parserNode struct {
 	atPos      int
 	val        reflect.Value
 	args       []string
-	out        io.Writer
+	stdOut     io.Writer
+	stdErr     io.Writer
 }
 
-func (p *parserNode) printf(format string, a ...any) {
-	if _, err := fmt.Fprintf(p.out, format, a...); err != nil {
-		panic(ErrWriteFailure.with(`%w`, err))
+func (p *parser) printf(format string, a ...any) {
+	if _, err := fmt.Fprintf(p.stdOut, format+"\n", a...); err != nil {
+		panic(ErrWriteOutFailure.with(`%w`, err))
 	}
 }
 
-func (p *parserNode) takeArg() string {
+func (p *parser) errorf(format string, a ...any) {
+	if _, err := fmt.Fprintf(p.stdErr, format+"\n", a...); err != nil {
+		panic(ErrWriteErrFailure.with(`%w`, err))
+	}
+}
+
+func (p *parser) takeArg() string {
 	arg := p.args[0]
 	p.args = p.args[1:]
 	return arg
 }
 
-func (p *parserNode) isFlag(arg string) bool {
+func (p *parser) isFlag(arg string) bool {
 	return len(arg) > 1 &&
 		strings.HasPrefix(arg, dash) &&
 		!unicode.IsDigit(rune(arg[1]))
 }
 
-func (p *parserNode) printHelpHint() {
-	p.printf("Use %q to print help.\n", p.cmdPath+` -h`)
+func (p *parser) printHelpHint() {
+	p.errorf(`Use %q to print help.`, p.cmdPath+` -h`)
 }
 
-func (p *parserNode) printHelp() {
-	p.printf("Usage of %s:\n\n", p.cmdPath)
+func (p *parser) printHelp() {
+	p.printf(`Usage of %s:`, p.cmdPath)
 	for _, helpField := range p.form.Help {
 		helpText := p.val.FieldByIndex(helpField.Index).String()
 		if len(helpText) > 0 {
-			p.printf("%s\n\n", helpText)
+			p.printf(helpText)
 		}
 	}
 	p.printHelpForGroups()
@@ -69,21 +87,21 @@ func (p *parserNode) printHelp() {
 	p.printHelpForPos()
 }
 
-func (p *parserNode) printHelpForGroups() {
+func (p *parser) printHelpForGroups() {
 	if len(p.form.Groups) == 0 {
 		return
 	}
 
-	p.printf("Groups:\n")
+	p.printf(`Groups:`)
 	for _, group := range p.form.AllGroups {
-		p.printf("\t%s\n", strings.Join(group.Names, nameSep))
+		p.printf(indent+`%s`, strings.Join(group.Names, nameSep))
 		if len(group.Description) > 0 {
-			p.printf("\t\t%s\n", group.Description)
+			p.printf(indent+indent+`%s`, group.Description)
 		}
 	}
 }
 
-func (p *parserNode) defaultValue(val reflect.Value) string {
+func (p *parser) defaultValue(val reflect.Value) string {
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return ``
@@ -102,15 +120,13 @@ func (p *parserNode) defaultValue(val reflect.Value) string {
 	if val.Kind() == reflect.String {
 		return fmt.Sprintf(`%q`, val.String())
 	}
-	return fmt.Sprintf(`%s`, val.Interface())
+	return fmt.Sprintf(`%v`, val.Interface())
 }
 
-func (p *parserNode) printHelpForFlags() {
-	if len(p.form.Flags) == 0 {
-		return
-	}
-
-	p.printf("Flags:\n")
+func (p *parser) printHelpForFlags() {
+	p.printf(`Flags:`)
+	p.printf(indent + helpShort + nameSep + help)
+	p.printf(indent + indent + `Shows help for the current tool`)
 	for _, flag := range p.form.AllFlags {
 		extra := ``
 		if flag.Required {
@@ -121,24 +137,20 @@ func (p *parserNode) printHelpForFlags() {
 				extra = ` = ` + defVal
 			}
 		}
-		p.printf("\t%s%s\n", strings.Join(flag.Names, nameSep), extra)
+		p.printf(indent+`%s%s`, strings.Join(flag.Names, nameSep), extra)
 		if len(flag.Description) > 0 {
-			p.printf("\t\t%s\n", flag.Description)
+			p.printf(indent+indent+`%s`, flag.Description)
 		}
 	}
 }
 
-func (p *parserNode) printHelpForPos() {
+func (p *parser) printHelpForPos() {
 	if len(p.form.Pos) == 0 {
 		return
 	}
 
-	p.printf("Positional Arguments:\n")
+	p.printf(`Positional Arguments:`)
 	for i, pos := range p.form.Pos {
-		name := pos.Name
-		if len(name) == 0 {
-			name = fmt.Sprintf("arg%d", i+1)
-		}
 		extra := ``
 		if i < p.form.PosOpAt {
 			extra = ` (` + required + `)`
@@ -148,14 +160,14 @@ func (p *parserNode) printHelpForPos() {
 				extra = ` = ` + defVal
 			}
 		}
-		p.printf("\t%s%s\n", name, extra)
+		p.printf(indent+`%s%s`, pos.Name, extra)
 		if len(pos.Description) > 0 {
-			p.printf("\t\t%s\n", pos.Description)
+			p.printf(indent+indent+`%s`, pos.Description)
 		}
 	}
 }
 
-func (p *parserNode) satisfiedFlags() bool {
+func (p *parser) satisfiedFlags() bool {
 	missingFlags := []string{}
 	for _, flag := range p.form.AllFlags {
 		if flag.Required && !p.foundFlags[flag] {
@@ -166,15 +178,15 @@ func (p *parserNode) satisfiedFlags() bool {
 	case 0:
 		return true
 	case 1:
-		p.printf("Missing required flag: %s\n", missingFlags[0])
+		p.errorf(`Missing required flag: %s`, missingFlags[0])
 		return false
 	default:
-		p.printf("Missing required flags: %s\n", strings.Join(missingFlags, `, `))
+		p.errorf(`Missing required flags: %s`, strings.Join(missingFlags, `, `))
 		return false
 	}
 }
 
-func (p *parserNode) satisfiedPos() bool {
+func (p *parser) satisfiedPos() bool {
 	if p.atPos >= p.form.PosOpAt {
 		return true
 	}
@@ -186,15 +198,15 @@ func (p *parserNode) satisfiedPos() bool {
 	case 0:
 		return true
 	case 1:
-		p.printf("Missing required positional: %s\n", missingPos[0])
+		p.errorf(`Missing required positional: %s`, missingPos[0])
 		return false
 	default:
-		p.printf("Missing required positionals: %s\n", strings.Join(missingPos, `, `))
+		p.errorf(`Missing required positionals: %s`, strings.Join(missingPos, `, `))
 		return false
 	}
 }
 
-func (p *parserNode) clearUnset() {
+func (p *parser) clearUnset() {
 	for _, flag := range p.form.AllFlags {
 		if !p.foundFlags[flag] {
 			p.clearField(flag.Field)
@@ -212,7 +224,7 @@ func (p *parserNode) clearUnset() {
 	}
 }
 
-func (p *parserNode) clearField(field reflect.StructField) {
+func (p *parser) clearField(field reflect.StructField) {
 	val := p.val.FieldByIndex(field.Index)
 	if val.Kind() == reflect.Ptr {
 		val.Set(reflect.Zero(val.Type()))
@@ -220,7 +232,7 @@ func (p *parserNode) clearField(field reflect.StructField) {
 	}
 }
 
-func (p *parserNode) Parse() bool {
+func (p *parser) Parse() bool {
 	for len(p.args) > 0 {
 		if !p.parseArg() {
 			return false
@@ -234,7 +246,7 @@ func (p *parserNode) Parse() bool {
 	return false
 }
 
-func (p *parserNode) parseArg() bool {
+func (p *parser) parseArg() bool {
 	arg := p.takeArg()
 	if p.isFlag(arg) {
 		flagName, _ := strings.CutPrefix(arg, dash)
@@ -246,11 +258,11 @@ func (p *parserNode) parseArg() bool {
 	return p.parsePos(arg)
 }
 
-func (p *parserNode) parseGroup(name string, group *groupForm) bool {
+func (p *parser) parseGroup(name string, group *groupForm) bool {
 	p.usedGroup[group] = true
 
 	if !p.satisfiedFlags() || !p.satisfiedPos() {
-		p.printf("Must fill requirements prior to calling group %q.\n", name)
+		p.errorf(`Must fill requirements prior to calling group %s.`, name)
 		p.printHelpHint()
 		return false
 	}
@@ -273,15 +285,20 @@ func (p *parserNode) parseGroup(name string, group *groupForm) bool {
 	return true
 }
 
-func (p *parserNode) parseFlag(name string) bool {
+func (p *parser) parseFlag(name string) bool {
+	if name == help || name == helpShort {
+		p.printHelp()
+		return false
+	}
+
 	flag, ok := p.form.Flags[name]
 	if !ok {
-		p.printf("Unknown flag: %s\n", name)
+		p.errorf(`Unknown flag %q.`, name)
 		p.printHelpHint()
 		return false
 	}
 	if p.foundFlags[flag] {
-		p.printf("Flag %q already set.\n", name)
+		p.errorf(`%q flag already set.`, name)
 		p.printHelpHint()
 		return false
 	}
@@ -305,21 +322,22 @@ func (p *parserNode) parseFlag(name string) bool {
 	}
 
 	if len(p.args) == 0 {
-		p.printf("Flag %q requires a value.\n", name)
+		p.errorf(`%q flag requires a value.`, name)
 		p.printHelpHint()
 		return false
 	}
 
 	value := p.takeArg()
 	if p.isFlag(value) {
-		if value == help || value == helpShort {
+		flagName, _ := strings.CutPrefix(value, dash)
+		if flagName == help || flagName == helpShort {
 			p.printHelp()
 			return false
 		}
 
-		p.printf("Flag %q requires a value.\n", name)
+		p.errorf(`%q flag requires a value.`, name)
 		if flag.Field.Type.Kind() == reflect.String {
-			p.printf("If the intended string value starts with a dash, escape the value: -%s %q\n", name, value)
+			p.errorf(`If the intended string value starts with a dash, escape the value: -%s %q`, name, value)
 		}
 		p.printHelpHint()
 		return false
@@ -329,10 +347,10 @@ func (p *parserNode) parseFlag(name string) bool {
 	return p.setValue(val, name, value)
 }
 
-func (p *parserNode) parsePos(value string) bool {
+func (p *parser) parsePos(value string) bool {
 	posCount := len(p.form.Pos)
 	if p.atPos >= posCount {
-		p.printf("Unexpected positional argument: %s\n", value)
+		p.errorf(`Unexpected positional argument: %s`, value)
 		p.printHelpHint()
 		return false
 	}
@@ -352,7 +370,7 @@ func (p *parserNode) parsePos(value string) bool {
 	return p.setValue(val, pos.Name, value)
 }
 
-func (p *parserNode) setValue(val reflect.Value, name string, value string) bool {
+func (p *parser) setValue(val reflect.Value, name string, value string) bool {
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			val2 := reflect.New(val.Type().Elem())
@@ -380,7 +398,7 @@ func (p *parserNode) setValue(val reflect.Value, name string, value string) bool
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		n, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
-			p.printf("Invalid integer value for %s: %s\n", name, value)
+			p.errorf(`Invalid integer value for %s: %s`, name, value)
 			p.printHelpHint()
 			return false
 		}
@@ -389,7 +407,7 @@ func (p *parserNode) setValue(val reflect.Value, name string, value string) bool
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		n, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			p.printf("Invalid unsigned integer value for %s: %s\n", name, value)
+			p.errorf(`Invalid unsigned integer value for %s: %s`, name, value)
 			p.printHelpHint()
 			return false
 		}
@@ -398,7 +416,7 @@ func (p *parserNode) setValue(val reflect.Value, name string, value string) bool
 	case reflect.Float32, reflect.Float64:
 		n, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			p.printf("Invalid float value for %s: %s\n", name, value)
+			p.errorf(`Invalid float value for %s: %s`, name, value)
 			p.printHelpHint()
 			return false
 		}
@@ -408,7 +426,6 @@ func (p *parserNode) setValue(val reflect.Value, name string, value string) bool
 		val.SetString(value)
 		return true
 	}
-	p.printf("Unsupported type: %v\n", val.Kind())
-	p.printHelpHint()
+	p.errorf(`Argument parser error: Unsupported type: %v`, val.Kind())
 	return false
 }

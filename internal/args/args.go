@@ -152,7 +152,7 @@ import (
 // This returns true if the arguments were parsed successfully,
 // otherwise false if the arguments were invalid or help was printed.
 func Parse(s any) bool {
-	return ParseArgs(s, os.Args, nil)
+	return ParseArgs(s, os.Args, nil, nil)
 }
 
 // Parse parses the given arguments and populates the given struct
@@ -160,22 +160,19 @@ func Parse(s any) bool {
 //
 // The given arguments must include the command name.
 // The struct must follow the rules defined in the package.
-// The output writer is used to print the help messages to customers
-// if the arguments are invalid. If nil the [os.Stderr] will be used.
+//
+// The output writers are used to print the help messages to customers
+// if the arguments are invalid or help is requested.
+// If `stdOut` is nil then [os.Stdout] will be used.
+// If `stdErr` is nil then [os.Stderr] will be used.
 //
 // This will panic if the given struct (s) is not valid.
 // This returns true if the arguments were parsed successfully,
 // otherwise false if the arguments were invalid or help was printed.
-func ParseArgs(s any, args []string, out io.Writer) bool {
-	if len(args) < 1 {
-		panic(ErrTooFewArgs)
-	}
-	if out == nil {
-		out = os.Stderr
-	}
+func ParseArgs(s any, args []string, stdOut, stdErr io.Writer) bool {
 	val := getValue(s)
 	form := getForm(val.Type())
-	return parseArgs(form, val, args, out)
+	return parseArgs(form, val, args, stdOut, stdErr)
 }
 
 func getValue(s any) reflect.Value {
