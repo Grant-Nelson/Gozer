@@ -1,8 +1,10 @@
 package args
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"reflect"
 	"strconv"
@@ -304,20 +306,16 @@ func (p *parser) parseFlag(name string) bool {
 	}
 	p.foundFlags[flag] = true
 
-	if flag.Field.Type.Kind() == reflect.Bool {
+	if p.isFieldBool(flag.Field.Type) {
+		val := p.val.FieldByIndex(flag.Field.Index)
 		if len(p.args) > 0 {
-			switch p.args[0] {
-			case trueStr:
+			if b, ok := p.isBool(p.args[0]); ok {
 				p.takeArg()
-				p.val.FieldByIndex(flag.Field.Index).SetBool(true)
-				return true
-			case falseStr:
-				p.takeArg()
-				p.val.FieldByIndex(flag.Field.Index).SetBool(false)
+				p.setBool(val, b)
 				return true
 			}
 		}
-		p.val.FieldByIndex(flag.Field.Index).SetBool(true)
+		p.setBool(val, true)
 		return true
 	}
 
@@ -370,15 +368,37 @@ func (p *parser) parsePos(value string) bool {
 	return p.setValue(val, pos.Name, value)
 }
 
-func (p *parser) setValue(val reflect.Value, name string, value string) bool {
-	if val.Kind() == reflect.Ptr {
+func (p *parser) isFieldBool(t reflect.Type) bool {
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	return t.Kind() == reflect.Bool
+}
+
+func (p *parser) isBool(value string) (bool, bool) {
+	if unquoted, err := strconv.Unquote(value); err == nil {
+		value = unquoted
+	}
+	b, err := strconv.ParseBool(value)
+	return b, err == nil
+}
+
+func (p *parser) setBool(val reflect.Value, value bool) {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
-			val2 := reflect.New(val.Type().Elem())
-			val.Set(val2)
-			val = val2
-		} else {
-			val = val.Elem()
+			val.Set(reflect.New(val.Type().Elem()))
 		}
+		val = val.Elem()
+	}
+	val.SetBool(value)
+}
+
+func (p *parser) setValue(val reflect.Value, name string, value string) bool {
+	if val.Kind() == reflect.Pointer {
+		if val.IsNil() {
+			val.Set(reflect.New(val.Type().Elem()))
+		}
+		val = val.Elem()
 	}
 
 	if unquoted, err := strconv.Unquote(value); err == nil {
@@ -387,45 +407,101 @@ func (p *parser) setValue(val reflect.Value, name string, value string) bool {
 
 	switch val.Kind() {
 	case reflect.Bool:
-		switch value {
-		case trueStr:
-			val.SetBool(true)
-			return true
-		case falseStr:
-			val.SetBool(false)
-			return true
-		}
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			p.errorf(`Invalid integer value for %s: %s`, name, value)
-			p.printHelpHint()
-			return false
-		}
-		val.SetInt(n)
-		return true
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		n, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			p.errorf(`Invalid unsigned integer value for %s: %s`, name, value)
-			p.printHelpHint()
-			return false
-		}
-		val.SetUint(n)
-		return true
-	case reflect.Float32, reflect.Float64:
-		n, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			p.errorf(`Invalid float value for %s: %s`, name, value)
-			p.printHelpHint()
-			return false
-		}
-		val.SetFloat(n)
-		return true
+		return p.setBoolValue(val, name, value)
+	case reflect.Int:
+		return p.setIntValue(val, name, value, 0, math.MinInt, math.MaxInt)
+	case reflect.Int8:
+		return p.setIntValue(val, name, value, 8, math.MinInt8, math.MaxInt8)
+	case reflect.Int16:
+		return p.setIntValue(val, name, value, 16, math.MinInt16, math.MaxInt16)
+	case reflect.Int32:
+		return p.setIntValue(val, name, value, 32, math.MinInt32, math.MaxInt32)
+	case reflect.Int64:
+		return p.setIntValue(val, name, value, 64, math.MinInt64, math.MaxInt64)
+	case reflect.Uint:
+		return p.setUintValue(val, name, value, 0, math.MaxUint)
+	case reflect.Uint8:
+		return p.setUintValue(val, name, value, 8, math.MaxUint8)
+	case reflect.Uint16:
+		return p.setUintValue(val, name, value, 16, math.MaxUint16)
+	case reflect.Uint32:
+		return p.setUintValue(val, name, value, 32, math.MaxUint32)
+	case reflect.Uint64:
+		return p.setUintValue(val, name, value, 64, math.MaxUint64)
+	case reflect.Float32:
+		return p.setFloatValue(val, name, value, 32)
+	case reflect.Float64:
+		return p.setFloatValue(val, name, value, 64)
 	case reflect.String:
 		val.SetString(value)
 		return true
 	}
 	p.errorf(`Argument parser error: Unsupported type: %v`, val.Kind())
 	return false
+}
+
+func (p *parser) setBoolValue(val reflect.Value, name string, value string) bool {
+	b, err := strconv.ParseBool(value)
+	if err != nil {
+		p.errorf(`Invalid boolean value for %s: %s`, name, value)
+		p.printHelpHint()
+		return false
+	}
+	val.SetBool(b)
+	return true
+}
+
+func (p *parser) setIntValue(val reflect.Value, name string, value string, bitSize int, min, max int64) bool {
+	n, err := strconv.ParseInt(value, 0, bitSize)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			p.errorf(`Integer value for %s is out of the range %d to %d: %s`, name, min, max, value)
+			p.printHelpHint()
+			return false
+		}
+		p.errorf(`Invalid integer value for %s: %s`, name, value)
+		p.printHelpHint()
+		return false
+	}
+	val.SetInt(n)
+	return true
+}
+
+func (p *parser) setUintValue(val reflect.Value, name string, value string, bitSize int, max uint64) bool {
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, `-`) {
+		p.errorf(`Unsigned integer value for %s is out of the range 0 to %d: %s`, name, max, value)
+		p.printHelpHint()
+		return false
+	}
+	value, _ = strings.CutPrefix(value, `+`)
+	n, err := strconv.ParseUint(value, 0, bitSize)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			p.errorf(`Unsigned integer value for %s is out of the range 0 to %d: %s`, name, max, value)
+			p.printHelpHint()
+			return false
+		}
+		p.errorf(`Invalid unsigned integer value for %s: %s`, name, value)
+		p.printHelpHint()
+		return false
+	}
+	val.SetUint(n)
+	return true
+}
+
+func (p *parser) setFloatValue(val reflect.Value, name string, value string, bitSize int) bool {
+	n, err := strconv.ParseFloat(value, bitSize)
+	if err != nil {
+		if errors.Is(err, strconv.ErrRange) {
+			p.errorf(`Unsigned integer value for %s is out of range for a float %d: %s`, name, bitSize, value)
+			p.printHelpHint()
+			return false
+		}
+		p.errorf(`Invalid float value for %s: %s`, name, value)
+		p.printHelpHint()
+		return false
+	}
+	val.SetFloat(n)
+	return true
 }
