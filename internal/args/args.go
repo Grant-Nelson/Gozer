@@ -119,7 +119,8 @@
 //   - The pos's description may be empty.
 //     The description is used for the help output.
 //
-// By default the positional argument is required. To make the positional
+// By default the positional argument is required, unless variadic that is
+// defaulted to optional and may only be optional. To make the positional
 // argument optional, use the tag `arg:"optional,pos,<description>"`.
 // Once an optional positional argument is used, all following positional
 // arguments must also be optional.
@@ -131,6 +132,9 @@
 //
 // If the last positional argument is a slice, then it is a variadic
 // and will consume all remaining positional arguments.
+// A variadic positional arguments may not be a pointer nor
+// may not have pointer elements. The whole slice will be cleared if no value
+// is set or before the first value is set.
 //
 //	type example struct {
 //		Files []string `arg:"pos,files,The files to process"`

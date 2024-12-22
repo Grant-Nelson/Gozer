@@ -30,6 +30,7 @@ func parseArgs(f *form, val reflect.Value, args []string, stdOut, stdErr io.Writ
 		atPos:      0,
 		val:        val,
 		args:       args[1:],
+		firstVar:   true,
 		stdOut:     stdOut,
 		stdErr:     stdErr,
 	}
@@ -44,6 +45,7 @@ type parser struct {
 	atPos      int
 	val        reflect.Value
 	args       []string
+	firstVar   bool
 	stdOut     io.Writer
 	stdErr     io.Writer
 }
@@ -139,7 +141,11 @@ func (p *parser) printHelpForFlags() {
 				extra = ` = ` + defVal
 			}
 		}
-		p.printf(indent+`%s%s`, strings.Join(flag.Names, nameSep), extra)
+		t := flag.Field.Type
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		p.printf(indent+`%s %s%s`, strings.Join(flag.Names, nameSep), t.String(), extra)
 		if len(flag.Description) > 0 {
 			p.printf(indent+indent+`%s`, flag.Description)
 		}
@@ -162,7 +168,11 @@ func (p *parser) printHelpForPos() {
 				extra = ` = ` + defVal
 			}
 		}
-		p.printf(indent+`%s%s`, pos.Name, extra)
+		t := pos.Field.Type
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		p.printf(indent+`%s %s%s`, pos.Name, t.String(), extra)
 		if len(pos.Description) > 0 {
 			p.printf(indent+indent+`%s`, pos.Description)
 		}
@@ -197,8 +207,6 @@ func (p *parser) satisfiedPos() bool {
 		missingPos = append(missingPos, pos.Name)
 	}
 	switch len(missingPos) {
-	case 0:
-		return true
 	case 1:
 		p.errorf(`Missing required positional: %s`, missingPos[0])
 		return false
@@ -219,7 +227,8 @@ func (p *parser) clearUnset() {
 			p.clearField(group.Field)
 		}
 	}
-	if p.atPos < len(p.form.Pos) {
+	if posCount := len(p.form.Pos); p.atPos < posCount &&
+		(!p.form.Variadic || p.atPos != posCount-1 || p.firstVar) {
 		for _, pos := range p.form.Pos[p.atPos:] {
 			p.clearField(pos.Field)
 		}
@@ -228,9 +237,9 @@ func (p *parser) clearUnset() {
 
 func (p *parser) clearField(field reflect.StructField) {
 	val := p.val.FieldByIndex(field.Index)
-	if val.Kind() == reflect.Ptr {
+	switch val.Kind() {
+	case reflect.Ptr, reflect.Slice:
 		val.Set(reflect.Zero(val.Type()))
-		return
 	}
 }
 
@@ -355,12 +364,16 @@ func (p *parser) parsePos(value string) bool {
 
 	pos := p.form.Pos[p.atPos]
 	val := p.val.FieldByIndex(pos.Field.Index)
-	if p.atPos == posCount-1 && p.form.Variadic {
+	if p.form.Variadic && p.atPos == posCount-1 {
 		elem := reflect.New(val.Type().Elem())
 		if !p.setValue(elem, pos.Name, value) {
 			return false
 		}
-		val.Set(reflect.Append(val, elem))
+		if p.firstVar {
+			p.firstVar = false
+			val.Set(reflect.New(val.Type()).Elem())
+		}
+		val.Set(reflect.Append(val, elem.Elem()))
 		return true
 	}
 

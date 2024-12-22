@@ -122,11 +122,11 @@ func TestFlags_Args(t *testing.T) {
 		`Flags:`,
 		`	h|help`,
 		`		Shows help for the current tool`,
-		`	verbose|v = false`,
+		`	verbose|v bool = false`,
 		`		Print verbose output`,
-		`	input|i (required)`,
+		`	input|i string (required)`,
 		`		Path to input file`,
-		`	output|o = "out.txt"`,
+		`	output|o string = "out.txt"`,
 		`		Path to write the output to`)
 
 	parseHelp(t, newS(), `cat -i -h`,
@@ -134,11 +134,11 @@ func TestFlags_Args(t *testing.T) {
 		`Flags:`,
 		`	h|help`,
 		`		Shows help for the current tool`,
-		`	verbose|v = false`,
+		`	verbose|v bool = false`,
 		`		Print verbose output`,
-		`	input|i (required)`,
+		`	input|i string (required)`,
 		`		Path to input file`,
-		`	output|o = "out.txt"`,
+		`	output|o string = "out.txt"`,
 		`		Path to write the output to`)
 }
 
@@ -162,11 +162,11 @@ func TestFlags_Clearable(t *testing.T) {
 		`Flags:`,
 		`	h|help`,
 		`		Shows help for the current tool`,
-		`	v = true`,
+		`	v bool = true`,
 		`		Print verbose output`,
-		`	i = "in.txt"`,
+		`	i string = "in.txt"`,
 		`		Path to input file`,
-		`	o`,
+		`	o string`,
 		`		Path to write the output to`)
 	equal(t, s.Verbose, toPtr(true))
 	equal(t, s.Input, toPtr(`in.txt`))
@@ -191,6 +191,12 @@ func TestFlags_Clearable(t *testing.T) {
 	equal(t, s.Output, toPtr(`out.json`))
 
 	s = newS()
+	parsePass(t, s, `cat -v`)
+	equal(t, s.Verbose, toPtr(true))
+	equal(t, s.Input, nil)
+	equal(t, s.Output, nil)
+
+	s = &S{}
 	parsePass(t, s, `cat -v`)
 	equal(t, s.Verbose, toPtr(true))
 	equal(t, s.Input, nil)
@@ -228,6 +234,8 @@ func TestFlags_Types(t *testing.T) {
 	parseFail(t, s, `cat -Bool dog`,
 		`Unexpected positional argument: dog`,
 		`Use "cat -h" to print help.`)
+	parsePass(t, s, `cat -Bool "true"`)
+	equal(t, s.Bool, true)
 
 	parsePass(t, s, `cat -Int 123`)
 	equal(t, s.Int, 123)
@@ -320,12 +328,12 @@ func TestFlags_BadForm(t *testing.T) {
 	s1 := &struct {
 		C chan bool `arg:"flag,,"`
 	}{}
-	parsePanic(t, s1, `cat`, ErrFlagTagWrongType.with(`chan`))
+	parsePanic(t, s1, `cat`, ErrFlagTagWrongType.with(`chan bool`))
 
 	s2 := &struct {
 		M map[string]int `arg:"flag,,"`
 	}{}
-	parsePanic(t, s2, `cat`, ErrFlagTagWrongType.with(`map`))
+	parsePanic(t, s2, `cat`, ErrFlagTagWrongType.with(`map[string]int`))
 
 	s3 := &struct {
 		X int `arg:"flag,bad kitty,"`
@@ -351,7 +359,7 @@ func TestFlags_BadForm(t *testing.T) {
 	s7 := &struct {
 		X []int `arg:"flag,,"`
 	}{}
-	parsePanic(t, s7, `cat`, ErrFlagTagWrongType.with(`slice`))
+	parsePanic(t, s7, `cat`, ErrFlagTagWrongType.with(`[]int`))
 }
 
 func TestFlags_Form(t *testing.T) {
@@ -367,9 +375,9 @@ func TestFlags_Form(t *testing.T) {
 		`Flags:`,
 		`	h|help`,
 		`		Shows help for the current tool`,
-		`	input|in|i (required)`,
+		`	input|in|i string (required)`,
 		`		Path to input file`,
-		`	Output (required)`,
+		`	Output string (required)`,
 		`		Path to write the output to`)
 
 	s2 := &struct {
@@ -390,7 +398,238 @@ func TestFlags_Form(t *testing.T) {
 }
 
 func TestPos_Args(t *testing.T) {
-	// TODO: Implement
+	type S1 struct {
+		Verbose bool   `arg:"flag,v,Print verbose output"`
+		Input   string `arg:"pos,input,Path to input file"`
+		Output  string `arg:"optional,pos,,Path to write the output to"`
+	}
+
+	s1 := &S1{}
+	parsePass(t, s1, `cat food.json`)
+	equal(t, s1.Verbose, false)
+	equal(t, s1.Input, `food.json`)
+	equal(t, s1.Output, ``)
+
+	s1 = &S1{}
+	parsePass(t, s1, `cat -v food.json`)
+	equal(t, s1.Verbose, true)
+	equal(t, s1.Input, `food.json`)
+	equal(t, s1.Output, ``)
+
+	s1 = &S1{}
+	parsePass(t, s1, `cat food.json -v zoom`)
+	equal(t, s1.Verbose, true)
+	equal(t, s1.Input, `food.json`)
+	equal(t, s1.Output, `zoom`)
+
+	parseFail(t, &S1{}, `cat -v`,
+		`Missing required positional: input`,
+		`Use "cat -h" to print help.`)
+
+	parseHelp(t, &S1{}, `cat -h`,
+		`Usage of cat:`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`,
+		`	v bool = false`,
+		`		Print verbose output`,
+		`Positional Arguments:`,
+		`	input string (required)`,
+		`		Path to input file`,
+		`	Output string = ""`,
+		`		Path to write the output to`)
+
+	type S2 struct {
+		Verbose bool `arg:"flag,v,Print verbose output"`
+		X       int  `arg:"pos,input,X value"`
+		Y       int  `arg:"optional,pos,,Y value"`
+	}
+	s2 := &S2{}
+	parsePass(t, s2, `cat 145 0xFF`)
+	equal(t, s2.Verbose, false)
+	equal(t, s2.X, 145)
+	equal(t, s2.Y, 255)
+
+	s2 = &S2{}
+	parseFail(t, s2, `cat dog`,
+		`Invalid integer value for input: dog`,
+		`Use "cat -h" to print help.`)
+
+	type S3 struct {
+		Verbose *bool `arg:"optional,pos,,talkative"`
+		X       *int  `arg:"optional,pos,,X value"`
+		Y       *int  `arg:"optional,pos,,Y value"`
+	}
+	s3 := &S3{}
+	parsePass(t, s3, `cat true -42 "+56"`)
+	equal(t, s3.Verbose, toPtr(true))
+	equal(t, s3.X, toPtr(-42))
+	equal(t, s3.Y, toPtr(56))
+
+	s3 = &S3{}
+	parseHelp(t, s3, `cat -h`,
+		`Usage of cat:`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`,
+		`Positional Arguments:`,
+		`	Verbose bool`,
+		`		talkative`,
+		`	X int`,
+		`		X value`,
+		`	Y int`,
+		`		Y value`)
+
+	s3 = &S3{
+		Verbose: toPtr(true),
+		X:       toPtr(12),
+		Y:       toPtr(34),
+	}
+	parsePass(t, s3, `cat`)
+	equal(t, s3.Verbose, nil)
+	equal(t, s3.X, nil)
+	equal(t, s3.Y, nil)
+
+	s3 = &S3{}
+	parsePass(t, s3, `cat 1`)
+	equal(t, s3.Verbose, toPtr(true))
+	equal(t, s3.X, nil)
+	equal(t, s3.Y, nil)
+
+	s3 = &S3{}
+	parsePass(t, s3, `cat "true"`)
+	equal(t, s3.Verbose, toPtr(true))
+	equal(t, s3.X, nil)
+	equal(t, s3.Y, nil)
+
+	parseFail(t, &S3{}, `cat dog`,
+		`Invalid boolean value for Verbose: dog`,
+		`Use "cat -h" to print help.`)
+
+	type S4 struct {
+		X int `arg:"pos,,X value"`
+		Y int `arg:"required,pos,,Y value"`
+	}
+	s4 := &S4{}
+	parsePass(t, s4, `cat 11 22`)
+	equal(t, s4.X, 11)
+	equal(t, s4.Y, 22)
+
+	parseFail(t, &S4{}, `cat`,
+		`Missing required positionals: X, Y`,
+		`Use "cat -h" to print help.`)
+}
+
+func TestPos_Variadic(t *testing.T) {
+	type S1 struct {
+		Verbose bool     `arg:"flag,v,talkative"`
+		Output  string   `arg:"pos,,Output file"`
+		Inputs  []string `arg:"pos,,Zero or more input files"`
+	}
+	s1 := &S1{}
+	parsePass(t, s1, `cat out.txt`)
+	equal(t, s1.Output, `out.txt`)
+	equal(t, s1.Inputs, []string(nil))
+
+	s1 = &S1{}
+	parsePass(t, s1, `cat out.txt a.txt b.txt`)
+	equal(t, s1.Output, `out.txt`)
+	equal(t, s1.Inputs, []string{`a.txt`, `b.txt`})
+
+	s1 = &S1{
+		Inputs: []string{`x`, `y`},
+	}
+	parsePass(t, s1, `cat out.txt a b c`)
+	equal(t, s1.Output, `out.txt`)
+	equal(t, s1.Inputs, []string{`a`, `b`, `c`})
+
+	s1 = &S1{
+		Inputs: []string{`x`, `y`},
+	}
+	parsePass(t, s1, `cat out.txt `)
+	equal(t, s1.Output, `out.txt`)
+	equal(t, s1.Inputs, []string(nil))
+
+	s1 = &S1{}
+	parsePass(t, s1, `cat out.txt a -v b`)
+	equal(t, s1.Output, `out.txt`)
+	equal(t, s1.Inputs, []string{`a`, `b`})
+
+	s1 = &S1{}
+	parsePass(t, s1, `cat out.txt a -v true b`)
+	equal(t, s1.Output, `out.txt`)
+	equal(t, s1.Inputs, []string{`a`, `b`})
+
+	s1 = &S1{
+		Output: `out.json`,
+		Inputs: []string{`in1`, `in2`},
+	}
+	parseHelp(t, s1, `cat -h`,
+		`Usage of cat:`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`,
+		`	v bool = false`,
+		`		talkative`,
+		`Positional Arguments:`,
+		`	Output string (required)`,
+		`		Output file`,
+		`	Inputs []string = ["in1", "in2"]`,
+		`		Zero or more input files`)
+
+	s2 := &struct {
+		Verbose bool   `arg:"flag,v,talkative"`
+		Output  string `arg:"pos,,Output file"`
+		Inputs  []int  `arg:"pos,,Zero or more input files"`
+	}{}
+	parseFail(t, s2, `cat o.json dog`,
+		`Invalid integer value for Inputs: dog`,
+		`Use "cat -h" to print help.`)
+}
+
+func TestPos_BadForm(t *testing.T) {
+	s1 := &struct {
+		Inputs []string `arg:"pos,i|input,Zero or more input files"`
+	}{}
+	parsePanic(t, s1, `cat`, ErrInvalidPosName.with(`"i|input"`))
+
+	s2 := &struct {
+		Inputs []string `arg:"pos,input files,Zero or more input files"`
+	}{}
+	parsePanic(t, s2, `cat`, ErrInvalidPosName.with(`"input files"`))
+
+	s3 := &struct {
+		Inputs []*string `arg:"pos,,Zero or more input files"`
+	}{}
+	parsePanic(t, s3, `cat`, ErrPosTagWrongType.with(`[]*string`))
+
+	s4 := &struct {
+		Inputs *[]string `arg:"pos,,Zero or more input files"`
+	}{}
+	parsePanic(t, s4, `cat`, ErrPosTagWrongType.with(`*[]string`))
+
+	s5 := &struct {
+		Inputs []string `arg:"required,pos,,"`
+	}{}
+	parsePanic(t, s5, `cat`, ErrVarPosRequired.with(`"Inputs"`))
+
+	s6 := &struct {
+		Input  string `arg:"pos,X,"`
+		Output string `arg:"pos,X,"`
+	}{}
+	parsePanic(t, s6, `cat`, ErrPosAlreadyExists.with(`"X"`))
+
+	s7 := &struct {
+		Inputs []string `arg:"pos,,"`
+		Output string   `arg:"pos,,"`
+	}{}
+	parsePanic(t, s7, `cat`, ErrVarPosNotLast.with(`"Output"`))
+
+	s8 := &struct {
+		Inputs string `arg:"optional,pos,,"`
+		Output string `arg:"pos,,"`
+	}{}
+	parsePanic(t, s8, `cat`, ErrPosRequiredAfterOp.with(`"Output"`))
 }
 
 func toPtr[T any](v T) *T { return &v }
@@ -398,6 +637,8 @@ func toPtr[T any](v T) *T { return &v }
 func splitArgs(args string) []string {
 	parts := strings.Fields(args)
 	for i, part := range parts {
+		// For simplicity, since Fields doesn't honor quotes,
+		// use underscores in quotes to represents spaces.
 		parts[i] = strings.Replace(part, `_`, ` `, -1)
 	}
 	return parts
@@ -457,7 +698,10 @@ func formatValue(value any) string {
 			return `*` + format(val.Elem())
 		case reflect.String:
 			return fmt.Sprintf(`%q`, val.String())
-		case reflect.Array:
+		case reflect.Array, reflect.Slice:
+			if val.IsNil() {
+				return `[]<nil>`
+			}
 			elems := make([]string, val.Len())
 			for i := range val.Len() {
 				elems[i] = format(val.Index(i))
@@ -470,7 +714,7 @@ func formatValue(value any) string {
 	return format(reflect.ValueOf(value))
 }
 
-func equal[T comparable](t *testing.T, got, want T) {
+func equal[T any](t *testing.T, got, want T) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %s, want %s", formatValue(got), formatValue(want))

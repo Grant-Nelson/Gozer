@@ -164,7 +164,7 @@ func (b *formBuilder) ReadField(f *form, field reflect.StructField) {
 
 func (b *formBuilder) ReadGroup(f *form, need string, field reflect.StructField, tag string) {
 	if !b.isStructType(field.Type) {
-		panic(ErrGroupTagWrongType.with(`%v`, field.Type.Kind()))
+		panic(ErrGroupTagWrongType.with(`%v`, field.Type))
 	}
 	if need == required {
 		panic(ErrGroupTagRequired.with(`%q`, tag))
@@ -198,7 +198,7 @@ func (b *formBuilder) ReadGroup(f *form, need string, field reflect.StructField,
 
 func (b *formBuilder) ReadFlag(f *form, need string, field reflect.StructField, tag string) {
 	if !b.isBasicType(field.Type) {
-		panic(ErrFlagTagWrongType.with(`%v`, field.Type.Kind()))
+		panic(ErrFlagTagWrongType.with(`%v`, field.Type))
 	}
 	namePart, description := b.takeFirst(tag)
 	if len(namePart) == 0 {
@@ -235,9 +235,12 @@ func (b *formBuilder) ReadPos(f *form, need string, field reflect.StructField, t
 	t := field.Type
 	if variadic {
 		t = t.Elem()
+		if t.Kind() == reflect.Pointer {
+			panic(ErrPosTagWrongType.with(`%v`, field.Type))
+		}
 	}
 	if !b.isBasicType(t) {
-		panic(ErrPosTagWrongType.with(`%v`, field.Type.Kind()))
+		panic(ErrPosTagWrongType.with(`%v`, field.Type))
 	}
 	name, description := b.takeFirst(tag)
 	if len(name) == 0 {
@@ -251,8 +254,12 @@ func (b *formBuilder) ReadPos(f *form, need string, field reflect.StructField, t
 			panic(ErrPosAlreadyExists.with(`%q`, name))
 		}
 	}
-	required := need != optional
-	if required {
+	if f.Variadic {
+		panic(ErrVarPosNotLast.with(`%q`, name))
+	}
+	req := (variadic && need == required) ||
+		(!variadic && need != optional)
+	if req {
 		if variadic {
 			panic(ErrVarPosRequired.with(`%q`, name))
 		}
@@ -260,16 +267,13 @@ func (b *formBuilder) ReadPos(f *form, need string, field reflect.StructField, t
 			panic(ErrPosRequiredAfterOp.with(`%q`, name))
 		}
 	}
-	if variadic && f.Variadic {
-		panic(ErrVarPosNotLast.with(`%q`, name))
-	}
 
 	pf := &posForm{
 		Name:        name,
 		Field:       field,
 		Description: description,
 	}
-	if required {
+	if req {
 		f.PosOpAt = len(f.Pos) + 1
 	}
 	f.Variadic = variadic
