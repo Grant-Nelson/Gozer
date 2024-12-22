@@ -632,6 +632,157 @@ func TestPos_BadForm(t *testing.T) {
 	parsePanic(t, s8, `cat`, ErrPosRequiredAfterOp.with(`"Output"`))
 }
 
+func TestTool_Args(t *testing.T) {
+	type S1A struct {
+		Usage  string `arg:"help"`
+		Input  string `arg:"flag,i,input file"`
+		Output string `arg:"flag,o,output file"`
+	}
+	type S1B struct {
+		Usage   string  `arg:"help"`
+		Version *string `arg:"flag,v,version to use"`
+		Input   string  `arg:"pos,i,input file"`
+		Output  string  `arg:"pos,o,output file"`
+	}
+	type S1 struct {
+		Usage   string `arg:"help"`
+		Verbose *bool  `arg:"flag,v,blah blah blah"`
+		A       *S1A   `arg:"tool,a,tool A"`
+		B       *S1B   `arg:"tool,b,tool B"`
+	}
+
+	newS := func() *S1 {
+		return &S1{
+			Usage:   `main tool's custom help message`,
+			Verbose: toPtr(false),
+			A: &S1A{
+				Usage:  `tool A is for Aardvarks`,
+				Input:  `apple.txt`,
+				Output: `anvil.jpg`,
+			},
+			B: &S1B{
+				Usage:   `tool B is for Bananas`,
+				Version: toPtr(`0.9.0 beta`),
+				Input:   `baboon.txt`,
+				Output:  `bongos.jpg`,
+			},
+		}
+	}
+
+	s1 := newS()
+	parsePass(t, s1, `cat`)
+	equal(t, s1.Usage, `main tool's custom help message`)
+	equal(t, s1.Verbose, nil)
+	equal(t, s1.A, nil)
+	equal(t, s1.B, nil)
+
+	s1 = newS()
+	parseHelp(t, s1, `cat -h`,
+		`Usage of cat:`,
+		`main tool's custom help message`,
+		`Tools:`,
+		`	a`,
+		`		tool A`,
+		`	b`,
+		`		tool B`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`,
+		`	v bool = false`,
+		`		blah blah blah`)
+
+	s1 = newS()
+	parsePass(t, s1, `cat -v a`)
+	equal(t, s1.Usage, `main tool's custom help message`)
+	equal(t, s1.Verbose, toPtr(true))
+	notEqual(t, s1.A, nil)
+	equal(t, s1.A.Usage, `tool A is for Aardvarks`)
+	equal(t, s1.A.Input, `apple.txt`)
+	equal(t, s1.A.Output, `anvil.jpg`)
+	equal(t, s1.B, nil)
+
+	s1 = newS()
+	parsePass(t, s1, `cat -v a -i input -o output`)
+	equal(t, s1.Usage, `main tool's custom help message`)
+	equal(t, s1.Verbose, toPtr(true))
+	notEqual(t, s1.A, nil)
+	equal(t, s1.A.Usage, `tool A is for Aardvarks`)
+	equal(t, s1.A.Input, `input`)
+	equal(t, s1.A.Output, `output`)
+	equal(t, s1.B, nil)
+
+	s1 = newS()
+	s1.A = nil
+	parsePass(t, s1, `cat a -i meow`)
+	equal(t, s1.Usage, `main tool's custom help message`)
+	equal(t, s1.Verbose, nil)
+	notEqual(t, s1.A, nil)
+	equal(t, s1.A.Usage, ``)
+	equal(t, s1.A.Input, `meow`)
+	equal(t, s1.A.Output, ``)
+	equal(t, s1.B, nil)
+
+	s1 = newS()
+	parseFail(t, s1, `cat a -v`,
+		`Unknown flag "v".`,
+		`Use "cat a -h" to print help.`)
+
+	s1 = newS()
+	parseHelp(t, s1, `cat -v a -h`,
+		`Usage of cat a:`,
+		`tool A is for Aardvarks`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`,
+		`	i string = "apple.txt"`,
+		`		input file`,
+		`	o string = "anvil.jpg"`,
+		`		output file`)
+
+	s1 = newS()
+	parseFail(t, s1, `cat -v b`,
+		`Missing required positionals: i, o`,
+		`Use "cat b -h" to print help.`)
+
+	s1 = newS()
+	parsePass(t, s1, `cat -v b input output`)
+	equal(t, s1.Usage, `main tool's custom help message`)
+	equal(t, s1.Verbose, toPtr(true))
+	equal(t, s1.A, nil)
+	notEqual(t, s1.B, nil)
+	equal(t, s1.B.Usage, `tool B is for Bananas`)
+	equal(t, s1.B.Version, nil)
+	equal(t, s1.B.Input, `input`)
+	equal(t, s1.B.Output, `output`)
+
+	s1 = newS()
+	parseHelp(t, s1, `cat -v b -h`,
+		`Usage of cat b:`,
+		`tool B is for Bananas`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`,
+		`	v string = "0.9.0 beta"`,
+		`		version to use`,
+		`Positional Arguments:`,
+		`	i string (required)`,
+		`		input file`,
+		`	o string (required)`,
+		`		output file`)
+
+	s1 = newS()
+	parsePass(t, s1, `cat -v b -v v0.1.1 input output`)
+	equal(t, s1.Usage, `main tool's custom help message`)
+	equal(t, s1.Verbose, toPtr(true))
+	equal(t, s1.A, nil)
+	notEqual(t, s1.B, nil)
+	equal(t, s1.B.Usage, `tool B is for Bananas`)
+	equal(t, s1.B.Version, toPtr(`v0.1.1`))
+	equal(t, s1.B.Input, `input`)
+	equal(t, s1.B.Output, `output`)
+
+}
+
 func toPtr[T any](v T) *T { return &v }
 
 func splitArgs(args string) []string {
@@ -695,6 +846,9 @@ func formatValue(value any) string {
 	format = func(val reflect.Value) string {
 		switch val.Type().Kind() {
 		case reflect.Pointer:
+			if val.IsNil() {
+				return `<nil>`
+			}
 			return `*` + format(val.Elem())
 		case reflect.String:
 			return fmt.Sprintf(`%q`, val.String())
@@ -718,5 +872,12 @@ func equal[T any](t *testing.T, got, want T) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %s, want %s", formatValue(got), formatValue(want))
+	}
+}
+
+func notEqual[T any](t *testing.T, got, doNotWant T) {
+	t.Helper()
+	if reflect.DeepEqual(got, doNotWant) {
+		t.Errorf("got %s, do not want %s", formatValue(got), formatValue(doNotWant))
 	}
 }
