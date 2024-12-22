@@ -26,7 +26,7 @@ func parseArgs(f *form, val reflect.Value, args []string, stdOut, stdErr io.Writ
 		cmdPath:    args[0],
 		form:       f,
 		foundFlags: map[*flagForm]bool{},
-		usedGroup:  map[*groupForm]bool{},
+		usedTool:   map[*toolForm]bool{},
 		atPos:      0,
 		val:        val,
 		args:       args[1:],
@@ -41,7 +41,7 @@ type parser struct {
 	cmdPath    string
 	form       *form
 	foundFlags map[*flagForm]bool
-	usedGroup  map[*groupForm]bool
+	usedTool   map[*toolForm]bool
 	atPos      int
 	val        reflect.Value
 	args       []string
@@ -86,21 +86,21 @@ func (p *parser) printHelp() {
 			p.printf(helpText)
 		}
 	}
-	p.printHelpForGroups()
+	p.printHelpForTools()
 	p.printHelpForFlags()
 	p.printHelpForPos()
 }
 
-func (p *parser) printHelpForGroups() {
-	if len(p.form.Groups) == 0 {
+func (p *parser) printHelpForTools() {
+	if len(p.form.Tools) == 0 {
 		return
 	}
 
-	p.printf(`Groups:`)
-	for _, group := range p.form.AllGroups {
-		p.printf(indent+`%s`, strings.Join(group.Names, nameSep))
-		if len(group.Description) > 0 {
-			p.printf(indent+indent+`%s`, group.Description)
+	p.printf(`Tools:`)
+	for _, tool := range p.form.AllTools {
+		p.printf(indent+`%s`, strings.Join(tool.Names, nameSep))
+		if len(tool.Description) > 0 {
+			p.printf(indent+indent+`%s`, tool.Description)
 		}
 	}
 }
@@ -222,9 +222,9 @@ func (p *parser) clearUnset() {
 			p.clearField(flag.Field)
 		}
 	}
-	for _, group := range p.form.AllGroups {
-		if !p.usedGroup[group] {
-			p.clearField(group.Field)
+	for _, tool := range p.form.AllTools {
+		if !p.usedTool[tool] {
+			p.clearField(tool.Field)
 		}
 	}
 	if posCount := len(p.form.Pos); p.atPos < posCount &&
@@ -263,23 +263,23 @@ func (p *parser) parseArg() bool {
 		flagName, _ := strings.CutPrefix(arg, dash)
 		return p.parseFlag(flagName)
 	}
-	if group, ok := p.form.Groups[arg]; ok {
-		return p.parseGroup(arg, group)
+	if tool, ok := p.form.Tools[arg]; ok {
+		return p.parseTool(arg, tool)
 	}
 	return p.parsePos(arg)
 }
 
-func (p *parser) parseGroup(name string, group *groupForm) bool {
-	p.usedGroup[group] = true
+func (p *parser) parseTool(name string, tool *toolForm) bool {
+	p.usedTool[tool] = true
 
 	if !p.satisfiedFlags() || !p.satisfiedPos() {
-		p.errorf(`Must fill requirements prior to calling group %s.`, name)
+		p.errorf(`Must fill requirements prior to calling tool %s.`, name)
 		p.printHelpHint()
 		return false
 	}
 	p.clearUnset()
 
-	val := p.val.FieldByIndex(group.Field.Index)
+	val := p.val.FieldByIndex(tool.Field.Index)
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
@@ -288,9 +288,9 @@ func (p *parser) parseGroup(name string, group *groupForm) bool {
 	}
 
 	p.cmdPath += ` ` + name
-	p.form = group.Form
+	p.form = tool.Form
 	p.foundFlags = map[*flagForm]bool{}
-	p.usedGroup = map[*groupForm]bool{}
+	p.usedTool = map[*toolForm]bool{}
 	p.atPos = 0
 	p.val = val
 	return true

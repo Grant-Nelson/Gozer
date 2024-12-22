@@ -17,14 +17,14 @@ const (
 	helpShort  = `h`
 	help       = `help`
 	skip       = `skip`
-	group      = `group`
+	tool       = `tool`
 	flag       = `flag`
 	pos        = `pos`
 	indent     = "\t"
 )
 
 type (
-	groupForm struct {
+	toolForm struct {
 		Names       []string
 		Field       reflect.StructField
 		Form        *form
@@ -45,14 +45,14 @@ type (
 	}
 
 	form struct {
-		Help      []reflect.StructField
-		Groups    map[string]*groupForm
-		Flags     map[string]*flagForm
-		AllGroups []*groupForm
-		AllFlags  []*flagForm
-		Pos       []*posForm
-		PosOpAt   int
-		Variadic  bool
+		Help     []reflect.StructField
+		Tools    map[string]*toolForm
+		Flags    map[string]*flagForm
+		AllTools []*toolForm
+		AllFlags []*flagForm
+		Pos      []*posForm
+		PosOpAt  int
+		Variadic bool
 	}
 
 	formBuilder struct {
@@ -116,8 +116,8 @@ func (b *formBuilder) ReadStruct(st reflect.Type) *form {
 	}
 
 	f := &form{
-		Groups: map[string]*groupForm{},
-		Flags:  map[string]*flagForm{},
+		Tools: map[string]*toolForm{},
+		Flags: map[string]*flagForm{},
 	}
 	for i := range st.NumField() {
 		b.ReadField(f, st.Field(i))
@@ -151,8 +151,8 @@ func (b *formBuilder) ReadField(f *form, field reflect.StructField) {
 	}
 
 	switch first {
-	case group:
-		b.ReadGroup(f, need, field, tag)
+	case tool:
+		b.ReadTool(f, need, field, tag)
 	case flag:
 		b.ReadFlag(f, need, field, tag)
 	case pos:
@@ -162,12 +162,12 @@ func (b *formBuilder) ReadField(f *form, field reflect.StructField) {
 	}
 }
 
-func (b *formBuilder) ReadGroup(f *form, need string, field reflect.StructField, tag string) {
+func (b *formBuilder) ReadTool(f *form, need string, field reflect.StructField, tag string) {
 	if !b.isStructType(field.Type) {
-		panic(ErrGroupTagWrongType.with(`%v`, field.Type))
+		panic(ErrToolTagWrongType.with(`%v`, field.Type))
 	}
 	if need == required {
-		panic(ErrGroupTagRequired.with(`%q`, tag))
+		panic(ErrToolTagRequired.with(`%q`, tag))
 	}
 	namePart, description := b.takeFirst(tag)
 	if len(namePart) == 0 {
@@ -177,22 +177,22 @@ func (b *formBuilder) ReadGroup(f *form, need string, field reflect.StructField,
 	for i, name := range names {
 		names[i] = strings.TrimSpace(name)
 	}
-	gf := &groupForm{
+	gf := &toolForm{
 		Names:       names,
 		Field:       field,
 		Form:        b.ReadStruct(field.Type),
 		Description: description,
 	}
 
-	f.AllGroups = append(f.AllGroups, gf)
+	f.AllTools = append(f.AllTools, gf)
 	for _, name := range names {
 		if !b.isValidName(name) {
-			panic(ErrInvalidGroupName.with(`%q`, name))
+			panic(ErrInvalidToolName.with(`%q`, name))
 		}
-		if _, ok := f.Groups[name]; ok {
-			panic(ErrGroupAlreadyExists.with(`%q`, name))
+		if _, ok := f.Tools[name]; ok {
+			panic(ErrToolAlreadyExists.with(`%q`, name))
 		}
-		f.Groups[name] = gf
+		f.Tools[name] = gf
 	}
 }
 

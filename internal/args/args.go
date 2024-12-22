@@ -4,7 +4,7 @@
 // It provides methods to populate a struct with values from the command line
 // arguments. The exported fields of the struct must be tagged with tags
 // that defines how the arguments will be read.
-// The tags are used to define groups, flags, and positional arguments.
+// The tags are used to define tools, flags, and positional arguments.
 //
 // The tags must follow one of the following patterns:
 //
@@ -27,8 +27,8 @@
 //
 // The help message is printed automatically when the arguments are invalid
 // or when the help flag is used. The help message will be created using
-// the struct's fields. The help message will show the help for group being
-// used, so it is helpful to define help messages specific to each group.
+// the struct's fields. The help message will show the help for tool being
+// used, so it is helpful to define help messages specific to each tool.
 //
 // # Skip a field
 //
@@ -40,37 +40,37 @@
 //		Name string `arg:"skip"`
 //	 }
 //
-// # Define a group
+// # Define a tool
 //
-// To make a group, use the tag `arg:"group,<name>,<description>"`.
-// This is used for grouping arguments similar to Go tools like `go test`.
-// Once a group is defined in the arguments, all remaining arguments will
-// be handled as part of that group.
+// To make a tool, use the tag `arg:"tool,<name>,<description>"`.
+// This is used for tooling arguments similar to Go tools like `go test`.
+// Once a tool is defined in the arguments, all remaining arguments will
+// be handled as part of that tool.
 //
 //   - This is only valid on struct fields or pointers to struct fields.
 //     The struct must follow the rules defined in the package.
-//   - Groups may be nested. They can also be recursive but it is not
+//   - Tools may be nested. They can also be recursive but it is not
 //     recommended for clarity.
-//   - A group cannot be required.
-//   - The group's name must be unique among other groups in the struct
+//   - A tool cannot be required.
+//   - The tool's name must be unique among other tools in the struct
 //     and may not contain spaces, or start with a dash or number.
 //     If the name is empty, the field's name is used.
 //     Multiple names can be defined with a bar (|) separator, e.g. `t|test`.
-//     Group names are case-sensitive.
-//   - The group's description may be empty.
+//     Tool names are case-sensitive.
+//   - The tool's description may be empty.
 //     The description is used for the help output.
 //
-// The field for a group may be nil if a pointer and a new instance will be
-// created for the group if the group is used. If the field is set to an
+// The field for a tool may be nil if a pointer and a new instance will be
+// created for the tool if the tool is used. If the field is set to an
 // instance or not a pointer, the instance will provide the defaults
-// for the group and will be set if the group is used. Any group not used
+// for the tool and will be set if the tool is used. Any tool not used
 // and is a pointer will be set to nil.
 //
-//	type testGroup struct {
+//	type testTool struct {
 //		Verbose bool `arg:"flag,v,Print verbose output for tests"`
 //	}
 //	type example struct {
-//		Test *testGroup `arg:"group,t|test,Use to run the test tool"`
+//		Test *testTool `arg:"tool,t|test,Use to run the test tool"`
 //	}
 //
 // # Define a flag
@@ -88,7 +88,7 @@
 //     and may not contain spaces, or start with a dash or number.
 //     If the name is empty, the field's name is used.
 //     Multiple names can be defined with a bar (|) separator, e.g. `i|input`.
-//     Group names are case-sensitive.
+//     Tool names are case-sensitive.
 //   - The flag's description may be empty.
 //     The description is used for the help output.
 //
@@ -106,7 +106,7 @@
 // To define a positional argument (pos), use the tag
 // `arg:"pos,<name>,<description>"`.
 // The positional arguments are defined in the order they appear
-// in the struct. If an argument is not a flag or a group, then it is used as
+// in the struct. If an argument is not a flag or a tool, then it is used as
 // a positional argument.
 //
 //   - This is only valid on basic type fields, e.g. int, string, bool, etc.
