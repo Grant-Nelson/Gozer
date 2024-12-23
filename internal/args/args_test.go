@@ -651,7 +651,7 @@ func TestTool_Args(t *testing.T) {
 		B       *S1B   `arg:"tool,b,tool B"`
 	}
 
-	newS := func() *S1 {
+	newS1 := func() *S1 {
 		return &S1{
 			Usage:   `main tool's custom help message`,
 			Verbose: toPtr(false),
@@ -669,15 +669,14 @@ func TestTool_Args(t *testing.T) {
 		}
 	}
 
-	s1 := newS()
+	s1 := newS1()
 	parsePass(t, s1, `cat`)
 	equal(t, s1.Usage, `main tool's custom help message`)
 	equal(t, s1.Verbose, nil)
 	equal(t, s1.A, nil)
 	equal(t, s1.B, nil)
 
-	s1 = newS()
-	parseHelp(t, s1, `cat -h`,
+	parseHelp(t, newS1(), `cat -h`,
 		`Usage of cat:`,
 		`main tool's custom help message`,
 		`Tools:`,
@@ -691,7 +690,7 @@ func TestTool_Args(t *testing.T) {
 		`	v bool = false`,
 		`		blah blah blah`)
 
-	s1 = newS()
+	s1 = newS1()
 	parsePass(t, s1, `cat -v a`)
 	equal(t, s1.Usage, `main tool's custom help message`)
 	equal(t, s1.Verbose, toPtr(true))
@@ -701,7 +700,7 @@ func TestTool_Args(t *testing.T) {
 	equal(t, s1.A.Output, `anvil.jpg`)
 	equal(t, s1.B, nil)
 
-	s1 = newS()
+	s1 = newS1()
 	parsePass(t, s1, `cat -v a -i input -o output`)
 	equal(t, s1.Usage, `main tool's custom help message`)
 	equal(t, s1.Verbose, toPtr(true))
@@ -711,7 +710,7 @@ func TestTool_Args(t *testing.T) {
 	equal(t, s1.A.Output, `output`)
 	equal(t, s1.B, nil)
 
-	s1 = newS()
+	s1 = newS1()
 	s1.A = nil
 	parsePass(t, s1, `cat a -i meow`)
 	equal(t, s1.Usage, `main tool's custom help message`)
@@ -722,13 +721,11 @@ func TestTool_Args(t *testing.T) {
 	equal(t, s1.A.Output, ``)
 	equal(t, s1.B, nil)
 
-	s1 = newS()
-	parseFail(t, s1, `cat a -v`,
+	parseFail(t, newS1(), `cat a -v`,
 		`Unknown flag "v".`,
 		`Use "cat a -h" to print help.`)
 
-	s1 = newS()
-	parseHelp(t, s1, `cat -v a -h`,
+	parseHelp(t, newS1(), `cat -v a -h`,
 		`Usage of cat a:`,
 		`tool A is for Aardvarks`,
 		`Flags:`,
@@ -739,12 +736,11 @@ func TestTool_Args(t *testing.T) {
 		`	o string = "anvil.jpg"`,
 		`		output file`)
 
-	s1 = newS()
-	parseFail(t, s1, `cat -v b`,
+	parseFail(t, newS1(), `cat -v b`,
 		`Missing required positionals: i, o`,
 		`Use "cat b -h" to print help.`)
 
-	s1 = newS()
+	s1 = newS1()
 	parsePass(t, s1, `cat -v b input output`)
 	equal(t, s1.Usage, `main tool's custom help message`)
 	equal(t, s1.Verbose, toPtr(true))
@@ -755,8 +751,7 @@ func TestTool_Args(t *testing.T) {
 	equal(t, s1.B.Input, `input`)
 	equal(t, s1.B.Output, `output`)
 
-	s1 = newS()
-	parseHelp(t, s1, `cat -v b -h`,
+	parseHelp(t, newS1(), `cat -v b -h`,
 		`Usage of cat b:`,
 		`tool B is for Bananas`,
 		`Flags:`,
@@ -770,7 +765,7 @@ func TestTool_Args(t *testing.T) {
 		`	o string (required)`,
 		`		output file`)
 
-	s1 = newS()
+	s1 = newS1()
 	parsePass(t, s1, `cat -v b -v v0.1.1 input output`)
 	equal(t, s1.Usage, `main tool's custom help message`)
 	equal(t, s1.Verbose, toPtr(true))
@@ -780,7 +775,144 @@ func TestTool_Args(t *testing.T) {
 	equal(t, s1.B.Version, toPtr(`v0.1.1`))
 	equal(t, s1.B.Input, `input`)
 	equal(t, s1.B.Output, `output`)
+}
 
+func TestTool_Required(t *testing.T) {
+	type S2A struct {
+		Output string `arg:"pos,output,output file"`
+	}
+	type S2 struct {
+		Input string   `arg:"pos,input,input file"`
+		Aux   []string `arg:"pos,aux,auxiliary files"`
+		A     S2A      `arg:"tool,png,PNG output file"`
+		B     S2A      `arg:"tool,jpg|jpeg,JPG output file"`
+	}
+
+	parseFail(t, &S2{}, `cat`,
+		`Missing required positional: input`,
+		`Use "cat -h" to print help.`)
+
+	parseFail(t, &S2{}, `cat png`,
+		`Missing required positional: input`,
+		`Must fill requirements prior to calling tool png.`,
+		`Use "cat -h" to print help.`)
+
+	s2 := &S2{}
+	parsePass(t, s2, `cat "png"`)
+	equal(t, s2.Input, `png`)
+	equal(t, s2.Aux, nil)
+	equal(t, s2.A.Output, ``)
+	equal(t, s2.B.Output, ``)
+
+	s2 = &S2{}
+	parsePass(t, s2, `cat fin.txt`)
+	equal(t, s2.Input, `fin.txt`)
+	equal(t, s2.Aux, nil)
+	equal(t, s2.A.Output, ``)
+	equal(t, s2.B.Output, ``)
+
+	s2 = &S2{}
+	parsePass(t, s2, `cat fin.txt aux1.txt aux2.txt`)
+	equal(t, s2.Input, `fin.txt`)
+	equal(t, s2.Aux, []string{`aux1.txt`, `aux2.txt`})
+	equal(t, s2.A.Output, ``)
+	equal(t, s2.B.Output, ``)
+
+	parseFail(t, &S2{}, `cat fin.txt aux1.txt aux2.txt png`,
+		`Missing required positional: output`,
+		`Use "cat png -h" to print help.`)
+
+	s2 = &S2{}
+	parsePass(t, s2, `cat fin.txt aux1.txt aux2.txt png out.png`)
+	equal(t, s2.Input, `fin.txt`)
+	equal(t, s2.Aux, []string{`aux1.txt`, `aux2.txt`})
+	equal(t, s2.A.Output, `out.png`)
+	equal(t, s2.B.Output, ``)
+
+	s2 = &S2{}
+	parsePass(t, s2, `cat fin.txt aux1.txt aux2.txt jpg out.jpg`)
+	equal(t, s2.Input, `fin.txt`)
+	equal(t, s2.Aux, []string{`aux1.txt`, `aux2.txt`})
+	equal(t, s2.A.Output, ``)
+	equal(t, s2.B.Output, `out.jpg`)
+
+	s2 = &S2{}
+	parsePass(t, s2, `cat fin.txt aux1.txt aux2.txt jpeg out.jpg`)
+	equal(t, s2.Input, `fin.txt`)
+	equal(t, s2.Aux, []string{`aux1.txt`, `aux2.txt`})
+	equal(t, s2.A.Output, ``)
+	equal(t, s2.B.Output, `out.jpg`)
+
+	parseFail(t, &S2{}, `cat fin.txt aux1.txt aux2.txt jpg out.jpg out.png`,
+		`Unexpected positional argument: out.png`,
+		`Use "cat jpg -h" to print help.`)
+}
+
+func TestTool_BadForm(t *testing.T) {
+	s1 := &struct {
+		A string `arg:"tool,a,tool A"`
+	}{}
+	parsePanic(t, s1, `cat`, ErrToolTagWrongType.with(`string`))
+
+	s2 := &struct {
+		A *struct{} `arg:"tool,bad name,tool A"`
+	}{}
+	parsePanic(t, s2, `cat`, ErrInvalidToolName.with(`"bad name"`))
+
+	s3 := &struct {
+		A *struct{} `arg:"required,tool,,tool A"`
+	}{}
+	parsePanic(t, s3, `cat`, ErrToolTagRequired.with(`"A"`))
+
+	s4 := &struct {
+		A struct{} `arg:"tool,dog,tool A"`
+		B struct{} `arg:"tool,dog,tool B"`
+	}{}
+	parsePanic(t, s4, `cat`, ErrToolAlreadyExists.with(`"dog"`))
+}
+
+func TestOther(t *testing.T) {
+	s1 := &struct {
+		A int `arg:"help"`
+	}{}
+	parsePanic(t, s1, `cat`, ErrInvalidHelpTag.with(`int`))
+
+	s2 := &struct {
+		A string `arg:"cow,moo,mad cow"`
+	}{}
+	parsePanic(t, s2, `cat`, ErrUnknownTag.with(`"cow"`))
+
+	s3 := &struct {
+		A string `arg:"help"`
+		B string `arg:"help"`
+		C string `arg:"help"`
+	}{
+		A: `The first rule of help message is help`,
+		B: `The second rule of help message is help more`,
+		C: `The third rule of help message is realize you can't make people read`,
+	}
+	parseHelp(t, s3, `cat -h`,
+		`Usage of cat:`,
+		`The first rule of help message is help`,
+		`The second rule of help message is help more`,
+		`The third rule of help message is realize you can't make people read`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`)
+
+	s4 := &struct {
+		A string  `arg:"flag"`
+		B int     `arg:"flag"`
+		C float64 `arg:"flag"`
+	}{}
+	parseHelp(t, s4, `cat -h`,
+		`Usage of cat:`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`,
+		`	A string = ""`,
+		`	B int = 0`,
+		`	C float64 = 0`)
 }
 
 func toPtr[T any](v T) *T { return &v }

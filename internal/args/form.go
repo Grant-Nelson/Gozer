@@ -119,6 +119,7 @@ func (b *formBuilder) ReadStruct(st reflect.Type) *form {
 		Tools: map[string]*toolForm{},
 		Flags: map[string]*flagForm{},
 	}
+	b.allForms[st] = f
 	for i := range st.NumField() {
 		b.ReadField(f, st.Field(i))
 	}
@@ -166,12 +167,12 @@ func (b *formBuilder) ReadTool(f *form, need string, field reflect.StructField, 
 	if !b.isStructType(field.Type) {
 		panic(ErrToolTagWrongType.with(`%v`, field.Type))
 	}
-	if need == required {
-		panic(ErrToolTagRequired.with(`%q`, tag))
-	}
 	namePart, description := b.takeFirst(tag)
 	if len(namePart) == 0 {
 		namePart = field.Name
+	}
+	if need == required {
+		panic(ErrToolTagRequired.with(`%q`, namePart))
 	}
 	names := strings.Split(namePart, nameSep)
 	for i, name := range names {
