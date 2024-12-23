@@ -218,19 +218,28 @@ func (p *parser) satisfiedPos() bool {
 
 func (p *parser) getFieldPath(field reflect.StructField) ([]reflect.Value, reflect.Value) {
 	index := field.Index
-	path := make([]reflect.Value, len(index))
+	pathLen := len(index)
+	path := make([]reflect.Value, pathLen)
 	prior := p.val
 	for i, step := range index {
 		val := prior.Field(step)
 		path[i] = val
 		prior = val
 	}
-	return path, path[len(path)-1]
+	return path, path[pathLen-1]
 }
 
 func (p *parser) setFieldPath(field reflect.StructField, oldPath []reflect.Value, newLast reflect.Value) {
-
-	// TODO: FINISH
+	index := field.Index
+	pathLen := len(index)
+	oldPath[pathLen-1] = newLast
+	for i := pathLen - 1; i > 0; i-- {
+		step := index[i]
+		oldPath[i-1].Field(step).Set(oldPath[i])
+	}
+	root := p.val
+	root.Field(index[0]).Set(oldPath[0])
+	p.val = root
 }
 
 func (p *parser) clearUnset() {

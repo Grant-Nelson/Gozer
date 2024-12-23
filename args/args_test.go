@@ -939,7 +939,8 @@ func TestEmbeddedParts(t *testing.T) {
 		`Usage of cat:`,
 		`Flags:`,
 		`	h|help`,
-		`		Shows help for the current tool`)
+		`		Shows help for the current tool`,
+		`MORE`)
 
 	s1 := &S1{}
 	parsePass(t, s1, `cat -n mittens 1.23 3.45 -v`)
