@@ -216,30 +216,8 @@ func (p *parser) satisfiedPos() bool {
 	}
 }
 
-func (p *parser) getFieldPath(field reflect.StructField) ([]reflect.Value, reflect.Value) {
-	index := field.Index
-	pathLen := len(index)
-	path := make([]reflect.Value, pathLen)
-	prior := p.val
-	for i, step := range index {
-		val := prior.Field(step)
-		path[i] = val
-		prior = val
-	}
-	return path, path[pathLen-1]
-}
-
-func (p *parser) setFieldPath(field reflect.StructField, oldPath []reflect.Value, newLast reflect.Value) {
-	index := field.Index
-	pathLen := len(index)
-	oldPath[pathLen-1] = newLast
-	for i := pathLen - 1; i > 0; i-- {
-		step := index[i]
-		oldPath[i-1].Field(step).Set(oldPath[i])
-	}
-	root := p.val
-	root.Field(index[0]).Set(oldPath[0])
-	p.val = root
+func (p *parser) getField(field reflect.StructField) reflect.Value {
+	return p.val.FieldByIndex(field.Index)
 }
 
 func (p *parser) clearUnset() {
@@ -262,11 +240,10 @@ func (p *parser) clearUnset() {
 }
 
 func (p *parser) clearField(field reflect.StructField) {
-	path, val := p.getFieldPath(field)
+	val := p.getField(field)
 	switch val.Kind() {
 	case reflect.Ptr, reflect.Slice:
 		val.Set(reflect.Zero(val.Type()))
-		p.setFieldPath(field, path, val)
 	}
 }
 
@@ -306,7 +283,7 @@ func (p *parser) parseTool(name string, tool *toolForm) bool {
 	}
 	p.clearUnset()
 
-	path, val := p.getFieldPath(tool.Field)
+	val := p.getField(tool.Field)
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
@@ -320,7 +297,6 @@ func (p *parser) parseTool(name string, tool *toolForm) bool {
 	p.usedTool = map[*toolForm]bool{}
 	p.atPos = 0
 	p.val = val
-	p.setFieldPath(tool.Field, path, val)
 	return true
 }
 
@@ -344,17 +320,15 @@ func (p *parser) parseFlag(name string) bool {
 	p.foundFlags[flag] = true
 
 	if p.isFieldBool(flag.Field.Type) {
-		path, val := p.getFieldPath(flag.Field)
+		val := p.getField(flag.Field)
 		if len(p.args) > 0 {
 			if b, ok := p.isBool(p.args[0]); ok {
 				p.takeArg()
 				p.setBool(val, b)
-				p.setFieldPath(flag.Field, path, val)
 				return true
 			}
 		}
 		p.setBool(val, true)
-		p.setFieldPath(flag.Field, path, val)
 		return true
 	}
 
@@ -380,12 +354,8 @@ func (p *parser) parseFlag(name string) bool {
 		return false
 	}
 
-	path, val := p.getFieldPath(flag.Field)
-	if !p.setValue(val, name, value) {
-		return false
-	}
-	p.setFieldPath(flag.Field, path, val)
-	return true
+	val := p.getField(flag.Field)
+	return p.setValue(val, name, value)
 }
 
 func (p *parser) parsePos(value string) bool {
@@ -397,7 +367,7 @@ func (p *parser) parsePos(value string) bool {
 	}
 
 	pos := p.form.Pos[p.atPos]
-	path, val := p.getFieldPath(pos.Field)
+	val := p.getField(pos.Field)
 	if p.form.Variadic && p.atPos == posCount-1 {
 		elem := reflect.New(val.Type().Elem())
 		if !p.setValue(elem, pos.Name, value) {
@@ -408,16 +378,11 @@ func (p *parser) parsePos(value string) bool {
 			val.Set(reflect.New(val.Type()).Elem())
 		}
 		val.Set(reflect.Append(val, elem.Elem()))
-		p.setFieldPath(pos.Field, path, val)
 		return true
 	}
 
 	p.atPos++
-	if !p.setValue(val, pos.Name, value) {
-		return false
-	}
-	p.setFieldPath(pos.Field, path, val)
-	return true
+	return p.setValue(val, pos.Name, value)
 }
 
 func (p *parser) isFieldBool(t reflect.Type) bool {
