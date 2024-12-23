@@ -915,6 +915,42 @@ func TestOther(t *testing.T) {
 		`	C float64 = 0`)
 }
 
+func TestEmbeddedParts(t *testing.T) {
+	type XCoord struct {
+		X float64 `arg:"pos,x,x value"`
+	}
+	type YCoord struct {
+		Y float64 `arg:"pos,y,y value"`
+	}
+	type Coords struct {
+		XCoord
+		YCoord
+	}
+	type Flags struct {
+		Verbose bool   `arg:"flag,v|verbose,blah blah blah"`
+		Name    string `arg:"flag,n|name,a name for the data"`
+	}
+	type S1 struct {
+		Coords
+		Flags
+	}
+
+	parseHelp(t, &S1{}, `cat -h`,
+		`Usage of cat:`,
+		`Flags:`,
+		`	h|help`,
+		`		Shows help for the current tool`)
+
+	s1 := &S1{}
+	parsePass(t, s1, `cat -n mittens 1.23 3.45 -v`)
+	equal(t, s1.X, 1.23)
+	equal(t, s1.Y, 3.45)
+	equal(t, s1.Verbose, true)
+	equal(t, s1.Name, `mittens`)
+
+	// TODO: Make sure an embedded pointer is created
+}
+
 func toPtr[T any](v T) *T { return &v }
 
 func splitArgs(args string) []string {
