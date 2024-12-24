@@ -221,6 +221,8 @@ func TestFlags_Types(t *testing.T) {
 		String  string  `arg:"flag,,"`
 		Byte    byte    `arg:"flag,,"`
 		Rune    rune    `arg:"flag,,"`
+
+		// TODO: Add time, duration, and complex (and anything else)
 	}{}
 
 	parsePass(t, s, `cat -Bool true`)
@@ -916,34 +918,35 @@ func TestOther(t *testing.T) {
 }
 
 func TestEmbedded(t *testing.T) {
-	type XCoord struct {
-		X float64 `arg:"pos,x,x value"`
-	}
-	type YCoord struct {
-		Y float64 `arg:"pos,y,y value"`
-	}
-	type Coords struct {
-		XCoord
-		YCoord
-	}
-	type Flags struct {
-		Verbose bool   `arg:"flag,v|verbose,blah blah blah"`
-		Name    string `arg:"flag,n|name,a name for the data"`
-	}
-	type S1 struct {
-		Coords
-		Flags
-	}
-
-	// FUTURE: Make embedded structures work eventually.
-
-	parseHelp(t, &S1{}, `cat -h`,
-		`Usage of cat:`,
-		`Flags:`,
-		`	h|help`,
-		`		Shows help for the current tool`)
-
 	/*
+		type XCoord struct {
+			X float64 `arg:"pos,x,x value"`
+		}
+		type YCoord struct {
+			Y float64 `arg:"pos,y,y value"`
+		}
+		type Coords struct {
+			XCoord `arg:"embed"`
+			YCoord `arg:"embed"`
+		}
+		type Flags struct {
+			Verbose bool   `arg:"flag,v|verbose,blah blah blah"`
+			Name    string `arg:"flag,n|name,a name for the data"`
+		}
+		type S1 struct {
+			Coords `arg:"embed"`
+			Flags  `arg:"embed"`
+		}
+
+		// FUTURE: Make embedded structures work with `arg:"embedded"`.
+		// FUTURE: Make sure an embedded pointer is created.
+
+		parseHelp(t, &S1{}, `cat -h`,
+			`Usage of cat:`,
+			`Flags:`,
+			`	h|help`,
+			`		Shows help for the current tool`)
+
 		s1 := &S1{}
 		parsePass(t, s1, `cat -n mittens 1.23 3.45 -v`)
 		equal(t, s1.X, 1.23)
@@ -951,8 +954,6 @@ func TestEmbedded(t *testing.T) {
 		equal(t, s1.Verbose, true)
 		equal(t, s1.Name, `mittens`)
 	*/
-
-	// FUTURE: Make sure an embedded pointer is created.
 }
 
 func toPtr[T any](v T) *T { return &v }
