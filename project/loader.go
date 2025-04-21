@@ -2,11 +2,23 @@ package project
 
 import (
 	"go/ast"
-	"go/parser"
 	"go/token"
 
 	"golang.org/x/tools/go/packages"
 )
+
+// TODO: Add Modifiers:
+//  - that performs overlays like gopherjs
+//  - that runs per function or func lit
+//  - to simplify constants
+//  - to remove defers into a `deferBlock` call
+//  - to remove Goto and labels (aka flatten)
+//  - to join initialization for a package
+//  - to generate return structures for multiple returns
+//  - to replace multiple assignments with a `multiAssign` call
+//  - to flatten select statements and switches as needed
+//  - to adjust imports
+// TODO: Need post processing for determining things like inheritance
 
 type Config struct {
 
@@ -28,11 +40,14 @@ type Config struct {
 	// Overlay is a mapping from absolute file paths to file contents.
 	Overlay map[string][]byte
 
-	// Augmenters to process each file with.
-	Augmenters []Augmenter
+	// Modifiers to process each file with.
+	Modifiers []Modifier
 }
 
-type Augmenter func(fSet *token.FileSet, filename string, file *ast.File) error
+// Modifier performs a set changes to the given file.
+type Modifier interface {
+	Modify(file *File) error
+}
 
 func Load(cfg Config) (*Project, error) {
 	fSet := &token.FileSet{}
@@ -71,17 +86,16 @@ type loader struct {
 }
 
 func (ld *loader) parseFile(fSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	const mode = parser.AllErrors | parser.ParseComments
-	file, err := parser.ParseFile(fSet, filename, src, mode)
+	file, err := initFile(filename, src)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, aug := range ld.cfg.Augmenters {
-		if err := aug(fSet, filename, file); err != nil {
+	for _, mod := range ld.cfg.Modifiers {
+		if err := mod.Modify(file); err != nil {
 			return nil, err
 		}
 	}
 
-	return file, nil
+	return file.finalize(fSet)
 }
