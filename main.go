@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Grant-Nelson/Gozer/args"
+	"github.com/Grant-Nelson/Gozer/internal/args"
 	"github.com/Grant-Nelson/Gozer/tools/builder"
 	"github.com/Grant-Nelson/Gozer/tools/listLangs"
 	"github.com/Grant-Nelson/Gozer/tools/runner"
