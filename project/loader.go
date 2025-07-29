@@ -1,10 +1,14 @@
 package project
 
 import (
+	"errors"
 	"go/ast"
 	"go/token"
 
 	"golang.org/x/tools/go/packages"
+
+	"github.com/Grant-Nelson/Gozer/project/fileMod"
+	"github.com/Grant-Nelson/Gozer/project/mods"
 )
 
 // TODO: Add Modifiers:
@@ -13,6 +17,7 @@ import (
 //  - to simplify constants
 //  - to remove defers into a `deferBlock` call
 //  - to remove Goto and labels (aka flatten)
+//  - to inject Jumps and labels to replace other flow-controls
 //  - to join initialization for a package
 //  - to generate return structures for multiple returns
 //  - to replace multiple assignments with a `multiAssign` call
@@ -41,12 +46,7 @@ type Config struct {
 	Overlay map[string][]byte
 
 	// Modifiers to process each file with.
-	Modifiers []Modifier
-}
-
-// Modifier performs a set changes to the given file.
-type Modifier interface {
-	Modify(file *File) error
+	Modifiers []mods.Modifier
 }
 
 func Load(cfg Config) (*Project, error) {
@@ -86,16 +86,20 @@ type loader struct {
 }
 
 func (ld *loader) parseFile(fSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	file, err := initFile(filename, src)
-	if err != nil {
+	fm := fileMod.New(filename)
+	if err := fm.AddFile(filename, src); err != nil {
 		return nil, err
 	}
 
-	for _, mod := range ld.cfg.Modifiers {
-		if err := mod.Modify(file); err != nil {
+	if err := mods.Modify(fm, ld.cfg.Modifiers...); err != nil {
+		if !errors.Is(err, mods.ErrFileModDone) {
 			return nil, err
 		}
 	}
 
-	return file.finalize(fSet)
+	if err := mods.Finished(ld.cfg.Modifiers...); err != nil {
+		return nil, err
+	}
+
+	return fm.Finalize(fSet)
 }
