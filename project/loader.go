@@ -12,7 +12,6 @@ import (
 )
 
 // TODO: Add Modifiers:
-//  - that performs overlays like gopherjs
 //  - that runs per function or func lit
 //  - to simplify constants
 //  - to remove defers into a `deferBlock` call
@@ -51,7 +50,9 @@ type Config struct {
 
 func Load(cfg Config) (*Project, error) {
 	fSet := &token.FileSet{}
-	ld := &loader{cfg: cfg}
+	ld := &loader{
+		group: mods.Group(cfg.Modifiers),
+	}
 	c := &packages.Config{
 		Mode:       allNeeds,
 		Dir:        cfg.Dir,
@@ -65,6 +66,14 @@ func Load(cfg Config) (*Project, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if len(ld.curPkgName) >= 0 {
+		ld.group.PackageDone(ld.curPkgName, ld.curPkgPath)
+	}
+	if err := ld.group.LoadDone(); err != nil {
+		return nil, err
+	}
+
 	proj := &Project{
 		fSet:     fSet,
 		packages: packages,
@@ -82,7 +91,9 @@ const allNeeds = packages.NeedName |
 	packages.NeedTypesInfo
 
 type loader struct {
-	cfg Config
+	group      mods.Group
+	curPkgPath string
+	curPkgName string
 }
 
 func (ld *loader) parseFile(fSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
@@ -91,14 +102,19 @@ func (ld *loader) parseFile(fSet *token.FileSet, filename string, src []byte) (*
 		return nil, err
 	}
 
-	if err := mods.Modify(fm, ld.cfg.Modifiers...); err != nil {
+	pkgName, pkgPath := fm.PackageName(), fm.PackagePath()
+	if ld.curPkgName != pkgName && ld.curPkgPath != pkgPath {
+		if len(ld.curPkgName) >= 0 {
+			ld.group.PackageDone(ld.curPkgName, ld.curPkgPath)
+		}
+		ld.curPkgName, ld.curPkgPath = pkgName, pkgPath
+		ld.group.PackageStart(ld.curPkgName, ld.curPkgPath)
+	}
+
+	if err := ld.group.Modify(fm); err != nil {
 		if !errors.Is(err, mods.ErrFileModDone) {
 			return nil, err
 		}
-	}
-
-	if err := mods.Finished(ld.cfg.Modifiers...); err != nil {
-		return nil, err
 	}
 
 	return fm.Finalize(fSet)

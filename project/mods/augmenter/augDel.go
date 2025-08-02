@@ -19,7 +19,7 @@ func (a *augDel) Modify(fm *fileMod.FileMod) error {
 	return nil
 }
 
-func (a *augDel) Finished() error {
+func (a *augDel) PackageDone(name, path string) error {
 	// TODO: Implement
 	return nil
 }

@@ -7,8 +7,9 @@ import (
 )
 
 type augAdd struct {
+	addIds     map[string]bool
 	addImports []*ast.ImportSpec
-	addDecls   []ast.Decl
+	addDecl    []ast.Decl
 	addFields  []*ast.TypeSpec
 }
 
@@ -17,7 +18,7 @@ func (a *augAdd) Modify(fm *fileMod.FileMod) error {
 	return nil
 }
 
-func (a *augAdd) Finished() error {
+func (a *augAdd) PackageDone(name, path string) error {
 	// TODO: Implement
 	return nil
 }

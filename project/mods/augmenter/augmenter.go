@@ -1,31 +1,29 @@
 package augmenter
 
 import (
-	"github.com/Grant-Nelson/Gozer/project/fileMod"
 	"github.com/Grant-Nelson/Gozer/project/mods"
 )
 
 type Augmenter struct {
-	pkgPath string
-	del     *augDel
-	add     *augAdd
-	rep     *augReplace
-	ren     *augRename
+	mods.Group
+	del *augDel
+	rep *augReplace
+	ren *augRename
+	add *augAdd
 }
 
 func New() *Augmenter {
-	return &Augmenter{
+	a := &Augmenter{
 		del: &augDel{},
-		add: &augAdd{},
 		rep: &augReplace{},
 		ren: &augRename{},
+		add: &augAdd{},
 	}
+	a.Group = mods.Group{a.del, a.rep, a.ren, a.add}
+	return a
 }
 
-func (a *Augmenter) Modify(fm *fileMod.FileMod) error {
-	return mods.Modify(fm, a.del, a.add, a.rep, a.ren)
-}
-
-func (a *Augmenter) Finished() error {
-	return mods.Finished(a.del, a.add, a.rep, a.ren)
+func (a *Augmenter) PackageStart(name, path string) error {
+	// TODO: Populate the augmenter with data for this package.
+	return a.Group.PackageStart(name, path)
 }

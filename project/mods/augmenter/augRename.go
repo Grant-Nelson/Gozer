@@ -10,7 +10,7 @@ func (a *augRename) Modify(fm *fileMod.FileMod) error {
 	return nil
 }
 
-func (a *augRename) Finished() error {
+func (a *augRename) PackageDone(name, path string) error {
 	// TODO: Implement
 	return nil
 }

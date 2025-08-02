@@ -42,6 +42,27 @@ A `var()` or `const()` group can be added.
 var x int
 ```
 
+```Go
+//gozer:add
+var (
+    x int
+    y int
+)
+```
+
+```Go
+var (
+    //gozer:add
+    x int
+    //gozer:add
+    y int
+)
+```
+
+In the prior example, `x` and `y` may not be added in the same group
+so things like `iota` may not work correctly. To use `iota` correctly
+add the vars as part of declaration, like the example in the middle.
+
 ### Adding a Data Type
 
 A package-level type, struct, alias, etc can be added.

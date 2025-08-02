@@ -6,30 +6,28 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/fileMod"
 )
 
-// ErrFileModDone can be returned from a modifier to skip running any following
-// modifiers and finishes loading a file.
+// ErrFileModDone can be returned from a modifier to skip running
+// any following modifiers for a group method call.
 var ErrFileModDone = errors.New(`file modification is done`)
 
-// Modifier performs a set changes to the given file.
-type Modifier interface {
-	Modify(fm *fileMod.FileMod) error
-	Finished() error
-}
-
-func Modify(fm *fileMod.FileMod, mods ...Modifier) error {
-	for _, mod := range mods {
-		if err := mod.Modify(fm); err != nil {
-			return err
-		}
+type (
+	// Modifier performs a set changes to the given file.
+	Modifier interface {
+		Modify(fm *fileMod.FileMod) error
 	}
-	return nil
-}
 
-func Finished(mods ...Modifier) error {
-	for _, mod := range mods {
-		if err := mod.Finished(); err != nil {
-			return err
-		}
+	// PackageStartExt extends a modifier to indicate the package has started loading.
+	PackageStartExt interface {
+		PackageStart(name, path string) error
 	}
-	return nil
-}
+
+	// PackageDoneExt extends a modifier to indicate the package is done loading.
+	PackageDoneExt interface {
+		PackageDone(name, path string) error
+	}
+
+	// LoadDoneExt extends a modifier to indicate the loading is done.
+	LoadDoneExt interface {
+		LoadDone() error
+	}
+)
