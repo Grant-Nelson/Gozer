@@ -165,10 +165,14 @@ func (fm *FileMod) Write(out io.Writer) (err error) {
 		}
 	}
 	write(")\n\n")
+	// TODO: Need to handle nil decl/spec values.
+	// TODO: Ensure that iota is being handled correctly.
 	for _, decl := range fm.Decls {
 		if p := fm.FileSet().Position(decl.Pos()); p.IsValid() {
 			write(`//line ` + p.String() + "\n")
 		}
+		// TODO: Need to handle rename and replace signature by adding the line:column at the
+		//       start of a body if the body doesn't offset correctly from the signature.
 		if err := printer.Fprint(out, fm.FileSet(), decl); err != nil {
 			panic(err)
 		}
