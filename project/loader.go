@@ -7,6 +7,7 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
+	"github.com/Grant-Nelson/Gozer/internal/faults"
 	"github.com/Grant-Nelson/Gozer/project/fileMod"
 	"github.com/Grant-Nelson/Gozer/project/mods"
 )
@@ -51,7 +52,8 @@ type Config struct {
 func Load(cfg Config) (*Project, error) {
 	fSet := &token.FileSet{}
 	ld := &loader{
-		group: mods.Group(cfg.Modifiers),
+		errGroup: faults.NewGroup(-1),
+		group:    mods.Group(cfg.Modifiers),
 	}
 	c := &packages.Config{
 		Mode:       allNeeds,
@@ -68,9 +70,9 @@ func Load(cfg Config) (*Project, error) {
 	}
 
 	if len(ld.curPkgName) >= 0 {
-		ld.group.PackageDone(ld.curPkgName, ld.curPkgPath)
+		ld.group.PackageDone(ld.curPkgName, ld.curPkgPath, ld.errGroup)
 	}
-	if err := ld.group.LoadDone(); err != nil {
+	if err := ld.group.LoadDone(ld.errGroup); err != nil {
 		return nil, err
 	}
 
@@ -91,6 +93,7 @@ const allNeeds = packages.NeedName |
 	packages.NeedTypesInfo
 
 type loader struct {
+	errGroup   *faults.Group
 	group      mods.Group
 	curPkgPath string
 	curPkgName string
@@ -105,13 +108,13 @@ func (ld *loader) parseFile(fSet *token.FileSet, filename string, src []byte) (*
 	pkgName, pkgPath := fm.PackageName(), fm.PackagePath()
 	if ld.curPkgName != pkgName && ld.curPkgPath != pkgPath {
 		if len(ld.curPkgName) >= 0 {
-			ld.group.PackageDone(ld.curPkgName, ld.curPkgPath)
+			ld.group.PackageDone(ld.curPkgName, ld.curPkgPath, ld.errGroup)
 		}
 		ld.curPkgName, ld.curPkgPath = pkgName, pkgPath
-		ld.group.PackageStart(ld.curPkgName, ld.curPkgPath)
+		ld.group.PackageStart(ld.curPkgName, ld.curPkgPath, ld.errGroup)
 	}
 
-	if err := ld.group.Modify(fm); err != nil {
+	if err := ld.group.Modify(fm, ld.errGroup); err != nil {
 		if !errors.Is(err, mods.ErrFileModDone) {
 			return nil, err
 		}

@@ -3,6 +3,7 @@ package iterator
 import (
 	"fmt"
 	"iter"
+	"slices"
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/internal/predicate"
@@ -165,11 +166,7 @@ func (it Iterator[T]) Append(tails ...Iterator[T]) Iterator[T] {
 }
 
 func (it Iterator[T]) ToSlice() []T {
-	s := []T{}
-	for v := range it {
-		s = append(s, v)
-	}
-	return s
+	return slices.Collect(iter.Seq[T](it))
 }
 
 func (it Iterator[T]) ToStrings() Iterator[string] {

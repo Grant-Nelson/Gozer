@@ -2,14 +2,18 @@ package faults
 
 import "errors"
 
-var ErrorLimit = 100
+var defaultErrorLimit = 100
 
 type Group struct {
-	err []error
+	limit int
+	err   []error
 }
 
-func NewGroup() *Group {
-	return &Group{}
+func NewGroup(limit int) *Group {
+	if limit < 1 {
+		limit = defaultErrorLimit
+	}
+	return &Group{limit: limit}
 }
 
 func (g *Group) Add(err error) error {
@@ -17,7 +21,7 @@ func (g *Group) Add(err error) error {
 		return nil
 	}
 	g.err = append(g.err, err)
-	if len(g.err) >= ErrorLimit {
+	if len(g.err) >= g.limit {
 		return g.Wrap()
 	}
 	return nil
