@@ -209,3 +209,8 @@ func (a *augAdd) addDecls(fm *fileMod.FileMod) {
 		a.addDecl = []ast.Decl{}
 	}
 }
+
+func (a *augAdd) AddFile(f *ast.File, errs *faults.Group) error {
+	// TODO: Implement
+	return nil
+}

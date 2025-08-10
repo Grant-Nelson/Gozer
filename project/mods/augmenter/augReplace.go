@@ -1,6 +1,7 @@
 package augmenter
 
 import (
+	"go/ast"
 	"go/token"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
@@ -21,6 +22,11 @@ func (a *augReplace) Modify(fm *fileMod.FileMod, errGroup *faults.Group) error {
 }
 
 func (a *augReplace) PackageDone(name, path string, errGroup *faults.Group) error {
+	// TODO: Implement
+	return nil
+}
+
+func (a *augReplace) AddFile(f *ast.File, errs *faults.Group) error {
 	// TODO: Implement
 	return nil
 }

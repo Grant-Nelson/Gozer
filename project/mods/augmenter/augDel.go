@@ -216,3 +216,8 @@ func (a *augDel) tryDelMethods(it *fileMod.Ident, errs *faults.Group) (bool, err
 	delete(a.delMethods, it.Name)
 	return true, nil
 }
+
+func (a *augDel) AddFile(f *ast.File, errs *faults.Group) error {
+	// TODO: Implement
+	return nil
+}

@@ -176,7 +176,7 @@ func (fm *FileMod) Write(out io.Writer) (err error) {
 		if err := printer.Fprint(out, fm.FileSet(), decl); err != nil {
 			panic(err)
 		}
-		write("\n")
+		write("\n") // TODO: Use error group
 	}
 	return nil
 }
