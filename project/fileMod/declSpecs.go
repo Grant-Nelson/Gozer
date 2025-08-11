@@ -8,14 +8,15 @@ import (
 )
 
 type DeclSpec struct {
-	FileMod   *FileMod
-	DeclIndex int
-	SpecIndex int
-	FuncDecl  *ast.FuncDecl
-	GenDecl   *ast.GenDecl
-	TypeSpec  *ast.TypeSpec
-	ValueSpec *ast.ValueSpec
-	Node      ast.Node
+	FileMod    *FileMod
+	DeclIndex  int
+	SpecIndex  int
+	FuncDecl   *ast.FuncDecl
+	GenDecl    *ast.GenDecl
+	TypeSpec   *ast.TypeSpec
+	ValueSpec  *ast.ValueSpec
+	ImportSpec *ast.ImportSpec
+	Node       ast.Node
 }
 
 func (ds *DeclSpec) Start() token.Position {
@@ -42,6 +43,10 @@ func newDeclSpecValue(fm *FileMod, i, j int, d *ast.GenDecl, s *ast.ValueSpec) *
 	return &DeclSpec{FileMod: fm, DeclIndex: i, SpecIndex: j, GenDecl: d, ValueSpec: s, Node: s}
 }
 
+func newDeclSpecImport(fm *FileMod, i, j int, d *ast.GenDecl, s *ast.ImportSpec) *DeclSpec {
+	return &DeclSpec{FileMod: fm, DeclIndex: i, SpecIndex: j, GenDecl: d, ImportSpec: s, Node: s}
+}
+
 func (fm *FileMod) DeclSpecs() iterator.Iterator[*DeclSpec] {
 	return func(yield func(v *DeclSpec) bool) {
 		for i, decl := range fm.Decls {
@@ -53,6 +58,10 @@ func (fm *FileMod) DeclSpecs() iterator.Iterator[*DeclSpec] {
 			case *ast.GenDecl:
 				for j, spec := range d.Specs {
 					switch s := spec.(type) {
+					case *ast.ImportSpec:
+						if !yield(newDeclSpecImport(fm, i, j, d, s)) {
+							return
+						}
 					case *ast.TypeSpec:
 						if !yield(newDeclSpecType(fm, i, j, d, s)) {
 							return

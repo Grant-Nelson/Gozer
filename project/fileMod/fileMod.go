@@ -158,13 +158,24 @@ func (fm *FileMod) Write(out io.Writer) (err error) {
 	for _, doc := range fm.Doc {
 		write(`// ` + doc + "\n")
 	}
-	write(`package ` + fm.pkgName + "\n\nimport (\n")
-	for _, im := range fm.Imports {
-		if err := printer.Fprint(out, fm.FileSet(), im); err != nil {
+	write(`package ` + fm.pkgName + "\n\n")
+
+	if len(fm.Imports) == 1 {
+		write("import ")
+		if err := printer.Fprint(out, fm.FileSet(), fm.Imports[0]); err != nil {
 			panic(err)
 		}
+		write("\n\n")
+	} else if len(fm.Imports) > 1 {
+		write("import (\n")
+		for _, im := range fm.Imports {
+			if err := printer.Fprint(out, fm.FileSet(), im); err != nil {
+				panic(err)
+			}
+		}
+		write(")\n\n")
 	}
-	write(")\n\n")
+
 	// TODO: Need to handle nil decl/spec values.
 	// TODO: Ensure that iota is being handled correctly.
 	for _, decl := range fm.Decls {

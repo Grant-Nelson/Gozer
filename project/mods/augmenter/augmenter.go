@@ -116,7 +116,7 @@ func (a *Augmenter) addFile(filename string, src []byte, errs *faults.Group) err
 }
 
 func (a *Augmenter) shouldAdd(f *ast.File, errs *faults.Group) (bool, error) {
-	if f.Doc != nil || len(f.Doc.List) <= 0 {
+	if f.Doc == nil || len(f.Doc.List) <= 0 {
 		return true, nil
 	}
 	for _, com := range f.Doc.List {
