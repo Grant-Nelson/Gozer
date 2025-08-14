@@ -6,6 +6,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
 	"github.com/Grant-Nelson/Gozer/project/fileMod"
+	"github.com/Grant-Nelson/Gozer/project/loader/astMod"
 )
 
 type augRename struct {
@@ -21,7 +22,7 @@ func (a *augRename) Modify(fm *fileMod.FileMod, errGroup *faults.Group) error {
 	return nil
 }
 
-func (a *augRename) PackageDone(name, path string, errGroup *faults.Group) error {
+func (a *augRename) PackageDone(pkg *astMod.PackageMod, errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }

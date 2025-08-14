@@ -12,7 +12,8 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/mods"
+	"github.com/Grant-Nelson/Gozer/project/loader/astMod"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
 var (
@@ -47,12 +48,12 @@ func New(build []string, basePath, testPkgPath string) *Augmenter {
 	return a
 }
 
-func (a *Augmenter) PackageStart(name, path string, errs *faults.Group) error {
+func (a *Augmenter) PackageStart(pkg *astMod.PackageMod, errs *faults.Group) error {
 	a.reset()
-	if err := a.addPackage(path, errs); err != nil {
+	if err := a.addPackage(pkg.Path(), errs); err != nil {
 		return err
 	}
-	return a.Group.PackageStart(name, path, errs)
+	return a.Group.PackageStart(pkg, errs)
 }
 
 const parseMode = parser.AllErrors | parser.ParseComments | parser.SkipObjectResolution

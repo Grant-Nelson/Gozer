@@ -1,15 +1,17 @@
 package project
 
 import (
-	"errors"
 	"go/ast"
+	"go/parser"
 	"go/token"
+	"path/filepath"
 
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/fileMod"
-	"github.com/Grant-Nelson/Gozer/project/mods"
+	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/project/loader/astMod"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
 // TODO: Add Modifiers:
@@ -49,18 +51,20 @@ type Config struct {
 	Modifiers []mods.Modifier
 }
 
-func Load(cfg Config) (*Project, error) {
-	fSet := &token.FileSet{}
+func Load(cfg Config) (*project.Project, error) {
+	finalFileSet := token.NewFileSet()
 	ld := &loader{
-		errGroup: faults.NewGroup(-1),
-		group:    mods.Group(cfg.Modifiers),
+		errGroup:    faults.NewGroup(-1),
+		group:       mods.Group(cfg.Modifiers),
+		curPkg:      nil,
+		tempFileSet: token.NewFileSet(),
 	}
 	c := &packages.Config{
 		Mode:       allNeeds,
 		Dir:        cfg.Dir,
 		BuildFlags: cfg.BuildFlags,
 		ParseFile:  ld.parseFile,
-		Fset:       fSet,
+		Fset:       finalFileSet,
 		Tests:      cfg.Tests,
 		Overlay:    cfg.Overlay,
 	}
@@ -69,17 +73,12 @@ func Load(cfg Config) (*Project, error) {
 		return nil, err
 	}
 
-	if len(ld.curPkgName) >= 0 {
-		ld.group.PackageDone(ld.curPkgName, ld.curPkgPath, ld.errGroup)
-	}
+	ld.packageDone()
 	if err := ld.group.LoadDone(ld.errGroup); err != nil {
 		return nil, err
 	}
 
-	proj := &Project{
-		fSet:     fSet,
-		packages: packages,
-	}
+	proj := project.New(finalFileSet, packages)
 	return proj, nil
 }
 
@@ -92,33 +91,50 @@ const allNeeds = packages.NeedName |
 	packages.NeedSyntax |
 	packages.NeedTypesInfo
 
+const parseMode = parser.AllErrors |
+	parser.ParseComments |
+	parser.SkipObjectResolution
+
 type loader struct {
-	errGroup   *faults.Group
-	group      mods.Group
-	curPkgPath string
-	curPkgName string
+	errGroup    *faults.Group
+	group       mods.Group
+	curPkg      *astMod.PackageMod
+	tempFileSet *token.FileSet
 }
 
-func (ld *loader) parseFile(fSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	fm := fileMod.New(filename)
-	if err := fm.AddFile(filename, src); err != nil {
+func (ld *loader) parseFile(finalFileSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
+	pkgPath := filepath.Dir(filename)
+	f, err := parser.ParseFile(ld.tempFileSet, filename, src, parseMode)
+	if err != nil {
+		return nil, ld.errGroup.Fatal(err)
+	}
+	pkgName := f.Name.Name
+
+	if ld.packageChanged(pkgName, pkgPath) {
+		ld.packageDone()
+		ld.packageChanged(pkgName, pkgName)
+	}
+
+	fm := astMod.NewFile(filename, f, ld.curPkg)
+	if err := ld.group.Modify(fm, ld.errGroup); err != nil {
 		return nil, err
 	}
 
-	pkgName, pkgPath := fm.PackageName(), fm.PackagePath()
-	if ld.curPkgName != pkgName && ld.curPkgPath != pkgPath {
-		if len(ld.curPkgName) >= 0 {
-			ld.group.PackageDone(ld.curPkgName, ld.curPkgPath, ld.errGroup)
-		}
-		ld.curPkgName, ld.curPkgPath = pkgName, pkgPath
-		ld.group.PackageStart(ld.curPkgName, ld.curPkgPath, ld.errGroup)
-	}
+	return fm.Finalize(finalFileSet, parseMode)
+}
 
-	if err := ld.group.Modify(fm, ld.errGroup); err != nil {
-		if !errors.Is(err, mods.ErrFileModDone) {
-			return nil, err
-		}
-	}
+func (ld *loader) packageChanged(pkgName, pkgPath string) bool {
+	return ld.curPkg == nil || (ld.curPkg.Name() != pkgName && ld.curPkg.Path() != pkgPath)
+}
 
-	return fm.Finalize(fSet)
+func (ld *loader) packageDone() {
+	if ld.curPkg != nil {
+		ld.group.PackageDone(ld.curPkg, ld.errGroup)
+		ld.curPkg = nil
+	}
+}
+
+func (ld *loader) packageStart(pkgName, pkgPath string) {
+	ld.curPkg = astMod.NewPackage(pkgName, pkgPath, ld.errGroup, ld.tempFileSet)
+	ld.group.PackageStart(ld.curPkg, ld.errGroup)
 }
