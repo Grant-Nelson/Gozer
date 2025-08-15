@@ -9,6 +9,8 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
+	"github.com/Grant-Nelson/Gozer/internal/iterator"
+	"github.com/Grant-Nelson/Gozer/internal/predicate"
 	"github.com/Grant-Nelson/Gozer/project/loader/astMod"
 )
 
@@ -27,6 +29,7 @@ var (
 type augAdd struct {
 	fileSet    *token.FileSet
 	beingAdded map[string]token.Pos
+	addImport  []*ast.ImportSpec
 	addDecl    []ast.Decl
 	addFields  map[string]*ast.StructType
 	addMethods map[string]*ast.InterfaceType
@@ -35,6 +38,7 @@ type augAdd struct {
 func (a *augAdd) reset(fileSet *token.FileSet) {
 	a.fileSet = fileSet
 	a.beingAdded = map[string]token.Pos{}
+	a.addImport = []*ast.ImportSpec{}
 	a.addDecl = []ast.Decl{}
 	a.addFields = map[string]*ast.StructType{}
 	a.addMethods = map[string]*ast.InterfaceType{}
@@ -52,6 +56,7 @@ func (a *augAdd) Modify(fm *astMod.FileMod, errs *faults.Group) error {
 			return err
 		}
 	}
+	a.addImports(fm)
 	a.addDecls(fm)
 	return nil
 }
@@ -201,12 +206,25 @@ func (a *augAdd) tryToAddMethods(id *astMod.IdentIteratorValue, errs *faults.Gro
 	return nil
 }
 
+func (a *augAdd) addImports(fm *astMod.FileMod) {
+	if len(a.addImport) > 0 {
+		f := fm.File()
+
+		importCount := iterator.Iterate(f.Decls...).While(predicate.Is[*ast.Ident, ast.Decl]()).Count()
+
+		// TODO: Implement
+		//f.Decls = append(f.Decls, a.addImport...)
+
+		a.addImport = []*ast.ImportSpec{}
+	}
+}
+
 // addDecls dda all declarations needing to be added and clears out the
 // list of decls needing to be added so that they're only added once.
 func (a *augAdd) addDecls(fm *astMod.FileMod) {
 	if len(a.addDecl) > 0 {
-		// TODO: Fix
-		//fm.AddDecls(a.addDecl)
+		f := fm.File()
+		f.Decls = append(f.Decls, a.addDecl...)
 		a.addDecl = []ast.Decl{}
 	}
 }

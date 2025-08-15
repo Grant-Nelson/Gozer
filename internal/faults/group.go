@@ -16,11 +16,20 @@ func NewGroup(limit int) *Group {
 	return &Group{limit: limit}
 }
 
-func (g *Group) Add(err error) error {
+func (g *Group) addErr(err error) bool {
 	if err == nil {
-		return nil
+		return false
+	}
+	if count := len(g.err); count > 0 && g.err[count-1] == err {
+		// Duplicate error, skip it.
+		return false
 	}
 	g.err = append(g.err, err)
+	return true
+}
+
+func (g *Group) Add(err error) error {
+	g.addErr(err)
 	if len(g.err) >= g.limit {
 		return g.Wrap()
 	}
@@ -28,10 +37,7 @@ func (g *Group) Add(err error) error {
 }
 
 func (g *Group) Fatal(err error) error {
-	if err == nil {
-		return nil
-	}
-	g.err = append(g.err, err)
+	g.addErr(err)
 	return g.Wrap()
 }
 

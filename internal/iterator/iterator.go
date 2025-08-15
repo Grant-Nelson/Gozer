@@ -13,6 +13,11 @@ import (
 // with additional methods added to it for convenance.
 type Iterator[T any] iter.Seq[T]
 
+// Iterate will create an iterator for all the given values.
+func Iterate[T any](values ...T) Iterator[T] {
+	return Iterator[T](slices.Values(values))
+}
+
 // Index returns the sequence values paired with a zero based index.
 func (it Iterator[T]) Indexed() iter.Seq2[int, T] {
 	return func(yield func(int, T) bool) {
@@ -155,13 +160,29 @@ func (it Iterator[T]) SkipWhile(p predicate.Predicate[T]) Iterator[T] {
 
 // Until will returns values from the sequence until the predicate returns
 // true then it will stop without returning anymore values.
+// The value that caused the predicate to return true is not returned.
 //
-// This will consume all the values until the predicate returns true
-// and all the returned values will be passed into the predicate.
+// This will consume all the values until the predicate returns true.
 func (it Iterator[T]) Until(p predicate.Predicate[T]) Iterator[T] {
 	return func(yield func(T) bool) {
 		for v := range it {
 			if p(v) || !yield(v) {
+				return
+			}
+		}
+	}
+}
+
+// While will returns values from the sequence while the predicate returns
+// true. As soon at predicate returns false it will stop without returning
+// anymore values.
+// The value that caused the predicate to return false is not returned.
+//
+// This will consume all the values until the predicate returns false.
+func (it Iterator[T]) While(p predicate.Predicate[T]) Iterator[T] {
+	return func(yield func(T) bool) {
+		for v := range it {
+			if !p(v) || !yield(v) {
 				return
 			}
 		}
