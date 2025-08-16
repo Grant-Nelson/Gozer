@@ -2,15 +2,13 @@ package project
 
 import (
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"path/filepath"
 
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/loader/astMod"
+	"github.com/Grant-Nelson/Gozer/project/file"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
@@ -91,40 +89,38 @@ const allNeeds = packages.NeedName |
 	packages.NeedSyntax |
 	packages.NeedTypesInfo
 
-const parseMode = parser.AllErrors |
-	parser.ParseComments |
-	parser.SkipObjectResolution
-
 type loader struct {
 	errGroup    *faults.Group
 	group       mods.Group
-	curPkg      *astMod.PackageMod
+	curPkg      *mods.Package
 	tempFileSet *token.FileSet
 }
 
 func (ld *loader) parseFile(finalFileSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	pkgPath := filepath.Dir(filename)
-	f, err := parser.ParseFile(ld.tempFileSet, filename, src, parseMode)
+	f, err := file.Load(ld.tempFileSet, filename, src)
 	if err != nil {
 		return nil, ld.errGroup.Fatal(err)
 	}
-	pkgName := f.Name.Name
 
+	pkgName, pkgPath := f.PackageName(), f.PackagePath()
 	if ld.packageChanged(pkgName, pkgPath) {
 		ld.packageDone()
-		ld.packageChanged(pkgName, pkgName)
+		ld.packageStart(pkgName, pkgName)
 	}
 
-	fm := astMod.NewFile(filename, f, ld.curPkg)
-	if err := ld.group.Modify(fm, ld.errGroup); err != nil {
+	if err := ld.group.Modify(f, ld.errGroup); err != nil {
 		return nil, err
 	}
 
-	return fm.Finalize(finalFileSet, parseMode)
+	final, err := f.Reload(finalFileSet)
+	if err != nil {
+		return nil, ld.errGroup.Fatal(err)
+	}
+	return final.File, nil
 }
 
 func (ld *loader) packageChanged(pkgName, pkgPath string) bool {
-	return ld.curPkg == nil || (ld.curPkg.Name() != pkgName && ld.curPkg.Path() != pkgPath)
+	return ld.curPkg == nil || (ld.curPkg.Name != pkgName && ld.curPkg.Path != pkgPath)
 }
 
 func (ld *loader) packageDone() {
@@ -135,6 +131,6 @@ func (ld *loader) packageDone() {
 }
 
 func (ld *loader) packageStart(pkgName, pkgPath string) {
-	ld.curPkg = astMod.NewPackage(pkgName, pkgPath, ld.errGroup, ld.tempFileSet)
+	ld.curPkg = &mods.Package{Name: pkgName, Path: pkgPath}
 	ld.group.PackageStart(ld.curPkg, ld.errGroup)
 }

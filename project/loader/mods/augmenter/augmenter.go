@@ -2,9 +2,7 @@ package augmenter
 
 import (
 	"errors"
-	"go/ast"
 	"go/build/constraint"
-	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
@@ -12,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/astMod"
+	"github.com/Grant-Nelson/Gozer/project/file"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
@@ -48,15 +46,13 @@ func New(build []string, basePath, testPkgPath string) *Augmenter {
 	return a
 }
 
-func (a *Augmenter) PackageStart(pkg *astMod.PackageMod, errs *faults.Group) error {
+func (a *Augmenter) PackageStart(pkg *mods.Package, errs *faults.Group) error {
 	a.reset()
-	if err := a.addPackage(pkg.Path(), errs); err != nil {
+	if err := a.addPackage(pkg.Path, errs); err != nil {
 		return err
 	}
 	return a.Group.PackageStart(pkg, errs)
 }
-
-const parseMode = parser.AllErrors | parser.ParseComments | parser.SkipObjectResolution
 
 func (a *Augmenter) reset() {
 	a.fileSet = token.NewFileSet()
@@ -92,35 +88,35 @@ func (a *Augmenter) addPackage(path string, errs *faults.Group) error {
 	return nil
 }
 
-func (a *Augmenter) addFile(filename string, src []byte, errs *faults.Group) error {
-	f, err := parser.ParseFile(a.fileSet, filename, src, parseMode)
+func (a *Augmenter) addFile(filename string, src []byte, errGroup *faults.Group) error {
+	f, err := file.Load(a.fileSet, filename, src)
 	if err != nil {
-		return errs.Add(err)
+		return errGroup.Add(err)
 	}
-	build, err := a.shouldAdd(f, errs)
+	build, err := a.shouldAdd(f, errGroup)
 	if err != nil {
 		return err
 	}
 	if !build {
 		return nil
 	}
-	if err := a.del.AddFile(f, errs); err != nil {
+	if err := a.del.AddFile(f, errGroup); err != nil {
 		return err
 	}
-	if err := a.rep.AddFile(f, errs); err != nil {
+	if err := a.rep.AddFile(f, errGroup); err != nil {
 		return err
 	}
-	if err := a.ren.AddFile(f, errs); err != nil {
+	if err := a.ren.AddFile(f, errGroup); err != nil {
 		return err
 	}
-	return a.add.AddFile(f, errs)
+	return a.add.AddFile(f, errGroup)
 }
 
-func (a *Augmenter) shouldAdd(f *ast.File, errs *faults.Group) (bool, error) {
-	if f.Doc == nil || len(f.Doc.List) <= 0 {
+func (a *Augmenter) shouldAdd(f *file.File, errs *faults.Group) (bool, error) {
+	if f.File.Doc == nil || len(f.File.Doc.List) <= 0 {
 		return true, nil
 	}
-	for _, com := range f.Doc.List {
+	for _, com := range f.File.Doc.List {
 		exp, err := constraint.Parse(com.Text)
 		if err != nil {
 			return false, errs.Add(faults.From(ErrParsingBuildConstraints).

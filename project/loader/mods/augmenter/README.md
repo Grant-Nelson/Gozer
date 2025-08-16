@@ -257,3 +257,13 @@ func (f *Foo) Bar(x int, y int)
 
 For functions, a rename can be paired with a `gozer:replaceSig` to
 change the name and signature of a function while keeping the body unchanged.
+
+## Ignoring
+
+An import, type, function, variable, and constant can be ignored
+with `gozer:ignore`. Ignored items will have no affect in the augmenter
+but can be added to the augmenter code to reduce the number of warnings
+and errors displayed in a code editor. For example, when adding a new
+function with a receiver in the original code, as stubbed out type
+can be added and ignored so that the editor doesn't complained about
+the missing type.

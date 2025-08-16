@@ -9,9 +9,8 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/internal/iterator"
-	"github.com/Grant-Nelson/Gozer/internal/predicate"
-	"github.com/Grant-Nelson/Gozer/project/loader/astMod"
+	"github.com/Grant-Nelson/Gozer/project/file"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
 var (
@@ -27,61 +26,65 @@ var (
 )
 
 type augAdd struct {
-	fileSet    *token.FileSet
+	fileSet *token.FileSet
+
+	// beingAdded is the import paths and identifiers for the decls and specs
+	// that are being added, the value is the position value for the.
 	beingAdded map[string]token.Pos
-	addImport  []*ast.ImportSpec
-	addDecl    []ast.Decl
-	addFields  map[string]*ast.StructType
-	addMethods map[string]*ast.InterfaceType
+
+	newImports []*ast.ImportSpec
+	newDecls   []ast.Decl
+	newFields  map[string]*ast.StructType
+	newMethods map[string]*ast.InterfaceType
 }
 
 func (a *augAdd) reset(fileSet *token.FileSet) {
 	a.fileSet = fileSet
 	a.beingAdded = map[string]token.Pos{}
-	a.addImport = []*ast.ImportSpec{}
-	a.addDecl = []ast.Decl{}
-	a.addFields = map[string]*ast.StructType{}
-	a.addMethods = map[string]*ast.InterfaceType{}
+	a.newImports = []*ast.ImportSpec{}
+	a.newDecls = []ast.Decl{}
+	a.newFields = map[string]*ast.StructType{}
+	a.newMethods = map[string]*ast.InterfaceType{}
 }
 
-func (a *augAdd) Modify(fm *astMod.FileMod, errs *faults.Group) error {
-	for id := range fm.Idents() {
-		if err := a.checkForExistingId(id, errs); err != nil {
+func (a *augAdd) Modify(f *file.File, errGroup *faults.Group) error {
+	for id := range f.Idents() {
+		if err := a.checkForExistingId(id, errGroup); err != nil {
 			return err
 		}
-		if err := a.tryToAddFields(id, errs); err != nil {
+		if err := a.tryToAddFields(id, errGroup); err != nil {
 			return err
 		}
-		if err := a.tryToAddMethods(id, errs); err != nil {
+		if err := a.tryToAddMethods(id, errGroup); err != nil {
 			return err
 		}
 	}
-	a.addImports(fm)
-	a.addDecls(fm)
+	a.addImports(f)
+	a.addDecls(f)
 	return nil
 }
 
-func (a *augAdd) PackageDone(name, path string, errs *faults.Group) error {
-	if len(a.addFields) > 0 {
-		names := slices.Collect(maps.Keys(a.addFields))
+func (a *augAdd) PackageDone(pkg mods.Package, errGroup *faults.Group) error {
+	if len(a.newFields) > 0 {
+		names := slices.Collect(maps.Keys(a.newFields))
 		sort.Strings(names)
 		for _, name := range names {
-			st := a.addFields[name]
-			if err := errs.Add(faults.From(ErrAugAddStructIdDidNotExist).
-				With(`package path`, path).
+			st := a.newFields[name]
+			if err := errGroup.Add(faults.From(ErrAugAddStructIdDidNotExist).
+				With(`package path`, pkg.Path).
 				With(`augmenter pos`, a.fileSet.Position(st.Pos())).
 				With(`identifier`, name)); err != nil {
 				return err
 			}
 		}
 	}
-	if len(a.addMethods) > 0 {
-		names := slices.Collect(maps.Keys(a.addMethods))
+	if len(a.newMethods) > 0 {
+		names := slices.Collect(maps.Keys(a.newMethods))
 		sort.Strings(names)
 		for _, name := range names {
-			st := a.addMethods[name]
-			if err := errs.Add(faults.From(ErrAugAddInterfaceIdDidNotExist).
-				With(`package path`, path).
+			st := a.newMethods[name]
+			if err := errGroup.Add(faults.From(ErrAugAddInterfaceIdDidNotExist).
+				With(`package path`, pkg.Path).
 				With(`augmenter pos`, a.fileSet.Position(st.Pos())).
 				With(`identifier`, name)); err != nil {
 				return err
@@ -92,35 +95,35 @@ func (a *augAdd) PackageDone(name, path string, errs *faults.Group) error {
 }
 
 // checkForExistingId checks that none of the decls being added already exist.
-func (a *augAdd) checkForExistingId(id *astMod.IdentIteratorValue, errs *faults.Group) error {
+func (a *augAdd) checkForExistingId(id *file.IdentIteratorValue, errGroup *faults.Group) error {
 	pos, has := a.beingAdded[id.Ident]
 	if !has {
 		return nil
 	}
-	return errs.Add(faults.From(ErrAugAddIdAlreadyExists).
-		With(`package path`, id.FileMod.Package().Path()).
+	return errGroup.Add(faults.From(ErrAugAddIdAlreadyExists).
+		With(`package path`, id.File.PackagePath()).
 		With(`original pos`, id.Start()).
 		With(`augmenter pos`, a.fileSet.Position(pos)).
 		With(`identifier`, id.Ident))
 }
 
 // tryToAddFields checks if the given ident is a structure to add fields to.
-func (a *augAdd) tryToAddFields(id *astMod.IdentIteratorValue, errs *faults.Group) error {
-	fieldsToAdd, has := a.addFields[id.Ident]
+func (a *augAdd) tryToAddFields(id *file.IdentIteratorValue, errGroup *faults.Group) error {
+	fieldsToAdd, has := a.newFields[id.Ident]
 	if !has {
 		return nil
 	}
 	if id.TypeSpec == nil {
-		return errs.Add(faults.From(ErrAugAddStructIdNotForType).
-			With(`package path`, id.FileMod.Package().Path()).
+		return errGroup.Add(faults.From(ErrAugAddStructIdNotForType).
+			With(`package path`, id.File.PackagePath()).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(fieldsToAdd.Pos())).
 			With(`identifier`, id.Ident))
 	}
 	structToAddTo, ok := id.TypeSpec.Type.(*ast.StructType)
 	if !ok {
-		return errs.Add(faults.From(ErrAugAddStructTypeMismatch).
-			With(`package path`, id.FileMod.Package().Path()).
+		return errGroup.Add(faults.From(ErrAugAddStructTypeMismatch).
+			With(`package path`, id.File.PackagePath()).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(fieldsToAdd.Pos())).
 			With(`identifier`, id.Ident))
@@ -139,8 +142,8 @@ func (a *augAdd) tryToAddFields(id *astMod.IdentIteratorValue, errs *faults.Grou
 			if !has {
 				continue
 			}
-			return errs.Add(faults.From(ErrAugAddIdFieldAlreadyExists).
-				With(`package path`, id.FileMod.Package().Path()).
+			return errGroup.Add(faults.From(ErrAugAddIdFieldAlreadyExists).
+				With(`package path`, id.File.PackagePath()).
 				With(`original struct pos`, id.Start()).
 				With(`augmenter struct pos`, a.fileSet.Position(fieldsToAdd.Pos())).
 				With(`original field pos`, id.Position(name.Pos())).
@@ -151,27 +154,27 @@ func (a *augAdd) tryToAddFields(id *astMod.IdentIteratorValue, errs *faults.Grou
 	}
 	// Add fields to the struct and remove added fields from map so we know it was added.
 	structToAddTo.Fields.List = append(structToAddTo.Fields.List, fieldsToAdd.Fields.List...)
-	delete(a.addFields, id.Ident)
+	delete(a.newFields, id.Ident)
 	return nil
 }
 
 // tryToAddMethods checks if the given ident is an interface to add methods to.
-func (a *augAdd) tryToAddMethods(id *astMod.IdentIteratorValue, errs *faults.Group) error {
-	methodsToAdd, has := a.addMethods[id.Ident]
+func (a *augAdd) tryToAddMethods(id *file.IdentIteratorValue, errGroup *faults.Group) error {
+	methodsToAdd, has := a.newMethods[id.Ident]
 	if !has {
 		return nil
 	}
 	if id.TypeSpec == nil {
-		return errs.Add(faults.From(ErrAugAddInterfaceIdNotForType).
-			With(`package path`, id.FileMod.Package().Path()).
+		return errGroup.Add(faults.From(ErrAugAddInterfaceIdNotForType).
+			With(`package path`, id.File.PackagePath()).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(methodsToAdd.Pos())).
 			With(`identifier`, id.Ident))
 	}
 	interfaceToAddTo, ok := id.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
-		return errs.Add(faults.From(ErrAugAddInterfaceTypeMismatch).
-			With(`package path`, id.FileMod.Package().Path()).
+		return errGroup.Add(faults.From(ErrAugAddInterfaceTypeMismatch).
+			With(`package path`, id.File.PackagePath()).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(methodsToAdd.Pos())).
 			With(`identifier`, id.Ident))
@@ -190,8 +193,8 @@ func (a *augAdd) tryToAddMethods(id *astMod.IdentIteratorValue, errs *faults.Gro
 			if !has {
 				continue
 			}
-			return errs.Add(faults.From(ErrAugAddIdMethodAlreadyExists).
-				With(`package path`, id.FileMod.Package().Path()).
+			return errGroup.Add(faults.From(ErrAugAddIdMethodAlreadyExists).
+				With(`package path`, id.File.PackagePath()).
 				With(`original interface pos`, id.Start()).
 				With(`augmenter interface pos`, a.fileSet.Position(methodsToAdd.Pos())).
 				With(`original method pos`, id.Position(name.Pos())).
@@ -202,34 +205,27 @@ func (a *augAdd) tryToAddMethods(id *astMod.IdentIteratorValue, errs *faults.Gro
 	}
 	// Add methods to the interface and remove added methods from map so we know it was added.
 	interfaceToAddTo.Methods.List = append(interfaceToAddTo.Methods.List, methodsToAdd.Methods.List...)
-	delete(a.addMethods, id.Ident)
+	delete(a.newMethods, id.Ident)
 	return nil
 }
 
-func (a *augAdd) addImports(fm *astMod.FileMod) {
-	if len(a.addImport) > 0 {
-		f := fm.File()
-
-		importCount := iterator.Iterate(f.Decls...).While(predicate.Is[*ast.Ident, ast.Decl]()).Count()
-
-		// TODO: Implement
-		//f.Decls = append(f.Decls, a.addImport...)
-
-		a.addImport = []*ast.ImportSpec{}
+func (a *augAdd) addImports(f *file.File) {
+	if len(a.newImports) > 0 {
+		f.File.Imports = append(f.File.Imports, a.newImports...)
+		a.newImports = []*ast.ImportSpec{}
 	}
 }
 
 // addDecls dda all declarations needing to be added and clears out the
 // list of decls needing to be added so that they're only added once.
-func (a *augAdd) addDecls(fm *astMod.FileMod) {
-	if len(a.addDecl) > 0 {
-		f := fm.File()
-		f.Decls = append(f.Decls, a.addDecl...)
-		a.addDecl = []ast.Decl{}
+func (a *augAdd) addDecls(f *file.File) {
+	if len(a.newDecls) > 0 {
+		f.File.Decls = append(f.File.Decls, a.newDecls...)
+		a.newDecls = []ast.Decl{}
 	}
 }
 
-func (a *augAdd) AddFile(f *ast.File, errs *faults.Group) error {
+func (a *augAdd) AddFile(f *file.File, errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }

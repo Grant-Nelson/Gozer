@@ -1,4 +1,4 @@
-package astMod
+package file
 
 import (
 	"github.com/Grant-Nelson/Gozer/internal/iterator"
@@ -14,9 +14,9 @@ func newIdentIteratorValue(ds *DeclSpecIteratorValue, k int, ident string) *Iden
 	return &IdentIteratorValue{DeclSpecIteratorValue: ds, ValueIndex: k, Ident: ident}
 }
 
-func (fm *FileMod) Idents() iterator.Iterator[*IdentIteratorValue] {
+func (f *File) Idents() iterator.Iterator[*IdentIteratorValue] {
 	return func(yield func(v *IdentIteratorValue) bool) {
-		for ds := range fm.DeclSpecs() {
+		for ds := range f.DeclSpecs() {
 			switch {
 			case ds.ImportSpec != nil:
 				if !yield(newIdentIteratorValue(ds, -1, ds.ImportSpec.Path.Value)) {

@@ -2,11 +2,13 @@ package augmenter
 
 import (
 	"fmt"
+	"go/token"
 	"strings"
 	"testing"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/fileMod"
+	"github.com/Grant-Nelson/Gozer/project/file"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -41,33 +43,35 @@ func lines(lines ...string) string {
 func runAugTest(t *testing.T, test augTest) {
 	t.Helper()
 
-	fm := fileMod.New(`original`)
-	if err := fm.AddFile(`orig.go`, []byte(test.origSrc)); err != nil {
+	fileSet := token.NewFileSet()
+	fm, err := file.Load(fileSet, `original/orig.go`, []byte(test.origSrc))
+	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
 	}
 
 	test.errLimit = max(test.errLimit, 1)
 	pkgPath := `test/path`
-	errs := faults.NewGroup(test.errLimit)
+	errGroup := faults.NewGroup(test.errLimit)
 	a := New(nil, `base`, pkgPath)
 	a.reset()
-	if err := a.addFile(`aug.go`, []byte(test.augSrc), errs); err != nil {
+	if err := a.addFile(`aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}
 
-	if err := a.Modify(fm, errs); err != nil {
+	if err := a.Modify(fm, errGroup); err != nil {
 		checkErr(t, `modify file`, test, err)
 		return
 	}
 
-	if err := a.PackageDone(`test`, pkgPath, errs); err != nil {
+	pkg := &mods.Package{Name: `test`, Path: pkgPath}
+	if err := a.PackageDone(pkg, errGroup); err != nil {
 		checkErr(t, `finish package`, test, err)
 		return
 	}
 
-	if err := errs.Wrap(); err != nil {
+	if err := errGroup.Wrap(); err != nil {
 		checkErr(t, `accumulated error`, test, err)
 		return
 	}
