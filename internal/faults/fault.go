@@ -19,19 +19,45 @@ func New(msg string, inner ...error) *Fault {
 	}
 }
 
-func From(err error) *Fault {
-	return New(err.Error(), err)
+func From(r any) *Fault {
+	switch t := r.(type) {
+	case *Fault:
+		return t
+	case *Group:
+		return New(`several errors`, t.err...)
+	case error:
+		return New(t.Error(), t)
+	case string:
+		return New(t)
+	default:
+		return New(fmt.Sprintf(`error for %v`, t))
+	}
+}
+
+func Recover(pe *error) {
+	if r := recover(); r != nil {
+		*pe = From(r)
+	}
 }
 
 func (f *Fault) Unwrap() []error {
+	if f == nil {
+		return nil
+	}
 	return f.inner
 }
 
 func (f *Fault) Data() map[string]any {
+	if f == nil {
+		return nil
+	}
 	return f.data
 }
 
 func (f *Fault) With(key string, value any) *Fault {
+	if f == nil {
+		return nil
+	}
 	if len(f.data) <= 0 {
 		f.data = map[string]any{}
 	}
@@ -51,6 +77,9 @@ func (f *Fault) With(key string, value any) *Fault {
 }
 
 func (f *Fault) Error() string {
+	if f == nil {
+		return `nil`
+	}
 	parts := make([]string, 0, len(f.data)+1)
 	parts = append(parts, f.msg)
 	for k, v := range f.data {

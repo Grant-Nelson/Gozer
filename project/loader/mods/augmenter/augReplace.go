@@ -25,8 +25,3 @@ func (a *augReplace) PackageDone(pkg *mods.Package, errGroup *faults.Group) erro
 	// TODO: Implement
 	return nil
 }
-
-func (a *augReplace) AddFile(f *file.File, errGroup *faults.Group) error {
-	// TODO: Implement
-	return nil
-}

@@ -17,7 +17,7 @@ func NewGroup(limit int) *Group {
 }
 
 func (g *Group) addErr(err error) bool {
-	if err == nil {
+	if g == nil || err == nil {
 		return false
 	}
 	if count := len(g.err); count > 0 && g.err[count-1] == err {
@@ -29,6 +29,9 @@ func (g *Group) addErr(err error) bool {
 }
 
 func (g *Group) Add(err error) error {
+	if g == nil {
+		return nil
+	}
 	g.addErr(err)
 	if len(g.err) >= g.limit {
 		return g.Wrap()
@@ -37,10 +40,16 @@ func (g *Group) Add(err error) error {
 }
 
 func (g *Group) Fatal(err error) error {
+	if g == nil {
+		return nil
+	}
 	g.addErr(err)
 	return g.Wrap()
 }
 
 func (g *Group) Wrap() error {
+	if g == nil {
+		return nil
+	}
 	return errors.Join(g.err...)
 }

@@ -18,6 +18,8 @@ var (
 	ErrAugDelIdentifierNotType      = errors.New(`can not delete identifier via augmenter: identifier not type`)
 	ErrAugDelIdentifierNotStruct    = errors.New(`can not delete identifier via augmenter: identifier not struct`)
 	ErrAugDelIdentifierNotInterface = errors.New(`can not delete identifier via augmenter: identifier not interface`)
+	ErrAugDelIdentifierNotField     = errors.New(`can not delete identifier via augmenter: identifier for field not in struct`)
+	ErrAugDelIdentifierNotMethod    = errors.New(`can not delete identifier via augmenter: identifier for method not in interface`)
 )
 
 type delHandle func(*file.IdentIteratorValue, *faults.Group) (bool, error)
@@ -126,6 +128,27 @@ func (a *augDel) tryDelType(it *file.IdentIteratorValue, errGroup *faults.Group)
 			return false, err
 		}
 	}
+	_, itInter := it.TypeSpec.Type.(*ast.InterfaceType)
+	_, tInter := t.Type.(*ast.InterfaceType)
+	if itInter != tInter {
+		if itInter {
+			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotStruct).
+				With(`package path`, it.File.PackagePath()).
+				With(`original pos`, it.Start()).
+				With(`augmenter pos`, a.fileSet.Position(t.Pos())).
+				With(`identifier`, it.Ident)); err != nil {
+				return false, err
+			}
+		} else {
+			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotInterface).
+				With(`package path`, it.File.PackagePath()).
+				With(`original pos`, it.Start()).
+				With(`augmenter pos`, a.fileSet.Position(t.Pos())).
+				With(`identifier`, it.Ident)); err != nil {
+				return false, err
+			}
+		}
+	}
 	it.GenDecl.Specs[it.SpecIndex] = nil
 	delete(a.delType, it.Ident)
 	return true, nil
@@ -138,7 +161,7 @@ func (a *augDel) tryDelFields(it *file.IdentIteratorValue, errGroup *faults.Grou
 	}
 	st, ok := it.TypeSpec.Type.(*ast.StructType)
 	if !ok {
-		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotStruct).
+		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotField).
 			With(`package path`, it.File.PackagePath()).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.fileSet.Position(fs.Pos())).
@@ -176,7 +199,7 @@ func (a *augDel) tryDelMethods(it *file.IdentIteratorValue, errGroup *faults.Gro
 	}
 	st, ok := it.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
-		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotInterface).
+		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotMethod).
 			With(`package path`, it.File.PackagePath()).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.fileSet.Position(ms.Pos())).
@@ -210,9 +233,4 @@ func (a *augDel) tryDelMethods(it *file.IdentIteratorValue, errGroup *faults.Gro
 	}
 	delete(a.delMethods, it.Ident)
 	return true, nil
-}
-
-func (a *augDel) AddFile(f *file.File, errGroup *faults.Group) error {
-	// TODO: Implement
-	return nil
 }

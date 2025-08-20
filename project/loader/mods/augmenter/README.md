@@ -3,6 +3,25 @@
 The augmenter modifier reads in specially marked up `*.go` files
 that specify what changes need to be made to files for a package.
 
+- [Augmenter](#augmenter)
+  - [Adding](#adding)
+    - [Adding an Import](#adding-an-import)
+    - [Adding a Func](#adding-a-func)
+    - [Adding a Var or Const](#adding-a-var-or-const)
+    - [Adding a Data Type](#adding-a-data-type)
+    - [Adding an Interface](#adding-an-interface)
+    - [Adding a Field](#adding-a-field)
+  - [Deleting](#deleting)
+    - [Deleting a Func](#deleting-a-func)
+    - [Deleting a Var or Const](#deleting-a-var-or-const)
+    - [Deleting a Data Type or Interface](#deleting-a-data-type-or-interface)
+    - [Deleting a Field](#deleting-a-field)
+  - [Replacing](#replacing)
+    - [Replacing a Signature](#replacing-a-signature)
+  - [Rename](#rename)
+    - [RenameRecv](#renamerecv)
+  - [Ignoring](#ignoring)
+
 ## Adding
 
 Adding new code into a package can be done with `//gozer:add`.
@@ -183,7 +202,7 @@ type (
 
 ```Go
 type 
-    //gozer:delete(
+    //gozer:delete
     Foo struct{}
     //gozer:delete
     Bar struct{}
@@ -245,18 +264,24 @@ The code must provide the existing name so that it can be matched.
 type Foo struct {}
 ```
 
+For functions, a rename can be paired with a `gozer:replaceSig` to
+change the name and signature of a function while keeping the body unchanged.
+
+### RenameRecv
+
 The receiver of a function can be renamed with `gozer:renameRecv (*)<newName>`.
-This can be paired with `gozer:rename` to rename the receiver and function
-at the same time. The new receiver name includes if the name should be
-a pointer or not with a `*` preceding the new name.
+This can be paired with `gozer:rename` to replace the receiver and function
+at the same time. The new receiver type includes if the type should be
+a pointer or not with a `*` preceding the new type. Replacing the receiver
+type is part of renaming since the names for functions include the receiver
+type, e.g. `(*Foo).Bar`. To replace the name of the receiver within the scope
+of the body, e.g. the `f` in `(f *Foo)`, use `gozer:replaceSig` to change the
+parameter names with `gozer:renameRecv` to change the type.
 
 ```Go
 //gozer:renameRecv *Foo2
 func (f *Foo) Bar(x int, y int)
 ```
-
-For functions, a rename can be paired with a `gozer:replaceSig` to
-change the name and signature of a function while keeping the body unchanged.
 
 ## Ignoring
 

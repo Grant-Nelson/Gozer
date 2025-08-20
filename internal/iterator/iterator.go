@@ -329,6 +329,19 @@ func (it Iterator[T]) Join(sep string) string {
 	return buf.String()
 }
 
+// UntilError will return the given function for each value
+// until the end of the iteration or the function returns an error.
+// Returns nil if no error occurred, or the error that was returned
+// from the given function.
+func (it Iterator[T]) UntilError(f func(v T) error) error {
+	for v := range it {
+		if err := f(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Empty will create an empty iterator.
 func Empty[T any]() Iterator[T] {
 	return func(yield func(T) bool) {}
@@ -378,6 +391,18 @@ func Select[TIn, TOut any](it Iterator[TIn], s func(TIn) TOut) Iterator[TOut] {
 	return func(yield func(TOut) bool) {
 		for v := range it {
 			if !yield(s(v)) {
+				return
+			}
+		}
+	}
+}
+
+// Cast will cast all the values in the input iterator and return
+// only the values that could be cast into the output type.
+func Cast[TIn, TOut any](it Iterator[TIn]) Iterator[TOut] {
+	return func(yield func(TOut) bool) {
+		for v := range it {
+			if t, ok := any(v).(TOut); ok && !yield(t) {
 				return
 			}
 		}

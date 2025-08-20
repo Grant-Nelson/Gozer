@@ -25,8 +25,3 @@ func (a *augRename) PackageDone(pkg *mods.Package, errGroup *faults.Group) error
 	// TODO: Implement
 	return nil
 }
-
-func (a *augRename) AddFile(f *file.File, errGroup *faults.Group) error {
-	// TODO: Implement
-	return nil
-}

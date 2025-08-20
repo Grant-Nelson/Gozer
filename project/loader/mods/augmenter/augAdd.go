@@ -224,8 +224,3 @@ func (a *augAdd) addDecls(f *file.File) {
 		a.newDecls = []ast.Decl{}
 	}
 }
-
-func (a *augAdd) AddFile(f *file.File, errGroup *faults.Group) error {
-	// TODO: Implement
-	return nil
-}

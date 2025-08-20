@@ -100,26 +100,22 @@ func (a *Augmenter) addFile(filename string, src []byte, errGroup *faults.Group)
 	if !build {
 		return nil
 	}
-	if err := a.del.AddFile(f, errGroup); err != nil {
-		return err
+	for ds := range f.DeclSpecs() {
+		if err := a.addDeclSpec(ds, errGroup); err != nil {
+			return err
+		}
 	}
-	if err := a.rep.AddFile(f, errGroup); err != nil {
-		return err
-	}
-	if err := a.ren.AddFile(f, errGroup); err != nil {
-		return err
-	}
-	return a.add.AddFile(f, errGroup)
+	return nil
 }
 
-func (a *Augmenter) shouldAdd(f *file.File, errs *faults.Group) (bool, error) {
+func (a *Augmenter) shouldAdd(f *file.File, errGroup *faults.Group) (bool, error) {
 	if f.File.Doc == nil || len(f.File.Doc.List) <= 0 {
 		return true, nil
 	}
 	for _, com := range f.File.Doc.List {
 		exp, err := constraint.Parse(com.Text)
 		if err != nil {
-			return false, errs.Add(faults.From(ErrParsingBuildConstraints).
+			return false, errGroup.Add(faults.From(ErrParsingBuildConstraints).
 				With(`error`, err).
 				With(`position`, a.fileSet.Position(com.Pos())))
 		}
@@ -128,7 +124,24 @@ func (a *Augmenter) shouldAdd(f *file.File, errs *faults.Group) (bool, error) {
 		}) {
 			return false, nil
 		}
-
 	}
 	return true, nil
+}
+
+func (a *Augmenter) addDeclSpec(ds *file.DeclSpecIteratorValue, errGroup *faults.Group) error {
+	dv, err := readDirectives(ds.Comments(), ds.File.PackagePath(), ds.Start(), errGroup)
+	if err != nil {
+		return err
+	}
+	if dv.none {
+		return a.addDeclSpecNoDirective(ds, errGroup)
+	}
+
+	// TODO: Implement
+	return nil
+}
+
+func (a *Augmenter) addDeclSpecNoDirective(dv *file.DeclSpecIteratorValue, errGroup *faults.Group) error {
+	// TODO: Implement
+	return nil
 }

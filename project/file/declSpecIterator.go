@@ -31,6 +31,32 @@ func (ds *DeclSpecIteratorValue) Position(pos token.Pos) token.Position {
 	return ds.File.FileSet.Position(pos)
 }
 
+func (ds *DeclSpecIteratorValue) Comments() []*ast.Comment {
+	result := []*ast.Comment{}
+	add := func(cg *ast.CommentGroup) {
+		if cg != nil {
+			result = append(result, cg.List...)
+		}
+	}
+	switch {
+	case ds.FuncDecl != nil:
+		add(ds.FuncDecl.Doc)
+	case ds.TypeSpec != nil:
+		add(ds.GenDecl.Doc)
+		add(ds.TypeSpec.Doc)
+		add(ds.TypeSpec.Comment)
+	case ds.ValueSpec != nil:
+		add(ds.GenDecl.Doc)
+		add(ds.ValueSpec.Doc)
+		add(ds.ValueSpec.Comment)
+	case ds.ImportSpec != nil:
+		add(ds.GenDecl.Doc)
+		add(ds.ImportSpec.Doc)
+		add(ds.ImportSpec.Comment)
+	}
+	return result
+}
+
 func newDeclSpecIteratorFunc(f *File, i int, d *ast.FuncDecl) *DeclSpecIteratorValue {
 	return &DeclSpecIteratorValue{File: f, DeclIndex: i, FuncDecl: d, SpecIndex: -1, Node: d}
 }
@@ -47,6 +73,8 @@ func newDeclSpecIteratorImport(f *File, i, j int, d *ast.GenDecl, s *ast.ImportS
 	return &DeclSpecIteratorValue{File: f, DeclIndex: i, SpecIndex: j, GenDecl: d, ImportSpec: s, Node: s}
 }
 
+// DeclSpecs iterates through all the declarations and
+// specifications in the file.
 func (f *File) DeclSpecs() iterator.Iterator[*DeclSpecIteratorValue] {
 	return func(yield func(v *DeclSpecIteratorValue) bool) {
 		for i, decl := range f.File.Decls {

@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"io"
 	"path/filepath"
+	"strings"
 )
 
 // File that is being modified or inspected.
@@ -76,4 +77,20 @@ func (f *File) Reload(fileSet *token.FileSet) (*File, error) {
 		return nil, err
 	}
 	return Load(fileSet, f.FilePath(), buf.Bytes())
+}
+
+// Directives finds all the directives with the given prefix.
+func Directives(comments []*ast.Comment, prefix string) map[string][]string {
+	prefix += `:`
+	result := map[string][]string{}
+	for _, c := range comments {
+		if tail, ok := strings.CutPrefix(c.Text, prefix); ok {
+			if i := strings.Index(tail, ` `); i > 0 {
+				key := strings.TrimSpace(tail[:i])
+				value := strings.TrimSpace(tail[i:])
+				result[key] = append(result[key], value)
+			}
+		}
+	}
+	return result
 }
