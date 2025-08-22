@@ -31,30 +31,28 @@ func (ds *DeclSpecIteratorValue) Position(pos token.Pos) token.Position {
 	return ds.File.FileSet.Position(pos)
 }
 
-func (ds *DeclSpecIteratorValue) Comments() []*ast.Comment {
+func JoinComments(cgs ...*ast.CommentGroup) []*ast.Comment {
 	result := []*ast.Comment{}
-	add := func(cg *ast.CommentGroup) {
+	for _, cg := range cgs {
 		if cg != nil {
 			result = append(result, cg.List...)
 		}
 	}
+	return result
+}
+
+func (ds *DeclSpecIteratorValue) Comments() []*ast.Comment {
 	switch {
 	case ds.FuncDecl != nil:
-		add(ds.FuncDecl.Doc)
+		return JoinComments(ds.FuncDecl.Doc)
 	case ds.TypeSpec != nil:
-		add(ds.GenDecl.Doc)
-		add(ds.TypeSpec.Doc)
-		add(ds.TypeSpec.Comment)
+		return JoinComments(ds.GenDecl.Doc, ds.TypeSpec.Doc, ds.TypeSpec.Comment)
 	case ds.ValueSpec != nil:
-		add(ds.GenDecl.Doc)
-		add(ds.ValueSpec.Doc)
-		add(ds.ValueSpec.Comment)
+		return JoinComments(ds.GenDecl.Doc, ds.ValueSpec.Doc, ds.ValueSpec.Comment)
 	case ds.ImportSpec != nil:
-		add(ds.GenDecl.Doc)
-		add(ds.ImportSpec.Doc)
-		add(ds.ImportSpec.Comment)
+		return JoinComments(ds.GenDecl.Doc, ds.ImportSpec.Doc, ds.ImportSpec.Comment)
 	}
-	return result
+	return nil
 }
 
 func newDeclSpecIteratorFunc(f *File, i int, d *ast.FuncDecl) *DeclSpecIteratorValue {
