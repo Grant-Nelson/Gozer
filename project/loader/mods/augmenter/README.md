@@ -19,7 +19,7 @@ that specify what changes need to be made to files for a package.
   - [Replacing](#replacing)
     - [Replacing a Signature](#replacing-a-signature)
   - [Rename](#rename)
-    - [RenameRecv](#renamerecv)
+    - [ReplaceRecv](#replacerecv)
   - [Ignoring](#ignoring)
 
 ## Adding
@@ -267,19 +267,19 @@ type Foo struct {}
 For functions, a rename can be paired with a `gozer:replaceSig` to
 change the name and signature of a function while keeping the body unchanged.
 
-### RenameRecv
+### ReplaceRecv
 
-The receiver of a function can be renamed with `gozer:renameRecv (*)<newName>`.
+The receiver of a function can be replaced with `gozer:replaceRecv (*)<newType>`.
 This can be paired with `gozer:rename` to replace the receiver and function
 at the same time. The new receiver type includes if the type should be
 a pointer or not with a `*` preceding the new type. Replacing the receiver
 type is part of renaming since the names for functions include the receiver
 type, e.g. `(*Foo).Bar`. To replace the name of the receiver within the scope
-of the body, e.g. the `f` in `(f *Foo)`, use `gozer:replaceSig` to change the
-parameter names with `gozer:renameRecv` to change the type.
+of the body, e.g. the `x` in `(x *Foo)`, use `gozer:replaceSig` to change the
+parameter names with `gozer:replaceRecv` to change the type.
 
 ```Go
-//gozer:renameRecv *Foo2
+//gozer:replaceRecv *Foo2
 func (f *Foo) Bar(x int, y int)
 ```
 

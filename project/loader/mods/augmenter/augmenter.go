@@ -13,6 +13,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/internal/faults"
 	"github.com/Grant-Nelson/Gozer/project/file"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/augmenter/directives"
 )
 
 type Augmenter struct {
@@ -68,6 +69,7 @@ func (a *Augmenter) addPackage(path string, errs *faults.Group) error {
 		}
 		return err
 	}
+
 	testDir := path == a.testPkgPath
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -90,6 +92,7 @@ func (a *Augmenter) addFile(filename string, src []byte, errGroup *faults.Group)
 	if err != nil {
 		return errGroup.Add(err)
 	}
+
 	build, err := a.shouldAdd(f, errGroup)
 	if err != nil {
 		return err
@@ -97,15 +100,23 @@ func (a *Augmenter) addFile(filename string, src []byte, errGroup *faults.Group)
 	if !build {
 		return nil
 	}
-	for ds := range f.DeclSpecs() {
-		if err := a.readDeclSpec(ds, errGroup); err != nil {
+
+	for _, d := range f.File.Decls {
+		if err := a.readDecl(f, d, errGroup); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-var ErrParsingBuildConstraints = errors.New(`error parsing build constrains`)
+var (
+	ErrParsingBuildConstraints = errors.New(`error parsing build constrains for augmentation file`)
+	ErrParsingUnexpectedDecl   = errors.New(`unexpected declaration while parsing augmentation file`)
+	ErrParsingUnexpectedSpec   = errors.New(`unexpected specification while parsing augmentation file`)
+	ErrAugFuncNone             = errors.New(`a function must have a directive`)
+	ErrAugSpecNone             = errors.New(`a specification must have a directive`)
+	ErrAugGenWithFuncDirective = errors.New(`a general declaration may not have a directive for a function`)
+)
 
 func (a *Augmenter) shouldAdd(f *file.File, errGroup *faults.Group) (bool, error) {
 	if f.File.Doc == nil || len(f.File.Doc.List) <= 0 {
@@ -127,114 +138,130 @@ func (a *Augmenter) shouldAdd(f *file.File, errGroup *faults.Group) (bool, error
 	return true, nil
 }
 
-func (a *Augmenter) readDeclSpec(ds *file.DeclSpecIteratorValue, errGroup *faults.Group) error {
-	dv, err := readDirectives(ds.Comments(), ds.File.PackagePath(), ds.Start(), errGroup)
-	switch {
-	case err != nil:
-		return err
-	case dv.none:
-		return a.readDeclSpecNoDirective(ds, errGroup)
-	case dv.add:
-		return a.readDeclSpecAdd(ds, errGroup)
-	case dv.delete:
-		return a.readDeclSpecDelete(ds, errGroup)
-	case dv.ignore:
-		return a.readDeclSpecIgnore(ds, errGroup)
+func (a *Augmenter) readDecl(f *file.File, decl ast.Decl, errGroup *faults.Group) error {
+	switch d := decl.(type) {
+	case *ast.FuncDecl:
+		return a.readFuncDecl(f, d, errGroup)
+	case *ast.GenDecl:
+		return a.readGenDecl(f, d, errGroup)
 	default:
-		return a.readDeclSpecReplace(ds, dv, errGroup)
+		return errGroup.Add(faults.From(ErrParsingUnexpectedDecl).
+			With(`package path`, f.PackagePath()).
+			With(`position`, f.FileSet.Position(d.Pos())))
 	}
 }
 
-var (
-	ErrAugFuncNoDirectives     = errors.New(`function is missing directive`)
-	ErrAugImportNoDirectives   = errors.New(`import is missing directive`)
-	ErrAugVarConstNoDirectives = errors.New(`var or const is missing directive`)
-)
+func (a *Augmenter) readFuncDecl(f *file.File, fd *ast.FuncDecl, errGroup *faults.Group) error {
+	pkgPath := f.PackagePath()
+	pos := f.FileSet.Position(fd.Pos())
+	dv, err := directives.Read(file.JoinComments(fd.Doc), pkgPath, pos, errGroup)
+	if err != nil {
+		return err
+	}
 
-func (a *Augmenter) readDeclSpecNoDirective(ds *file.DeclSpecIteratorValue, errGroup *faults.Group) error {
-	if ds.FuncDecl != nil {
-		return errGroup.Add(faults.From(ErrAugFuncNoDirectives).
-			With(`package path`, ds.File.PackagePath()).
-			With(`position`, ds.Start()).
-			With(`ident`, ds.FuncDecl.Name.Name))
-	}
-	if ds.ImportSpec != nil {
-		return errGroup.Add(faults.From(ErrAugImportNoDirectives).
-			With(`package path`, ds.File.PackagePath()).
-			With(`position`, ds.Start()).
-			With(`ident`, ds.ImportSpec.Path.Value))
-	}
-	if ds.ValueSpec != nil {
-		return errGroup.Add(faults.From(ErrAugVarConstNoDirectives).
-			With(`package path`, ds.File.PackagePath()).
-			With(`position`, ds.Start()))
-	}
-	// Check that there are directives on the fields or methods, error otherwise.
-	switch t := ds.TypeSpec.Type.(type) {
-	case *ast.StructType:
-		return a.readStructNoDirective(ds, t, errGroup)
-	case *ast.InterfaceType:
-		return a.readInterfaceNoDirective(ds, t, errGroup)
+	switch {
+	case dv.Ignore:
+		return nil
+	case dv.None:
+		return errGroup.Add(faults.From(ErrAugFuncNone).
+			With(`package path`, pkgPath).
+			With(`function name`, fd.Name.Name).
+			With(`position`, pos))
+	case dv.Add:
+		a.add.newDecls = append(a.add.newDecls, fd)
+		a.add.beingAdded[fd.Name.Name] = fd.Pos()
+		return nil
+	case dv.Delete:
+		// TODO: Implement
+		panic(errors.New(`unimplemented`))
+	case dv.Replace:
+		// TODO: Implement
+		panic(errors.New(`unimplemented`))
 	}
 	return nil
 }
 
-func (a *Augmenter) readStructNoDirective(ds *file.DeclSpecIteratorValue, st *ast.StructType, errGroup *faults.Group) error {
-	/*
-		var (
-			addFields     map[*ast.Field]struct{}
-			deleteFields  map[*ast.Field]struct{}
-			replaceFields map[*ast.Field]struct{}
-		)
-		for _, f := range st.Fields.List {
-			dv, err := readDirectives(file.JoinComments(f.Doc, f.Comment), ds.File.PackagePath(), ds.Position(), errGroup)
-			if err != nil {
+func (a *Augmenter) readGenDecl(f *file.File, gd *ast.GenDecl, errGroup *faults.Group) error {
+	pkgPath := f.PackagePath()
+	declPos := f.FileSet.Position(gd.Pos())
+	declDv, err := directives.Read(file.JoinComments(gd.Doc), pkgPath, declPos, errGroup)
+	if err != nil {
+		return err
+	}
+
+	if len(declDv.ReplaceRecv) > 0 || declDv.ReplaceSig {
+		if err := errGroup.Add(faults.From(ErrAugGenWithFuncDirective).
+			With(`package path`, f.PackagePath()).
+			With(`position`, declPos)); err != nil {
+			return err
+		}
+	}
+
+	if len(declDv.Rename) > 0 && len(gd.Specs) != 1 {
+		// TODO: Check that a rename only occurs on single specs
+	}
+
+	for _, spec := range gd.Specs {
+		specDv, err := a.readSpecDirectives(f, spec, errGroup)
+		if err != nil {
+			return err
+		}
+
+		if declDv.None {
+			if specDv.None {
+				if err := errGroup.Add(faults.From(ErrAugSpecNone).
+					With(`package path`, f.PackagePath()).
+					With(`position`, f.FileSet.Position(spec.Pos()))); err != nil {
+					return err
+				}
+			} else if err := a.readSpec(f, gd, spec, errGroup); err != nil {
 				return err
 			}
-			// TODO: Implement
+		} else {
+			if specDv.None {
+				if err := a.readSpec(f, gd, spec, errGroup); err != nil {
+					return err
+				}
+			} else {
+				// TODO: Implement, Check that the directives don't clash.
+				panic(errors.New(`unimplemented`))
+			}
 		}
-	*/
-	return nil
-}
-
-func (a *Augmenter) readInterfaceNoDirective(ds *file.DeclSpecIteratorValue, it *ast.InterfaceType, errGroup *faults.Group) error {
-	// for _, m := range it.Methods.List {
-	// TODO: Implement
-	// }
-	return nil
-}
-
-func (a *Augmenter) readDeclSpecIgnore(ds *file.DeclSpecIteratorValue, errGroup *faults.Group) error {
-	// Check that no directives had been added onto fields and methods if type decl.
-	if ds.TypeSpec == nil {
-		return nil
 	}
-	/*
-		switch t := ds.TypeSpec.Type.(type) {
-		case *ast.StructType:
-			for _, f := range t.Fields.List {
-				// TODO: Implement
-			}
-		case *ast.InterfaceType:
-			for _, m := range t.Methods.List {
-				// TODO: Implement
-			}
-		}
-	*/
+
+	switch {
+	case declDv.Add:
+		// TODO: Implement
+		panic(errors.New(`unimplemented`))
+	case declDv.Delete:
+		// TODO: Implement
+		panic(errors.New(`unimplemented`))
+	case declDv.Replace:
+		// TODO: Implement
+		panic(errors.New(`unimplemented`))
+	}
 	return nil
 }
 
-func (a *Augmenter) readDeclSpecAdd(ds *file.DeclSpecIteratorValue, errGroup *faults.Group) error {
-	// TODO: Implement
-	return nil
+func (a *Augmenter) readSpecDirectives(f *file.File, spec ast.Spec, errGroup *faults.Group) (*directives.Directives, error) {
+	specPos := f.FileSet.Position(spec.Pos())
+	var comments []*ast.Comment
+	switch s := spec.(type) {
+	case *ast.ImportSpec:
+		comments = file.JoinComments(s.Doc, s.Comment)
+	case *ast.TypeSpec:
+		comments = file.JoinComments(s.Doc, s.Comment)
+	case *ast.ValueSpec:
+		comments = file.JoinComments(s.Doc, s.Comment)
+	default:
+		return nil, errGroup.Add(faults.From(ErrParsingUnexpectedSpec).
+			With(`package path`, f.PackagePath()).
+			With(`position`, specPos))
+	}
+	return directives.Read(comments, f.PackagePath(), specPos, errGroup)
 }
 
-func (a *Augmenter) readDeclSpecDelete(ds *file.DeclSpecIteratorValue, errGroup *faults.Group) error {
+func (a *Augmenter) readSpec(f *file.File, gd *ast.GenDecl, s ast.Spec, errGroup *faults.Group) error {
 	// TODO: Implement
-	return nil
-}
-
-func (a *Augmenter) readDeclSpecReplace(ds *file.DeclSpecIteratorValue, dv *directives, errGroup *faults.Group) error {
-	// TODO: Implement
-	return nil
+	panic(errors.New(`unimplemented`))
 }
