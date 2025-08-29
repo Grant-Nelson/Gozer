@@ -87,6 +87,9 @@ func (d *Directives) None() bool {
 
 // Copy creates a copy of the directive.
 func (d *Directives) Copy() *Directives {
+	if d == nil {
+		return &Directives{}
+	}
 	return &Directives{
 		add:         d.add,
 		delete:      d.delete,
@@ -119,6 +122,7 @@ func (d *Directives) String() string {
 	return `[` + strings.Join(parts, `|`) + `]`
 }
 
+// Join will join the two directives into another directive.
 func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position, errGroup *faults.Group) (dv *Directives, err error) {
 	defer faults.Recover(&err)
 	mod := &directiveMod{
@@ -127,14 +131,31 @@ func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position, er
 		pos:      pos,
 		errGroup: errGroup,
 	}
-
-	//if d.Add && !d2.Add {
-
-	//}
-
-	// TODO: Implement
-
-	return nil, nil
+	if d2.add {
+		mod.setAdd()
+	}
+	if d2.delete {
+		mod.setDelete()
+	}
+	if d2.deleteAll {
+		mod.setDeleteAll()
+	}
+	if d2.replace {
+		mod.setReplace()
+	}
+	if d2.replaceSig {
+		mod.setReplaceSig()
+	}
+	if d2.HasRename() {
+		mod.setRename(d2.rename)
+	}
+	if d2.HasReplaceRecv() {
+		mod.setReplaceRecv(d2.replaceRecv)
+	}
+	if d2.ignore {
+		mod.setIgnore()
+	}
+	return mod.dv, nil
 }
 
 // Read will read the given comments and gather the directives in those comments.

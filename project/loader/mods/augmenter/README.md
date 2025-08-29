@@ -267,6 +267,10 @@ type Foo struct {}
 For functions, a rename can be paired with a `gozer:replaceSig` to
 change the name and signature of a function while keeping the body unchanged.
 
+For imports, a rename can be done with a simple replace since imports
+will use the import path to find a matching import to replace and
+the replaced one can have a different alias.
+
 ### ReplaceRecv
 
 The receiver of a function can be replaced with `gozer:replaceRecv (*)<newType>`.

@@ -30,7 +30,7 @@ func (g *Group) addErr(err error) bool {
 
 func (g *Group) Add(err error) error {
 	if g == nil {
-		return nil
+		return err
 	}
 	g.addErr(err)
 	if len(g.err) >= g.limit {
@@ -39,9 +39,21 @@ func (g *Group) Add(err error) error {
 	return nil
 }
 
+func (g *Group) Panic(err error) {
+	if err == nil {
+		return
+	}
+	if g == nil {
+		panic(err)
+	}
+	if err2 := g.Add(err); err2 != nil {
+		panic(err2)
+	}
+}
+
 func (g *Group) Fatal(err error) error {
 	if g == nil {
-		return nil
+		return err
 	}
 	g.addErr(err)
 	return g.Wrap()
