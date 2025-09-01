@@ -296,3 +296,5 @@ and errors displayed in a code editor. For example, when adding a new
 function with a receiver in the original code, as stubbed out type
 can be added and ignored so that the editor doesn't complained about
 the missing type.
+
+If imports doesn't have any directives, they will default to ignore.

@@ -38,12 +38,24 @@ var (
 	ErrAugGenWithFuncDirective = errors.New(`a general declaration may not have a directive for a function`)
 	ErrAugRenameMultipleSpec   = errors.New(`names may not be applied to multiple constructs`)
 	ErrAugRenameImport         = errors.New(`renames may not be applied to imports`)
+	ErrAugDeleteAllImport      = errors.New(`delete all may not be applied to imports`)
+	ErrAugDeleteAllValue       = errors.New(`delete all may not be applied to values`)
+	ErrAugDeleteAllInterface   = errors.New(`delete all may not be applied to an interface`)
+	ErrAugMethodNone           = errors.New(`an interface method must have a directive`)
+	ErrAugMethodReplaceRecv    = errors.New(`an interface method may not have a replaceRecv`)
+	ErrAugMethodDeleteAll      = errors.New(`an interface method may not have a deleteAll`)
+	ErrAugMethodReplaceSig     = errors.New(`an interface method may not have a replaceSig, just use replace`)
+	ErrAugFieldNone            = errors.New(`a struct field must have a directive`)
+	ErrAugFieldReplaceRecv     = errors.New(`a struct field may not have a replaceRecv`)
+	ErrAugFieldDeleteAll       = errors.New(`a struct field may not have a deleteAll`)
+	ErrAugFieldReplaceSig      = errors.New(`a struct field may not have a replaceSig`)
 )
 
 type augReader struct {
 	*Augmenter
 	errGroup *faults.Group
 	curFile  *file.File
+	addSpecs []ast.Spec
 }
 
 func (ar *augReader) addPackage(path string) {
@@ -186,11 +198,19 @@ func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 		case *ast.ImportSpec:
 			ar.readImportSpec(specDv, gd, s)
 		case *ast.TypeSpec:
-			ar.readTypeSpec(specDv, gd, s)
+			switch t := s.Type.(type) {
+			case *ast.StructType:
+				ar.readStructTypeSpec(specDv, gd, s, t)
+			case *ast.InterfaceType:
+				ar.readInterfaceTypeSpec(specDv, gd, s, t)
+			default:
+				ar.readOtherTypeSpec(specDv, gd, s)
+			}
 		case *ast.ValueSpec:
 			ar.readValueSpec(specDv, gd, s)
 		}
 	}
+	ar.finishGenDecl(gd)
 }
 
 func (ar *augReader) readSpecDirectives(declDv *directives.Directives, spec ast.Spec) *directives.Directives {
@@ -224,20 +244,22 @@ func (ar *augReader) readSpecDirectives(declDv *directives.Directives, spec ast.
 
 func (ar *augReader) readImportSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.ImportSpec) {
 	switch {
-	case specDv.None():
-		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
-			With(`package path`, ar.pkgPath()).
-			With(`position`, ar.pos(spec.Pos())))
+	case specDv.Ignore(), specDv.None():
+		// Imports default to ignore with none.
+		return
 	case specDv.HasRename():
 		ar.errGroup.Panic(faults.From(ErrAugRenameImport).
 			With(`package path`, ar.pkgPath()).
-			With(`position`, ar.pos(spec.Pos())))
-	case specDv.Ignore():
-		return
-	case specDv.DeleteAll():
-		// TODO: Implement
+			With(`position`, ar.pos(spec.Pos())).
+			With(`import path`, spec.Path.Value))
 	case specDv.Add():
-		// TODO: Implement
+		ar.add.newImports = append(ar.add.newImports, spec)
+		ar.add.beingAdded[spec.Path.Value] = spec.Pos()
+	case specDv.DeleteAll():
+		ar.errGroup.Panic(faults.From(ErrAugDeleteAllImport).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`import path`, spec.Path.Value))
 	case specDv.Delete():
 		// TODO: Implement
 	case specDv.Replace():
@@ -245,26 +267,264 @@ func (ar *augReader) readImportSpec(specDv *directives.Directives, gd *ast.GenDe
 	}
 }
 
-func (ar *augReader) readTypeSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec) {
-	if specDv.None() {
-		// TODO: Need to check if a type spec for field and method directives.
-
-		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
-			With(`package path`, ar.pkgPath()).
-			With(`position`, ar.pos(spec.Pos())))
+func (ar *augReader) readStructTypeSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.StructType) {
+	if specDv.Ignore() {
 		return
 	}
 
-	// TODO: Implement
+	for _, f := range ts.Fields.List {
+		ar.readStructField(specDv, gd, spec, ts, f)
+	}
+
+	switch {
+	case specDv.None():
+		// TODO: Need to check if a type spec for field and method directives.
+		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`structure`, spec.Name.Name))
+	case specDv.Add():
+		ar.addSpecs = append(ar.addSpecs, spec)
+		ar.add.beingAdded[spec.Name.Name] = spec.Pos()
+	case specDv.DeleteAll():
+		// TODO: Implement
+	case specDv.Delete():
+		// TODO: Implement
+	case specDv.HasRename():
+		// TODO: Implement
+	case specDv.Replace():
+		// TODO: Implement
+	}
+}
+
+func (ar *augReader) readStructField(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.StructType, m *ast.Field) {
+	comments := file.JoinComments(m.Comment, m.Doc)
+	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	if err != nil {
+		panic(err)
+	}
+	joinDv, err := specDv.Join(mDv, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	if err != nil {
+		panic(err)
+	}
+	if joinDv.Ignore() {
+		return
+	}
+	if joinDv.None() {
+		ar.errGroup.Panic(faults.From(ErrAugFieldNone).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`struct`, spec.Name.Name).
+			With(`field`, m.Names[0].Name))
+		return
+	}
+	if mDv.HasReplaceRecv() {
+		ar.errGroup.Panic(faults.From(ErrAugFieldReplaceRecv).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`struct`, spec.Name.Name).
+			With(`field`, m.Names[0].Name))
+	}
+	if mDv.DeleteAll() {
+		ar.errGroup.Panic(faults.From(ErrAugFieldDeleteAll).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`struct`, spec.Name.Name).
+			With(`field`, m.Names[0].Name))
+	}
+	if mDv.ReplaceSig() {
+		ar.errGroup.Panic(faults.From(ErrAugFieldReplaceSig).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`struct`, spec.Name.Name).
+			With(`field`, m.Names[0].Name))
+	}
+	if mDv.HasRename() {
+		// TODO: Implement
+	}
+	if !specDv.None() {
+		// The specification will handle adding, deleting, or replacing as a whole.
+		return
+	}
+	switch {
+	case joinDv.Add():
+		key := spec.Name.Name
+		fieldsToAdd, has := ar.add.newFields[key]
+		if !has {
+			fieldsToAdd = &ast.StructType{
+				Struct:     ts.Struct,
+				Incomplete: true,
+				Fields: &ast.FieldList{
+					Opening: ts.Fields.Opening,
+					Closing: ts.Fields.Closing,
+				},
+			}
+			ar.add.newFields[key] = fieldsToAdd
+		}
+		fieldsToAdd.Fields.List = append(fieldsToAdd.Fields.List, m)
+	case joinDv.Delete():
+		// TODO: Implement
+	case joinDv.Replace():
+		// TODO: Implement
+	}
+}
+
+func (ar *augReader) readInterfaceTypeSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.InterfaceType) {
+	switch {
+	case specDv.Ignore():
+		return
+	case specDv.DeleteAll():
+		ar.errGroup.Panic(faults.From(ErrAugDeleteAllInterface).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`interface`, spec.Name.Name))
+	}
+
+	for _, m := range ts.Methods.List {
+		ar.readInterfaceMethod(specDv, gd, spec, ts, m)
+	}
+
+	switch {
+	case specDv.Add():
+		ar.addSpecs = append(ar.addSpecs, spec)
+		ar.add.beingAdded[spec.Name.Name] = spec.Pos()
+	case specDv.Delete():
+		// TODO: Implement
+	case specDv.HasRename():
+		// TODO: Implement
+	case specDv.Replace():
+		// TODO: Implement
+	}
+}
+
+func (ar *augReader) readInterfaceMethod(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.InterfaceType, m *ast.Field) {
+	comments := file.JoinComments(m.Comment, m.Doc)
+	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	if err != nil {
+		panic(err)
+	}
+	joinDv, err := specDv.Join(mDv, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	if err != nil {
+		panic(err)
+	}
+	if joinDv.Ignore() {
+		return
+	}
+	if joinDv.None() {
+		ar.errGroup.Panic(faults.From(ErrAugMethodNone).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`interface`, spec.Name.Name).
+			With(`method`, m.Names[0].Name))
+		return
+	}
+	if mDv.HasReplaceRecv() {
+		ar.errGroup.Panic(faults.From(ErrAugMethodReplaceRecv).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`interface`, spec.Name.Name).
+			With(`method`, m.Names[0].Name))
+	}
+	if mDv.DeleteAll() {
+		ar.errGroup.Panic(faults.From(ErrAugMethodDeleteAll).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`interface`, spec.Name.Name).
+			With(`method`, m.Names[0].Name))
+	}
+	if mDv.ReplaceSig() {
+		ar.errGroup.Panic(faults.From(ErrAugMethodReplaceSig).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())).
+			With(`interface`, spec.Name.Name).
+			With(`method`, m.Names[0].Name))
+	}
+	if mDv.HasRename() {
+		// TODO: Implement
+	}
+	if !specDv.None() {
+		// The specification will handle adding, deleting, or replacing as a whole.
+		return
+	}
+	switch {
+	case joinDv.Add():
+		key := spec.Name.Name
+		methodsToAdd, has := ar.add.newMethods[key]
+		if !has {
+			methodsToAdd = &ast.InterfaceType{
+				Interface:  ts.Interface,
+				Incomplete: true,
+				Methods: &ast.FieldList{
+					Opening: ts.Methods.Opening,
+					Closing: ts.Methods.Closing,
+				},
+			}
+			ar.add.newMethods[key] = methodsToAdd
+		}
+		methodsToAdd.Methods.List = append(methodsToAdd.Methods.List, m)
+	case joinDv.Delete():
+		// TODO: Implement
+	case joinDv.Replace():
+		// TODO: Implement
+	}
+}
+
+func (ar *augReader) readOtherTypeSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec) {
+	switch {
+	case specDv.Ignore():
+		return
+	case specDv.None():
+		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())))
+	case specDv.Add():
+		ar.addSpecs = append(ar.addSpecs, spec)
+		ar.add.beingAdded[spec.Name.Name] = spec.Pos()
+	case specDv.DeleteAll():
+		// TODO: Implement
+	case specDv.Delete():
+		// TODO: Implement
+	case specDv.HasRename():
+		// TODO: Implement
+	case specDv.Replace():
+		// TODO: Implement
+	}
 }
 
 func (ar *augReader) readValueSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.ValueSpec) {
-	if specDv.None() {
+	switch {
+	case specDv.Ignore():
+		return
+	case specDv.None():
 		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())))
-		return
+	case specDv.Add():
+		ar.addSpecs = append(ar.addSpecs, spec)
+	case specDv.DeleteAll():
+		ar.errGroup.Panic(faults.From(ErrAugDeleteAllValue).
+			With(`package path`, ar.pkgPath()).
+			With(`position`, ar.pos(spec.Pos())))
+	case specDv.Delete():
+		// TODO: Implement
+	case specDv.HasRename():
+		// TODO: Check Rename is only for one
+	case specDv.Replace():
+		// TODO: Implement
 	}
+}
 
+func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
+	if len(ar.addSpecs) > 0 {
+		addGen := &ast.GenDecl{
+			Doc:    gd.Doc,
+			TokPos: gd.TokPos,
+			Tok:    gd.Tok,
+			Lparen: gd.Lparen,
+			Rparen: gd.Rparen,
+			Specs:  ar.addSpecs,
+		}
+		ar.add.newDecls = append(ar.add.newDecls, addGen)
+	}
 	// TODO: Implement
 }

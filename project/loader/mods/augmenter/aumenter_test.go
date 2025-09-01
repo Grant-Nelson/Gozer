@@ -55,7 +55,7 @@ func runAugTest(t *testing.T, test augTest) {
 	errGroup := faults.NewGroup(test.errLimit)
 	a := New(nil, `base`, pkgPath)
 	a.reset()
-	if err := a.addFile(`aug.go`, []byte(test.augSrc), errGroup); err != nil {
+	if err := a.AddFile(`aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}

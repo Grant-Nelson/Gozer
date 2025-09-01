@@ -29,7 +29,7 @@ type augAdd struct {
 	fileSet *token.FileSet
 
 	// beingAdded is the import paths and identifiers for the decls and specs
-	// that are being added, the value is the position value for the.
+	// that are being added, the value is the position value for the node.
 	beingAdded map[string]token.Pos
 
 	newImports []*ast.ImportSpec
