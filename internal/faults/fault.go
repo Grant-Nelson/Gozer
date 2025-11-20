@@ -83,7 +83,7 @@ func (f *Fault) Error() string {
 	parts := make([]string, 0, len(f.data)+1)
 	parts = append(parts, f.msg)
 	for k, v := range f.data {
-		parts = append(parts, fmt.Sprintf(`\t%s: %v`, k, v))
+		parts = append(parts, fmt.Sprintf("\t%s: %v", k, v))
 	}
 	sort.Strings(parts[1:])
 	return strings.Join(parts, "\n")

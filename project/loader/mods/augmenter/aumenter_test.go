@@ -19,9 +19,11 @@ func TestAddingType(t *testing.T) {
 		augSrc: lines(
 			`package foo`,
 			``,
+			`// Foo is being added.`,
 			`//gozer:add`,
 			`type Foo struct{}`),
 		expSrc: lines(
+			`//line original/orig.go:1`,
 			`package foo`,
 			``,
 			`type Foo struct{}`),

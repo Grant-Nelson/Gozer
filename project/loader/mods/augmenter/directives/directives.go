@@ -4,6 +4,9 @@ import (
 	"errors"
 	"go/ast"
 	"go/token"
+	"maps"
+	"slices"
+	"sort"
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
@@ -176,6 +179,7 @@ func Read(comments []*ast.Comment, pkgPath string, pos token.Position, errGroup 
 	mod.readRename()
 	mod.readReplaceRecv()
 	mod.readIgnore()
+	mod.checkRemainder()
 	return mod.dv, nil
 }
 
@@ -187,17 +191,11 @@ type directiveMod struct {
 	errGroup *faults.Group
 }
 
-func (mod *directiveMod) postErr(err error) error {
-	return mod.errGroup.Add(faults.From(err).
-		With(`package`, mod.pkgPath).
-		With(`pos`, mod.pos))
-}
-
 func (mod *directiveMod) check(test bool, errMsg error) {
 	if test {
-		if err := mod.postErr(errMsg); err != nil {
-			panic(err)
-		}
+		mod.errGroup.Panic(faults.From(errMsg).
+			With(`package`, mod.pkgPath).
+			With(`pos`, mod.pos))
 	}
 }
 
@@ -373,4 +371,16 @@ func (mod *directiveMod) setIgnore() {
 	mod.check(mod.dv.delete, ErrAugDeleteAndIgnore)
 	mod.check(mod.dv.replace, ErrAugReplaceAndIgnore)
 	mod.dv.ignore = true
+}
+
+var ErrAugUnknownDirectives = errors.New(`unknown directive(s) found`)
+
+func (mod *directiveMod) checkRemainder() {
+	if keys := slices.Collect(maps.Keys(mod.dm)); len(keys) > 0 {
+		sort.Strings(keys)
+		mod.errGroup.Panic(faults.From(ErrAugUnknownDirectives).
+			With(`package`, mod.pkgPath).
+			With(`pos`, mod.pos).
+			With(`directives`, strings.Join(keys, `, `)))
+	}
 }

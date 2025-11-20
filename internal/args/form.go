@@ -76,14 +76,14 @@ func (b formBuilder) takeFirst(tag string) (string, string) {
 }
 
 func (b formBuilder) isStructType(t reflect.Type) bool {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t.Kind() == reflect.Struct
 }
 
 func (b formBuilder) isBasicType(t reflect.Type) bool {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	switch t.Kind() {
@@ -108,7 +108,7 @@ func (b *formBuilder) ReadStruct(st reflect.Type) *form {
 		return f
 	}
 
-	if st.Kind() == reflect.Ptr {
+	if st.Kind() == reflect.Pointer {
 		st = st.Elem()
 	}
 	if st.Kind() != reflect.Struct {

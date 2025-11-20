@@ -13,6 +13,11 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
+// TODO: Rewrite using https://pkg.go.dev/golang.org/x/tools/go/ast/astutil
+// TODO: Move the augmenter and loader to it's own location so that it can be
+//       run to augment files used by gozer such as any file copied from Go
+//       that needs to be modified for gozer, like tool.go in GopherJS.
+
 var (
 	ErrAugAddIdAlreadyExists        = errors.New(`can not add new identifier via augmenter: identifier already exists`)
 	ErrAugAddStructIdNotForType     = errors.New(`can not add fields via augmenter: a non-type found by identifier`)
