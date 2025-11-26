@@ -159,7 +159,7 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 			With(`position`, pos))
 		return
 	case dv.Add():
-		ar.add.newDecls = append(ar.add.newDecls, fd)
+		ar.add.newFuncDecls = append(ar.add.newFuncDecls, fd)
 		ar.add.beingAdded[fd.Name.Name] = fd.Pos()
 	case dv.Delete():
 		// TODO: Implement
@@ -524,7 +524,7 @@ func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
 			Rparen: gd.Rparen,
 			Specs:  ar.addSpecs,
 		}
-		ar.add.newDecls = append(ar.add.newDecls, addGen)
+		ar.add.newGenDecls = append(ar.add.newGenDecls, addGen)
 	}
 	// TODO: Implement
 }

@@ -37,17 +37,19 @@ type augAdd struct {
 	// that are being added, the value is the position value for the node.
 	beingAdded map[string]token.Pos
 
-	newImports []*ast.ImportSpec
-	newDecls   []ast.Decl
-	newFields  map[string]*ast.StructType
-	newMethods map[string]*ast.InterfaceType
+	newImports   []*ast.ImportSpec
+	newGenDecls  []*ast.GenDecl
+	newFuncDecls []*ast.FuncDecl
+	newFields    map[string]*ast.StructType
+	newMethods   map[string]*ast.InterfaceType
 }
 
 func (a *augAdd) reset(fileSet *token.FileSet) {
 	a.fileSet = fileSet
 	a.beingAdded = map[string]token.Pos{}
 	a.newImports = []*ast.ImportSpec{}
-	a.newDecls = []ast.Decl{}
+	a.newGenDecls = []*ast.GenDecl{}
+	a.newFuncDecls = []*ast.FuncDecl{}
 	a.newFields = map[string]*ast.StructType{}
 	a.newMethods = map[string]*ast.InterfaceType{}
 }
@@ -224,8 +226,19 @@ func (a *augAdd) addImports(f *file.File) {
 // addDecls dda all declarations needing to be added and clears out the
 // list of decls needing to be added so that they're only added once.
 func (a *augAdd) addDecls(f *file.File) {
-	if len(a.newDecls) > 0 {
-		f.File.Decls = append(f.File.Decls, a.newDecls...)
-		a.newDecls = []ast.Decl{}
+	if len(a.newGenDecls) > 0 {
+		for _, d := range a.newGenDecls {
+			f.File.Decls = append(f.File.Decls, d)
+			f.File.Comments = append(f.File.Comments, d.Doc)
+		}
+		a.newGenDecls = []*ast.GenDecl{}
+	}
+
+	if len(a.newFuncDecls) > 0 {
+		for _, d := range a.newGenDecls {
+			f.File.Decls = append(f.File.Decls, d)
+			f.File.Comments = append(f.File.Comments, d.Doc)
+		}
+		a.newFuncDecls = []*ast.FuncDecl{}
 	}
 }

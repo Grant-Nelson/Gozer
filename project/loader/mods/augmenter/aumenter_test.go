@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/Grant-Nelson/Gozer/internal/faults"
 	"github.com/Grant-Nelson/Gozer/project/file"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestAddingType(t *testing.T) {
@@ -84,7 +85,9 @@ func runAugTest(t *testing.T, test augTest) {
 		return
 	}
 
-	if diff := cmp.Diff(strings.Split(buf.String(), "\n"), strings.Split(test.expSrc, "\n")); len(diff) > 0 {
+	got := buf.String()
+	if diff := cmp.Diff(strings.Split(got, "\n"), strings.Split(test.expSrc, "\n")); len(diff) > 0 {
+		t.Logf("Got:\n%s\n", got)
 		t.Errorf("resulting source didn't match expected:\n%s", diff)
 		return
 	}
