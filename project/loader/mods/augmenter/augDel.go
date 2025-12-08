@@ -35,8 +35,7 @@ type augDel struct {
 	delHandles []delHandle
 }
 
-func (a *augDel) reset(fileSet *token.FileSet) {
-	a.fileSet = fileSet
+func (a *augDel) reset() {
 	a.delImport = map[string]bool{}
 	a.delFunc = map[string]*ast.FuncDecl{}
 	a.delVar = map[string]*ast.ValueSpec{}

@@ -20,16 +20,17 @@ type Augmenter struct {
 	fileSet     *token.FileSet
 }
 
-func New(build []string, basePath, testPkgPath string) *Augmenter {
+func New(build []string, basePath, testPkgPath string, fileSet *token.FileSet) *Augmenter {
 	a := &Augmenter{
-		del: &augDel{},
-		rep: &augReplace{},
-		ren: &augRename{},
-		add: &augAdd{},
+		del: &augDel{fileSet: fileSet},
+		rep: &augReplace{fileSet: fileSet},
+		ren: &augRename{fileSet: fileSet},
+		add: &augAdd{fileSet: fileSet},
 
 		build:       build,
-		testPkgPath: testPkgPath,
 		basePath:    basePath,
+		testPkgPath: testPkgPath,
+		fileSet:     fileSet,
 	}
 	a.Group = mods.Group{a.del, a.rep, a.ren, a.add}
 	return a
@@ -44,9 +45,8 @@ func (a *Augmenter) PackageStart(pkg *mods.Package, errGroup *faults.Group) erro
 }
 
 func (a *Augmenter) reset() {
-	a.fileSet = token.NewFileSet()
-	a.del.reset(a.fileSet)
-	a.rep.reset(a.fileSet)
-	a.ren.reset(a.fileSet)
-	a.add.reset(a.fileSet)
+	a.del.reset()
+	a.rep.reset()
+	a.ren.reset()
+	a.add.reset()
 }

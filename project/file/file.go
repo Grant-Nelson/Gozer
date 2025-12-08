@@ -2,6 +2,7 @@ package file
 
 import (
 	"bytes"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -20,14 +21,35 @@ type File struct {
 
 	// File is the file's ast being modified.
 	File *ast.File
+
+	// Widths are the offset distance between a position an the next position.
+	Widths map[token.Pos]int
 }
 
 // New creates a new file mod.
 func New(fileSet *token.FileSet, file *ast.File) *File {
-	return &File{
+	f := &File{
 		FileSet: fileSet,
 		File:    file,
+		Widths:  map[token.Pos]int{},
 	}
+
+	var prev *token.Pos
+	walkPos(f.File, func(n ast.Node, off *token.Pos) {
+		if prev != nil {
+			width := int(*off) - int(*prev)
+			if width < 0 {
+				panic(fmt.Errorf(`negative width (%d) for %#v (%d)`, width, n, int(*off)))
+			}
+			if old, exists := f.Widths[*off]; exists && old != 0 {
+				panic(fmt.Errorf(`width already set to %d when setting %d for %#v (%d)`, old, width, n, int(*off)))
+			}
+			f.Widths[*off] = width
+		}
+		prev = off
+	})
+
+	return f
 }
 
 // Load will load a file using parser.ParseFile.

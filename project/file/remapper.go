@@ -6,362 +6,378 @@ import (
 	"go/token"
 )
 
-type fileRemapper struct {
-	f          *File
-	offset     int
-	frames     []token.Position
-	priorPos   token.Position
-	priorWidth int
-}
-
 // Remap will rewrite the file to a new file set to normalize the file information.
 // This is required to be done prior to writing the file so that the file
 // will output correctly.
-func (f *File) Remap() {
-	frm := &fileRemapper{f: f}
-	frm.walk(f.File)
-	frm.finish()
+func (f *File) Remap(fileSet *token.FileSet) {
+	frm := &fileRemapper{
+		f:      f,
+		offset: 1,
+	}
+	fmt.Printf("===============\n")
+	walkPos(f.File, frm.mapPos)
+	frm.finish(fileSet)
 }
 
-func (frm *fileRemapper) finish() {
-	fileSet := token.NewFileSet()
+type fileRemapper struct {
+	f      *File
+	offset int
+	lines  []token.Position
+
+	priorOff token.Pos
+	priorPos token.Position
+}
+
+func (frm *fileRemapper) finish(fileSet *token.FileSet) {
 	p := frm.f.FileSet.Position(frm.f.File.FileStart)
-	f := fileSet.AddFile(p.Filename, 0, frm.offset)
-	for _, frame := range frm.frames {
-		f.AddLineColumnInfo(frame.Offset, frame.Filename, frame.Line, frame.Column)
+	f := fileSet.AddFile(p.Filename, 1, frm.offset)
+	var prior token.Position
+	for _, ln := range frm.lines {
+		if prior.Filename != ln.Filename {
+			f.AddLineColumnInfo(ln.Offset, ln.Filename, ln.Line, ln.Column)
+		} else if prior.Line != ln.Line {
+			f.AddLine(ln.Line)
+		}
+		prior = ln
 	}
 	frm.f.FileSet = fileSet
 }
 
-func (frm *fileRemapper) mapTokPos(n ast.Node, pos *token.Pos, tok token.Token) {
-	frm.mapPos(n, pos, len(tok.String()))
-}
-
-func (frm *fileRemapper) mapPos(n ast.Node, pos *token.Pos, width int) {
-	if !pos.IsValid() {
+func (frm *fileRemapper) mapPos(n ast.Node, off *token.Pos) {
+	if !off.IsValid() {
 		return
 	}
 
-	p := frm.f.FileSet.Position(*pos)
-	if p.Filename != frm.priorPos.Filename {
-		frm.priorPos = p
-		frm.priorWidth = width
-		*pos = token.Pos(frm.offset)
-		frm.frames = append(frm.frames, p)
-		return
+	pos := frm.f.FileSet.Position(*off)
+	if pos.Filename != frm.priorPos.Filename || pos.Line < frm.priorPos.Line {
+		fmt.Printf(">%q:\n", pos.Filename)
+
+		// TODO: Implement
 	}
 
-	//p.Line
-	//p.Column
-	//p.Offset
-	//p.Filename
-
-	*pos = token.Pos(frm.offset)
 	// TODO: Implement
+
+	fmt.Printf("\t[offset: %2d]  [offset: %2d, line: %2d, column: %2d]  %T\n",
+		frm.offset, int(*off), pos.Line, pos.Column, n)
+
+	frm.priorOff = *off
+	frm.priorPos = pos
 }
 
-func mapNodeList[N ast.Node](frm *fileRemapper, list []N) {
+type ComparableNode interface {
+	ast.Node
+	comparable
+}
+
+type posVisitor func(n ast.Node, off *token.Pos)
+
+func walkPosList[N ComparableNode](list []N, v posVisitor) {
 	for _, node := range list {
-		frm.walk(node)
+		walkPos(node, v)
 	}
 }
 
-func (frm *fileRemapper) walk(node ast.Node) {
-	switch n := node.(type) {
+func walkPos[N ComparableNode](node N, v posVisitor) {
+	var zero N
+	if node == zero {
+		return
+	}
+
+	switch n := any(node).(type) {
 	case nil:
 		// do nothing
 
 	// Comments and fields
 	case *ast.Comment:
-		frm.mapPos(n, &n.Slash, len(n.Text))
+		v(n, &n.Slash)
 
 	case *ast.CommentGroup:
-		mapNodeList(frm, n.List)
+		walkPosList(n.List, v)
 
 	case *ast.Field:
-		frm.walk(n.Doc)
-		mapNodeList(frm, n.Names)
-		frm.walk(n.Type)
-		frm.walk(n.Tag)
-		frm.walk(n.Comment)
+		walkPos(n.Doc, v)
+		walkPosList(n.Names, v)
+		walkPos(n.Type, v)
+		walkPos(n.Tag, v)
+		walkPos(n.Comment, v)
 
 	case *ast.FieldList:
-		frm.mapTokPos(n, &n.Opening, token.RBRACE)
-		mapNodeList(frm, n.List)
-		frm.mapTokPos(n, &n.Closing, token.LBRACE)
+		v(n, &n.Opening)
+		walkPosList(n.List, v)
+		v(n, &n.Closing)
 
 	// Expressions
 	case *ast.BadExpr:
-		frm.mapPos(n, &n.From, int(n.To)-int(n.From))
-		frm.mapPos(n, &n.To, 1)
+		v(n, &n.From)
+		v(n, &n.To)
 
 	case *ast.Ident:
-		frm.mapPos(n, &n.NamePos, len(n.Name))
+		v(n, &n.NamePos)
 
 	case *ast.Ellipsis:
-		frm.mapTokPos(n, &n.Ellipsis, token.ELLIPSIS)
-		frm.walk(n.Elt)
+		v(n, &n.Ellipsis)
+		walkPos(n.Elt, v)
 
 	case *ast.BasicLit:
-		frm.mapPos(n, &n.ValuePos, len(n.Value))
+		v(n, &n.ValuePos)
 
 	case *ast.FuncLit:
-		frm.walk(n.Type)
-		frm.walk(n.Body)
+		walkPos(n.Type, v)
+		walkPos(n.Body, v)
 
 	case *ast.CompositeLit:
-		frm.walk(n.Type)
-		frm.mapTokPos(n, &n.Lbrace, token.LBRACE)
-		mapNodeList(frm, n.Elts)
-		frm.mapTokPos(n, &n.Rbrace, token.RBRACE)
+		walkPos(n.Type, v)
+		v(n, &n.Lbrace)
+		walkPosList(n.Elts, v)
+		v(n, &n.Rbrace)
 
 	case *ast.ParenExpr:
-		frm.mapTokPos(n, &n.Lparen, token.LPAREN)
-		frm.walk(n.X)
-		frm.mapTokPos(n, &n.Rparen, token.RPAREN)
+		v(n, &n.Lparen)
+		walkPos(n.X, v)
+		v(n, &n.Rparen)
 
 	case *ast.SelectorExpr:
-		frm.walk(n.X)
-		frm.walk(n.Sel)
+		walkPos(n.X, v)
+		walkPos(n.Sel, v)
 
 	case *ast.IndexExpr:
-		frm.walk(n.X)
-		frm.mapTokPos(n, &n.Lbrack, token.LBRACK)
-		frm.walk(n.Index)
-		frm.mapTokPos(n, &n.Rbrack, token.RBRACK)
+		walkPos(n.X, v)
+		v(n, &n.Lbrack)
+		walkPos(n.Index, v)
+		v(n, &n.Rbrack)
 
 	case *ast.IndexListExpr:
-		frm.walk(n.X)
-		frm.mapTokPos(n, &n.Lbrack, token.LBRACK)
-		mapNodeList(frm, n.Indices)
-		frm.mapTokPos(n, &n.Rbrack, token.RBRACK)
+		walkPos(n.X, v)
+		v(n, &n.Lbrack)
+		walkPosList(n.Indices, v)
+		v(n, &n.Rbrack)
 
 	case *ast.SliceExpr:
-		frm.walk(n.X)
-		frm.mapTokPos(n, &n.Lbrack, token.LBRACK)
-		frm.walk(n.Low)
-		frm.walk(n.High)
-		frm.walk(n.Max)
-		frm.mapTokPos(n, &n.Rbrack, token.RBRACK)
+		walkPos(n.X, v)
+		v(n, &n.Lbrack)
+		walkPos(n.Low, v)
+		walkPos(n.High, v)
+		walkPos(n.Max, v)
+		v(n, &n.Rbrack)
 
 	case *ast.TypeAssertExpr:
-		frm.walk(n.X)
-		frm.mapTokPos(n, &n.Lparen, token.LPAREN)
-		frm.walk(n.Type)
-		frm.mapTokPos(n, &n.Rparen, token.RPAREN)
+		walkPos(n.X, v)
+		v(n, &n.Lparen)
+		walkPos(n.Type, v)
+		v(n, &n.Rparen)
 
 	case *ast.CallExpr:
-		frm.walk(n.Fun)
-		frm.mapTokPos(n, &n.Lparen, token.LPAREN)
-		mapNodeList(frm, n.Args)
+		walkPos(n.Fun, v)
+		v(n, &n.Lparen)
+		walkPosList(n.Args, v)
 		// TODO: Determine where the ellipsis needs to go
-		frm.mapTokPos(n, &n.Ellipsis, token.ELLIPSIS)
-		frm.mapTokPos(n, &n.Rparen, token.RPAREN)
+		v(n, &n.Ellipsis)
+		v(n, &n.Rparen)
 
 	case *ast.StarExpr:
-		frm.mapTokPos(n, &n.Star, token.MUL)
-		frm.walk(n.X)
+		v(n, &n.Star)
+		walkPos(n.X, v)
 
 	case *ast.UnaryExpr:
-		frm.mapTokPos(n, &n.OpPos, n.Op)
-		frm.walk(n.X)
+		v(n, &n.OpPos)
+		walkPos(n.X, v)
 
 	case *ast.BinaryExpr:
-		frm.walk(n.X)
-		frm.mapTokPos(n, &n.OpPos, n.Op)
-		frm.walk(n.Y)
+		walkPos(n.X, v)
+		v(n, &n.OpPos)
+		walkPos(n.Y, v)
 
 	case *ast.KeyValueExpr:
-		frm.walk(n.Key)
-		frm.mapTokPos(n, &n.Colon, token.COLON)
-		frm.walk(n.Value)
+		walkPos(n.Key, v)
+		v(n, &n.Colon)
+		walkPos(n.Value, v)
 
 	// Types
 	case *ast.ArrayType:
-		frm.mapTokPos(n, &n.Lbrack, token.LBRACK)
+		v(n, &n.Lbrack)
 		// TODO: Determine why no Rbrack?
-		frm.walk(n.Len)
-		frm.walk(n.Elt)
+		walkPos(n.Len, v)
+		walkPos(n.Elt, v)
 
 	case *ast.StructType:
-		frm.mapTokPos(n, &n.Struct, token.STRUCT)
-		frm.walk(n.Fields)
+		v(n, &n.Struct)
+		walkPos(n.Fields, v)
 
 	case *ast.FuncType:
-		frm.mapTokPos(n, &n.Func, token.FUNC)
-		frm.walk(n.TypeParams)
-		frm.walk(n.Params)
-		frm.walk(n.Results)
+		v(n, &n.Func)
+		walkPos(n.TypeParams, v)
+		walkPos(n.Params, v)
+		walkPos(n.Results, v)
 
 	case *ast.InterfaceType:
-		frm.mapTokPos(n, &n.Interface, token.INTERFACE)
-		frm.walk(n.Methods)
+		v(n, &n.Interface)
+		walkPos(n.Methods, v)
 
 	case *ast.MapType:
-		frm.mapTokPos(n, &n.Map, token.MAP)
-		frm.walk(n.Key)
-		frm.walk(n.Value)
+		v(n, &n.Map)
+		walkPos(n.Key, v)
+		walkPos(n.Value, v)
 
 	case *ast.ChanType:
 		// TODO: Check the order is correct for the Begin and Arrow
-		frm.mapTokPos(n, &n.Begin, token.CHAN)
-		frm.mapTokPos(n, &n.Arrow, token.ARROW)
-		frm.walk(n.Value)
+		v(n, &n.Begin)
+		v(n, &n.Arrow)
+		walkPos(n.Value, v)
 
 	// Statements
 	case *ast.BadStmt:
-		frm.mapPos(n, &n.From, int(n.To)-int(n.From))
-		frm.mapPos(n, &n.To, 1)
+		v(n, &n.From)
+		v(n, &n.To)
 
 	case *ast.DeclStmt:
-		frm.walk(n.Decl)
+		walkPos(n.Decl, v)
 
 	case *ast.EmptyStmt:
-		frm.mapTokPos(n, &n.Semicolon, token.SEMICOLON)
+		v(n, &n.Semicolon)
 
 	case *ast.LabeledStmt:
-		frm.walk(n.Label)
-		frm.mapTokPos(n, &n.Colon, token.COLON)
-		frm.walk(n.Stmt)
+		walkPos(n.Label, v)
+		v(n, &n.Colon)
+		walkPos(n.Stmt, v)
 
 	case *ast.ExprStmt:
-		frm.walk(n.X)
+		walkPos(n.X, v)
 
 	case *ast.SendStmt:
-		frm.walk(n.Chan)
-		frm.mapTokPos(n, &n.Arrow, token.ARROW)
-		frm.walk(n.Value)
+		walkPos(n.Chan, v)
+		v(n, &n.Arrow)
+		walkPos(n.Value, v)
 
 	case *ast.IncDecStmt:
-		frm.walk(n.X)
-		frm.mapTokPos(n, &n.TokPos, n.Tok)
+		walkPos(n.X, v)
+		v(n, &n.TokPos)
 
 	case *ast.AssignStmt:
-		mapNodeList(frm, n.Lhs)
-		frm.mapTokPos(n, &n.TokPos, n.Tok)
-		mapNodeList(frm, n.Rhs)
+		walkPosList(n.Lhs, v)
+		v(n, &n.TokPos)
+		walkPosList(n.Rhs, v)
 
 	case *ast.GoStmt:
-		frm.mapTokPos(n, &n.Go, token.GO)
-		frm.walk(n.Call)
+		v(n, &n.Go)
+		walkPos(n.Call, v)
 
 	case *ast.DeferStmt:
-		frm.mapTokPos(n, &n.Defer, token.DEFER)
-		frm.walk(n.Call)
+		v(n, &n.Defer)
+		walkPos(n.Call, v)
 
 	case *ast.ReturnStmt:
-		frm.mapTokPos(n, &n.Return, token.RETURN)
-		mapNodeList(frm, n.Results)
+		v(n, &n.Return)
+		walkPosList(n.Results, v)
 
 	case *ast.BranchStmt:
-		frm.mapTokPos(n, &n.TokPos, n.Tok)
-		frm.walk(n.Label)
+		v(n, &n.TokPos)
+		walkPos(n.Label, v)
 
 	case *ast.BlockStmt:
-		frm.mapTokPos(n, &n.Lbrace, token.LBRACE)
-		mapNodeList(frm, n.List)
-		frm.mapTokPos(n, &n.Rbrace, token.RBRACE)
+		v(n, &n.Lbrace)
+		walkPosList(n.List, v)
+		v(n, &n.Rbrace)
 
 	case *ast.IfStmt:
-		frm.mapTokPos(n, &n.If, token.IF)
-		frm.walk(n.Init)
-		frm.walk(n.Cond)
-		frm.walk(n.Body)
-		frm.walk(n.Else)
+		v(n, &n.If)
+		walkPos(n.Init, v)
+		walkPos(n.Cond, v)
+		walkPos(n.Body, v)
+		walkPos(n.Else, v)
 
 	case *ast.CaseClause:
-		frm.mapTokPos(n, &n.Case, token.CASE)
-		mapNodeList(frm, n.List)
-		frm.mapTokPos(n, &n.Colon, token.COLON)
-		mapNodeList(frm, n.Body)
+		v(n, &n.Case)
+		walkPosList(n.List, v)
+		v(n, &n.Colon)
+		walkPosList(n.Body, v)
 
 	case *ast.SwitchStmt:
-		frm.mapTokPos(n, &n.Switch, token.SWITCH)
-		frm.walk(n.Init)
-		frm.walk(n.Tag)
-		frm.walk(n.Body)
+		v(n, &n.Switch)
+		walkPos(n.Init, v)
+		walkPos(n.Tag, v)
+		walkPos(n.Body, v)
 
 	case *ast.TypeSwitchStmt:
-		frm.mapTokPos(n, &n.Switch, token.SWITCH)
-		frm.walk(n.Init)
-		frm.walk(n.Assign)
-		frm.walk(n.Body)
+		v(n, &n.Switch)
+		walkPos(n.Init, v)
+		walkPos(n.Assign, v)
+		walkPos(n.Body, v)
 
 	case *ast.CommClause:
-		frm.mapTokPos(n, &n.Case, token.CASE)
-		frm.walk(n.Comm)
-		frm.mapTokPos(n, &n.Colon, token.COLON)
-		mapNodeList(frm, n.Body)
+		v(n, &n.Case)
+		walkPos(n.Comm, v)
+		v(n, &n.Colon)
+		walkPosList(n.Body, v)
 
 	case *ast.SelectStmt:
-		frm.mapTokPos(n, &n.Select, token.SELECT)
-		frm.walk(n.Body)
+		v(n, &n.Select)
+		walkPos(n.Body, v)
 
 	case *ast.ForStmt:
-		frm.mapTokPos(n, &n.For, token.FOR)
-		frm.walk(n.Init)
-		frm.walk(n.Cond)
-		frm.walk(n.Post)
-		frm.walk(n.Body)
+		v(n, &n.For)
+		walkPos(n.Init, v)
+		walkPos(n.Cond, v)
+		walkPos(n.Post, v)
+		walkPos(n.Body, v)
 
 	case *ast.RangeStmt:
-		frm.mapTokPos(n, &n.For, token.FOR)
-		frm.walk(n.Key)
-		frm.walk(n.Value)
-		frm.mapTokPos(n, &n.TokPos, n.Tok)
-		frm.mapTokPos(n, &n.Range, token.RANGE)
-		frm.walk(n.X)
-		frm.walk(n.Body)
+		v(n, &n.For)
+		walkPos(n.Key, v)
+		walkPos(n.Value, v)
+		v(n, &n.TokPos)
+		v(n, &n.Range)
+		walkPos(n.X, v)
+		walkPos(n.Body, v)
 
 	// Declarations
 	case *ast.ImportSpec:
-		frm.walk(n.Doc)
-		frm.walk(n.Name)
-		frm.walk(n.Path)
-		frm.walk(n.Comment)
-		frm.mapTokPos(n, &n.EndPos, 0)
+		walkPos(n.Doc, v)
+		walkPos(n.Name, v)
+		walkPos(n.Path, v)
+		walkPos(n.Comment, v)
+		v(n, &n.EndPos)
 
 	case *ast.ValueSpec:
-		frm.walk(n.Doc)
-		mapNodeList(frm, n.Names)
-		frm.walk(n.Type)
-		mapNodeList(frm, n.Values)
-		frm.walk(n.Comment)
+		walkPos(n.Doc, v)
+		walkPosList(n.Names, v)
+		walkPos(n.Type, v)
+		walkPosList(n.Values, v)
+		walkPos(n.Comment, v)
 
 	case *ast.TypeSpec:
-		frm.walk(n.Doc)
-		frm.walk(n.Name)
-		frm.walk(n.TypeParams)
-		frm.mapTokPos(n, &n.Assign, token.EQL)
-		frm.walk(n.Type)
-		frm.walk(n.Comment)
+		walkPos(n.Doc, v)
+		walkPos(n.Name, v)
+		walkPos(n.TypeParams, v)
+		v(n, &n.Assign)
+		walkPos(n.Type, v)
+		walkPos(n.Comment, v)
 
 	case *ast.BadDecl:
-		frm.mapPos(n, &n.From, int(n.To)-int(n.From))
-		frm.mapPos(n, &n.To, 0)
+		v(n, &n.From)
+		v(n, &n.To)
 
 	case *ast.GenDecl:
-		frm.walk(n.Doc)
-		frm.mapTokPos(n, &n.TokPos, n.Tok)
-		frm.mapTokPos(n, &n.Lparen, token.LPAREN)
-		mapNodeList(frm, n.Specs)
-		frm.mapTokPos(n, &n.Rparen, token.RPAREN)
+		walkPos(n.Doc, v)
+		v(n, &n.TokPos)
+		v(n, &n.Lparen)
+		walkPosList(n.Specs, v)
+		v(n, &n.Rparen)
 
 	case *ast.FuncDecl:
-		frm.walk(n.Doc)
-		frm.walk(n.Recv)
-		frm.walk(n.Name)
-		frm.walk(n.Type)
-		frm.walk(n.Body)
+		walkPos(n.Doc, v)
+		walkPos(n.Recv, v)
+		walkPos(n.Name, v)
+		walkPos(n.Type, v)
+		walkPos(n.Body, v)
 
 	// Files
 	case *ast.File:
-		frm.mapPos(n, &n.FileStart, 0)
-		frm.walk(n.Doc)
-		frm.mapTokPos(n, &n.Package, token.PACKAGE)
-		frm.walk(n.Name)
-		mapNodeList(frm, n.Decls)
-		frm.mapPos(n, &n.FileEnd, 0)
+		v(n, &n.FileStart)
+		walkPos(n.Doc, v)
+		v(n, &n.Package)
+		walkPos(n.Name, v)
+		walkPosList(n.Decls, v)
+		v(n, &n.FileEnd)
 
 	default:
 		panic(fmt.Errorf(`unexpected node in mapPos: (%[1]T) %[1]v`, n))

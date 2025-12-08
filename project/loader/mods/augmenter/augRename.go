@@ -12,8 +12,8 @@ type augRename struct {
 	fileSet *token.FileSet
 }
 
-func (a *augRename) reset(fileSet *token.FileSet) {
-	a.fileSet = fileSet
+func (a *augRename) reset() {
+	// TODO: Implement
 }
 
 func (a *augRename) Modify(f *file.File, errGroup *faults.Group) error {

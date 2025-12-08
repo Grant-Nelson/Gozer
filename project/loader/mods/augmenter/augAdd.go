@@ -44,8 +44,7 @@ type augAdd struct {
 	newMethods   map[string]*ast.InterfaceType
 }
 
-func (a *augAdd) reset(fileSet *token.FileSet) {
-	a.fileSet = fileSet
+func (a *augAdd) reset() {
 	a.beingAdded = map[string]token.Pos{}
 	a.newImports = []*ast.ImportSpec{}
 	a.newGenDecls = []*ast.GenDecl{}

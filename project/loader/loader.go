@@ -112,7 +112,7 @@ func (ld *loader) parseFile(finalFileSet *token.FileSet, filename string, src []
 		return nil, err
 	}
 
-	f.Remap()
+	f.Remap(finalFileSet)
 
 	final, err := f.Reload(finalFileSet)
 	if err != nil {

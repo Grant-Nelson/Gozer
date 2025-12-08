@@ -16,18 +16,25 @@ import (
 func TestAddingType(t *testing.T) {
 	runAugTest(t, augTest{
 		origSrc: lines(
-			`package foo`),
+			`package foo`,
+			``,
+			`// Foo already exists.`,
+			`type Foo struct{}`),
 		augSrc: lines(
 			`package foo`,
 			``,
-			`// Foo is being added.`,
+			`// Bar is being added.`,
 			`//gozer:add`,
-			`type Foo struct{}`),
+			`type Bar struct{}`),
 		expSrc: lines(
 			`//line original/orig.go:1`,
 			`package foo`,
 			``,
-			`type Foo struct{}`),
+			`// Foo already exists.`,
+			`type Foo struct{}`,
+			``,
+			`// Bar is being added.`,
+			`type Bar struct{}`),
 	})
 }
 
@@ -46,8 +53,8 @@ func lines(lines ...string) string {
 func runAugTest(t *testing.T, test augTest) {
 	t.Helper()
 
-	fileSet := token.NewFileSet()
-	fm, err := file.Load(fileSet, `original/orig.go`, []byte(test.origSrc))
+	preFileSet := token.NewFileSet()
+	fm, err := file.Load(preFileSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
@@ -56,7 +63,7 @@ func runAugTest(t *testing.T, test augTest) {
 	test.errLimit = max(test.errLimit, 1)
 	pkgPath := `test/path`
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, `base`, pkgPath)
+	a := New(nil, `base`, pkgPath, preFileSet)
 	a.reset()
 	if err := a.AddFile(`aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
@@ -78,6 +85,9 @@ func runAugTest(t *testing.T, test augTest) {
 		checkErr(t, `accumulated error`, test, err)
 		return
 	}
+
+	postFileSet := token.NewFileSet()
+	fm.Remap(postFileSet)
 
 	buf := &strings.Builder{}
 	if err := fm.Write(buf); err != nil {
