@@ -1,27 +1,24 @@
 package augmenter
 
 import (
-	"go/token"
-
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/file"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 type augReplace struct {
-	fileSet *token.FileSet
+	fileSet *artifacts.FileSet
 }
 
 func (a *augReplace) reset() {
 	// TODO: Implement
 }
 
-func (a *augReplace) Modify(f *file.File, errGroup *faults.Group) error {
+func (a *augReplace) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }
 
-func (a *augReplace) PackageDone(pkg *mods.Package, errGroup *faults.Group) error {
+func (a *augReplace) PackageDone(pkg *artifacts.Package, errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }

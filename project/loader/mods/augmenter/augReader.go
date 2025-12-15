@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/file"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/augmenter/directives"
 )
 
@@ -54,7 +54,7 @@ var (
 type augReader struct {
 	*Augmenter
 	errGroup *faults.Group
-	curFile  *file.File
+	curFile  *artifacts.File
 	addSpecs []ast.Spec
 }
 
@@ -83,7 +83,7 @@ func (ar *augReader) addPackage(path string) {
 }
 
 func (ar *augReader) addFile(filename string, src []byte) {
-	f, err := file.Load(ar.fileSet, filename, src)
+	f, err := artifacts.Load(ar.fileSet, filename, src)
 	if err != nil {
 		ar.errGroup.Panic(err)
 		return
@@ -100,7 +100,7 @@ func (ar *augReader) addFile(filename string, src []byte) {
 	ar.curFile = nil
 }
 
-func (ar *augReader) shouldAdd(f *file.File) bool {
+func (ar *augReader) shouldAdd(f *artifacts.File) bool {
 	if f.File.Doc == nil || len(f.File.Doc.List) <= 0 {
 		return true
 	}
@@ -144,7 +144,7 @@ func (ar *augReader) readDecl(decl ast.Decl) {
 
 func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 	pos := ar.pos(fd.Pos())
-	dv, err := directives.Read(file.JoinComments(fd.Doc), ar.pkgPath(), pos, ar.errGroup)
+	dv, err := directives.Read(artifacts.JoinComments(fd.Doc), ar.pkgPath(), pos, ar.errGroup)
 	if err != nil {
 		panic(err)
 	}
@@ -172,7 +172,7 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 
 func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 	declPos := ar.pos(gd.Pos())
-	declDv, err := directives.Read(file.JoinComments(gd.Doc), ar.pkgPath(), declPos, ar.errGroup)
+	declDv, err := directives.Read(artifacts.JoinComments(gd.Doc), ar.pkgPath(), declPos, ar.errGroup)
 	if err != nil {
 		panic(err)
 	}
@@ -218,11 +218,11 @@ func (ar *augReader) readSpecDirectives(declDv *directives.Directives, spec ast.
 	var comments []*ast.Comment
 	switch s := spec.(type) {
 	case *ast.ImportSpec:
-		comments = file.JoinComments(s.Doc, s.Comment)
+		comments = artifacts.JoinComments(s.Doc, s.Comment)
 	case *ast.TypeSpec:
-		comments = file.JoinComments(s.Doc, s.Comment)
+		comments = artifacts.JoinComments(s.Doc, s.Comment)
 	case *ast.ValueSpec:
-		comments = file.JoinComments(s.Doc, s.Comment)
+		comments = artifacts.JoinComments(s.Doc, s.Comment)
 	default:
 		ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
 			With(`package path`, ar.pkgPath()).
@@ -298,7 +298,7 @@ func (ar *augReader) readStructTypeSpec(specDv *directives.Directives, gd *ast.G
 }
 
 func (ar *augReader) readStructField(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.StructType, m *ast.Field) {
-	comments := file.JoinComments(m.Comment, m.Doc)
+	comments := artifacts.JoinComments(m.Comment, m.Doc)
 	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
 	if err != nil {
 		panic(err)
@@ -398,7 +398,7 @@ func (ar *augReader) readInterfaceTypeSpec(specDv *directives.Directives, gd *as
 }
 
 func (ar *augReader) readInterfaceMethod(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.InterfaceType, m *ast.Field) {
-	comments := file.JoinComments(m.Comment, m.Doc)
+	comments := artifacts.JoinComments(m.Comment, m.Doc)
 	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
 	if err != nil {
 		panic(err)

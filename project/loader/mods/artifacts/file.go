@@ -1,12 +1,10 @@
-package file
+package artifacts
 
 import (
 	"bytes"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
-	"go/token"
 	"io"
 	"path/filepath"
 	"strings"
@@ -17,48 +15,29 @@ type File struct {
 
 	// FileSet that is associated with this file.
 	// This file set may be unique for this file during loading.
-	FileSet *token.FileSet
+	FileSet *FileSet
 
 	// File is the file's ast being modified.
 	File *ast.File
-
-	// Widths are the offset distance between a position an the next position.
-	Widths map[token.Pos]int
 }
 
 // New creates a new file mod.
-func New(fileSet *token.FileSet, file *ast.File) *File {
+func New(fileSet *FileSet, file *ast.File) *File {
 	f := &File{
 		FileSet: fileSet,
 		File:    file,
-		Widths:  map[token.Pos]int{},
 	}
-
-	var prev *token.Pos
-	walkPos(f.File, func(n ast.Node, off *token.Pos) {
-		if prev != nil {
-			width := int(*off) - int(*prev)
-			if width < 0 {
-				panic(fmt.Errorf(`negative width (%d) for %#v (%d)`, width, n, int(*off)))
-			}
-			if old, exists := f.Widths[*off]; exists && old != 0 {
-				panic(fmt.Errorf(`width already set to %d when setting %d for %#v (%d)`, old, width, n, int(*off)))
-			}
-			f.Widths[*off] = width
-		}
-		prev = off
-	})
-
+	fileSet.registerFile(f.File)
 	return f
 }
 
 // Load will load a file using parser.ParseFile.
-func Load(fileSet *token.FileSet, filename string, src any) (*File, error) {
+func Load(fileSet *FileSet, filename string, src any) (*File, error) {
 	const mode = parser.AllErrors |
 		parser.ParseComments |
 		parser.DeclarationErrors |
 		parser.SkipObjectResolution
-	f, err := parser.ParseFile(fileSet, filename, src, mode)
+	f, err := parser.ParseFile(fileSet.fileSet, filename, src, mode)
 	return New(fileSet, f), err
 }
 
@@ -88,12 +67,12 @@ func (f *File) Write(out io.Writer) error {
 		Mode:     printer.TabIndent | printer.SourcePos,
 		Tabwidth: 4,
 	}
-	return cfg.Fprint(out, f.FileSet, f.File)
+	return cfg.Fprint(out, f.FileSet.fileSet, f.File)
 }
 
 // Reload will write the file to a temporary buffer and reload it
 // with the given file set to normalize the file information.
-func (f *File) Reload(fileSet *token.FileSet) (*File, error) {
+func (f *File) Reload(fileSet *FileSet) (*File, error) {
 	buf := &bytes.Buffer{}
 	if err := f.Write(buf); err != nil {
 		return nil, err

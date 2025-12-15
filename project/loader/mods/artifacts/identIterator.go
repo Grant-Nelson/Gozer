@@ -1,4 +1,4 @@
-package file
+package artifacts
 
 import (
 	"github.com/Grant-Nelson/Gozer/internal/iterator"

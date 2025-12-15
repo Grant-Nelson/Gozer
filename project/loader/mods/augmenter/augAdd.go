@@ -9,8 +9,7 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/file"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 // TODO: Rewrite using https://pkg.go.dev/golang.org/x/tools/go/ast/astutil
@@ -31,7 +30,7 @@ var (
 )
 
 type augAdd struct {
-	fileSet *token.FileSet
+	fileSet *artifacts.FileSet
 
 	// beingAdded is the import paths and identifiers for the decls and specs
 	// that are being added, the value is the position value for the node.
@@ -53,7 +52,7 @@ func (a *augAdd) reset() {
 	a.newMethods = map[string]*ast.InterfaceType{}
 }
 
-func (a *augAdd) Modify(f *file.File, errGroup *faults.Group) error {
+func (a *augAdd) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	for id := range f.Idents() {
 		if err := a.checkForExistingId(id, errGroup); err != nil {
 			return err
@@ -70,7 +69,7 @@ func (a *augAdd) Modify(f *file.File, errGroup *faults.Group) error {
 	return nil
 }
 
-func (a *augAdd) PackageDone(pkg mods.Package, errGroup *faults.Group) error {
+func (a *augAdd) PackageDone(pkg artifacts.Package, errGroup *faults.Group) error {
 	if len(a.newFields) > 0 {
 		names := slices.Collect(maps.Keys(a.newFields))
 		sort.Strings(names)
@@ -101,7 +100,7 @@ func (a *augAdd) PackageDone(pkg mods.Package, errGroup *faults.Group) error {
 }
 
 // checkForExistingId checks that none of the decls being added already exist.
-func (a *augAdd) checkForExistingId(id *file.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) checkForExistingId(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
 	pos, has := a.beingAdded[id.Ident]
 	if !has {
 		return nil
@@ -114,7 +113,7 @@ func (a *augAdd) checkForExistingId(id *file.IdentIteratorValue, errGroup *fault
 }
 
 // tryToAddFields checks if the given ident is a structure to add fields to.
-func (a *augAdd) tryToAddFields(id *file.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) tryToAddFields(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
 	fieldsToAdd, has := a.newFields[id.Ident]
 	if !has {
 		return nil
@@ -165,7 +164,7 @@ func (a *augAdd) tryToAddFields(id *file.IdentIteratorValue, errGroup *faults.Gr
 }
 
 // tryToAddMethods checks if the given ident is an interface to add methods to.
-func (a *augAdd) tryToAddMethods(id *file.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) tryToAddMethods(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
 	methodsToAdd, has := a.newMethods[id.Ident]
 	if !has {
 		return nil
@@ -215,7 +214,7 @@ func (a *augAdd) tryToAddMethods(id *file.IdentIteratorValue, errGroup *faults.G
 	return nil
 }
 
-func (a *augAdd) addImports(f *file.File) {
+func (a *augAdd) addImports(f *artifacts.File) {
 	if len(a.newImports) > 0 {
 		f.File.Imports = append(f.File.Imports, a.newImports...)
 		a.newImports = []*ast.ImportSpec{}
@@ -224,7 +223,7 @@ func (a *augAdd) addImports(f *file.File) {
 
 // addDecls dda all declarations needing to be added and clears out the
 // list of decls needing to be added so that they're only added once.
-func (a *augAdd) addDecls(f *file.File) {
+func (a *augAdd) addDecls(f *artifacts.File) {
 	if len(a.newGenDecls) > 0 {
 		for _, d := range a.newGenDecls {
 			f.File.Decls = append(f.File.Decls, d)

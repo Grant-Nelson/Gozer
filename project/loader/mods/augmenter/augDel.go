@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/file"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 var (
@@ -22,10 +22,10 @@ var (
 	ErrAugDelIdentifierNotMethod    = errors.New(`can not delete identifier via augmenter: identifier for method not in interface`)
 )
 
-type delHandle func(*file.IdentIteratorValue, *faults.Group) (bool, error)
+type delHandle func(*artifacts.IdentIteratorValue, *faults.Group) (bool, error)
 
 type augDel struct {
-	fileSet    *token.FileSet
+	fileSet    *artifacts.FileSet
 	delImport  map[string]bool
 	delFunc    map[string]*ast.FuncDecl
 	delVar     map[string]*ast.ValueSpec
@@ -52,7 +52,7 @@ func (a *augDel) reset() {
 	}
 }
 
-func (a *augDel) Modify(f *file.File, errGroup *faults.Group) error {
+func (a *augDel) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	for it := range f.Idents() {
 		for _, handle := range a.delHandles {
 			deleted, err := handle(it, errGroup)
@@ -72,7 +72,7 @@ func (a *augDel) PackageDone(name, path string, errGroup *faults.Group) error {
 	return nil
 }
 
-func (a *augDel) tryDelFunc(it *file.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelFunc(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	d, has := a.delFunc[it.Ident]
 	if !has {
 		return false, nil
@@ -91,7 +91,7 @@ func (a *augDel) tryDelFunc(it *file.IdentIteratorValue, errGroup *faults.Group)
 	return true, nil
 }
 
-func (a *augDel) tryDelVar(it *file.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelVar(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	v, has := a.delVar[it.Ident]
 	if !has {
 		return false, nil
@@ -113,7 +113,7 @@ func (a *augDel) tryDelVar(it *file.IdentIteratorValue, errGroup *faults.Group) 
 	return true, nil
 }
 
-func (a *augDel) tryDelType(it *file.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelType(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	t, has := a.delType[it.Ident]
 	if !has {
 		return false, nil
@@ -153,7 +153,7 @@ func (a *augDel) tryDelType(it *file.IdentIteratorValue, errGroup *faults.Group)
 	return true, nil
 }
 
-func (a *augDel) tryDelFields(it *file.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelFields(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	fs, has := a.delFields[it.Ident]
 	if !has {
 		return false, nil
@@ -191,7 +191,7 @@ func (a *augDel) tryDelFields(it *file.IdentIteratorValue, errGroup *faults.Grou
 	return true, nil
 }
 
-func (a *augDel) tryDelMethods(it *file.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelMethods(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	ms, has := a.delMethods[it.Ident]
 	if !has {
 		return false, nil

@@ -2,15 +2,13 @@ package augmenter
 
 import (
 	"fmt"
-	"go/token"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/file"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 func TestAddingType(t *testing.T) {
@@ -53,8 +51,8 @@ func lines(lines ...string) string {
 func runAugTest(t *testing.T, test augTest) {
 	t.Helper()
 
-	preFileSet := token.NewFileSet()
-	fm, err := file.Load(preFileSet, `original/orig.go`, []byte(test.origSrc))
+	preFileSet := artifacts.NewFileSet()
+	fm, err := artifacts.Load(preFileSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
@@ -75,7 +73,7 @@ func runAugTest(t *testing.T, test augTest) {
 		return
 	}
 
-	pkg := &mods.Package{Name: `test`, Path: pkgPath}
+	pkg := &artifacts.Package{Name: `test`, Path: pkgPath}
 	if err := a.PackageDone(pkg, errGroup); err != nil {
 		checkErr(t, `finish package`, test, err)
 		return
@@ -86,7 +84,7 @@ func runAugTest(t *testing.T, test augTest) {
 		return
 	}
 
-	postFileSet := token.NewFileSet()
+	postFileSet := artifacts.NewFileSet()
 	fm.Remap(postFileSet)
 
 	buf := &strings.Builder{}

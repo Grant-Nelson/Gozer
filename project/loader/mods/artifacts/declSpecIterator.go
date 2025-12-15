@@ -1,4 +1,4 @@
-package file
+package artifacts
 
 import (
 	"go/ast"

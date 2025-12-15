@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
-	"github.com/Grant-Nelson/Gozer/project/file"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 const (
@@ -165,7 +165,7 @@ func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position, er
 func Read(comments []*ast.Comment, pkgPath string, pos token.Position, errGroup *faults.Group) (dv *Directives, err error) {
 	defer faults.Recover(&err)
 	mod := &directiveMod{
-		dm:       file.Directives(comments, directiveGroup),
+		dm:       artifacts.Directives(comments, directiveGroup),
 		dv:       &Directives{},
 		pkgPath:  pkgPath,
 		pos:      pos,

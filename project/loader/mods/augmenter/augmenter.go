@@ -1,10 +1,9 @@
 package augmenter
 
 import (
-	"go/token"
-
 	"github.com/Grant-Nelson/Gozer/internal/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 type Augmenter struct {
@@ -17,10 +16,10 @@ type Augmenter struct {
 	build       []string
 	basePath    string
 	testPkgPath string
-	fileSet     *token.FileSet
+	fileSet     *artifacts.FileSet
 }
 
-func New(build []string, basePath, testPkgPath string, fileSet *token.FileSet) *Augmenter {
+func New(build []string, basePath, testPkgPath string, fileSet *artifacts.FileSet) *Augmenter {
 	a := &Augmenter{
 		del: &augDel{fileSet: fileSet},
 		rep: &augReplace{fileSet: fileSet},
@@ -36,7 +35,7 @@ func New(build []string, basePath, testPkgPath string, fileSet *token.FileSet) *
 	return a
 }
 
-func (a *Augmenter) PackageStart(pkg *mods.Package, errGroup *faults.Group) error {
+func (a *Augmenter) PackageStart(pkg *artifacts.Package, errGroup *faults.Group) error {
 	a.reset()
 	if err := a.AddPackage(pkg.Path, errGroup); err != nil {
 		return err

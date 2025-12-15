@@ -8,8 +8,8 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/internal/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/file"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 // TODO: Add Modifiers:
@@ -52,10 +52,11 @@ type Config struct {
 func Load(cfg Config) (*project.Project, error) {
 	finalFileSet := token.NewFileSet()
 	ld := &loader{
-		errGroup:    faults.NewGroup(-1),
-		group:       mods.Group(cfg.Modifiers),
-		curPkg:      nil,
-		tempFileSet: token.NewFileSet(),
+		errGroup:     faults.NewGroup(-1),
+		group:        mods.Group(cfg.Modifiers),
+		curPkg:       nil,
+		tempFileSet:  artifacts.NewFileSet(),
+		finalFileSet: artifacts.NewFileSet(),
 	}
 	c := &packages.Config{
 		Mode:       allNeeds,
@@ -90,14 +91,15 @@ const allNeeds = packages.NeedName |
 	packages.NeedTypesInfo
 
 type loader struct {
-	errGroup    *faults.Group
-	group       mods.Group
-	curPkg      *mods.Package
-	tempFileSet *token.FileSet
+	errGroup     *faults.Group
+	group        mods.Group
+	curPkg       *artifacts.Package
+	tempFileSet  *artifacts.FileSet
+	finalFileSet *artifacts.FileSet
 }
 
-func (ld *loader) parseFile(finalFileSet *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	f, err := file.Load(ld.tempFileSet, filename, src)
+func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*ast.File, error) {
+	f, err := artifacts.Load(ld.tempFileSet, filename, src)
 	if err != nil {
 		return nil, ld.errGroup.Fatal(err)
 	}
@@ -112,9 +114,9 @@ func (ld *loader) parseFile(finalFileSet *token.FileSet, filename string, src []
 		return nil, err
 	}
 
-	f.Remap(finalFileSet)
+	f.Remap(ld.finalFileSet)
 
-	final, err := f.Reload(finalFileSet)
+	final, err := f.Reload(ld.finalFileSet)
 	if err != nil {
 		return nil, ld.errGroup.Fatal(err)
 	}
@@ -133,6 +135,10 @@ func (ld *loader) packageDone() {
 }
 
 func (ld *loader) packageStart(pkgName, pkgPath string) {
-	ld.curPkg = &mods.Package{Name: pkgName, Path: pkgPath}
+	ld.curPkg = &artifacts.Package{
+		Name:        pkgName,
+		Path:        pkgPath,
+		TempFileSet: ld.tempFileSet.FileSet(),
+	}
 	ld.group.PackageStart(ld.curPkg, ld.errGroup)
 }
