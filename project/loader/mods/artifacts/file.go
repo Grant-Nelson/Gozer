@@ -27,7 +27,7 @@ func New(fileSet *FileSet, file *ast.File) *File {
 		FileSet: fileSet,
 		File:    file,
 	}
-	fileSet.registerFile(f.File)
+	fileSet.registerFile(f)
 	return f
 }
 
@@ -57,6 +57,12 @@ func (f *File) PackagePath() string {
 // This should be the whole path including the package import path.
 func (f *File) FilePath() string {
 	return f.FileSet.Position(f.File.Pos()).Filename
+}
+
+// Empty indicates if the file was empty.
+func (f *File) Empty() bool {
+	return f.File.FileStart == f.File.FileEnd ||
+		(len(f.File.Comments) <= 0 && len(f.File.Decls) <= 0)
 }
 
 // Write will write the modified file to the given writer.

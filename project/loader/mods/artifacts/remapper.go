@@ -22,6 +22,7 @@ type fileRemapper struct {
 	f       *File
 	offset  int
 	edits   []remapperEdit
+	prior   int
 	expNext int
 }
 
@@ -41,7 +42,13 @@ func (frm *fileRemapper) mapPos(n ast.Node, off *token.Pos) {
 		return
 	}
 
-	if int(*off) != frm.expNext {
+	cur := int(*off)
+	if cur == frm.prior {
+		*off = token.Pos(frm.offset)
+		return
+	}
+
+	if cur != frm.expNext {
 		pos := frm.f.FileSet.Position(*off)
 		frm.edits = append(frm.edits, func(f *token.File) {
 			f.AddLineColumnInfo(frm.offset, pos.Filename, pos.Line, pos.Column)
@@ -50,7 +57,8 @@ func (frm *fileRemapper) mapPos(n ast.Node, off *token.Pos) {
 
 	*off = token.Pos(frm.offset)
 	total, lines := frm.f.FileSet.Widths(*off)
-	frm.expNext = int(*off) + total
+	frm.expNext = cur + total
+	frm.prior = cur
 
 	for i, ln := range lines {
 		if i > 1 {
@@ -371,8 +379,12 @@ func walkPos[N ComparableNode](node N, v posVisitor) {
 	case *ast.FuncDecl:
 		walkPos(n.Doc, v)
 		walkPos(n.Recv, v)
+		// handle FuncType uniquely here to get the name in the correct order.
+		walkPosVisit(n, &n.Type.Func, v)
 		walkPos(n.Name, v)
-		walkPos(n.Type, v)
+		walkPos(n.Type.TypeParams, v)
+		walkPos(n.Type.Params, v)
+		walkPos(n.Type.Results, v)
 		walkPos(n.Body, v)
 
 	// Files
