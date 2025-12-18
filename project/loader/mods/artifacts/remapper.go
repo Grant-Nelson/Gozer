@@ -10,9 +10,12 @@ import (
 // This is required to be done prior to writing the file so that the file
 // will output correctly.
 func (f *File) Remap(fileSet *FileSet) {
+	start := int(f.File.FileStart)
 	frm := &fileRemapper{
-		f:      f,
-		offset: 1,
+		f:       f,
+		offset:  1,
+		prior:   start,
+		expNext: start,
 	}
 	walkPos(f.File, frm.mapPos)
 	frm.finish(fileSet)
@@ -43,32 +46,44 @@ func (frm *fileRemapper) mapPos(n ast.Node, off *token.Pos) {
 	}
 
 	cur := int(*off)
+	fmt.Printf("mapPos: cur: %d, node: %T\n", cur, n)
+
 	if cur == frm.prior {
+		fmt.Printf("Duplicate\n\n")
 		*off = token.Pos(frm.offset)
 		return
 	}
 
 	if cur != frm.expNext {
 		pos := frm.f.FileSet.Position(*off)
+		offset := frm.offset
+		fmt.Printf("AddLineColumnInfo: offset: %d, pos: %s:%d:%d\n", offset, pos.Filename, pos.Line, pos.Column)
 		frm.edits = append(frm.edits, func(f *token.File) {
-			f.AddLineColumnInfo(frm.offset, pos.Filename, pos.Line, pos.Column)
+
+			fmt.Printf(">>> AddLineColumnInfo: offset: %d, pos: %s:%d:%d\n", offset, pos.Filename, pos.Line, pos.Column)
+			f.AddLine(offset)
+			f.AddLineColumnInfo(offset, pos.Filename, pos.Line, pos.Column)
 		})
 	}
 
-	*off = token.Pos(frm.offset)
 	total, lines := frm.f.FileSet.Widths(*off)
-	frm.expNext = cur + total
-	frm.prior = cur
+	fmt.Printf("Widths: total: %d, lines: %v\n", total, lines)
 
 	for i, ln := range lines {
-		if i > 1 {
+		if i > 0 {
 			offset := frm.offset
+			fmt.Printf("AddLine(%d)\n", offset)
 			frm.edits = append(frm.edits, func(f *token.File) {
 				f.AddLine(offset)
 			})
 		}
 		frm.offset += ln
 	}
+
+	frm.expNext = cur + total
+	frm.prior = cur
+	*off = token.Pos(frm.offset)
+	fmt.Printf("Finish: expNext: %d, prior: %d, set: %d\n\n", frm.expNext, frm.prior, int(*off))
 }
 
 type ComparableNode interface {
