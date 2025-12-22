@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/tools/go/packages"
 
-	"github.com/Grant-Nelson/Gozer/internal/faults"
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
@@ -114,7 +114,7 @@ func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*as
 		return nil, err
 	}
 
-	f.Remap(ld.finalFileSet)
+	//f.Remap(ld.finalFileSet) // TODO: Fix
 
 	final, err := f.Reload(ld.finalFileSet)
 	if err != nil {

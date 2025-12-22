@@ -4,7 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 
-	"github.com/Grant-Nelson/Gozer/internal/iterator"
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
 
 type DeclSpecIteratorValue struct {

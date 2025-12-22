@@ -2,7 +2,6 @@ package artifacts
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"sort"
 )
@@ -90,7 +89,7 @@ func (fs *FileSet) registerFile(f *File) {
 
 	var prev int
 	var nPos []int
-	walkPos(f.File, func(n ast.Node, off *token.Pos) {
+	for n, off := range WalkPos(f.File) {
 		cur := int(*off)
 
 		//fmt.Printf(">> %d (%T) %v\n", cur, n, n) // TODO: REMOVE
@@ -104,7 +103,7 @@ func (fs *FileSet) registerFile(f *File) {
 			nPos = append(nPos, cur)
 			prev = cur
 		}
-	})
+	}
 
 	fs.nodePos[filePos] = nPos
 }

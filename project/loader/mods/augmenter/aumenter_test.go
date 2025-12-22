@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/Grant-Nelson/Gozer/internal/faults"
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
@@ -31,6 +31,7 @@ func TestAddingType(t *testing.T) {
 			`// Foo already exists.`,
 			`type Foo struct{}`,
 			``,
+			`//line original/aug.go:3`,
 			`// Bar is being added.`,
 			`type Bar struct{}`),
 	})

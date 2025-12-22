@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Grant-Nelson/Gozer/internal/predicate"
+	"github.com/Grant-Nelson/Gozer/avail/predicate"
 )
 
 // Iterator is an iterator over a sequence of values

@@ -1,7 +1,7 @@
 package augmenter
 
 import (
-	"github.com/Grant-Nelson/Gozer/internal/faults"
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )

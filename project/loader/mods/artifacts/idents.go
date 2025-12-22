@@ -1,7 +1,7 @@
 package artifacts
 
 import (
-	"github.com/Grant-Nelson/Gozer/internal/iterator"
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
 
 type IdentIteratorValue struct {

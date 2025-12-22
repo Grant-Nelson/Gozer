@@ -4,7 +4,7 @@ import (
 	"errors"
 	"go/ast"
 
-	"github.com/Grant-Nelson/Gozer/internal/iterator"
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
 
 type NodeIteratorValue struct {
@@ -35,7 +35,7 @@ type NodeWithStackIteratorValue struct {
 	Skip bool
 }
 
-var errEndInspect = errors.New(`End Inspect`)
+var errEndInspect = errors.New(`end inspect`)
 
 func newNodeIteratorValue(node ast.Node) *NodeIteratorValue {
 	return &NodeIteratorValue{Node: node}
@@ -49,6 +49,13 @@ func newNodeWithStackIteratorValue(stack []ast.Node, node ast.Node, closing bool
 // It moves depth first and returns a nil Node when a node is being
 // closed and all of its children have been iterated.
 func (f *File) Nodes() iterator.Iterator[*NodeIteratorValue] {
+	return Nodes(f.File)
+}
+
+// Nodes iterates through all the nodes in the file.
+// It moves depth first and returns a nil Node when a node is being
+// closed and all of its children have been iterated.
+func Nodes(node ast.Node) iterator.Iterator[*NodeIteratorValue] {
 	return func(yield func(v *NodeIteratorValue) bool) {
 		defer func() {
 			if r := recover(); r != nil && r != errEndInspect {
@@ -56,7 +63,7 @@ func (f *File) Nodes() iterator.Iterator[*NodeIteratorValue] {
 			}
 		}()
 
-		ast.Inspect(f.File, func(n ast.Node) bool {
+		ast.Inspect(node, func(n ast.Node) bool {
 			v := newNodeIteratorValue(n)
 			if !yield(v) {
 				panic(errEndInspect)
@@ -70,6 +77,13 @@ func (f *File) Nodes() iterator.Iterator[*NodeIteratorValue] {
 // It moves depth first and returns a nil Node when a node is being
 // closed and all of its children have been iterated.
 func (f *File) NodesWithStack() iterator.Iterator[*NodeWithStackIteratorValue] {
+	return NodesWithStack(f.File)
+}
+
+// NodesWithStack iterates through all the nodes in the file.
+// It moves depth first and returns a nil Node when a node is being
+// closed and all of its children have been iterated.
+func NodesWithStack(node ast.Node) iterator.Iterator[*NodeWithStackIteratorValue] {
 	return func(yield func(v *NodeWithStackIteratorValue) bool) {
 		defer func() {
 			if r := recover(); r != nil && r != errEndInspect {
@@ -78,7 +92,7 @@ func (f *File) NodesWithStack() iterator.Iterator[*NodeWithStackIteratorValue] {
 		}()
 
 		stack := []ast.Node{}
-		ast.Inspect(f.File, func(n ast.Node) bool {
+		ast.Inspect(node, func(n ast.Node) bool {
 			var v *NodeWithStackIteratorValue
 			if n != nil {
 				stack = append(stack, n)
