@@ -13,21 +13,24 @@ import (
 // File that is being modified or inspected.
 type File struct {
 
-	// FileSet that is associated with this file.
+	// Package that this file is part of.
+	Package *Package
+
+	// TempFileSet that is associated with this file.
 	// This file set may be unique for this file during loading.
-	FileSet *FileSet
+	TempFileSet *FileSet
 
 	// File is the file's ast being modified.
 	File *ast.File
 }
 
 // New creates a new file mod.
-func New(fileSet *FileSet, file *ast.File) *File {
+func New(tempFileSet *FileSet, file *ast.File) *File {
 	f := &File{
-		FileSet: fileSet,
-		File:    file,
+		TempFileSet: tempFileSet,
+		File:        file,
 	}
-	fileSet.registerFile(f)
+	f.TempFileSet.registerFile(f)
 	return f
 }
 
@@ -56,7 +59,19 @@ func (f *File) PackagePath() string {
 // File Path is the path to the file being modified.
 // This should be the whole path including the package import path.
 func (f *File) FilePath() string {
-	return f.FileSet.Position(f.File.Pos()).Filename
+	return f.TempFileSet.Position(f.File.Pos()).Filename
+}
+
+// IsTest indicates this file is part of an package test,
+// i.e. the file path ends with `_test.go`.
+func (f *File) IsTest() bool {
+	return strings.HasSuffix(f.FilePath(), `_test.go`)
+}
+
+// IsXTest indicates this file is part of an extra-package test,
+// i.e. the package name ends with `_test`.
+func (f *File) IsXTest() bool {
+	return strings.HasSuffix(f.PackageName(), `_test`)
 }
 
 // Empty indicates if the file was empty.
@@ -73,7 +88,7 @@ func (f *File) Write(out io.Writer) error {
 		Mode:     printer.TabIndent | printer.SourcePos,
 		Tabwidth: 4,
 	}
-	return cfg.Fprint(out, f.FileSet.fileSet, f.File)
+	return cfg.Fprint(out, f.TempFileSet.fileSet, f.File)
 }
 
 // Reload will write the file to a temporary buffer and reload it
@@ -84,6 +99,18 @@ func (f *File) Reload(fileSet *FileSet) (*File, error) {
 		return nil, err
 	}
 	return Load(fileSet, f.FilePath(), buf.Bytes())
+}
+
+// PackageKey gets the key for a package based on the package path and test flags.
+func (f *File) PackageKey() string {
+	switch {
+	case f.IsXTest():
+		return f.PackagePath() + `#_XTest`
+	case f.IsTest():
+		return f.PackagePath() + `#_Test`
+	default:
+		return f.PackagePath()
+	}
 }
 
 // Directives finds all the directives with the given prefix.

@@ -17,7 +17,7 @@ func Test_FileSet_Widths_Simple(t *testing.T) {
 		`func main() {`,               // 29 func, 34 main, 38 (, 39 ), 41 {
 		`	fmt.Println("Hello World")`, // 44 fmt., 48 Println, 55 (, 56 "Hello World", 69 )
 		`}`,                           // 71 }, 72 [eof]
-	).FileSet
+	).TempFileSet
 
 	checkFileSetWidths(t, fs, 1, 8, []int{8})        // 1 package
 	checkFileSetWidths(t, fs, 9, 6, []int{5, 1, 0})  // 9 test

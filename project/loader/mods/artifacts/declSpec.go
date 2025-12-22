@@ -28,7 +28,7 @@ func (ds *DeclSpecIteratorValue) End() token.Position {
 }
 
 func (ds *DeclSpecIteratorValue) Position(pos token.Pos) token.Position {
-	return ds.File.FileSet.Position(pos)
+	return ds.File.TempFileSet.Position(pos)
 }
 
 func JoinComments(cgs ...*ast.CommentGroup) []*ast.Comment {

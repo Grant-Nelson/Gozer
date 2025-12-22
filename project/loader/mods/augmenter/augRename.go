@@ -9,16 +9,12 @@ type augRename struct {
 	fileSet *artifacts.FileSet
 }
 
-func (a *augRename) reset() {
-	// TODO: Implement
-}
-
 func (a *augRename) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }
 
-func (a *augRename) PackageDone(pkg *artifacts.Package, errGroup *faults.Group) error {
+func (a *augRename) LoadDone(errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }

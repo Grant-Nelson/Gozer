@@ -5,13 +5,14 @@ import (
 	"go/ast"
 	"go/token"
 
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 // Remap will rewrite the file to a new file set to normalize the file information.
 // This is required to be done prior to writing the file so that the file
 // will output correctly.
-func Remap(f *artifacts.File, fileSet *artifacts.FileSet) {
+func Remap(f *artifacts.File, finalFileSet *artifacts.FileSet, errGroup *faults.Group) error {
 	start := int(f.File.FileStart)
 	frm := &fileRemapper{
 		f:       f,
@@ -23,6 +24,7 @@ func Remap(f *artifacts.File, fileSet *artifacts.FileSet) {
 		frm.mapPos(n, off)
 	}
 	frm.finish(fileSet)
+	return nil
 }
 
 type fileRemapper struct {

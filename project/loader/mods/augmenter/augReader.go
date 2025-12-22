@@ -15,20 +15,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/augmenter/directives"
 )
 
-func (a *Augmenter) AddPackage(path string, errGroup *faults.Group) (err error) {
-	defer faults.Recover(&err)
-	ar := &augReader{Augmenter: a, errGroup: errGroup}
-	ar.addPackage(path)
-	return nil
-}
-
-func (a *Augmenter) AddFile(filename string, src []byte, errGroup *faults.Group) (err error) {
-	defer faults.Recover(&err)
-	ar := &augReader{Augmenter: a, errGroup: errGroup}
-	ar.addFile(filename, src)
-	return nil
-}
-
 var (
 	ErrParsingBuildConstraints = errors.New(`error parsing build constrains for augmentation file`)
 	ErrParsingUnexpectedDecl   = errors.New(`unexpected declaration while parsing augmentation file`)
@@ -52,7 +38,7 @@ var (
 )
 
 type augReader struct {
-	*Augmenter
+	*augPackage
 	errGroup *faults.Group
 	curFile  *artifacts.File
 	addSpecs []ast.Spec

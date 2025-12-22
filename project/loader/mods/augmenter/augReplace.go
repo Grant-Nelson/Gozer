@@ -9,16 +9,12 @@ type augReplace struct {
 	fileSet *artifacts.FileSet
 }
 
-func (a *augReplace) reset() {
-	// TODO: Implement
-}
-
 func (a *augReplace) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }
 
-func (a *augReplace) PackageDone(pkg *artifacts.Package, errGroup *faults.Group) error {
+func (a *augReplace) LoadDone(errGroup *faults.Group) error {
 	// TODO: Implement
 	return nil
 }

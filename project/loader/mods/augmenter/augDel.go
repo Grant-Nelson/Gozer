@@ -35,23 +35,6 @@ type augDel struct {
 	delHandles []delHandle
 }
 
-func (a *augDel) reset() {
-	a.delImport = map[string]bool{}
-	a.delFunc = map[string]*ast.FuncDecl{}
-	a.delVar = map[string]*ast.ValueSpec{}
-	a.delType = map[string]*ast.TypeSpec{}
-	a.delFields = map[string]*ast.StructType{}
-	a.delMethods = map[string]*ast.InterfaceType{}
-	if len(a.delHandles) <= 0 {
-		a.delHandles = []delHandle{
-			a.tryDelFunc,
-			a.tryDelVar,
-			a.tryDelType,
-			a.tryDelFields,
-			a.tryDelMethods}
-	}
-}
-
 func (a *augDel) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	for it := range f.Idents() {
 		for _, handle := range a.delHandles {
@@ -67,7 +50,7 @@ func (a *augDel) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	return nil
 }
 
-func (a *augDel) PackageDone(name, path string, errGroup *faults.Group) error {
+func (a *augDel) LoadDone(errGroup *faults.Group) error {
 	// TODO: Check for any identifiers that weren't found.
 	return nil
 }

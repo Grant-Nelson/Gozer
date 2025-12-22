@@ -1,51 +1,60 @@
 package augmenter
 
 import (
+	"maps"
+	"slices"
+	"sort"
+
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 type Augmenter struct {
-	mods.Group
-	del *augDel
-	rep *augReplace
-	ren *augRename
-	add *augAdd
-
-	build       []string
-	basePath    string
-	testPkgPath string
-	fileSet     *artifacts.FileSet
+	packages map[string]*augPackage
+	build    []string
+	fileSet  *artifacts.FileSet
 }
 
-func New(build []string, basePath, testPkgPath string, fileSet *artifacts.FileSet) *Augmenter {
+func New(build []string, fileSet *artifacts.FileSet) *Augmenter {
 	a := &Augmenter{
-		del: &augDel{fileSet: fileSet},
-		rep: &augReplace{fileSet: fileSet},
-		ren: &augRename{fileSet: fileSet},
-		add: &augAdd{fileSet: fileSet},
-
-		build:       build,
-		basePath:    basePath,
-		testPkgPath: testPkgPath,
-		fileSet:     fileSet,
+		packages: map[string]*augPackage{},
+		build:    build,
+		fileSet:  fileSet,
 	}
-	a.Group = mods.Group{a.del, a.rep, a.ren, a.add}
 	return a
 }
 
-func (a *Augmenter) PackageStart(pkg *artifacts.Package, errGroup *faults.Group) error {
-	a.reset()
-	if err := a.AddPackage(pkg.Path, errGroup); err != nil {
+func (a *Augmenter) Modify(f *artifacts.File, errGroup *faults.Group) error {
+	key := f.PackageKey()
+	ap, exists := a.packages[key]
+
+	if !exists {
+		ap, err := a.addPackage(pkg.Path, errGroup)
+		if err != nil {
+			return err
+		}
+		a.packages[key] = ap
+	}
+
+	if err := ap.Modify(f, errGroup); err != nil {
 		return err
 	}
-	return a.Group.PackageStart(pkg, errGroup)
+	return nil
 }
 
-func (a *Augmenter) reset() {
-	a.del.reset()
-	a.rep.reset()
-	a.ren.reset()
-	a.add.reset()
+func (a *Augmenter) LoadDone(errGroup *faults.Group) error {
+	keys := slices.Collect(maps.Keys(a.packages))
+	sort.Strings(keys)
+	for _, key := range keys {
+		a.packages[key].LoadDone(errGroup)
+	}
+	return nil
+}
+
+func (a *Augmenter) addPackage(path string, errGroup *faults.Group) (p *augPackage, err error) {
+	defer faults.Recover(&err)
+	ap := newPackage(a.build, path, testPkgPath, a.fileSet)
+	ar := &augReader{augPackage: ap, errGroup: errGroup}
+	ar.addPackage(path)
+	return ap, nil
 }

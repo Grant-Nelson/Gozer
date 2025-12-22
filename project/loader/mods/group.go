@@ -16,28 +16,6 @@ func (group Group) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	return nil
 }
 
-func (group Group) PackageStart(pkg *artifacts.Package, errGroup *faults.Group) error {
-	for _, mod := range group {
-		if m, ok := mod.(PackageStartExt); ok {
-			if err := m.PackageStart(pkg, errGroup); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (group Group) PackageDone(pkg *artifacts.Package, errGroup *faults.Group) error {
-	for _, mod := range group {
-		if m, ok := mod.(PackageDoneExt); ok {
-			if err := m.PackageDone(pkg, errGroup); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (group Group) LoadDone(errGroup *faults.Group) error {
 	for _, mod := range group {
 		if m, ok := mod.(LoadDoneExt); ok {

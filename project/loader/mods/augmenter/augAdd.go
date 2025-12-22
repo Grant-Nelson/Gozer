@@ -43,15 +43,6 @@ type augAdd struct {
 	newMethods   map[string]*ast.InterfaceType
 }
 
-func (a *augAdd) reset() {
-	a.beingAdded = map[string]token.Pos{}
-	a.newImports = []*ast.ImportSpec{}
-	a.newGenDecls = []*ast.GenDecl{}
-	a.newFuncDecls = []*ast.FuncDecl{}
-	a.newFields = map[string]*ast.StructType{}
-	a.newMethods = map[string]*ast.InterfaceType{}
-}
-
 func (a *augAdd) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	for id := range f.Idents() {
 		if err := a.checkForExistingId(id, errGroup); err != nil {
@@ -69,7 +60,7 @@ func (a *augAdd) Modify(f *artifacts.File, errGroup *faults.Group) error {
 	return nil
 }
 
-func (a *augAdd) PackageDone(pkg artifacts.Package, errGroup *faults.Group) error {
+func (a *augAdd) LoadDone(errGroup *faults.Group) error {
 	if len(a.newFields) > 0 {
 		names := slices.Collect(maps.Keys(a.newFields))
 		sort.Strings(names)
