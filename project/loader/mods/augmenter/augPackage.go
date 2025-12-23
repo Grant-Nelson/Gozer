@@ -1,7 +1,6 @@
 package augmenter
 
 import (
-	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
@@ -12,36 +11,21 @@ type augPackage struct {
 	rep *augReplace
 	ren *augRename
 	add *augAdd
-
-	build       []string
-	basePath    string
-	testPkgPath string
-	fileSet     *artifacts.FileSet
+	pkg *artifacts.Package
 }
 
-func newPackage(build []string, basePath, testPkgPath string, fileSet *artifacts.FileSet) *augPackage {
-	ap := &augPackage{
-		del: &augDel{fileSet: fileSet},
-		rep: &augReplace{fileSet: fileSet},
-		ren: &augRename{fileSet: fileSet},
-		add: &augAdd{fileSet: fileSet},
+var _ mods.Modifier = (*augPackage)(nil)
+var _ mods.LoadDoneExt = (*augPackage)(nil)
 
-		build:       build,
-		basePath:    basePath,
-		testPkgPath: testPkgPath,
-		fileSet:     fileSet,
+func newPackage(pkg *artifacts.Package) *augPackage {
+	fs := pkg.TempFileSet()
+	ap := &augPackage{
+		del: &augDel{fileSet: fs},
+		rep: &augReplace{fileSet: fs},
+		ren: &augRename{fileSet: fs},
+		add: &augAdd{fileSet: fs},
+		pkg: pkg,
 	}
 	ap.Group = mods.Group{ap.del, ap.rep, ap.ren, ap.add}
 	return ap
-}
-
-func (ap *augPackage) AddFile(filename string, src []byte, errGroup *faults.Group) (err error) {
-	defer faults.Recover(&err)
-	ar := &augReader{augPackage: ap, errGroup: errGroup}
-	ar.addFile(filename, src)
-	return nil
-}
-
-func (ap *augPackage) LoadDone(errGroup *faults.Group) error {
-	return ap.Group.LoadDone(errGroup)
 }

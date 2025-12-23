@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
@@ -35,19 +36,22 @@ type augDel struct {
 	delHandles []delHandle
 }
 
-func (a *augDel) Modify(f *artifacts.File, errGroup *faults.Group) error {
+var _ mods.Modifier = (*augDel)(nil)
+var _ mods.LoadDoneExt = (*augDel)(nil)
+
+func (a *augDel) Modify(f *artifacts.File, errGroup *faults.Group) (bool, error) {
 	for it := range f.Idents() {
 		for _, handle := range a.delHandles {
 			deleted, err := handle(it, errGroup)
 			if err != nil {
-				return err
+				return false, err
 			}
 			if deleted {
 				break
 			}
 		}
 	}
-	return nil
+	return true, nil
 }
 
 func (a *augDel) LoadDone(errGroup *faults.Group) error {

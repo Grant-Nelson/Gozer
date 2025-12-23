@@ -9,6 +9,8 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
+// TODO: Convert to be a modifier
+
 // Remap will rewrite the file to a new file set to normalize the file information.
 // This is required to be done prior to writing the file so that the file
 // will output correctly.

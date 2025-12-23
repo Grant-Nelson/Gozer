@@ -7,13 +7,13 @@ import (
 
 type Group []Modifier
 
-func (group Group) Modify(f *artifacts.File, errGroup *faults.Group) error {
+func (group Group) Modify(f *artifacts.File, errGroup *faults.Group) (bool, error) {
 	for _, mod := range group {
-		if err := mod.Modify(f, errGroup); err != nil {
-			return err
+		if con, err := mod.Modify(f, errGroup); err != nil || !con {
+			return false, err
 		}
 	}
-	return nil
+	return true, nil
 }
 
 func (group Group) LoadDone(errGroup *faults.Group) error {

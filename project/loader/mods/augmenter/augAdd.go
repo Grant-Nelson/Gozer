@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
@@ -30,7 +31,8 @@ var (
 )
 
 type augAdd struct {
-	fileSet *artifacts.FileSet
+	packagePath string
+	fileSet     *artifacts.FileSet
 
 	// beingAdded is the import paths and identifiers for the decls and specs
 	// that are being added, the value is the position value for the node.
@@ -43,21 +45,24 @@ type augAdd struct {
 	newMethods   map[string]*ast.InterfaceType
 }
 
-func (a *augAdd) Modify(f *artifacts.File, errGroup *faults.Group) error {
+var _ mods.Modifier = (*augAdd)(nil)
+var _ mods.LoadDoneExt = (*augAdd)(nil)
+
+func (a *augAdd) Modify(f *artifacts.File, errGroup *faults.Group) (bool, error) {
 	for id := range f.Idents() {
 		if err := a.checkForExistingId(id, errGroup); err != nil {
-			return err
+			return false, err
 		}
 		if err := a.tryToAddFields(id, errGroup); err != nil {
-			return err
+			return false, err
 		}
 		if err := a.tryToAddMethods(id, errGroup); err != nil {
-			return err
+			return false, err
 		}
 	}
 	a.addImports(f)
 	a.addDecls(f)
-	return nil
+	return true, nil
 }
 
 func (a *augAdd) LoadDone(errGroup *faults.Group) error {
@@ -67,7 +72,7 @@ func (a *augAdd) LoadDone(errGroup *faults.Group) error {
 		for _, name := range names {
 			st := a.newFields[name]
 			if err := errGroup.Add(faults.From(ErrAugAddStructIdDidNotExist).
-				With(`package path`, pkg.Path).
+				With(`package path`, a.packagePath).
 				With(`augmenter pos`, a.fileSet.Position(st.Pos())).
 				With(`identifier`, name)); err != nil {
 				return err
@@ -80,7 +85,7 @@ func (a *augAdd) LoadDone(errGroup *faults.Group) error {
 		for _, name := range names {
 			st := a.newMethods[name]
 			if err := errGroup.Add(faults.From(ErrAugAddInterfaceIdDidNotExist).
-				With(`package path`, pkg.Path).
+				With(`package path`, a.packagePath).
 				With(`augmenter pos`, a.fileSet.Position(st.Pos())).
 				With(`identifier`, name)); err != nil {
 				return err
@@ -97,7 +102,7 @@ func (a *augAdd) checkForExistingId(id *artifacts.IdentIteratorValue, errGroup *
 		return nil
 	}
 	return errGroup.Add(faults.From(ErrAugAddIdAlreadyExists).
-		With(`package path`, id.File.PackagePath()).
+		With(`package path`, a.packagePath).
 		With(`original pos`, id.Start()).
 		With(`augmenter pos`, a.fileSet.Position(pos)).
 		With(`identifier`, id.Ident))
@@ -111,7 +116,7 @@ func (a *augAdd) tryToAddFields(id *artifacts.IdentIteratorValue, errGroup *faul
 	}
 	if id.TypeSpec == nil {
 		return errGroup.Add(faults.From(ErrAugAddStructIdNotForType).
-			With(`package path`, id.File.PackagePath()).
+			With(`package path`, a.packagePath).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(fieldsToAdd.Pos())).
 			With(`identifier`, id.Ident))
@@ -119,7 +124,7 @@ func (a *augAdd) tryToAddFields(id *artifacts.IdentIteratorValue, errGroup *faul
 	structToAddTo, ok := id.TypeSpec.Type.(*ast.StructType)
 	if !ok {
 		return errGroup.Add(faults.From(ErrAugAddStructTypeMismatch).
-			With(`package path`, id.File.PackagePath()).
+			With(`package path`, a.packagePath).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(fieldsToAdd.Pos())).
 			With(`identifier`, id.Ident))
@@ -139,7 +144,7 @@ func (a *augAdd) tryToAddFields(id *artifacts.IdentIteratorValue, errGroup *faul
 				continue
 			}
 			return errGroup.Add(faults.From(ErrAugAddIdFieldAlreadyExists).
-				With(`package path`, id.File.PackagePath()).
+				With(`package path`, a.packagePath).
 				With(`original struct pos`, id.Start()).
 				With(`augmenter struct pos`, a.fileSet.Position(fieldsToAdd.Pos())).
 				With(`original field pos`, id.Position(name.Pos())).
@@ -162,7 +167,7 @@ func (a *augAdd) tryToAddMethods(id *artifacts.IdentIteratorValue, errGroup *fau
 	}
 	if id.TypeSpec == nil {
 		return errGroup.Add(faults.From(ErrAugAddInterfaceIdNotForType).
-			With(`package path`, id.File.PackagePath()).
+			With(`package path`, a.packagePath).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(methodsToAdd.Pos())).
 			With(`identifier`, id.Ident))
@@ -170,7 +175,7 @@ func (a *augAdd) tryToAddMethods(id *artifacts.IdentIteratorValue, errGroup *fau
 	interfaceToAddTo, ok := id.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
 		return errGroup.Add(faults.From(ErrAugAddInterfaceTypeMismatch).
-			With(`package path`, id.File.PackagePath()).
+			With(`package path`, a.packagePath).
 			With(`original pos`, id.Start()).
 			With(`augmenter pos`, a.fileSet.Position(methodsToAdd.Pos())).
 			With(`identifier`, id.Ident))
@@ -190,7 +195,7 @@ func (a *augAdd) tryToAddMethods(id *artifacts.IdentIteratorValue, errGroup *fau
 				continue
 			}
 			return errGroup.Add(faults.From(ErrAugAddIdMethodAlreadyExists).
-				With(`package path`, id.File.PackagePath()).
+				With(`package path`, a.packagePath).
 				With(`original interface pos`, id.Start()).
 				With(`augmenter interface pos`, a.fileSet.Position(methodsToAdd.Pos())).
 				With(`original method pos`, id.Position(name.Pos())).

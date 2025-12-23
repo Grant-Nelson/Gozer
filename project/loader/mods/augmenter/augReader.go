@@ -40,12 +40,21 @@ var (
 type augReader struct {
 	*augPackage
 	errGroup *faults.Group
+	build    []string
+
 	curFile  *artifacts.File
 	addSpecs []ast.Spec
 }
 
-func (ar *augReader) addPackage(path string) {
-	dir := filepath.Join(ar.basePath, path)
+func newReader(pkg *augPackage, errGroup *faults.Group, build []string) *augReader {
+	return &augReader{
+		augPackage: pkg,
+		errGroup:   errGroup,
+		build:      build,
+	}
+}
+
+func (ar *augReader) addPackage(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -54,7 +63,6 @@ func (ar *augReader) addPackage(path string) {
 		panic(err)
 	}
 
-	testDir := path == ar.testPkgPath
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			if filepath.Ext(entry.Name()) != `go` {
