@@ -30,6 +30,7 @@ func New(tempFileSet *FileSet, file *ast.File) *File {
 		TempFileSet: tempFileSet,
 		File:        file,
 	}
+	f.Package = NewPackageForFile(f)
 	f.TempFileSet.registerFile(f)
 	return f
 }

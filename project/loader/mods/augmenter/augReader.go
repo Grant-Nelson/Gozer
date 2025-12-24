@@ -54,7 +54,7 @@ func newReader(pkg *augPackage, errGroup *faults.Group, build []string) *augRead
 	}
 }
 
-func (ar *augReader) addPackage(dir string) {
+func (ar *augReader) readPackage(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -65,19 +65,21 @@ func (ar *augReader) addPackage(dir string) {
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			if filepath.Ext(entry.Name()) != `go` {
-				continue
-			}
-			if !testDir || !strings.HasSuffix(entry.Name(), `_test.go`) {
-				continue
-			}
 			ar.addFile(entry.Name(), nil)
 		}
 	}
 }
 
 func (ar *augReader) addFile(filename string, src []byte) {
-	f, err := artifacts.Load(ar.fileSet, filename, src)
+	if filepath.Ext(filename) != `go` {
+		return
+	}
+
+	if strings.HasSuffix(filename, `_test.go`) != ar.pkg.IsTest() {
+		return
+	}
+
+	f, err := artifacts.Load(ar.pkg.TempFileSet(), filename, src)
 	if err != nil {
 		ar.errGroup.Panic(err)
 		return
@@ -95,6 +97,10 @@ func (ar *augReader) addFile(filename string, src []byte) {
 }
 
 func (ar *augReader) shouldAdd(f *artifacts.File) bool {
+	if f.PackageKey() != ar.pkg.Key() {
+		return false
+	}
+
 	if f.File.Doc == nil || len(f.File.Doc.List) <= 0 {
 		return true
 	}
@@ -104,8 +110,9 @@ func (ar *augReader) shouldAdd(f *artifacts.File) bool {
 		if err != nil {
 			ar.errGroup.Panic(faults.From(ErrParsingBuildConstraints).
 				With(`error`, err).
-				With(`position`, ar.fileSet.Position(com.Pos())))
+				With(`position`, f.TempFileSet.Position(com.Pos())))
 		}
+
 		if !exp.Eval(func(tag string) bool {
 			return slices.Contains(ar.build, tag)
 		}) {
@@ -120,7 +127,7 @@ func (ar *augReader) pkgPath() string {
 }
 
 func (ar *augReader) pos(p token.Pos) token.Position {
-	return ar.fileSet.Position(p)
+	return ar.pkg.TempFileSet().Position(p)
 }
 
 func (ar *augReader) readDecl(decl ast.Decl) {

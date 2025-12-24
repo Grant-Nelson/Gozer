@@ -9,8 +9,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
-// TODO: Convert to be a modifier
-
 // Remap will rewrite the file to a new file set to normalize the file information.
 // This is required to be done prior to writing the file so that the file
 // will output correctly.
@@ -25,7 +23,7 @@ func Remap(f *artifacts.File, finalFileSet *artifacts.FileSet, errGroup *faults.
 	for n, off := range artifacts.WalkPos(f.File) {
 		frm.mapPos(n, off)
 	}
-	frm.finish(fileSet)
+	frm.finish(finalFileSet)
 	return nil
 }
 
@@ -39,13 +37,13 @@ type fileRemapper struct {
 
 type remapperEdit func(f *token.File)
 
-func (frm *fileRemapper) finish(fileSet *artifacts.FileSet) {
-	p := frm.f.FileSet.Position(frm.f.File.FileStart)
-	f := fileSet.FileSet().AddFile(p.Filename, 1, frm.offset)
+func (frm *fileRemapper) finish(finalFileSet *artifacts.FileSet) {
+	p := frm.f.TempFileSet.Position(frm.f.File.FileStart)
+	f := finalFileSet.FileSet().AddFile(p.Filename, 1, frm.offset)
 	for _, e := range frm.edits {
 		e(f)
 	}
-	frm.f.FileSet = fileSet
+	frm.f.TempFileSet = finalFileSet
 }
 
 func (frm *fileRemapper) mapPos(n ast.Node, off *token.Pos) {

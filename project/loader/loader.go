@@ -105,11 +105,13 @@ func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*as
 
 	pkgKey := f.PackageKey()
 	pkg, exists := ld.packages[pkgKey]
-	if !exists {
-		pkg := artifacts.NewPackage(f.PackageName(), f.PackagePath(), f.IsTest(), f.IsXTest(), ld.tempFileSet)
-		ld.packages[pkgKey] = pkg
+	if exists {
+		// replace the temporary package with a shared one
+		f.Package = pkg
+	} else {
+		// use the temporary package as a shared one
+		ld.packages[pkgKey] = f.Package
 	}
-	f.Package = pkg
 
 	if _, err := ld.group.Modify(f, ld.errGroup); err != nil {
 		return nil, err

@@ -36,6 +36,25 @@ type augDel struct {
 	delHandles []delHandle
 }
 
+func newDel() *augDel {
+	a := &augDel{
+		delImport:  map[string]bool{},
+		delFunc:    map[string]*ast.FuncDecl{},
+		delVar:     map[string]*ast.ValueSpec{},
+		delType:    map[string]*ast.TypeSpec{},
+		delFields:  map[string]*ast.StructType{},
+		delMethods: map[string]*ast.InterfaceType{},
+	}
+	a.delHandles = []delHandle{
+		a.tryDelFunc,
+		a.tryDelVar,
+		a.tryDelType,
+		a.tryDelFields,
+		a.tryDelMethods,
+	}
+	return a
+}
+
 var _ mods.Modifier = (*augDel)(nil)
 var _ mods.LoadDoneExt = (*augDel)(nil)
 

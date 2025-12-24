@@ -6,8 +6,10 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
-type augReplace struct {
-	fileSet *artifacts.FileSet
+type augReplace struct{}
+
+func newReplace() *augReplace {
+	return &augReplace{}
 }
 
 var _ mods.Modifier = (*augReplace)(nil)

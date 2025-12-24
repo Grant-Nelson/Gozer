@@ -9,6 +9,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper"
 )
 
 func TestAddingType(t *testing.T) {
@@ -52,31 +53,44 @@ func lines(lines ...string) string {
 func runAugTest(t *testing.T, test augTest) {
 	t.Helper()
 
-	preFileSet := artifacts.NewFileSet()
-	fm, err := artifacts.Load(preFileSet, `original/orig.go`, []byte(test.origSrc))
+	tempFileSet := artifacts.NewFileSet()
+	fm, err := artifacts.Load(tempFileSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
 	}
 
 	test.errLimit = max(test.errLimit, 1)
-	pkgPath := `test/path`
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, `base`, pkgPath, preFileSet)
-	a.reset()
-	if err := a.AddFile(`aug.go`, []byte(test.augSrc), errGroup); err != nil {
+	a := New(nil, PathRebase(`original`, `base`))
+
+	// Create an augmenter for a package then add the aug file to it
+	pkg := fm.Package
+	ap := a.addPackage(pkg, errGroup)
+	if err := ap.AddFile(nil, `aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}
 
-	if err := a.Modify(fm, errGroup); err != nil {
+	// Perform the augmentation on the file
+	con, err := a.Modify(fm, errGroup)
+	if err != nil {
 		checkErr(t, `modify file`, test, err)
 		return
 	}
+	if !con {
+		t.Errorf(`expected Modify to return continue but it did not`)
+		return
+	}
 
-	pkg := &artifacts.Package{Name: `test`, Path: pkgPath}
-	if err := a.PackageDone(pkg, errGroup); err != nil {
-		checkErr(t, `finish package`, test, err)
+	if err := a.LoadDone(errGroup); err != nil {
+		checkErr(t, `load done`, test, err)
+		return
+	}
+
+	finalFileSet := artifacts.NewFileSet()
+	if err := remapper.Remap(fm, finalFileSet, errGroup); err != nil {
+		checkErr(t, `remap`, test, err)
 		return
 	}
 
@@ -84,9 +98,6 @@ func runAugTest(t *testing.T, test augTest) {
 		checkErr(t, `accumulated error`, test, err)
 		return
 	}
-
-	postFileSet := artifacts.NewFileSet()
-	fm.Remap(postFileSet)
 
 	buf := &strings.Builder{}
 	if err := fm.Write(buf); err != nil {

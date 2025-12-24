@@ -1,31 +1,38 @@
 package augmenter
 
 import (
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 type augPackage struct {
-	mods.Group
+	pkg *artifacts.Package
 	del *augDel
 	rep *augReplace
 	ren *augRename
 	add *augAdd
-	pkg *artifacts.Package
+	mods.Group
 }
 
 var _ mods.Modifier = (*augPackage)(nil)
 var _ mods.LoadDoneExt = (*augPackage)(nil)
 
 func newPackage(pkg *artifacts.Package) *augPackage {
-	fs := pkg.TempFileSet()
 	ap := &augPackage{
-		del: &augDel{fileSet: fs},
-		rep: &augReplace{fileSet: fs},
-		ren: &augRename{fileSet: fs},
-		add: &augAdd{fileSet: fs},
 		pkg: pkg,
+		del: newDel(),
+		rep: newReplace(),
+		ren: newRename(),
+		add: newAdd(pkg),
 	}
 	ap.Group = mods.Group{ap.del, ap.rep, ap.ren, ap.add}
 	return ap
+}
+
+func (a *augPackage) AddFile(build []string, filename string, src []byte, errGroup *faults.Group) (err error) {
+	defer faults.Recover(&err)
+	ar := newReader(a, errGroup, build)
+	ar.addFile(filename, src)
+	return nil
 }

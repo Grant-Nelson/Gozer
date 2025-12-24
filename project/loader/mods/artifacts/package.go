@@ -18,6 +18,13 @@ func NewPackage(name, path string, isTest, isXTest bool, tempFileSet *FileSet) *
 	}
 }
 
+// NewPackageForFile creates a new package for the given file.
+//
+// This will not change the package on the file.
+func NewPackageForFile(f *File) *Package {
+	return NewPackage(f.PackageName(), f.PackagePath(), f.IsTest(), f.IsXTest(), f.TempFileSet)
+}
+
 func (p *Package) Name() string { return p.name }
 func (p *Package) Path() string { return p.path }
 
