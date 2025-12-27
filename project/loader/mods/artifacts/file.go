@@ -31,7 +31,7 @@ func New(tempFileSet *FileSet, file *ast.File) *File {
 		File:        file,
 	}
 	f.Package = NewPackageForFile(f)
-	f.TempFileSet.registerFile(f)
+	f.TempFileSet.RegisterFile(f)
 	return f
 }
 

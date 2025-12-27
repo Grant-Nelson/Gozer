@@ -3,6 +3,7 @@ package artifacts
 import (
 	"fmt"
 	"go/token"
+	"slices"
 	"sort"
 )
 
@@ -27,7 +28,7 @@ func (fs *FileSet) Position(pos token.Pos) token.Position {
 	return fs.fileSet.Position(pos)
 }
 
-// TODO: Add method/type name field like in source maps
+// TODO: Future: Add method/type name field like in source maps
 
 func (fs *FileSet) Widths(pos token.Pos) (total int, lines []int) {
 	fsFile := fs.fileSet.File(pos)
@@ -73,7 +74,7 @@ func (fs *FileSet) findNext(pos token.Pos) token.Pos {
 	return token.Pos(fsFile.Base() + fsFile.Size())
 }
 
-func (fs *FileSet) registerFile(f *File) {
+func (fs *FileSet) RegisterFile(f *File) {
 	if f.Empty() {
 		return
 	}
@@ -87,23 +88,11 @@ func (fs *FileSet) registerFile(f *File) {
 		panic(fmt.Errorf(`file for %d (%s) already registered`, filePos, f.File.Name.String()))
 	}
 
-	var prev int
 	var nPos []int
-	for n, off := range WalkPos(f.File) {
-		cur := int(*off)
-
-		//fmt.Printf(">> %d (%T) %v\n", cur, n, n) // TODO: REMOVE
-
-		// Ignore when offset is the same since this is usually like
-		// the start of a file and a comment or the package ident.
-		if prev > cur {
-			panic(fmt.Errorf(`node position wasn't in expected order: prev=%d, cur=%d, node=%#v`, prev, cur, n))
-		}
-		if prev != cur {
-			nPos = append(nPos, cur)
-			prev = cur
-		}
+	for _, off := range WalkPos(f.File) {
+		nPos = append(nPos, int(*off))
 	}
-
+	sort.Ints(nPos)
+	nPos = slices.Compact(nPos)
 	fs.nodePos[filePos] = nPos
 }
