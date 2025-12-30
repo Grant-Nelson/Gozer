@@ -35,6 +35,14 @@ func Test_FileSet_Widths_Simple(t *testing.T) {
 	checkFileSetWidths(t, fs, 69, 2, []int{2, 0})    // 69 )
 	checkFileSetWidths(t, fs, 71, 1, []int{1})       // 71 }
 	checkFileSetWidths(t, fs, 72, 0, []int{0})       // 72 [eof]
+
+	checkFileSetNeighbors(t, fs, 1, 1, 9)
+	checkFileSetNeighbors(t, fs, 9, 1, 15)
+	checkFileSetNeighbors(t, fs, 15, 9, 22)
+	checkFileSetNeighbors(t, fs, 22, 15, 29)
+	checkFileSetNeighbors(t, fs, 69, 56, 71)
+	checkFileSetNeighbors(t, fs, 71, 69, 72)
+	checkFileSetNeighbors(t, fs, 72, 71, 72)
 }
 
 // TODO: Add more tests to check more of walkPos
@@ -42,7 +50,7 @@ func Test_FileSet_Widths_Simple(t *testing.T) {
 func loadTest(t testing.TB, code ...string) *File {
 	t.Helper()
 	fs := NewFileSet()
-	f, err := Load(fs, `fileSetWidths.go`, strings.Join(code, "\n"))
+	f, err := Load(fs, `test.go`, strings.Join(code, "\n"))
 	if err != nil {
 		t.Fatalf(`failed to load test file: %v`, err)
 	}
@@ -56,5 +64,14 @@ func checkFileSetWidths(t testing.TB, fs *FileSet, pos int, expTotal int, expLin
 	}
 	if diff := cmp.Diff(expLines, lines); len(diff) > 0 {
 		t.Errorf("pos %d: the line widths didn't match expected lines:\n%s", pos, diff)
+	}
+}
+
+func checkFileSetNeighbors(t testing.TB, fs *FileSet, pos int, expPrev, expNext int) {
+	if prev := fs.FindPrevious(token.Pos(pos)); prev != token.Pos(expPrev) {
+		t.Errorf("pos %d: the previous found node was not expected:\n\texpected:%d\n\tgotten:%d", pos, expPrev, prev)
+	}
+	if next := fs.FindNext(token.Pos(pos)); next != token.Pos(expNext) {
+		t.Errorf("pos %d: the next found node was not expected:\n\texpected:%d\n\tgotten:%d", pos, expNext, next)
 	}
 }

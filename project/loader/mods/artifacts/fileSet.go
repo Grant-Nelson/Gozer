@@ -28,15 +28,13 @@ func (fs *FileSet) Position(pos token.Pos) token.Position {
 	return fs.fileSet.Position(pos)
 }
 
-// TODO: Future: Add method/type name field like in source maps
-
 func (fs *FileSet) Widths(pos token.Pos) (total int, lines []int) {
 	fsFile := fs.fileSet.File(pos)
 	if fsFile == nil {
 		panic(fmt.Errorf(`failed to find fileSet file when getting widths for %d`, pos))
 	}
 
-	next := fs.findNext(pos)
+	next := fs.FindNext(pos)
 	if next <= pos {
 		// This occurs when pos is the eof.
 		return 0, []int{0}
@@ -60,18 +58,34 @@ func (fs *FileSet) Widths(pos token.Pos) (total int, lines []int) {
 	return total, lines
 }
 
-func (fs *FileSet) findNext(pos token.Pos) token.Pos {
+func (fs *FileSet) getNodePositions(pos token.Pos) []int {
 	fsFile := fs.fileSet.File(pos)
-	nPos, exists := fs.nodePos[fsFile.Base()]
-	if !exists {
+	if fsFile == nil {
 		panic(fmt.Errorf(`failed to find fileSet file for %d`, int(pos)))
 	}
-
-	next := sort.SearchInts(nPos, int(pos)) + 1
-	if max := len(nPos) - 1; next <= max {
-		return token.Pos(nPos[next])
+	nPos, exists := fs.nodePos[fsFile.Base()]
+	if !exists {
+		panic(fmt.Errorf(`failed to find fileSet node-positions for %d`, int(pos)))
 	}
-	return token.Pos(fsFile.Base() + fsFile.Size())
+	return nPos
+}
+
+func (fs *FileSet) FindPrevious(pos token.Pos) token.Pos {
+	nPos := fs.getNodePositions(pos)
+	prev := sort.SearchInts(nPos, int(pos)) - 1
+	if prev <= 0 {
+		return token.Pos(nPos[0])
+	}
+	return token.Pos(nPos[prev])
+}
+
+func (fs *FileSet) FindNext(pos token.Pos) token.Pos {
+	nPos := fs.getNodePositions(pos)
+	next := sort.SearchInts(nPos, int(pos)) + 1
+	if max := len(nPos) - 1; next >= max {
+		return token.Pos(nPos[max])
+	}
+	return token.Pos(nPos[next])
 }
 
 func (fs *FileSet) RegisterFile(f *File) {
@@ -89,9 +103,10 @@ func (fs *FileSet) RegisterFile(f *File) {
 	}
 
 	var nPos []int
-	for _, off := range WalkPos(f.File) {
-		nPos = append(nPos, int(*off))
+	for pt := range WalkPos(f.File) {
+		nPos = append(nPos, int(*pt.Pos))
 	}
+	// Should already be sorted, but sort anyway
 	sort.Ints(nPos)
 	nPos = slices.Compact(nPos)
 	fs.nodePos[filePos] = nPos

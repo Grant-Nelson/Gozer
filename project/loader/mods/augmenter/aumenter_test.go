@@ -67,7 +67,7 @@ func runAugTest(t *testing.T, test augTest) {
 	// Create an augmenter for a package then add the aug file to it
 	pkg := fm.Package
 	ap := a.addPackage(pkg, errGroup)
-	if err := ap.AddFile(nil, `aug.go`, []byte(test.augSrc), errGroup); err != nil {
+	if err := ap.AddFile(nil, `base/aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}

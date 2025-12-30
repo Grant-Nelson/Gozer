@@ -71,7 +71,7 @@ func (ar *augReader) readPackage(dir string) {
 }
 
 func (ar *augReader) addFile(filename string, src []byte) {
-	if filepath.Ext(filename) != `go` {
+	if filepath.Ext(filename) != `.go` {
 		return
 	}
 
@@ -97,12 +97,13 @@ func (ar *augReader) addFile(filename string, src []byte) {
 }
 
 func (ar *augReader) shouldAdd(f *artifacts.File) bool {
-	if f.PackageKey() != ar.pkg.Key() {
+	if f.IsTest() != ar.pkg.IsTest() || f.IsXTest() != ar.pkg.IsXTest() {
 		return false
 	}
 
+	// Check build constraints
 	if f.File.Doc == nil || len(f.File.Doc.List) <= 0 {
-		return true
+		return true // No build constraints
 	}
 
 	for _, com := range f.File.Doc.List {

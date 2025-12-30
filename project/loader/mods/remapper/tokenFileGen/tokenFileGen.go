@@ -7,6 +7,7 @@ type TokenFileGen struct {
 	base     int
 	offset   int
 	steps    []genStep
+	hadLine  bool
 }
 
 type genStep interface {
@@ -26,15 +27,24 @@ func (f *TokenFileGen) Current() token.Pos {
 }
 
 func (f *TokenFileGen) Add(offset int) {
-	f.offset += offset
+	if offset > 0 {
+		f.offset += offset
+		f.hadLine = false
+	}
+}
+
+func (f *TokenFileGen) HadLine() bool {
+	return f.hadLine
 }
 
 func (f *TokenFileGen) AddLine() {
 	f.steps = append(f.steps, newLineStep(f.offset))
+	f.hadLine = true
 }
 
 func (f *TokenFileGen) AddInfo(filename string, line, column int) {
 	f.steps = append(f.steps, newInfoStep(f.offset, filename, line, column))
+	f.hadLine = false
 }
 
 func (f *TokenFileGen) Write(outFileSet *token.FileSet) {

@@ -14,6 +14,9 @@ import (
 // This is required to be done prior to writing the file so that the file
 // will output correctly.
 func Remap(f *artifacts.File, finalFileSet *artifacts.FileSet, errGroup *faults.Group) error {
+
+	// TODO: Add a check if the file needs remapping before remapping.
+
 	p := f.TempFileSet.Position(f.File.FileStart)
 	base := finalFileSet.FileSet().Base()
 	r := &fileRemapper{
@@ -60,6 +63,18 @@ func (r *fileRemapper) addInfo(pos token.Pos) {
 	//TODO: Implement
 }
 
+func (r *fileRemapper) getCommentMap(n ast.Node) map[int]*token.Pos {
+	commentNodes := map[int]*token.Pos{}
+	for pt := range artifacts.WalkPos(n) {
+		switch pt.Node.(type) {
+		case *ast.Comment:
+			prev := r.f.TempFileSet.FindPrevious(*pt.Pos)
+			commentNodes[int(prev)] = pt.Pos
+		}
+	}
+	return commentNodes
+}
+
 func (r *fileRemapper) remapPos(pos *token.Pos) {
 	if !pos.IsValid() {
 		return
@@ -76,6 +91,12 @@ func (r *fileRemapper) remapPos(pos *token.Pos) {
 }
 
 func (r *fileRemapper) remapDecl(d ast.Decl) {
+	// Add a newline if one hasn't been added
+	if !r.tokenFile.HadLine() {
+		r.tokenFile.Add(1)
+		r.tokenFile.AddLine()
+	}
+
 	switch d := d.(type) {
 	case *ast.BadDecl:
 		r.remapBadDecl(d)
@@ -118,12 +139,8 @@ func (r *fileRemapper) remapSpec(s ast.Spec) {
 
 func (r *fileRemapper) remapImportSpec(s *ast.ImportSpec) {
 	r.remapCommentGroup(s.Doc)
-	if s.Name != nil {
-		r.remapPos(&s.Name.NamePos)
-	}
-	r.remapPos(&s.Path.ValuePos)
-	// assume comments are after path
-	r.remapCommentGroup(s.Comment)
+	cmt := r.getCommentMap(s.Comment)
+	r.remapBranch(s, cmt)
 	if s.EndPos.IsValid() {
 		s.EndPos = r.tokenFile.Current()
 	}
@@ -131,40 +148,46 @@ func (r *fileRemapper) remapImportSpec(s *ast.ImportSpec) {
 
 func (r *fileRemapper) remapTypeSpec(s *ast.TypeSpec) {
 	r.remapCommentGroup(s.Doc)
-
-	// TODO: Implement
-	// Name       *Ident        // type name
-	// TypeParams *FieldList    // type parameters; or nil
-	// Assign     token.Pos     // position of '=', if any
-	// Type       Expr          // *Ident, *ParenExpr, *SelectorExpr, *StarExpr, or any of the *XxxTypes
-	// Comment    *CommentGroup // line comments; or nil
-
+	cmt := r.getCommentMap(s.Comment)
+	r.remapBranch(s, cmt)
 }
 
 func (r *fileRemapper) remapValueSpec(s *ast.ValueSpec) {
 	r.remapCommentGroup(s.Doc)
-
-	// TODO: Implement
-	// Names   []*Ident      // value names (len(Names) > 0)
-	// Type    Expr          // value type; or nil
-	// Values  []Expr        // initial values; or nil
-	// Comment *CommentGroup // line comments; or nil
-
+	cmt := r.getCommentMap(s.Comment)
+	r.remapBranch(s, cmt)
 }
 
 func (r *fileRemapper) remapFuncDecl(d *ast.FuncDecl) {
 	r.remapCommentGroup(d.Doc)
+	cmt := r.getCommentMap(d)
+	r.remapBranch(d, cmt)
 
 	// TODO: Implement
 	// Recv *FieldList    // receiver (methods); or nil (functions)
 	// Name *Ident        // function/method name
 	// Type *FuncType     // function signature: type and value parameters, results, and position of "func" keyword
 	// Body *BlockStmt    // function body; or nil for external (non-Go) function
-
 }
 
-func (r *fileRemapper) remapBranch(n ast.Node) {
+func (r *fileRemapper) remapBranch(n ast.Node, cmt map[int]*token.Pos) {
+	for pt := range artifacts.WalkPos(n) {
+		// Skip comments directly
+		if _, ok := pt.Node.(*ast.Comment); ok {
+			continue
+		}
 
-	// TODO: Implement
+		p := int(*pt.Pos)
+		r.remapPos(pt.Pos)
 
+		// Add any comments needed for the current node.
+		for {
+			c, ok := cmt[p]
+			if !ok {
+				break
+			}
+			p = int(*c)
+			r.remapPos(c)
+		}
+	}
 }
