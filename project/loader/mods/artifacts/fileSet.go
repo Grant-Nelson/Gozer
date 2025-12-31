@@ -64,7 +64,7 @@ func (fs *FileSet) getNodePositions(pos token.Pos) []int {
 		panic(fmt.Errorf(`failed to find fileSet file for %d`, int(pos)))
 	}
 	nPos, exists := fs.nodePos[fsFile.Base()]
-	if !exists {
+	if !exists || len(nPos) <= 0 {
 		panic(fmt.Errorf(`failed to find fileSet node-positions for %d`, int(pos)))
 	}
 	return nPos
@@ -72,11 +72,13 @@ func (fs *FileSet) getNodePositions(pos token.Pos) []int {
 
 func (fs *FileSet) FindPrevious(pos token.Pos) token.Pos {
 	nPos := fs.getNodePositions(pos)
-	prev := sort.SearchInts(nPos, int(pos)) - 1
-	if prev <= 0 {
-		return token.Pos(nPos[0])
+
+	fmt.Printf(">>> %v\n", nPos) // TODO: REMOVE
+
+	if prev := sort.SearchInts(nPos, int(pos)) - 1; prev > 0 {
+		return token.Pos(nPos[prev])
 	}
-	return token.Pos(nPos[prev])
+	return token.Pos(nPos[0])
 }
 
 func (fs *FileSet) FindNext(pos token.Pos) token.Pos {
@@ -103,8 +105,19 @@ func (fs *FileSet) RegisterFile(f *File) {
 	}
 
 	var nPos []int
+	var prior int
 	for pt := range WalkPos(f.File) {
-		nPos = append(nPos, int(*pt.Pos))
+		if !pt.Pos.IsValid() {
+			panic(fmt.Errorf(`file for %d (%s) got invalid position for %s`, filePos, f.File.Name.String(), pt.String()))
+		}
+
+		pos := int(*pt.Pos)
+		if pos < prior {
+			panic(fmt.Errorf(`file for %d (%s) got bad order for prior %d and %d for %s`, filePos, f.File.Name.String(), prior, pos, pt.String()))
+		}
+
+		nPos = append(nPos, pos)
+		prior = pos
 	}
 	// Should already be sorted, but sort anyway
 	sort.Ints(nPos)

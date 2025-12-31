@@ -58,6 +58,7 @@ func loadTest(t testing.TB, code ...string) *File {
 }
 
 func checkFileSetWidths(t testing.TB, fs *FileSet, pos int, expTotal int, expLines []int) {
+	t.Helper()
 	total, lines := fs.Widths(token.Pos(pos))
 	if total != expTotal {
 		t.Errorf(`pos %d: total width (%d) doesn't match expected total width (%d)`, pos, total, expTotal)
@@ -68,6 +69,7 @@ func checkFileSetWidths(t testing.TB, fs *FileSet, pos int, expTotal int, expLin
 }
 
 func checkFileSetNeighbors(t testing.TB, fs *FileSet, pos int, expPrev, expNext int) {
+	t.Helper()
 	if prev := fs.FindPrevious(token.Pos(pos)); prev != token.Pos(expPrev) {
 		t.Errorf("pos %d: the previous found node was not expected:\n\texpected:%d\n\tgotten:%d", pos, expPrev, prev)
 	}
