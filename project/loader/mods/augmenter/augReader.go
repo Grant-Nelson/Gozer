@@ -150,6 +150,7 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 	if err != nil {
 		panic(err)
 	}
+	directives.RemoveDirectives(fd.Doc)
 
 	switch {
 	case dv.Ignore():
@@ -178,6 +179,7 @@ func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 	if err != nil {
 		panic(err)
 	}
+	directives.RemoveDirectives(gd.Doc)
 
 	if declDv.HasReplaceRecv() || declDv.ReplaceSig() {
 		ar.errGroup.Panic(faults.From(ErrAugGenWithFuncDirective).
@@ -221,10 +223,16 @@ func (ar *augReader) readSpecDirectives(declDv *directives.Directives, spec ast.
 	switch s := spec.(type) {
 	case *ast.ImportSpec:
 		comments = artifacts.JoinComments(s.Doc, s.Comment)
+		directives.RemoveDirectives(s.Doc)
+		directives.RemoveDirectives(s.Comment)
 	case *ast.TypeSpec:
 		comments = artifacts.JoinComments(s.Doc, s.Comment)
+		directives.RemoveDirectives(s.Doc)
+		directives.RemoveDirectives(s.Comment)
 	case *ast.ValueSpec:
 		comments = artifacts.JoinComments(s.Doc, s.Comment)
+		directives.RemoveDirectives(s.Doc)
+		directives.RemoveDirectives(s.Comment)
 	default:
 		ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
 			With(`package path`, ar.pkgPath()).
@@ -301,6 +309,8 @@ func (ar *augReader) readStructTypeSpec(specDv *directives.Directives, gd *ast.G
 
 func (ar *augReader) readStructField(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.StructType, m *ast.Field) {
 	comments := artifacts.JoinComments(m.Comment, m.Doc)
+	directives.RemoveDirectives(m.Comment)
+	directives.RemoveDirectives(m.Doc)
 	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
 	if err != nil {
 		panic(err)
@@ -401,6 +411,8 @@ func (ar *augReader) readInterfaceTypeSpec(specDv *directives.Directives, gd *as
 
 func (ar *augReader) readInterfaceMethod(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.InterfaceType, m *ast.Field) {
 	comments := artifacts.JoinComments(m.Comment, m.Doc)
+	directives.RemoveDirectives(m.Comment)
+	directives.RemoveDirectives(m.Doc)
 	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
 	if err != nil {
 		panic(err)

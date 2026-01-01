@@ -1,6 +1,8 @@
 package tokenFileGen
 
-import "go/token"
+import (
+	"go/token"
+)
 
 type TokenFileGen struct {
 	filename string

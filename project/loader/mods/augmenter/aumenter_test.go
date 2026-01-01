@@ -26,13 +26,11 @@ func TestAddingType(t *testing.T) {
 			`//gozer:add`,
 			`type Bar struct{}`),
 		expSrc: lines(
-			`//line original/orig.go:1`,
 			`package foo`,
 			``,
 			`// Foo already exists.`,
 			`type Foo struct{}`,
 			``,
-			`//line original/aug.go:3`,
 			`// Bar is being added.`,
 			`type Bar struct{}`),
 	})
@@ -50,7 +48,7 @@ func lines(lines ...string) string {
 	return strings.Join(lines, "\n") + "\n"
 }
 
-func runAugTest(t *testing.T, test augTest) {
+func runAugTest(t testing.TB, test augTest) {
 	t.Helper()
 
 	tempFileSet := artifacts.NewFileSet()
@@ -113,7 +111,8 @@ func runAugTest(t *testing.T, test augTest) {
 	}
 }
 
-func checkErr(t *testing.T, prefix string, test augTest, err error) {
+func checkErr(t testing.TB, prefix string, test augTest, err error) {
+	t.Helper()
 	if len(test.expErr) > 0 {
 		errStr := fmt.Sprintf(`in %s: %v`, prefix, err)
 		if diff := cmp.Diff(strings.Split(errStr, "\n"), strings.Split(test.expErr, "\n")); len(diff) > 0 {
