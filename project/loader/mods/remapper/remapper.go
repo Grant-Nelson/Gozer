@@ -18,10 +18,12 @@ func Remap(f *artifacts.File, finalFileSet *artifacts.FileSet, errGroup *faults.
 	// TODO: Add a check if the file needs remapping before remapping.
 
 	p := f.TempFileSet.Position(f.File.FileStart)
+	tf := f.TempFileSet.FileSet().File(f.File.FileStart)
 	base := finalFileSet.FileSet().Base()
 	r := &fileRemapper{
 		f:         f,
 		tokenFile: tokenFileGen.New(p.Filename, base),
+		baseShift: int(tf.Base()) - base,
 	}
 	r.remapFile()
 	r.finished(finalFileSet)
@@ -31,21 +33,14 @@ func Remap(f *artifacts.File, finalFileSet *artifacts.FileSet, errGroup *faults.
 type fileRemapper struct {
 	f         *artifacts.File
 	tokenFile *tokenFileGen.TokenFileGen
+	baseShift int
+	needsInfo bool
 }
 
 func (r *fileRemapper) finished(finalFileSet *artifacts.FileSet) {
-	fmt.Printf(">> FLAG: finish (%d)\n\n", r.tokenFile.Current()) // TODO: REMOVE
-
 	r.tokenFile.Write(finalFileSet.FileSet())
 	r.f.TempFileSet = finalFileSet
 	finalFileSet.RegisterFile(r.f)
-
-	//ast.Print(finalFileSet.FileSet(), r.f.File)   // TODO: REMOVE
-	fmt.Printf("---------------------------\n")   // TODO: REMOVE
-	for pt := range artifacts.WalkPos(r.f.File) { // TODO: REMOVE
-		fmt.Printf(">> %s\n", pt.String()) // TODO: REMOVE
-	}
-	fmt.Printf("\n") // TODO: REMOVE
 }
 
 func (r *fileRemapper) remapFile() {
@@ -68,8 +63,29 @@ func (r *fileRemapper) remapCommentGroup(cg *ast.CommentGroup) {
 	}
 }
 
-func (r *fileRemapper) addInfo(pos token.Pos) {
-	//TODO: Implement
+func (r *fileRemapper) addInfo(pos token.Pos, doc **ast.CommentGroup) {
+	if !r.needsInfo && int(pos)-r.baseShift != int(r.tokenFile.Current()) {
+		r.needsInfo = true
+	}
+
+	if r.needsInfo {
+		p := r.f.TempFileSet.Position(pos)
+		text := fmt.Sprintf(`//line %s:%d:%d`, p.Filename, p.Line, p.Column)
+		lineCmt := &ast.Comment{
+			Slash: r.tokenFile.Current(),
+			Text:  text,
+		}
+
+		cg := *doc
+		if cg == nil {
+			cg = &ast.CommentGroup{}
+		}
+		cg.List = append(cg.List, lineCmt)
+		*doc = cg
+
+		r.tokenFile.Add(len(text) + 1)
+		r.tokenFile.AddInfo(p.Filename, p.Line, p.Column)
+	}
 }
 
 func (r *fileRemapper) getCommentMap(n ast.Node) map[int]*token.Pos {
@@ -100,11 +116,8 @@ func (r *fileRemapper) remapPos(pos *token.Pos) {
 }
 
 func (r *fileRemapper) remapDecl(d ast.Decl) {
-	fmt.Printf(">> FLAG: Decl (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
-
 	// Add a newline if one hasn't been added
 	if !r.tokenFile.HadLine() {
-		fmt.Printf(">> FLAG: Add new line (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
 		r.tokenFile.Add(1)
 		r.tokenFile.AddLine()
 		r.tokenFile.Add(1)
@@ -129,8 +142,8 @@ func (r *fileRemapper) remapBadDecl(d *ast.BadDecl) {
 }
 
 func (r *fileRemapper) remapGenDecl(d *ast.GenDecl) {
-	fmt.Printf(">> FLAG: GenDecl (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
 	r.remapCommentGroup(d.Doc)
+	r.addInfo(d.Pos(), &d.Doc)
 	r.remapPos(&d.TokPos)
 	r.remapPos(&d.Lparen)
 	for _, s := range d.Specs {
@@ -140,7 +153,6 @@ func (r *fileRemapper) remapGenDecl(d *ast.GenDecl) {
 }
 
 func (r *fileRemapper) remapSpec(s ast.Spec) {
-	fmt.Printf(">> FLAG: Spec (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
 	switch s := s.(type) {
 	case *ast.ImportSpec:
 		r.remapImportSpec(s)
@@ -154,8 +166,8 @@ func (r *fileRemapper) remapSpec(s ast.Spec) {
 }
 
 func (r *fileRemapper) remapImportSpec(s *ast.ImportSpec) {
-	fmt.Printf(">> FLAG: ImportSpec (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
 	r.remapCommentGroup(s.Doc)
+	r.addInfo(s.Pos(), &s.Doc)
 	cmt := r.getCommentMap(s.Comment)
 	r.remapBranch(s, cmt)
 	if s.EndPos.IsValid() {
@@ -164,22 +176,22 @@ func (r *fileRemapper) remapImportSpec(s *ast.ImportSpec) {
 }
 
 func (r *fileRemapper) remapTypeSpec(s *ast.TypeSpec) {
-	fmt.Printf(">> FLAG: TypeSpec (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
 	r.remapCommentGroup(s.Doc)
+	r.addInfo(s.Pos(), &s.Doc)
 	cmt := r.getCommentMap(s.Comment)
 	r.remapBranch(s, cmt)
 }
 
 func (r *fileRemapper) remapValueSpec(s *ast.ValueSpec) {
-	fmt.Printf(">> FLAG: ValueSpec (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
 	r.remapCommentGroup(s.Doc)
+	r.addInfo(s.Pos(), &s.Doc)
 	cmt := r.getCommentMap(s.Comment)
 	r.remapBranch(s, cmt)
 }
 
 func (r *fileRemapper) remapFuncDecl(d *ast.FuncDecl) {
-	fmt.Printf(">> FLAG: FuncDecl (%d)\n", r.tokenFile.Current()) // TODO: REMOVE
 	r.remapCommentGroup(d.Doc)
+	r.addInfo(d.Pos(), &d.Doc)
 	cmt := r.getCommentMap(d)
 	r.remapBranch(d, cmt)
 }

@@ -32,6 +32,8 @@ func TestAddingType(t *testing.T) {
 			`type Foo struct{}`,
 			``,
 			`// Bar is being added.`,
+			`//`,
+			`//line base/aug.go:5:1`,
 			`type Bar struct{}`),
 	})
 }
