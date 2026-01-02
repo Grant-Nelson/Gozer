@@ -32,22 +32,24 @@ type augAdd struct {
 	// that are being added, the value is the position value for the node.
 	beingAdded map[string]token.Pos
 
-	newImports   []*ast.ImportSpec
-	newGenDecls  []*ast.GenDecl
-	newFuncDecls []*ast.FuncDecl
-	newFields    map[string]*ast.StructType
-	newMethods   map[string]*ast.InterfaceType
+	newImports     []ast.Decl
+	newImportSpecs []*ast.ImportSpec
+	newGenDecls    []*ast.GenDecl
+	newFuncDecls   []*ast.FuncDecl
+	newFields      map[string]*ast.StructType
+	newMethods     map[string]*ast.InterfaceType
 }
 
 func newAdd(pkg *artifacts.Package) *augAdd {
 	return &augAdd{
-		pkg:          pkg,
-		beingAdded:   map[string]token.Pos{},
-		newImports:   []*ast.ImportSpec{},
-		newGenDecls:  []*ast.GenDecl{},
-		newFuncDecls: []*ast.FuncDecl{},
-		newFields:    map[string]*ast.StructType{},
-		newMethods:   map[string]*ast.InterfaceType{},
+		pkg:            pkg,
+		beingAdded:     map[string]token.Pos{},
+		newImports:     []ast.Decl{},
+		newImportSpecs: []*ast.ImportSpec{},
+		newGenDecls:    []*ast.GenDecl{},
+		newFuncDecls:   []*ast.FuncDecl{},
+		newFields:      map[string]*ast.StructType{},
+		newMethods:     map[string]*ast.InterfaceType{},
 	}
 }
 
@@ -220,11 +222,31 @@ func (a *augAdd) tryToAddMethods(id *artifacts.IdentIteratorValue, errGroup *fau
 	return nil
 }
 
-func (a *augAdd) addImports(f *artifacts.File) {
-	if len(a.newImports) > 0 {
-		f.File.Imports = append(f.File.Imports, a.newImports...)
-		a.newImports = []*ast.ImportSpec{}
+func findImportInsert(f *artifacts.File) int {
+	for i, d := range f.File.Decls {
+		switch g := d.(type) {
+		case *ast.GenDecl:
+			if g.Tok != token.IMPORT {
+				return i
+			}
+		}
 	}
+	return 0
+}
+
+func (a *augAdd) addImports(f *artifacts.File) {
+	if len(a.newImports) <= 0 {
+		return
+	}
+
+	// If there are conflicts in the imports, type checking will catch those conflicts.
+	f.File.Imports = append(f.File.Imports, a.newImportSpecs...)
+
+	insert := findImportInsert(f)
+	f.File.Decls = slices.Insert(f.File.Decls, insert, a.newImports...)
+
+	a.newImports = []ast.Decl{}
+	a.newImportSpecs = []*ast.ImportSpec{}
 }
 
 // addDecls dda all declarations needing to be added and clears out the

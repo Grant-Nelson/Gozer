@@ -16,25 +16,26 @@ import (
 )
 
 var (
-	ErrParsingBuildConstraints = errors.New(`error parsing build constrains for augmentation file`)
-	ErrParsingUnexpectedDecl   = errors.New(`unexpected declaration while parsing augmentation file`)
-	ErrParsingUnexpectedSpec   = errors.New(`unexpected specification while parsing augmentation file`)
-	ErrAugFuncNone             = errors.New(`a function must have a directive`)
-	ErrAugSpecNone             = errors.New(`a specification must have a directive`)
-	ErrAugGenWithFuncDirective = errors.New(`a general declaration may not have a directive for a function`)
-	ErrAugRenameMultipleSpec   = errors.New(`names may not be applied to multiple constructs`)
-	ErrAugRenameImport         = errors.New(`renames may not be applied to imports`)
-	ErrAugDeleteAllImport      = errors.New(`delete all may not be applied to imports`)
-	ErrAugDeleteAllValue       = errors.New(`delete all may not be applied to values`)
-	ErrAugDeleteAllInterface   = errors.New(`delete all may not be applied to an interface`)
-	ErrAugMethodNone           = errors.New(`an interface method must have a directive`)
-	ErrAugMethodReplaceRecv    = errors.New(`an interface method may not have a replaceRecv`)
-	ErrAugMethodDeleteAll      = errors.New(`an interface method may not have a deleteAll`)
-	ErrAugMethodReplaceSig     = errors.New(`an interface method may not have a replaceSig, just use replace`)
-	ErrAugFieldNone            = errors.New(`a struct field must have a directive`)
-	ErrAugFieldReplaceRecv     = errors.New(`a struct field may not have a replaceRecv`)
-	ErrAugFieldDeleteAll       = errors.New(`a struct field may not have a deleteAll`)
-	ErrAugFieldReplaceSig      = errors.New(`a struct field may not have a replaceSig`)
+	ErrParsingBuildConstraints  = errors.New(`error parsing build constrains for augmentation file`)
+	ErrParsingUnexpectedDecl    = errors.New(`unexpected declaration while parsing augmentation file`)
+	ErrParsingUnexpectedGenDecl = errors.New(`unexpected general declaration while parsing augmentation file`)
+	ErrParsingUnexpectedSpec    = errors.New(`unexpected specification while parsing augmentation file`)
+	ErrAugFuncNone              = errors.New(`a function must have a directive`)
+	ErrAugSpecNone              = errors.New(`a specification must have a directive`)
+	ErrAugGenWithFuncDirective  = errors.New(`a general declaration may not have a directive for a function`)
+	ErrAugRenameMultipleSpec    = errors.New(`names may not be applied to multiple constructs`)
+	ErrAugRenameImport          = errors.New(`renames may not be applied to imports`)
+	ErrAugDeleteAllImport       = errors.New(`delete all may not be applied to imports`)
+	ErrAugDeleteAllValue        = errors.New(`delete all may not be applied to values`)
+	ErrAugDeleteAllInterface    = errors.New(`delete all may not be applied to an interface`)
+	ErrAugMethodNone            = errors.New(`an interface method must have a directive`)
+	ErrAugMethodReplaceRecv     = errors.New(`an interface method may not have a replaceRecv`)
+	ErrAugMethodDeleteAll       = errors.New(`an interface method may not have a deleteAll`)
+	ErrAugMethodReplaceSig      = errors.New(`an interface method may not have a replaceSig, just use replace`)
+	ErrAugFieldNone             = errors.New(`a struct field must have a directive`)
+	ErrAugFieldReplaceRecv      = errors.New(`a struct field may not have a replaceRecv`)
+	ErrAugFieldDeleteAll        = errors.New(`a struct field may not have a deleteAll`)
+	ErrAugFieldReplaceSig       = errors.New(`a struct field may not have a replaceSig`)
 )
 
 type augReader struct {
@@ -196,49 +197,26 @@ func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 		return
 	}
 
-	for _, spec := range gd.Specs {
-		specDv := ar.readSpecDirectives(declDv, spec)
-		switch s := spec.(type) {
-		case *ast.ImportSpec:
-			ar.readImportSpec(specDv, gd, s)
-		case *ast.TypeSpec:
-			switch t := s.Type.(type) {
-			case *ast.StructType:
-				ar.readStructTypeSpec(specDv, gd, s, t)
-			case *ast.InterfaceType:
-				ar.readInterfaceTypeSpec(specDv, gd, s, t)
-			default:
-				ar.readOtherTypeSpec(specDv, gd, s)
-			}
-		case *ast.ValueSpec:
-			ar.readValueSpec(specDv, gd, s)
-		}
+	switch gd.Tok {
+	case token.IMPORT:
+		ar.readImportDecl(declDv, gd)
+	case token.TYPE:
+		ar.readTypeDecl(declDv, gd)
+	case token.VAR, token.CONST:
+		ar.readValueDecl(declDv, gd)
+	default:
+		ar.errGroup.Panic(faults.From(ErrParsingUnexpectedGenDecl).
+			With(`package path`, ar.pkgPath()).
+			With(`token`, gd.Tok.String()).
+			With(`position`, ar.pos(gd.Pos())))
 	}
-	ar.finishGenDecl(gd)
 }
 
-func (ar *augReader) readSpecDirectives(declDv *directives.Directives, spec ast.Spec) *directives.Directives {
-	specPos := ar.pos(spec.Pos())
-	var comments []*ast.Comment
-	switch s := spec.(type) {
-	case *ast.ImportSpec:
-		comments = artifacts.JoinComments(s.Doc, s.Comment)
-		directives.RemoveDirectives(s.Doc)
-		directives.RemoveDirectives(s.Comment)
-	case *ast.TypeSpec:
-		comments = artifacts.JoinComments(s.Doc, s.Comment)
-		directives.RemoveDirectives(s.Doc)
-		directives.RemoveDirectives(s.Comment)
-	case *ast.ValueSpec:
-		comments = artifacts.JoinComments(s.Doc, s.Comment)
-		directives.RemoveDirectives(s.Doc)
-		directives.RemoveDirectives(s.Comment)
-	default:
-		ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
-			With(`package path`, ar.pkgPath()).
-			With(`position`, specPos))
-		return nil
-	}
+func (ar *augReader) readSpecDirectives(declDv *directives.Directives, pos token.Pos, doc, comment *ast.CommentGroup) *directives.Directives {
+	specPos := ar.pos(pos)
+	comments := artifacts.JoinComments(doc, comment)
+	directives.RemoveDirectives(doc)
+	directives.RemoveDirectives(comment)
 
 	specDv, err := directives.Read(comments, ar.pkgPath(), specPos, ar.errGroup)
 	if err != nil {
@@ -252,6 +230,21 @@ func (ar *augReader) readSpecDirectives(declDv *directives.Directives, spec ast.
 	return joinDv
 }
 
+func (ar *augReader) readImportDecl(declDv *directives.Directives, gd *ast.GenDecl) {
+	for _, spec := range gd.Specs {
+		switch s := spec.(type) {
+		case *ast.ImportSpec:
+			specDv := ar.readSpecDirectives(declDv, s.Pos(), s.Doc, s.Comment)
+			ar.readImportSpec(specDv, gd, s)
+		default:
+			ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
+				With(`package path`, ar.pkgPath()).
+				With(`position`, spec.Pos()))
+		}
+	}
+	ar.finishGenDecl(gd)
+}
+
 func (ar *augReader) readImportSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.ImportSpec) {
 	switch {
 	case specDv.Ignore(), specDv.None():
@@ -263,7 +256,8 @@ func (ar *augReader) readImportSpec(specDv *directives.Directives, gd *ast.GenDe
 			With(`position`, ar.pos(spec.Pos())).
 			With(`import path`, spec.Path.Value))
 	case specDv.Add():
-		ar.add.newImports = append(ar.add.newImports, spec)
+		ar.addSpecs = append(ar.addSpecs, spec)
+		ar.add.newImportSpecs = append(ar.add.newImportSpecs, spec)
 		ar.add.beingAdded[spec.Path.Value] = spec.Pos()
 	case specDv.DeleteAll():
 		ar.errGroup.Panic(faults.From(ErrAugDeleteAllImport).
@@ -275,6 +269,28 @@ func (ar *augReader) readImportSpec(specDv *directives.Directives, gd *ast.GenDe
 	case specDv.Replace():
 		// TODO: Implement
 	}
+}
+
+func (ar *augReader) readTypeDecl(declDv *directives.Directives, gd *ast.GenDecl) {
+	for _, spec := range gd.Specs {
+		switch s := spec.(type) {
+		case *ast.TypeSpec:
+			specDv := ar.readSpecDirectives(declDv, s.Pos(), s.Doc, s.Comment)
+			switch t := s.Type.(type) {
+			case *ast.StructType:
+				ar.readStructTypeSpec(specDv, gd, s, t)
+			case *ast.InterfaceType:
+				ar.readInterfaceTypeSpec(specDv, gd, s, t)
+			default:
+				ar.readOtherTypeSpec(specDv, gd, s)
+			}
+		default:
+			ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
+				With(`package path`, ar.pkgPath()).
+				With(`position`, spec.Pos()))
+		}
+	}
+	ar.finishGenDecl(gd)
 }
 
 func (ar *augReader) readStructTypeSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.StructType) {
@@ -505,6 +521,21 @@ func (ar *augReader) readOtherTypeSpec(specDv *directives.Directives, gd *ast.Ge
 	}
 }
 
+func (ar *augReader) readValueDecl(declDv *directives.Directives, gd *ast.GenDecl) {
+	for _, spec := range gd.Specs {
+		switch s := spec.(type) {
+		case *ast.ValueSpec:
+			specDv := ar.readSpecDirectives(declDv, s.Pos(), s.Doc, s.Comment)
+			ar.readValueSpec(specDv, gd, s)
+		default:
+			ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
+				With(`package path`, ar.pkgPath()).
+				With(`position`, spec.Pos()))
+		}
+	}
+	ar.finishGenDecl(gd)
+}
+
 func (ar *augReader) readValueSpec(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.ValueSpec) {
 	switch {
 	case specDv.Ignore():
@@ -529,6 +560,7 @@ func (ar *augReader) readValueSpec(specDv *directives.Directives, gd *ast.GenDec
 }
 
 func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
+	// TODO: Break this up and specialize it for the different types
 	if len(ar.addSpecs) > 0 {
 		addGen := &ast.GenDecl{
 			Doc:    gd.Doc,
@@ -538,7 +570,12 @@ func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
 			Rparen: gd.Rparen,
 			Specs:  ar.addSpecs,
 		}
-		ar.add.newGenDecls = append(ar.add.newGenDecls, addGen)
+		switch gd.Tok {
+		case token.IMPORT:
+			ar.add.newImports = append(ar.add.newImports, addGen)
+		default:
+			ar.add.newGenDecls = append(ar.add.newGenDecls, addGen)
+		}
 	}
 	// TODO: Implement
 }

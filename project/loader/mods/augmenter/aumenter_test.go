@@ -12,7 +12,27 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper"
 )
 
-func TestAddingType(t *testing.T) {
+func Test_Add_Import(t *testing.T) {
+	runAugTest(t, augTest{
+		origSrc: lines(
+			`package foo`,
+			``,
+			`type Foo struct{}`),
+		augSrc: lines(
+			`package foo`,
+			``,
+			`//gozer:add`,
+			`import "fmt"`),
+		expSrc: lines(
+			`package foo`,
+			``,
+			`import "fmt"`,
+			``,
+			`type Foo struct{}`),
+	})
+}
+
+func Test_Add_WholeType(t *testing.T) {
 	runAugTest(t, augTest{
 		origSrc: lines(
 			`package foo`,
