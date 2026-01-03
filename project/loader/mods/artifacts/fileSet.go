@@ -10,6 +10,10 @@ import (
 type FileSet struct {
 	fileSet *token.FileSet
 	nodePos map[int][]int
+
+	// TODO: Calculate widths beyond size of a node to get the whitespace
+	// between the nodes, then store that so that we can change the identifiers
+	// (and identifier lengths) and still be able to remap.
 }
 
 func NewFileSet() *FileSet {
@@ -72,9 +76,6 @@ func (fs *FileSet) getNodePositions(pos token.Pos) []int {
 
 func (fs *FileSet) FindPrevious(pos token.Pos) token.Pos {
 	nPos := fs.getNodePositions(pos)
-
-	fmt.Printf(">>> %v\n", nPos) // TODO: REMOVE
-
 	if prev := sort.SearchInts(nPos, int(pos)) - 1; prev > 0 {
 		return token.Pos(nPos[prev])
 	}
@@ -115,7 +116,6 @@ func (fs *FileSet) RegisterFile(f *File) {
 		if pos < prior {
 			panic(fmt.Errorf(`file for %d (%s) got bad order for prior %d and %d for %s`, filePos, f.File.Name.String(), prior, pos, pt.String()))
 		}
-
 		nPos = append(nPos, pos)
 		prior = pos
 	}

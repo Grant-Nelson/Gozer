@@ -163,7 +163,8 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 			With(`position`, pos))
 		return
 	case dv.Add():
-		ar.add.newFuncDecls = append(ar.add.newFuncDecls, fd)
+		ar.add.newDecls = append(ar.add.newDecls, fd)
+		// TODO: Add the comments
 		ar.add.beingAdded[fd.Name.Name] = fd.Pos()
 	case dv.Delete():
 		// TODO: Implement
@@ -560,22 +561,26 @@ func (ar *augReader) readValueSpec(specDv *directives.Directives, gd *ast.GenDec
 }
 
 func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
-	// TODO: Break this up and specialize it for the different types
-	if len(ar.addSpecs) > 0 {
-		addGen := &ast.GenDecl{
-			Doc:    gd.Doc,
-			TokPos: gd.TokPos,
-			Tok:    gd.Tok,
-			Lparen: gd.Lparen,
-			Rparen: gd.Rparen,
-			Specs:  ar.addSpecs,
-		}
-		switch gd.Tok {
-		case token.IMPORT:
-			ar.add.newImports = append(ar.add.newImports, addGen)
-		default:
-			ar.add.newGenDecls = append(ar.add.newGenDecls, addGen)
-		}
+	if len(ar.addSpecs) <= 0 {
+		return
 	}
-	// TODO: Implement
+
+	addGen := &ast.GenDecl{
+		Doc:    gd.Doc,
+		TokPos: gd.TokPos,
+		Tok:    gd.Tok,
+		Lparen: gd.Lparen,
+		Rparen: gd.Rparen,
+		Specs:  ar.addSpecs,
+	}
+
+	switch gd.Tok {
+	case token.IMPORT:
+		ar.add.newImports = append(ar.add.newImports, addGen)
+	default:
+		ar.add.newDecls = append(ar.add.newDecls, addGen)
+		// TODO: Add the comments
+	}
+
+	ar.addSpecs = []ast.Spec{}
 }

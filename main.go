@@ -38,7 +38,7 @@ func defaultConfig(defaultLang string) *mainConfig {
 }
 
 func main() {
-	cfg := defaultConfig(`dart`)
+	cfg := defaultConfig(`typescript`)
 	if !args.Parse(cfg) {
 		os.Exit(1)
 	}

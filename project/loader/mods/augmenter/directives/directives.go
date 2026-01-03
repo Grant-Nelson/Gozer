@@ -191,6 +191,7 @@ type directiveMod struct {
 	errGroup *faults.Group
 }
 
+// check will panic with the given error when the test is true.
 func (mod *directiveMod) check(test bool, errMsg error) {
 	if test {
 		mod.errGroup.Panic(faults.From(errMsg).
@@ -360,7 +361,7 @@ var (
 func (mod *directiveMod) readIgnore() {
 	if args, ok := mod.dm[directiveIgnore]; ok {
 		mod.check(len(args) != 1, ErrAugIgnoreOnlyOne)
-		mod.check(len(args[0]) <= 0, ErrAugIgnoreWithArgs)
+		mod.check(len(args[0]) > 0, ErrAugIgnoreWithArgs)
 		mod.setIgnore()
 		delete(mod.dm, directiveIgnore)
 	}

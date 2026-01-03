@@ -474,9 +474,9 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.FuncDecl:
 		p.walkComment(n.Doc, `FuncDecl.Doc`)
-		p.walk(n.Recv)
 		// handle FuncType uniquely here to get the name in the correct order.
 		p.visit(n, &n.Type.Func, `Func`)
+		p.walk(n.Recv)
 		p.walk(n.Name)
 		p.walk(n.Type.TypeParams)
 		p.walk(n.Type.Params)

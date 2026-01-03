@@ -63,10 +63,11 @@ func (r *fileRemapper) remapCommentGroup(cg *ast.CommentGroup) {
 }
 
 func (r *fileRemapper) addInfo(pos token.Pos, doc **ast.CommentGroup) {
-	if int(pos)-r.priorShift != int(r.tokenFile.Current()) {
+	if int(pos)-r.priorShift == int(r.tokenFile.Current()) {
 		// Don't add info since the current position follows the prior position correctly.
 		return
 	}
+	r.priorShift = int(pos) - int(r.tokenFile.Current())
 
 	// See https://pkg.go.dev/cmd/compile#hdr-Compiler_Directives
 	p := r.f.TempFileSet.Position(pos)

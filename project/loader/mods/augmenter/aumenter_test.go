@@ -32,6 +32,32 @@ func Test_Add_Import(t *testing.T) {
 	})
 }
 
+func Test_Add_Import_Specs(t *testing.T) {
+	runAugTest(t, augTest{
+		origSrc: lines(
+			`package foo`,
+			``,
+			`type Foo struct{}`),
+		augSrc: lines(
+			`package foo`,
+			``,
+			`import (`,
+			`	"fmt" //gozer:add`,
+			`	"time" //gozer:ignore`,
+			`	gg "log" //gozer:add`,
+			`)`),
+		expSrc: lines(
+			`package foo`,
+			``,
+			`import (`,
+			`	"fmt"`,
+			`	gg "log"`,
+			`)`,
+			``,
+			`type Foo struct{}`),
+	})
+}
+
 func Test_Add_WholeType(t *testing.T) {
 	runAugTest(t, augTest{
 		origSrc: lines(
@@ -55,6 +81,82 @@ func Test_Add_WholeType(t *testing.T) {
 			`//`,
 			`//line base/aug.go:5:1`,
 			`type Bar struct{}`),
+	})
+}
+
+func Test_Add_Func(t *testing.T) {
+	runAugTest(t, augTest{
+		origSrc: lines(
+			`package foo`,
+			``,
+			`import "fmt"`,
+			``,
+			`// X marks the spot.`,
+			`type X struct{}`,
+			``,
+			`// Foo does stuff.`,
+			`func (x *X) Foo(y int, z string) {`,
+			`	fmt.Printf("%d, %s\n", y, z)`,
+			`}`),
+		augSrc: lines(
+			`package foo`,
+			``,
+			`import "fmt"`,
+			``,
+			`// Bar is being added.`,
+			`//gozer:add`,
+			`func (x *X) Bar(y int, z string) {`,
+			`	fmt.Printf("%s, %d\n", z, y)`,
+			`}`),
+		expSrc: lines(
+			`package foo`,
+			``,
+			`import "fmt"`,
+			``,
+			`// X marks the spot.`,
+			`type X struct{}`,
+			``,
+			`// Foo does stuff.`,
+			`func (x *X) Foo(y int, z string) {`,
+			`	fmt.Printf("%d, %s\n", y, z)`,
+			`}`,
+			``,
+			`// Bar is being added.`,
+			`//`,
+			`//line base/aug.go:7:1`,
+			`func (x *X) Bar(y int, z string) {`,
+			`	fmt.Printf("%s, %d\n", z, y)`,
+			`}`),
+	})
+}
+
+func Test_Add_VarAndConst(t *testing.T) {
+	runAugTest(t, augTest{
+		origSrc: lines(
+			`package foo`,
+			``,
+			`var A int`,
+			``,
+			`const B = "Hello"`),
+		augSrc: lines(
+			`package foo`,
+			``,
+			`//gozer:add`,
+			`var (`,
+			`	C, D int`,
+			`)`,
+			``,
+			`var X int //gozer:add`,
+			``,
+			`const (`,
+			`	Y int = 42 //gozer:add`,
+			`	Z int = 10 //gozer:ignore`,
+			`	//gozer:add`,
+			`	W string = "World"`,
+			`)`),
+		expSrc: lines(
+			`package foo`,
+			``),
 	})
 }
 

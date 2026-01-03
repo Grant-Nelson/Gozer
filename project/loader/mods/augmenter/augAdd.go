@@ -32,24 +32,24 @@ type augAdd struct {
 	// that are being added, the value is the position value for the node.
 	beingAdded map[string]token.Pos
 
-	newImports     []ast.Decl
-	newImportSpecs []*ast.ImportSpec
-	newGenDecls    []*ast.GenDecl
-	newFuncDecls   []*ast.FuncDecl
-	newFields      map[string]*ast.StructType
-	newMethods     map[string]*ast.InterfaceType
+	newImports       []ast.Decl
+	newImportSpecs   []*ast.ImportSpec
+	newDecls         []ast.Decl
+	newDeclsComments []*ast.CommentGroup
+	newFields        map[string]*ast.StructType
+	newMethods       map[string]*ast.InterfaceType
 }
 
 func newAdd(pkg *artifacts.Package) *augAdd {
 	return &augAdd{
-		pkg:            pkg,
-		beingAdded:     map[string]token.Pos{},
-		newImports:     []ast.Decl{},
-		newImportSpecs: []*ast.ImportSpec{},
-		newGenDecls:    []*ast.GenDecl{},
-		newFuncDecls:   []*ast.FuncDecl{},
-		newFields:      map[string]*ast.StructType{},
-		newMethods:     map[string]*ast.InterfaceType{},
+		pkg:              pkg,
+		beingAdded:       map[string]token.Pos{},
+		newImports:       []ast.Decl{},
+		newImportSpecs:   []*ast.ImportSpec{},
+		newDecls:         []ast.Decl{},
+		newDeclsComments: []*ast.CommentGroup{},
+		newFields:        map[string]*ast.StructType{},
+		newMethods:       map[string]*ast.InterfaceType{},
 	}
 }
 
@@ -249,22 +249,15 @@ func (a *augAdd) addImports(f *artifacts.File) {
 	a.newImportSpecs = []*ast.ImportSpec{}
 }
 
-// addDecls dda all declarations needing to be added and clears out the
-// list of decls needing to be added so that they're only added once.
+// addDecls adds all declarations needing to be added and
+// clears out the list of decls needing to be added so that
+// they are only added once.
 func (a *augAdd) addDecls(f *artifacts.File) {
-	if len(a.newGenDecls) > 0 {
-		for _, d := range a.newGenDecls {
+	if len(a.newDecls) > 0 {
+		for i, d := range a.newDecls {
 			f.File.Decls = append(f.File.Decls, d)
-			f.File.Comments = append(f.File.Comments, d.Doc)
+			f.File.Comments = append(f.File.Comments, a.newDeclsComments[i])
 		}
-		a.newGenDecls = []*ast.GenDecl{}
-	}
-
-	if len(a.newFuncDecls) > 0 {
-		for _, d := range a.newGenDecls {
-			f.File.Decls = append(f.File.Decls, d)
-			f.File.Comments = append(f.File.Comments, d.Doc)
-		}
-		a.newFuncDecls = []*ast.FuncDecl{}
+		a.newDecls = []ast.Decl{}
 	}
 }
