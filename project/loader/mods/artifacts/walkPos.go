@@ -15,9 +15,14 @@ var errEndWalkPos = errors.New(`end WalkPos`)
 // WalkPos will walk the branch of AST nodes with the given node as the root.
 // It will return all the positions in the branch.
 //
+// skipFileComments will skip trying to position floating file level comments.
+// If the file is unmodified or has been remapped into the same fileSet space,
+// then the floating file level comments can be properly positioned,
+// otherwise they may not be positioned in the correct locations.
+//
 // The position is a pointer to the actual field so that the positions
 // can be updated with care. Invalid positions are not returned.
-func WalkPos(node ast.Node) iter.Seq[PosTuple] {
+func WalkPos(node ast.Node, skipFileComments bool) iter.Seq[PosTuple] {
 	return func(yield func(PosTuple) bool) {
 		defer func() {
 			if r := recover(); r != nil && r != errEndWalkPos {
@@ -26,17 +31,26 @@ func WalkPos(node ast.Node) iter.Seq[PosTuple] {
 		}()
 
 		p := &posWalker{
-			yield:   yield,
-			handled: map[*token.Pos]struct{}{},
+			yield:            yield,
+			skipFileComments: skipFileComments,
+			handled:          map[*token.Pos]struct{}{},
 		}
 		p.walk(node)
 	}
+}
+
+type PosTuple struct {
+	Node ast.Node
+	Pos  *token.Pos
+	Name string
 }
 
 type posVisitor func(pt PosTuple) bool
 
 type posWalker struct {
 	yield posVisitor
+
+	skipFileComments bool
 
 	// zipStack is a stack of positions that need to be interwoven into other
 	// positions. These are typically comments. Once a frame of positions is
@@ -47,12 +61,6 @@ type posWalker struct {
 	// This is only used for positions that might be outputted multiple times
 	// such as those put into the zipStack.
 	handled map[*token.Pos]struct{}
-}
-
-type PosTuple struct {
-	Node ast.Node
-	Pos  *token.Pos
-	Name string
 }
 
 func (pt PosTuple) String() string {
@@ -486,15 +494,19 @@ func (p *posWalker) walk(node ast.Node) {
 	// ======[ Files ]======
 	case *ast.File:
 		p.visit(n, &n.FileStart, `Start`)
-		for i := len(n.Comments) - 1; i >= 0; i-- {
-			p.pushComments(n.Comments[i], `File.Comment`)
+		if !p.skipFileComments {
+			for i := len(n.Comments) - 1; i >= 0; i-- {
+				p.pushComments(n.Comments[i], `File.Comment`)
+			}
 		}
 		p.walkComment(n.Doc, `File.Doc`)
 		p.visit(n, &n.Package, `Package`)
 		p.walk(n.Name)
 		walkPosList(p, n.Decls)
-		for range n.Comments {
-			p.pop()
+		if !p.skipFileComments {
+			for range n.Comments {
+				p.pop()
+			}
 		}
 		p.visit(n, &n.FileEnd, `End`)
 

@@ -50,37 +50,37 @@ func Test_DocAndComment(t *testing.T) {
 	))
 	equalLines(t, getCommentInfo(f), lines(
 		`File:`,
-		`	Doc: [0](1) "// file docs"`,
-		`		[1](14) "/* multi-line\n   file docs */"`,
-		`	Comments:`,
-		`		0: [0](1) "// file docs"`,
-		`			[1](14) "/* multi-line\n   file docs */"`,
-		`		1: [2](57) "// file comment"`,
-		`		2: [3](74) "// func doc"`,
-		`		3: [4](98) "// param doc"`,           // floating (only here)
-		`		4: [5](119) "// param comment"`,      // floating
-		`		5: [6](141) "// func inner comment"`, // floating
-		`		6: [7](166) "// type decl doc"`,
-		`		7: [8](191) "// type spec doc"`,
-		`		8: [9](224) "// field doc"`,
-		`		9: [10](245) "// field comment"`,
-		`		10: [11](265) "// type inner comment 1 group 1"`, // floating
-		`			[12](299) "// type inner comment 2 group 1"`,    // floating
-		`		11: [13](334) "// type inner comment 3 group 2"`, // floating
-		`		12: [14](372) "// file end comment"`,             // floating
+		`   Doc: [0](1) "// file docs"`,
+		`      [1](14) "/* multi-line\n   file docs */"`,
+		`   Comments:`,
+		`      0: [0](1) "// file docs"`,
+		`         [1](14) "/* multi-line\n   file docs */"`,
+		`      1: [2](57) "// file comment"`,
+		`      2: [3](74) "// func doc"`,
+		`      3: [4](98) "// param doc"`,           // floating (only here)
+		`      4: [5](119) "// param comment"`,      // floating
+		`      5: [6](141) "// func inner comment"`, // floating
+		`      6: [7](166) "// type decl doc"`,
+		`      7: [8](191) "// type spec doc"`,
+		`      8: [9](224) "// field doc"`,
+		`      9: [10](245) "// field comment"`,
+		`      10: [11](265) "// type inner comment 1 group 1"`, // floating
+		`         [12](299) "// type inner comment 2 group 1"`,  // floating
+		`      11: [13](334) "// type inner comment 3 group 2"`, // floating
+		`      12: [14](372) "// file end comment"`,             // floating
 		`FuncDecl:`,
-		`	Doc: [3](74) "// func doc"`,
-		`Field:`,
-		`	Doc: <nil>`,
-		`	Comment: <nil>`,
+		`   Doc: [3](74) "// func doc"`,
+		`Field:`, // main.x int param (comments don't attach)
+		`   Doc: <nil>`,
+		`   Comment: <nil>`,
 		`GenDecl:`,
-		`	Doc: [7](166) "// type decl doc"`,
+		`   Doc: [7](166) "// type decl doc"`,
 		`TypeSpec:`,
-		`	Doc: [8](191) "// type spec doc"`,
-		`	Comment: <nil>`,
-		`Field:`,
-		`	Doc: [9](224) "// field doc"`,
-		`	Comment: [10](245) "// field comment"`,
+		`   Doc: [8](191) "// type spec doc"`,
+		`   Comment: <nil>`,
+		`Field:`, // foo.x int field (comments will attach)
+		`   Doc: [9](224) "// field doc"`,
+		`   Comment: [10](245) "// field comment"`,
 	))
 }
 
@@ -97,6 +97,8 @@ func parseFile(t testing.TB, src string) (*token.FileSet, *ast.File) {
 	}
 	return fSet, f
 }
+
+const defaultIndent = `   `
 
 func addCommentGroupInfo(buf *strings.Builder, ptr map[string]int, indent, name string, cg *ast.CommentGroup) {
 	if cg == nil {
@@ -118,7 +120,7 @@ func addCommentGroupInfo(buf *strings.Builder, ptr map[string]int, indent, name 
 			ptr[p] = num
 		}
 		fmt.Fprintf(buf, "%s[%d](%d) %q\n", subIndent, num, int(c.Slash), c.Text)
-		subIndent = indent + "\t"
+		subIndent = indent + defaultIndent
 	}
 }
 
@@ -129,39 +131,39 @@ func getCommentInfo(f *ast.File) string {
 		switch n := node.(type) {
 		case *ast.File:
 			fmt.Fprintln(buf, "File:")
-			addCommentGroupInfo(buf, ptr, "\t", `Doc`, n.Doc)
-			fmt.Fprintln(buf, "\tComments:")
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Doc`, n.Doc)
+			fmt.Fprintln(buf, defaultIndent+"Comments:")
 			for i, cg := range n.Comments {
-				addCommentGroupInfo(buf, ptr, "\t\t", strconv.Itoa(i), cg)
+				addCommentGroupInfo(buf, ptr, defaultIndent+defaultIndent, strconv.Itoa(i), cg)
 			}
 
 		case *ast.Field:
 			fmt.Fprintln(buf, `Field:`)
-			addCommentGroupInfo(buf, ptr, "\t", `Doc`, n.Doc)
-			addCommentGroupInfo(buf, ptr, "\t", `Comment`, n.Comment)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Doc`, n.Doc)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Comment`, n.Comment)
 
 		case *ast.GenDecl:
 			fmt.Fprintln(buf, `GenDecl:`)
-			addCommentGroupInfo(buf, ptr, "\t", `Doc`, n.Doc)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Doc`, n.Doc)
 
 		case *ast.ImportSpec:
 			fmt.Fprintln(buf, `ImportSpec:`)
-			addCommentGroupInfo(buf, ptr, "\t", `Doc`, n.Doc)
-			addCommentGroupInfo(buf, ptr, "\t", `Comment`, n.Comment)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Doc`, n.Doc)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Comment`, n.Comment)
 
 		case *ast.ValueSpec:
 			fmt.Fprintln(buf, `ValueSpec:`)
-			addCommentGroupInfo(buf, ptr, "\t", `Doc`, n.Doc)
-			addCommentGroupInfo(buf, ptr, "\t", `Comment`, n.Comment)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Doc`, n.Doc)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Comment`, n.Comment)
 
 		case *ast.TypeSpec:
 			fmt.Fprintln(buf, `TypeSpec:`)
-			addCommentGroupInfo(buf, ptr, "\t", `Doc`, n.Doc)
-			addCommentGroupInfo(buf, ptr, "\t", `Comment`, n.Comment)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Doc`, n.Doc)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Comment`, n.Comment)
 
 		case *ast.FuncDecl:
 			fmt.Fprintln(buf, `FuncDecl:`)
-			addCommentGroupInfo(buf, ptr, "\t", `Doc`, n.Doc)
+			addCommentGroupInfo(buf, ptr, defaultIndent, `Doc`, n.Doc)
 		}
 		return true
 	})

@@ -15,7 +15,7 @@ func Test_WalkPos_Package(t *testing.T) {
 		`// comment 3`,
 		``,
 		`// comment 4`)
-	checkWalkPos(t, f,
+	checkWalkPos(t, f, false,
 		`1:File:Start`,
 		`1:Comment:File.Comment`,
 		`15:Comment:File.Doc`,
@@ -44,7 +44,7 @@ func Test_WalkPos_MultilineFunc(t *testing.T) {
 		`	return false // comment 10`,
 		`	// comment 11`,
 		`} // comment 12`)
-	checkWalkPos(t, f,
+	checkWalkPos(t, f, false,
 		`1:File:Start`,
 		`1:File:Package`,
 		`9:Ident:foo`,
@@ -79,6 +79,30 @@ func Test_WalkPos_MultilineFunc(t *testing.T) {
 		`224:BlockStmt:RightBrace`,
 		`226:Comment:File.Comment`,
 		`239:File:End`)
+	checkWalkPos(t, f, true,
+		`1:File:Start`,
+		`1:File:Package`,
+		`9:Ident:foo`,
+		`27:Comment:FuncDecl.Doc`,
+		`40:FuncDecl:Func`,
+		`45:Ident:Foo`,
+		`48:FieldList:Opening`,
+		`64:Ident:a`,
+		`66:ArrayType:LeftBracket`,
+		`68:Ident:int`,
+		`87:Ident:b`,
+		`89:Ellipsis:Ellipsis`,
+		`92:Ident:string`,
+		`113:FieldList:Closing`,
+		`114:FieldList:Opening`,
+		`130:Ident:c`,
+		`132:Ident:bool`,
+		`164:FieldList:Closing`,
+		`165:BlockStmt:LeftBrace`,
+		`182:ReturnStmt:Return`,
+		`189:Ident:false`,
+		`224:BlockStmt:RightBrace`,
+		`239:File:End`)
 }
 
 func Test_WalkPos_Values_Arrays(t *testing.T) {
@@ -91,7 +115,7 @@ func Test_WalkPos_Values_Arrays(t *testing.T) {
 		`	c [...]int`,
 		`	d [42]int`,
 		`)`)
-	checkWalkPos(t, f,
+	checkWalkPos(t, f, false,
 		`1:File:Start`,
 		`1:File:Package`,
 		`9:Ident:foo`,
@@ -138,7 +162,7 @@ func Test_WalkPos_Values_Comments(t *testing.T) {
 		`	// comment 8`,
 		`	e int // comment 9`,
 		`)`)
-	checkWalkPos(t, f,
+	checkWalkPos(t, f, false,
 		`1:File:Start`,
 		`1:File:Package`,
 		`9:Ident:foo`,
@@ -185,7 +209,7 @@ func Test_WalkPos_Struct(t *testing.T) {
 		``,
 		`	// comment 9`,
 		`}`)
-	checkWalkPos(t, f,
+	checkWalkPos(t, f, false,
 		`1:File:Start`,
 		`1:File:Package`,
 		`9:Ident:foo`,
@@ -222,7 +246,7 @@ func Test_WalkPos_Channels(t *testing.T) {
 		`func Foo(src <-chan int, dst chan<- int, notUsed chan int) {`,
 		`	dst <- src`,
 		`}`)
-	checkWalkPos(t, f,
+	checkWalkPos(t, f, false,
 		`1:File:Start`,
 		`1:File:Package`,
 		`9:Ident:foo`,
@@ -253,11 +277,11 @@ func Test_WalkPos_Channels(t *testing.T) {
 		`87:File:End`)
 }
 
-func checkWalkPos(t testing.TB, f *File, expLines ...string) {
+func checkWalkPos(t testing.TB, f *File, skipFileComments bool, expLines ...string) {
 	t.Helper()
 	lines := []string{}
 	var prior int
-	for pt := range WalkPos(f.File) {
+	for pt := range WalkPos(f.File, skipFileComments) {
 		if !pt.Pos.IsValid() {
 			t.Errorf("invalid position returned for %s", pt.String())
 		}

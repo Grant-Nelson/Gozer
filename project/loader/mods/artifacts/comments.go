@@ -35,3 +35,17 @@ func RemoveDirectives(comments []*ast.Comment, prefix string) []*ast.Comment {
 	}
 	return result
 }
+
+func CommentsForNode(f *ast.File, n ast.Node) []*ast.Comment {
+	comments := []*ast.Comment{}
+	for _, cg := range f.Comments {
+		if cg != nil {
+			for _, c := range cg.List {
+				if c.End() > n.Pos() && c.Pos() < n.End() {
+					comments = append(comments, c)
+				}
+			}
+		}
+	}
+	return comments
+}

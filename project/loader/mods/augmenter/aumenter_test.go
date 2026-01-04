@@ -28,6 +28,7 @@ func Test_Add_Import(t *testing.T) {
 			``,
 			`import "fmt"`,
 			``,
+			`//line original/orig.go:3:1`,
 			`type Foo struct{}`),
 	})
 }

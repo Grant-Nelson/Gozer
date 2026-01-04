@@ -164,7 +164,8 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 		return
 	case dv.Add():
 		ar.add.newDecls = append(ar.add.newDecls, fd)
-		// TODO: Add the comments
+		ar.add.newDeclsComments = append(ar.add.newDeclsComments,
+			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile.File, fd)})
 		ar.add.beingAdded[fd.Name.Name] = fd.Pos()
 	case dv.Delete():
 		// TODO: Implement
@@ -579,7 +580,8 @@ func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
 		ar.add.newImports = append(ar.add.newImports, addGen)
 	default:
 		ar.add.newDecls = append(ar.add.newDecls, addGen)
-		// TODO: Add the comments
+		ar.add.newDeclsComments = append(ar.add.newDeclsComments,
+			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile.File, addGen)})
 	}
 
 	ar.addSpecs = []ast.Spec{}

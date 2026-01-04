@@ -91,6 +91,9 @@ func (fs *FileSet) FindNext(pos token.Pos) token.Pos {
 	return token.Pos(nPos[next])
 }
 
+// RegisterFile adds the extra file information to the FileSet for the given
+// file. The file must be an unmodified or remapped file so that all the
+// positions are part of the same file entry in the FileSet.
 func (fs *FileSet) RegisterFile(f *File) {
 	if f.Empty() {
 		return
@@ -107,7 +110,7 @@ func (fs *FileSet) RegisterFile(f *File) {
 
 	var nPos []int
 	var prior int
-	for pt := range WalkPos(f.File) {
+	for pt := range WalkPos(f.File, false) {
 		if !pt.Pos.IsValid() {
 			panic(fmt.Errorf(`file for %d (%s) got invalid position for %s`, filePos, f.File.Name.String(), pt.String()))
 		}
