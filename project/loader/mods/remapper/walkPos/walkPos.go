@@ -1,4 +1,4 @@
-package artifacts
+package walkPos
 
 import (
 	"errors"

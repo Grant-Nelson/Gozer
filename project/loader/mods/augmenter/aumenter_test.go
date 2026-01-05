@@ -2,6 +2,7 @@ package augmenter
 
 import (
 	"fmt"
+	"go/token"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/filePos"
 )
 
 func Test_Add_Import(t *testing.T) {
@@ -38,7 +40,9 @@ func Test_Add_Import_Specs(t *testing.T) {
 		origSrc: lines(
 			`package foo`,
 			``,
-			`type Foo struct{}`),
+			`type Foo struct{}`,
+			``,
+			`type Bar struct{}`),
 		augSrc: lines(
 			`package foo`,
 			``,
@@ -55,7 +59,10 @@ func Test_Add_Import_Specs(t *testing.T) {
 			`	gg "log"`,
 			`)`,
 			``,
-			`type Foo struct{}`),
+			`//line original/orig.go:3:1`,
+			`type Foo struct{}`,
+			``,
+			`type Bar struct{}`),
 	})
 }
 
@@ -176,12 +183,14 @@ func lines(lines ...string) string {
 func runAugTest(t testing.TB, test augTest) {
 	t.Helper()
 
-	tempFileSet := artifacts.NewFileSet()
+	tempFileSet := token.NewFileSet()
 	fm, err := artifacts.Load(tempFileSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
 	}
+	fPos := filePos.New(fm.TempFileSet())
+	fPos.RegisterFile(fm)
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
@@ -211,8 +220,8 @@ func runAugTest(t testing.TB, test augTest) {
 		return
 	}
 
-	finalFileSet := artifacts.NewFileSet()
-	if err := remapper.Remap(fm, finalFileSet, errGroup); err != nil {
+	finalFileSet := token.NewFileSet()
+	if err := remapper.Remap(fm, fPos, finalFileSet, errGroup); err != nil {
 		checkErr(t, `remap`, test, err)
 		return
 	}
@@ -223,7 +232,7 @@ func runAugTest(t testing.TB, test augTest) {
 	}
 
 	buf := &strings.Builder{}
-	if err := fm.Write(buf); err != nil {
+	if err := remapper.Write(fm, buf); err != nil {
 		t.Errorf(`failed to write result: %v`, err)
 		return
 	}

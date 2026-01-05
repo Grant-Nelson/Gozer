@@ -55,8 +55,8 @@ func Load(cfg Config) (*project.Project, error) {
 		packages:     map[string]*artifacts.Package{},
 		errGroup:     faults.NewGroup(-1),
 		group:        mods.Group(cfg.Modifiers),
-		tempFileSet:  artifacts.NewFileSet(),
-		finalFileSet: artifacts.NewFileSet(),
+		tempFileSet:  token.NewFileSet(),
+		finalFileSet: token.NewFileSet(),
 	}
 	c := &packages.Config{
 		Mode:       allNeeds,
@@ -93,8 +93,8 @@ type loader struct {
 	packages     map[string]*artifacts.Package
 	errGroup     *faults.Group
 	group        mods.Group
-	tempFileSet  *artifacts.FileSet
-	finalFileSet *artifacts.FileSet
+	tempFileSet  *token.FileSet
+	finalFileSet *token.FileSet
 }
 
 func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*ast.File, error) {

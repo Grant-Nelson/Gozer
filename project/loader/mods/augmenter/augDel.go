@@ -26,7 +26,7 @@ var (
 type delHandle func(*artifacts.IdentIteratorValue, *faults.Group) (bool, error)
 
 type augDel struct {
-	fileSet    *artifacts.FileSet
+	fileSet    *token.FileSet
 	delImport  map[string]bool
 	delFunc    map[string]*ast.FuncDecl
 	delVar     map[string]*ast.ValueSpec

@@ -1,11 +1,9 @@
 package artifacts
 
 import (
-	"bytes"
 	"go/ast"
 	"go/parser"
-	"go/printer"
-	"io"
+	"go/token"
 	"path/filepath"
 	"strings"
 )
@@ -16,34 +14,37 @@ type File struct {
 	// Package that this file is part of.
 	Package *Package
 
-	// TempFileSet that is associated with this file.
+	// tempFileSet that is associated with this file.
 	// This file set may be unique for this file during loading.
-	TempFileSet *FileSet
+	tempFileSet *token.FileSet
 
 	// File is the file's ast being modified.
 	File *ast.File
 }
 
 // New creates a new file mod.
-func New(tempFileSet *FileSet, file *ast.File) *File {
+func New(tempFileSet *token.FileSet, file *ast.File) *File {
 	f := &File{
-		TempFileSet: tempFileSet,
+		tempFileSet: tempFileSet,
 		File:        file,
 	}
 	f.Package = NewPackageForFile(f)
-	f.TempFileSet.RegisterFile(f)
 	return f
 }
 
 // Load will load a file using parser.ParseFile.
-func Load(fileSet *FileSet, filename string, src any) (*File, error) {
+func Load(fileSet *token.FileSet, filename string, src any) (*File, error) {
 	const mode = parser.AllErrors |
 		parser.ParseComments |
 		parser.DeclarationErrors |
 		parser.SkipObjectResolution
-	f, err := parser.ParseFile(fileSet.fileSet, filename, src, mode)
+	f, err := parser.ParseFile(fileSet, filename, src, mode)
 	return New(fileSet, f), err
 }
+
+// TempFileSet that is associated with this file.
+// This file set may be unique for this file during loading.
+func (f *File) TempFileSet() *token.FileSet { return f.tempFileSet }
 
 // PackageName is the name of the package this file belongs too.
 func (f *File) PackageName() string {
@@ -60,7 +61,7 @@ func (f *File) PackagePath() string {
 // File Path is the path to the file being modified.
 // This should be the whole path including the package import path.
 func (f *File) FilePath() string {
-	return f.TempFileSet.Position(f.File.Pos()).Filename
+	return f.tempFileSet.Position(f.File.Pos()).Filename
 }
 
 // IsTest indicates this file is part of an package test,
@@ -79,29 +80,6 @@ func (f *File) IsXTest() bool {
 func (f *File) Empty() bool {
 	return f.File.FileStart == f.File.FileEnd ||
 		(len(f.File.Comments) <= 0 && len(f.File.Decls) <= 0)
-}
-
-// Write will write the modified file to the given writer.
-//
-// This will not use the error group and returns any errors that occurred.
-func (f *File) Write(out io.Writer) (err error) {
-	// TODO: Add a defer to catch panics from the print method (it can nil pointer deref).
-
-	cfg := &printer.Config{
-		Mode:     printer.TabIndent,
-		Tabwidth: 4,
-	}
-	return cfg.Fprint(out, f.TempFileSet.fileSet, f.File)
-}
-
-// Reload will write the file to a temporary buffer and reload it
-// with the given file set to normalize the file information.
-func (f *File) Reload(fileSet *FileSet) (*File, error) {
-	buf := &bytes.Buffer{}
-	if err := f.Write(buf); err != nil {
-		return nil, err
-	}
-	return Load(fileSet, f.FilePath(), buf.Bytes())
 }
 
 // PackageKey gets the key for a package based on the package path and test flags.

@@ -1,14 +1,16 @@
 package artifacts
 
+import "go/token"
+
 type Package struct {
 	name        string
 	path        string
 	isTest      bool
 	isXTest     bool
-	tempFileSet *FileSet
+	tempFileSet *token.FileSet
 }
 
-func NewPackage(name, path string, isTest, isXTest bool, tempFileSet *FileSet) *Package {
+func NewPackage(name, path string, isTest, isXTest bool, tempFileSet *token.FileSet) *Package {
 	return &Package{
 		name:        name,
 		path:        path,
@@ -22,7 +24,7 @@ func NewPackage(name, path string, isTest, isXTest bool, tempFileSet *FileSet) *
 //
 // This will not change the package on the file.
 func NewPackageForFile(f *File) *Package {
-	return NewPackage(f.PackageName(), f.PackagePath(), f.IsTest(), f.IsXTest(), f.TempFileSet)
+	return NewPackage(f.PackageName(), f.PackagePath(), f.IsTest(), f.IsXTest(), f.TempFileSet())
 }
 
 func (p *Package) Name() string { return p.name }
@@ -34,7 +36,7 @@ func (p *Package) IsTest() bool { return p.isTest }
 // IsXTest indicates this package ia a package containing all `IsXTest` files.
 func (p *Package) IsXTest() bool { return p.isXTest }
 
-func (p *Package) TempFileSet() *FileSet { return p.tempFileSet }
+func (p *Package) TempFileSet() *token.FileSet { return p.tempFileSet }
 
 // Key gets the key for a package based on the package path and test flags.
 func (p *Package) Key() string {

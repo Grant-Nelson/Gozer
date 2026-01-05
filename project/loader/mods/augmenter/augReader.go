@@ -112,7 +112,7 @@ func (ar *augReader) shouldAdd(f *artifacts.File) bool {
 		if err != nil {
 			ar.errGroup.Panic(faults.From(ErrParsingBuildConstraints).
 				With(`error`, err).
-				With(`position`, f.TempFileSet.Position(com.Pos())))
+				With(`position`, f.TempFileSet().Position(com.Pos())))
 		}
 
 		if !exp.Eval(func(tag string) bool {

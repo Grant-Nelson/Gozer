@@ -7,21 +7,24 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/filePos"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/tokenFileGen"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/walkPos"
 )
 
 // Remap will rewrite the file to a new file set to normalize the file information.
 // This is required to be done prior to writing the file so that the file
 // will output correctly.
-func Remap(f *artifacts.File, finalFileSet *artifacts.FileSet, errGroup *faults.Group) error {
+func Remap(f *artifacts.File, fPos *filePos.FilePos, finalFileSet *token.FileSet, errGroup *faults.Group) error {
 
 	// TODO: Add a check if the file needs remapping before remapping.
 
-	p := f.TempFileSet.Position(f.File.FileStart)
-	oldBase := f.TempFileSet.FileSet().File(f.File.FileStart).Base()
-	base := finalFileSet.FileSet().Base()
+	p := f.TempFileSet().Position(f.File.FileStart)
+	oldBase := f.TempFileSet().File(f.File.FileStart).Base()
+	base := finalFileSet.Base()
 	r := &fileRemapper{
 		f:          f,
+		fPos:       fPos,
 		tokFileGen: tokenFileGen.New(p.Filename, base),
 		priorShift: base - oldBase,
 	}
@@ -32,17 +35,18 @@ func Remap(f *artifacts.File, finalFileSet *artifacts.FileSet, errGroup *faults.
 
 type fileRemapper struct {
 	f          *artifacts.File
+	fPos       *filePos.FilePos
 	tokFileGen *tokenFileGen.TokenFileGen
 	priorShift int
 }
 
-func (r *fileRemapper) finished(finalFileSet *artifacts.FileSet) {
-	r.tokFileGen.Write(finalFileSet.FileSet())
+func (r *fileRemapper) finished(finalFileSet *token.FileSet) {
+	r.tokFileGen.Write(finalFileSet)
 
 	// TODO: Update Imports
 	// TODO: Update Comments
-	r.f.TempFileSet = finalFileSet
-	finalFileSet.RegisterFile(r.f)
+	// TODO: r.f.TempFileSet = finalFileSet
+	// TODO: finalFileSet.RegisterFile(r.f)
 }
 
 func (r *fileRemapper) remapFile() {
@@ -73,7 +77,7 @@ func (r *fileRemapper) addInfo(pos token.Pos, doc **ast.CommentGroup) {
 	}
 
 	// See https://pkg.go.dev/cmd/compile#hdr-Compiler_Directives
-	p := r.f.TempFileSet.Position(pos)
+	p := r.f.TempFileSet().Position(pos)
 	text := fmt.Sprintf(`//line %s:%d:%d`, p.Filename, p.Line, p.Column)
 
 	lineCmt := &ast.Comment{
@@ -95,10 +99,10 @@ func (r *fileRemapper) addInfo(pos token.Pos, doc **ast.CommentGroup) {
 
 func (r *fileRemapper) getCommentMap(n ast.Node) map[int]*token.Pos {
 	commentNodes := map[int]*token.Pos{}
-	for pt := range artifacts.WalkPos(n, false) {
+	for pt := range walkPos.WalkPos(n, false) {
 		switch pt.Node.(type) {
 		case *ast.Comment:
-			prev := r.f.TempFileSet.FindPrevious(*pt.Pos)
+			prev := r.fPos.FindPrevious(*pt.Pos)
 			commentNodes[int(prev)] = pt.Pos
 		}
 	}
@@ -110,12 +114,14 @@ func (r *fileRemapper) remapPos(pos *token.Pos) {
 		return
 	}
 	start := r.tokFileGen.Current()
-	_, lines := r.f.TempFileSet.Widths(*pos)
+	_, lines := r.fPos.Widths(*pos)
 	for i, line := range lines {
 		if i > 0 {
+			fmt.Printf("(%d) Add Line\n", r.tokFileGen.Current()) // TODO: REMOVE
 			r.tokFileGen.AddLine()
 		}
 		r.tokFileGen.Add(line)
+		fmt.Printf("(%d) Add %d\n", r.tokFileGen.Current(), line) // TODO: REMOVE
 	}
 	*pos = start
 }
@@ -147,15 +153,27 @@ func (r *fileRemapper) remapBadDecl(d *ast.BadDecl) {
 }
 
 func (r *fileRemapper) remapGenDecl(d *ast.GenDecl) {
+	if d.Doc != nil { // TODO: REMOVE
+		fmt.Printf(">> GenDecl.Doc\n") // TODO: REMOVE
+	}
 	r.remapCommentGroup(d.Doc)
 	if d.Tok != token.IMPORT {
 		// Don't bother to add info to imports
 		r.addInfo(d.Pos(), &d.Doc)
 	}
+	if d.TokPos.IsValid() { // TODO: REMOVE
+		fmt.Printf(">> GenDecl.TokPos\n") // TODO: REMOVE
+	}
 	r.remapPos(&d.TokPos)
+	if d.Lparen.IsValid() { // TODO: REMOVE
+		fmt.Printf(">> GenDecl.Lparen\n") // TODO: REMOVE
+	}
 	r.remapPos(&d.Lparen)
 	for _, s := range d.Specs {
 		r.remapSpec(s)
+	}
+	if d.Rparen.IsValid() { // TODO: REMOVE
+		fmt.Printf(">> GenDecl.Rparen\n") // TODO: REMOVE
 	}
 	r.remapPos(&d.Rparen)
 }
@@ -205,13 +223,14 @@ func (r *fileRemapper) remapFuncDecl(d *ast.FuncDecl) {
 }
 
 func (r *fileRemapper) remapBranch(n ast.Node, cmt map[int]*token.Pos) {
-	for pt := range artifacts.WalkPos(n, true) {
+	for pt := range walkPos.WalkPos(n, true) {
 		// Skip comments directly
 		if _, ok := pt.Node.(*ast.Comment); ok {
 			continue
 		}
 
 		p := int(*pt.Pos)
+		fmt.Printf(">> Branch: %s\n", pt.String()) // TODO: REMOVE
 		r.remapPos(pt.Pos)
 
 		// Add any comments needed for the current node.

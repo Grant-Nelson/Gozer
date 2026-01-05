@@ -1,13 +1,16 @@
-package artifacts
+package filePos
 
 import (
 	"fmt"
 	"go/token"
 	"slices"
 	"sort"
+
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/walkPos"
 )
 
-type FileSet struct {
+type FilePos struct {
 	fileSet *token.FileSet
 	nodePos map[int][]int
 
@@ -16,23 +19,23 @@ type FileSet struct {
 	// (and identifier lengths) and still be able to remap.
 }
 
-func NewFileSet() *FileSet {
-	return &FileSet{
-		fileSet: token.NewFileSet(),
+func New(fileSet *token.FileSet) *FilePos {
+	return &FilePos{
+		fileSet: fileSet,
 		nodePos: map[int][]int{},
 	}
 }
 
-func (fs *FileSet) FileSet() *token.FileSet {
+func (fs *FilePos) FileSet() *token.FileSet {
 	return fs.fileSet
 }
 
 // Position gets the position information for the given position offset.
-func (fs *FileSet) Position(pos token.Pos) token.Position {
+func (fs *FilePos) Position(pos token.Pos) token.Position {
 	return fs.fileSet.Position(pos)
 }
 
-func (fs *FileSet) Widths(pos token.Pos) (total int, lines []int) {
+func (fs *FilePos) Widths(pos token.Pos) (total int, lines []int) {
 	fsFile := fs.fileSet.File(pos)
 	if fsFile == nil {
 		panic(fmt.Errorf(`failed to find fileSet file when getting widths for %d`, pos))
@@ -62,7 +65,7 @@ func (fs *FileSet) Widths(pos token.Pos) (total int, lines []int) {
 	return total, lines
 }
 
-func (fs *FileSet) getNodePositions(pos token.Pos) []int {
+func (fs *FilePos) getNodePositions(pos token.Pos) []int {
 	fsFile := fs.fileSet.File(pos)
 	if fsFile == nil {
 		panic(fmt.Errorf(`failed to find fileSet file for %d`, int(pos)))
@@ -74,7 +77,7 @@ func (fs *FileSet) getNodePositions(pos token.Pos) []int {
 	return nPos
 }
 
-func (fs *FileSet) FindPrevious(pos token.Pos) token.Pos {
+func (fs *FilePos) FindPrevious(pos token.Pos) token.Pos {
 	nPos := fs.getNodePositions(pos)
 	if prev := sort.SearchInts(nPos, int(pos)) - 1; prev > 0 {
 		return token.Pos(nPos[prev])
@@ -82,7 +85,7 @@ func (fs *FileSet) FindPrevious(pos token.Pos) token.Pos {
 	return token.Pos(nPos[0])
 }
 
-func (fs *FileSet) FindNext(pos token.Pos) token.Pos {
+func (fs *FilePos) FindNext(pos token.Pos) token.Pos {
 	nPos := fs.getNodePositions(pos)
 	next := sort.SearchInts(nPos, int(pos)) + 1
 	if max := len(nPos) - 1; next >= max {
@@ -94,7 +97,7 @@ func (fs *FileSet) FindNext(pos token.Pos) token.Pos {
 // RegisterFile adds the extra file information to the FileSet for the given
 // file. The file must be an unmodified or remapped file so that all the
 // positions are part of the same file entry in the FileSet.
-func (fs *FileSet) RegisterFile(f *File) {
+func (fs *FilePos) RegisterFile(f *artifacts.File) {
 	if f.Empty() {
 		return
 	}
@@ -110,7 +113,7 @@ func (fs *FileSet) RegisterFile(f *File) {
 
 	var nPos []int
 	var prior int
-	for pt := range WalkPos(f.File, false) {
+	for pt := range walkPos.WalkPos(f.File, false) {
 		if !pt.Pos.IsValid() {
 			panic(fmt.Errorf(`file for %d (%s) got invalid position for %s`, filePos, f.File.Name.String(), pt.String()))
 		}

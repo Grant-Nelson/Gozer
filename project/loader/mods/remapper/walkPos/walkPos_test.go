@@ -1,8 +1,11 @@
-package artifacts
+package walkPos
 
 import (
+	"go/token"
+	"strings"
 	"testing"
 
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -277,7 +280,17 @@ func Test_WalkPos_Channels(t *testing.T) {
 		`87:File:End`)
 }
 
-func checkWalkPos(t testing.TB, f *File, skipFileComments bool, expLines ...string) {
+func loadTest(t testing.TB, code ...string) *artifacts.File {
+	t.Helper()
+	fs := token.NewFileSet()
+	f, err := artifacts.Load(fs, `test.go`, strings.Join(code, "\n"))
+	if err != nil {
+		t.Fatalf(`failed to load test file: %v`, err)
+	}
+	return f
+}
+
+func checkWalkPos(t testing.TB, f *artifacts.File, skipFileComments bool, expLines ...string) {
 	t.Helper()
 	lines := []string{}
 	var prior int
