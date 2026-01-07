@@ -2,6 +2,7 @@ package augmenter
 
 import (
 	"fmt"
+	"go/printer"
 	"go/token"
 	"strings"
 	"testing"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper"
 )
 
 func Test_Add_Import(t *testing.T) {
@@ -183,8 +183,7 @@ func runAugTest(t testing.TB, test augTest) {
 	t.Helper()
 
 	tempFileSet := token.NewFileSet()
-	remap := remapper.New(tempFileSet, artifacts.DefaultFileParser)
-	fm, err := remap.Parse(tempFileSet, `original/orig.go`, []byte(test.origSrc))
+	fm, err := artifacts.DefaultFileParser.Parse(tempFileSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
@@ -193,12 +192,12 @@ func runAugTest(t testing.TB, test augTest) {
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, PathRebase(`original`, `base`), remap)
+	a := New(nil, PathRebase(`original`, `base`), artifacts.DefaultFileParser)
 
 	// Create an augmenter for a package then add the aug file to it
 	pkg := f.Package
 	ap := a.addPackage(pkg, errGroup)
-	if err := ap.AddFile(nil, `base/aug.go`, []byte(test.augSrc), errGroup, remap); err != nil {
+	if err := ap.AddFile(nil, `base/aug.go`, []byte(test.augSrc), errGroup, artifacts.DefaultFileParser); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}
@@ -219,20 +218,13 @@ func runAugTest(t testing.TB, test augTest) {
 		return
 	}
 
-	finalFileSet := token.NewFileSet()
-	if err := remap.Remap(fm, finalFileSet, errGroup); err != nil {
-		checkErr(t, `remap`, test, err)
-		return
-	}
-	f.TempFileSet = finalFileSet
-
 	if err := errGroup.Wrap(); err != nil {
 		checkErr(t, `accumulated error`, test, err)
 		return
 	}
 
 	buf := &strings.Builder{}
-	if err := remap.Write(fm, buf); err != nil {
+	if err := printer.Fprint(buf, tempFileSet, fm); err != nil {
 		t.Errorf(`failed to write result: %v`, err)
 		return
 	}
