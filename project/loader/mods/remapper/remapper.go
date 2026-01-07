@@ -96,7 +96,6 @@ func (r *fileRemapper) finished(finalFileSet *token.FileSet) {
 
 	// TODO: Update Imports
 	// TODO: Update Comments
-	// TODO: r.f.TempFileSet = finalFileSet
 	// TODO: finalFileSet.RegisterFile(r.f)
 }
 
@@ -179,12 +178,13 @@ func (r *fileRemapper) remapPos(pos *token.Pos) {
 
 func (r *fileRemapper) remapDecl(d ast.Decl) {
 	// Add a newline if one hasn't been added
-	if !r.tokFileGen.HadLine() {
+	/*if !r.tokFileGen.HadLine() {
+		fmt.Printf("(%d) Add Extra Lines\n", r.tokFileGen.Current()) // TODO: REMOVE
 		r.tokFileGen.Add(1)
 		r.tokFileGen.AddLine()
 		r.tokFileGen.Add(1)
 		r.tokFileGen.AddLine()
-	}
+	}*/
 
 	switch d := d.(type) {
 	case *ast.BadDecl:
@@ -204,27 +204,15 @@ func (r *fileRemapper) remapBadDecl(d *ast.BadDecl) {
 }
 
 func (r *fileRemapper) remapGenDecl(d *ast.GenDecl) {
-	if d.Doc != nil { // TODO: REMOVE
-		fmt.Printf(">> GenDecl.Doc\n") // TODO: REMOVE
-	}
 	r.remapCommentGroup(d.Doc)
 	if d.Tok != token.IMPORT {
 		// Don't bother to add info to imports
 		r.addInfo(d.Pos(), &d.Doc)
 	}
-	if d.TokPos.IsValid() { // TODO: REMOVE
-		fmt.Printf(">> GenDecl.TokPos\n") // TODO: REMOVE
-	}
 	r.remapPos(&d.TokPos)
-	if d.Lparen.IsValid() { // TODO: REMOVE
-		fmt.Printf(">> GenDecl.Lparen\n") // TODO: REMOVE
-	}
 	r.remapPos(&d.Lparen)
 	for _, s := range d.Specs {
 		r.remapSpec(s)
-	}
-	if d.Rparen.IsValid() { // TODO: REMOVE
-		fmt.Printf(">> GenDecl.Rparen\n") // TODO: REMOVE
 	}
 	r.remapPos(&d.Rparen)
 }

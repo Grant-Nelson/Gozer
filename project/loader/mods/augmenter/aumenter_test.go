@@ -224,6 +224,7 @@ func runAugTest(t testing.TB, test augTest) {
 		checkErr(t, `remap`, test, err)
 		return
 	}
+	f.TempFileSet = finalFileSet
 
 	if err := errGroup.Wrap(); err != nil {
 		checkErr(t, `accumulated error`, test, err)
