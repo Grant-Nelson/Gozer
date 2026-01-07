@@ -98,10 +98,11 @@ type loader struct {
 }
 
 func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	f, err := artifacts.Load(ld.tempFileSet, filename, src)
+	fm, err := artifacts.DefaultFileParser.Parse(ld.tempFileSet, filename, src)
 	if err != nil {
 		return nil, ld.errGroup.Fatal(err)
 	}
+	f := artifacts.NewFile(ld.tempFileSet, fm)
 
 	pkgKey := f.PackageKey()
 	pkg, exists := ld.packages[pkgKey]

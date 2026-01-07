@@ -30,9 +30,9 @@ func newPackage(pkg *artifacts.Package) *augPackage {
 	return ap
 }
 
-func (a *augPackage) AddFile(build []string, filename string, src []byte, errGroup *faults.Group) (err error) {
+func (a *augPackage) AddFile(build []string, filename string, src []byte, errGroup *faults.Group, fileParser artifacts.FileParser) (err error) {
 	defer faults.Recover(&err)
-	ar := newReader(a, errGroup, build)
+	ar := newReader(a, errGroup, build, fileParser)
 	ar.addFile(filename, src)
 	return nil
 }

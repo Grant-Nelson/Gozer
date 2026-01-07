@@ -12,9 +12,10 @@ import (
 )
 
 type Augmenter struct {
-	packages map[string]*augPackage
-	build    []string
-	pathConv PathConverter
+	fileParser artifacts.FileParser
+	packages   map[string]*augPackage
+	build      []string
+	pathConv   PathConverter
 }
 
 // PathConverter takes the given import path for a package and returns
@@ -46,11 +47,18 @@ func PathRebase(oldBase, newBase string) PathConverter {
 var _ mods.Modifier = (*Augmenter)(nil)
 var _ mods.LoadDoneExt = (*Augmenter)(nil)
 
-func New(build []string, pathConv PathConverter) *Augmenter {
+// Creates a new Modifier for augmenting Go files.
+//
+//   - The given build is the build constraints to load with.
+//   - The pathConv is the conversion from the source paths to the augmentation files' paths.
+//   - The fileParser is how files should be parsed and loaded.
+//     If nil, the default file parser in the artifacts package.
+func New(build []string, pathConv PathConverter, fileParser artifacts.FileParser) *Augmenter {
 	return &Augmenter{
-		packages: map[string]*augPackage{},
-		build:    build,
-		pathConv: pathConv,
+		fileParser: fileParser,
+		packages:   map[string]*augPackage{},
+		build:      build,
+		pathConv:   pathConv,
 	}
 }
 
@@ -100,7 +108,7 @@ func (a *Augmenter) addPackage(pkg *artifacts.Package, errGroup *faults.Group) *
 	ap := newPackage(pkg)
 	a.packages[key] = ap
 
-	ar := newReader(ap, errGroup, a.build)
+	ar := newReader(ap, errGroup, a.build, a.fileParser)
 	ar.readPackage(augPath)
 	return ap
 }

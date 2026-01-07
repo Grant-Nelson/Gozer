@@ -1,16 +1,17 @@
 package walkPos
 
 import (
+	"go/ast"
+	"go/parser"
 	"go/token"
 	"strings"
 	"testing"
 
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/google/go-cmp/cmp"
 )
 
 func Test_WalkPos_Package(t *testing.T) {
-	f := loadTest(t,
+	f, _ := loadTest(t,
 		`// comment 1`,
 		``,
 		`// comment 2`,
@@ -30,7 +31,7 @@ func Test_WalkPos_Package(t *testing.T) {
 }
 
 func Test_WalkPos_MultilineFunc(t *testing.T) {
-	f := loadTest(t,
+	f, _ := loadTest(t,
 		`package foo`,
 		`// comment 1`,
 		``,
@@ -109,7 +110,7 @@ func Test_WalkPos_MultilineFunc(t *testing.T) {
 }
 
 func Test_WalkPos_Values_Arrays(t *testing.T) {
-	f := loadTest(t,
+	f, _ := loadTest(t,
 		`package foo`,
 		``,
 		`var (`,
@@ -147,7 +148,7 @@ func Test_WalkPos_Values_Arrays(t *testing.T) {
 }
 
 func Test_WalkPos_Values_Comments(t *testing.T) {
-	f := loadTest(t,
+	f, _ := loadTest(t,
 		`package foo`,
 		``,
 		`// comment 1`,
@@ -196,7 +197,7 @@ func Test_WalkPos_Values_Comments(t *testing.T) {
 }
 
 func Test_WalkPos_Struct(t *testing.T) {
-	f := loadTest(t,
+	f, _ := loadTest(t,
 		`package foo`,
 		`// comment 1`,
 		`type Foo struct { // comment 2`,
@@ -244,7 +245,7 @@ func Test_WalkPos_Struct(t *testing.T) {
 }
 
 func Test_WalkPos_Channels(t *testing.T) {
-	f := loadTest(t,
+	f, _ := loadTest(t,
 		`package foo`,
 		`func Foo(src <-chan int, dst chan<- int, notUsed chan int) {`,
 		`	dst <- src`,
@@ -280,21 +281,25 @@ func Test_WalkPos_Channels(t *testing.T) {
 		`87:File:End`)
 }
 
-func loadTest(t testing.TB, code ...string) *artifacts.File {
+func loadTest(t testing.TB, code ...string) (*ast.File, *token.FileSet) {
 	t.Helper()
+	const mode = parser.AllErrors |
+		parser.ParseComments |
+		parser.DeclarationErrors |
+		parser.SkipObjectResolution
 	fs := token.NewFileSet()
-	f, err := artifacts.Load(fs, `test.go`, strings.Join(code, "\n"))
+	f, err := parser.ParseFile(fs, `test.go`, strings.Join(code, "\n"), mode)
 	if err != nil {
 		t.Fatalf(`failed to load test file: %v`, err)
 	}
-	return f
+	return f, fs
 }
 
-func checkWalkPos(t testing.TB, f *artifacts.File, skipFileComments bool, expLines ...string) {
+func checkWalkPos(t testing.TB, f *ast.File, skipFileComments bool, expLines ...string) {
 	t.Helper()
 	lines := []string{}
 	var prior int
-	for pt := range WalkPos(f.File, skipFileComments) {
+	for pt := range WalkPos(f, skipFileComments) {
 		if !pt.Pos.IsValid() {
 			t.Errorf("invalid position returned for %s", pt.String())
 		}

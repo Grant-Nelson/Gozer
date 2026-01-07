@@ -11,7 +11,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/filePos"
 )
 
 func Test_Add_Import(t *testing.T) {
@@ -184,28 +183,28 @@ func runAugTest(t testing.TB, test augTest) {
 	t.Helper()
 
 	tempFileSet := token.NewFileSet()
-	fm, err := artifacts.Load(tempFileSet, `original/orig.go`, []byte(test.origSrc))
+	remap := remapper.New(tempFileSet, artifacts.DefaultFileParser)
+	fm, err := remap.Parse(tempFileSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
 	}
-	fPos := filePos.New(fm.TempFileSet())
-	fPos.RegisterFile(fm)
+	f := artifacts.NewFile(tempFileSet, fm)
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, PathRebase(`original`, `base`))
+	a := New(nil, PathRebase(`original`, `base`), remap)
 
 	// Create an augmenter for a package then add the aug file to it
-	pkg := fm.Package
+	pkg := f.Package
 	ap := a.addPackage(pkg, errGroup)
-	if err := ap.AddFile(nil, `base/aug.go`, []byte(test.augSrc), errGroup); err != nil {
+	if err := ap.AddFile(nil, `base/aug.go`, []byte(test.augSrc), errGroup, remap); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}
 
 	// Perform the augmentation on the file
-	con, err := a.Modify(fm, errGroup)
+	con, err := a.Modify(f, errGroup)
 	if err != nil {
 		checkErr(t, `modify file`, test, err)
 		return
@@ -221,7 +220,7 @@ func runAugTest(t testing.TB, test augTest) {
 	}
 
 	finalFileSet := token.NewFileSet()
-	if err := remapper.Remap(fm, fPos, finalFileSet, errGroup); err != nil {
+	if err := remap.Remap(fm, finalFileSet, errGroup); err != nil {
 		checkErr(t, `remap`, test, err)
 		return
 	}
@@ -232,7 +231,7 @@ func runAugTest(t testing.TB, test augTest) {
 	}
 
 	buf := &strings.Builder{}
-	if err := remapper.Write(fm, buf); err != nil {
+	if err := remap.Write(fm, buf); err != nil {
 		t.Errorf(`failed to write result: %v`, err)
 		return
 	}

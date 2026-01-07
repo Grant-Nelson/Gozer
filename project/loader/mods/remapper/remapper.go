@@ -1,40 +1,91 @@
 package remapper
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
+	"go/printer"
 	"go/token"
+	"io"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/filePos"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/tokenFileGen"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/walkPos"
 )
 
+type FileParser interface {
+	Parse(fileSet *token.FileSet, filename string, src any) (*ast.File, error)
+}
+
+type Remapper struct {
+	fileParser FileParser
+	fPos       *filePos.FilePos
+}
+
+func New(fileSet *token.FileSet, fileParser FileParser) *Remapper {
+	return &Remapper{
+		fileParser: fileParser,
+		fPos:       filePos.New(fileSet),
+	}
+}
+
+func (r *Remapper) Parse(fileSet *token.FileSet, filename string, src any) (*ast.File, error) {
+	f, err := r.fileParser.Parse(fileSet, filename, src)
+	if err != nil {
+		return nil, err
+	}
+	r.fPos.RegisterFile(f)
+	return f, nil
+}
+
+// Write will write the modified file to the given writer.
+//
+// This will not use the error group and returns any errors that occurred.
+func (r *Remapper) Write(f *ast.File, out io.Writer) (err error) {
+	// TODO: Add a defer to catch panics from the print method (it can nil pointer deref).
+
+	cfg := &printer.Config{
+		Mode:     printer.TabIndent,
+		Tabwidth: 4,
+	}
+	return cfg.Fprint(out, r.fPos.FileSet(), f)
+}
+
+// Reload will write the file to a temporary buffer and reload it
+// with the given file set to normalize the file information.
+func (r *Remapper) Reload(f *ast.File, finalFileSet *token.FileSet) (*ast.File, error) {
+	buf := &bytes.Buffer{}
+	if err := r.Write(f, buf); err != nil {
+		return nil, err
+	}
+
+	filename := r.fPos.FileSet().Position(f.FileStart).Filename
+	return r.Parse(finalFileSet, filename, buf.Bytes())
+}
+
 // Remap will rewrite the file to a new file set to normalize the file information.
 // This is required to be done prior to writing the file so that the file
 // will output correctly.
-func Remap(f *artifacts.File, fPos *filePos.FilePos, finalFileSet *token.FileSet, errGroup *faults.Group) error {
+func (r *Remapper) Remap(f *ast.File, finalFileSet *token.FileSet, errGroup *faults.Group) error {
 
 	// TODO: Add a check if the file needs remapping before remapping.
 
-	p := f.TempFileSet().Position(f.File.FileStart)
-	oldBase := f.TempFileSet().File(f.File.FileStart).Base()
+	fsFile := r.fPos.FileSet().File(f.FileStart)
 	base := finalFileSet.Base()
-	r := &fileRemapper{
+	fr := &fileRemapper{
 		f:          f,
-		fPos:       fPos,
-		tokFileGen: tokenFileGen.New(p.Filename, base),
-		priorShift: base - oldBase,
+		fPos:       r.fPos,
+		tokFileGen: tokenFileGen.New(fsFile.Name(), base),
+		priorShift: base - fsFile.Base(),
 	}
-	r.remapFile()
-	r.finished(finalFileSet)
+	fr.remapFile()
+	fr.finished(finalFileSet)
 	return nil
 }
 
 type fileRemapper struct {
-	f          *artifacts.File
+	f          *ast.File
 	fPos       *filePos.FilePos
 	tokFileGen *tokenFileGen.TokenFileGen
 	priorShift int
@@ -50,7 +101,7 @@ func (r *fileRemapper) finished(finalFileSet *token.FileSet) {
 }
 
 func (r *fileRemapper) remapFile() {
-	file := r.f.File
+	file := r.f
 	file.FileStart = r.tokFileGen.Current()
 	r.remapCommentGroup(file.Doc)
 	r.remapPos(&file.Package)
@@ -77,7 +128,7 @@ func (r *fileRemapper) addInfo(pos token.Pos, doc **ast.CommentGroup) {
 	}
 
 	// See https://pkg.go.dev/cmd/compile#hdr-Compiler_Directives
-	p := r.f.TempFileSet().Position(pos)
+	p := r.fPos.FileSet().Position(pos)
 	text := fmt.Sprintf(`//line %s:%d:%d`, p.Filename, p.Line, p.Column)
 
 	lineCmt := &ast.Comment{

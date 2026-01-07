@@ -40,16 +40,21 @@ var (
 
 type augReader struct {
 	*augPackage
-	errGroup *faults.Group
-	build    []string
+	fileParser artifacts.FileParser
+	errGroup   *faults.Group
+	build      []string
 
 	curFile  *artifacts.File
 	addSpecs []ast.Spec
 }
 
-func newReader(pkg *augPackage, errGroup *faults.Group, build []string) *augReader {
+func newReader(pkg *augPackage, errGroup *faults.Group, build []string, fileParser artifacts.FileParser) *augReader {
+	if fileParser == nil {
+		fileParser = artifacts.DefaultFileParser
+	}
 	return &augReader{
 		augPackage: pkg,
+		fileParser: fileParser,
 		errGroup:   errGroup,
 		build:      build,
 	}
@@ -80,11 +85,12 @@ func (ar *augReader) addFile(filename string, src []byte) {
 		return
 	}
 
-	f, err := artifacts.Load(ar.pkg.TempFileSet(), filename, src)
+	af, err := ar.fileParser.Parse(ar.pkg.TempFileSet(), filename, src)
 	if err != nil {
 		ar.errGroup.Panic(err)
 		return
 	}
+	f := artifacts.NewFile(ar.pkg.TempFileSet(), af)
 
 	if !ar.shouldAdd(f) {
 		return
@@ -112,7 +118,7 @@ func (ar *augReader) shouldAdd(f *artifacts.File) bool {
 		if err != nil {
 			ar.errGroup.Panic(faults.From(ErrParsingBuildConstraints).
 				With(`error`, err).
-				With(`position`, f.TempFileSet().Position(com.Pos())))
+				With(`position`, f.TempFileSet.Position(com.Pos())))
 		}
 
 		if !exp.Eval(func(tag string) bool {

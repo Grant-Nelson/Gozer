@@ -1,16 +1,17 @@
 package filePos
 
 import (
+	"go/ast"
+	"go/parser"
 	"go/token"
 	"strings"
 	"testing"
 
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/google/go-cmp/cmp"
 )
 
 func Test_FileSet_Widths_Simple(t *testing.T) {
-	f := loadTest(t,
+	f, fs := loadTest(t,
 		`package test`, // 1 package, 9 test
 		``,
 		`import "fmt"`, // 15 import, 22 "fmt"
@@ -19,7 +20,7 @@ func Test_FileSet_Widths_Simple(t *testing.T) {
 		`	fmt.Println("Hello World")`, // 44 fmt., 48 Println, 55 (, 56 "Hello World", 69 )
 		`}`,                           // 71 }, 72 [eof]
 	)
-	fp := New(f.TempFileSet())
+	fp := New(fs)
 	fp.RegisterFile(f)
 
 	checkFileSetWidths(t, fp, 1, 8, []int{8})        // 1 package
@@ -50,14 +51,18 @@ func Test_FileSet_Widths_Simple(t *testing.T) {
 
 // TODO: Add more tests to check more of walkPos
 
-func loadTest(t testing.TB, code ...string) *artifacts.File {
+func loadTest(t testing.TB, code ...string) (*ast.File, *token.FileSet) {
 	t.Helper()
 	fs := token.NewFileSet()
-	f, err := artifacts.Load(fs, `test.go`, strings.Join(code, "\n"))
+	const mode = parser.AllErrors |
+		parser.ParseComments |
+		parser.DeclarationErrors |
+		parser.SkipObjectResolution
+	f, err := parser.ParseFile(fs, `test.go`, strings.Join(code, "\n"), mode)
 	if err != nil {
 		t.Fatalf(`failed to load test file: %v`, err)
 	}
-	return f
+	return f, fs
 }
 
 func checkFileSetWidths(t testing.TB, fp *FilePos, pos int, expTotal int, expLines []int) {

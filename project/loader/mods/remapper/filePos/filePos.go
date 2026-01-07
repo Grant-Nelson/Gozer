@@ -2,11 +2,11 @@ package filePos
 
 import (
 	"fmt"
+	"go/ast"
 	"go/token"
 	"slices"
 	"sort"
 
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/remapper/walkPos"
 )
 
@@ -97,30 +97,26 @@ func (fs *FilePos) FindNext(pos token.Pos) token.Pos {
 // RegisterFile adds the extra file information to the FileSet for the given
 // file. The file must be an unmodified or remapped file so that all the
 // positions are part of the same file entry in the FileSet.
-func (fs *FilePos) RegisterFile(f *artifacts.File) {
-	if f.Empty() {
-		return
-	}
-
-	filePos := int(f.File.FileStart)
-	fsFile := fs.fileSet.File(f.File.FileStart)
+func (fs *FilePos) RegisterFile(f *ast.File) {
+	filePos := int(f.FileStart)
+	fsFile := fs.fileSet.File(f.FileStart)
 	if fsFile == nil {
-		panic(fmt.Errorf(`failed to find fileSet file when registering %d (%s)`, filePos, f.File.Name.String()))
+		panic(fmt.Errorf(`failed to find fileSet file when registering %d (%s)`, filePos, f.Name.String()))
 	}
 	if _, exists := fs.nodePos[filePos]; exists {
-		panic(fmt.Errorf(`file for %d (%s) already registered`, filePos, f.File.Name.String()))
+		panic(fmt.Errorf(`file for %d (%s) already registered`, filePos, f.Name.String()))
 	}
 
 	var nPos []int
 	var prior int
-	for pt := range walkPos.WalkPos(f.File, false) {
+	for pt := range walkPos.WalkPos(f, false) {
 		if !pt.Pos.IsValid() {
-			panic(fmt.Errorf(`file for %d (%s) got invalid position for %s`, filePos, f.File.Name.String(), pt.String()))
+			panic(fmt.Errorf(`file for %d (%s) got invalid position for %s`, filePos, f.Name.String(), pt.String()))
 		}
 
 		pos := int(*pt.Pos)
 		if pos < prior {
-			panic(fmt.Errorf(`file for %d (%s) got bad order for prior %d and %d for %s`, filePos, f.File.Name.String(), prior, pos, pt.String()))
+			panic(fmt.Errorf(`file for %d (%s) got bad order for prior %d and %d for %s`, filePos, f.Name.String(), prior, pos, pt.String()))
 		}
 		nPos = append(nPos, pos)
 		prior = pos

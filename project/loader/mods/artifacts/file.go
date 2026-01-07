@@ -2,7 +2,6 @@ package artifacts
 
 import (
 	"go/ast"
-	"go/parser"
 	"go/token"
 	"path/filepath"
 	"strings"
@@ -14,37 +13,24 @@ type File struct {
 	// Package that this file is part of.
 	Package *Package
 
-	// tempFileSet that is associated with this file.
+	// TempFileSet that is associated with this file.
 	// This file set may be unique for this file during loading.
-	tempFileSet *token.FileSet
+	TempFileSet *token.FileSet
 
 	// File is the file's ast being modified.
 	File *ast.File
 }
 
-// New creates a new file mod.
-func New(tempFileSet *token.FileSet, file *ast.File) *File {
+// NewFile creates a new file for the modifier.
+// This will create a temporary package object for this file.
+func NewFile(tempFileSet *token.FileSet, file *ast.File) *File {
 	f := &File{
-		tempFileSet: tempFileSet,
+		TempFileSet: tempFileSet,
 		File:        file,
 	}
 	f.Package = NewPackageForFile(f)
 	return f
 }
-
-// Load will load a file using parser.ParseFile.
-func Load(fileSet *token.FileSet, filename string, src any) (*File, error) {
-	const mode = parser.AllErrors |
-		parser.ParseComments |
-		parser.DeclarationErrors |
-		parser.SkipObjectResolution
-	f, err := parser.ParseFile(fileSet, filename, src, mode)
-	return New(fileSet, f), err
-}
-
-// TempFileSet that is associated with this file.
-// This file set may be unique for this file during loading.
-func (f *File) TempFileSet() *token.FileSet { return f.tempFileSet }
 
 // PackageName is the name of the package this file belongs too.
 func (f *File) PackageName() string {
@@ -61,7 +47,7 @@ func (f *File) PackagePath() string {
 // File Path is the path to the file being modified.
 // This should be the whole path including the package import path.
 func (f *File) FilePath() string {
-	return f.tempFileSet.Position(f.File.Pos()).Filename
+	return f.TempFileSet.Position(f.File.Pos()).Filename
 }
 
 // IsTest indicates this file is part of an package test,
