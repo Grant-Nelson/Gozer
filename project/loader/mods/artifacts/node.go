@@ -48,13 +48,6 @@ func newNodeWithStackIteratorValue(stack []ast.Node, node ast.Node, closing bool
 // Nodes iterates through all the nodes in the file.
 // It moves depth first and returns a nil Node when a node is being
 // closed and all of its children have been iterated.
-func (f *File) Nodes() iterator.Iterator[*NodeIteratorValue] {
-	return Nodes(f.File)
-}
-
-// Nodes iterates through all the nodes in the file.
-// It moves depth first and returns a nil Node when a node is being
-// closed and all of its children have been iterated.
 func Nodes(node ast.Node) iterator.Iterator[*NodeIteratorValue] {
 	return func(yield func(v *NodeIteratorValue) bool) {
 		defer func() {
@@ -71,13 +64,6 @@ func Nodes(node ast.Node) iterator.Iterator[*NodeIteratorValue] {
 			return !v.Skip
 		})
 	}
-}
-
-// NodesWithStack iterates through all the nodes in the file.
-// It moves depth first and returns a nil Node when a node is being
-// closed and all of its children have been iterated.
-func (f *File) NodesWithStack() iterator.Iterator[*NodeWithStackIteratorValue] {
-	return NodesWithStack(f.File)
 }
 
 // NodesWithStack iterates through all the nodes in the file.

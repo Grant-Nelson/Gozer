@@ -40,27 +40,25 @@ var (
 
 type augReader struct {
 	*augPackage
-	fileParser artifacts.FileParser
-	errGroup   *faults.Group
-	build      []string
+	parser   artifacts.Parser
+	errGroup *faults.Group
+	build    []string
 
-	curFile  *artifacts.File
+	curFSet  *token.FileSet
+	curFile  *ast.File
 	addSpecs []ast.Spec
 }
 
-func newReader(pkg *augPackage, errGroup *faults.Group, build []string, fileParser artifacts.FileParser) *augReader {
-	if fileParser == nil {
-		fileParser = artifacts.DefaultFileParser
-	}
+func newReader(pkg *augPackage, build []string, parser artifacts.Parser, errGroup *faults.Group) *augReader {
 	return &augReader{
 		augPackage: pkg,
-		fileParser: fileParser,
+		parser:     parser,
 		errGroup:   errGroup,
 		build:      build,
 	}
 }
 
-func (ar *augReader) readPackage(dir string) {
+func (ar *augReader) readPackage(fSet *token.FileSet, dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -71,12 +69,12 @@ func (ar *augReader) readPackage(dir string) {
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			ar.addFile(entry.Name(), nil)
+			ar.addFile(fSet, entry.Name(), nil)
 		}
 	}
 }
 
-func (ar *augReader) addFile(filename string, src []byte) {
+func (ar *augReader) addFile(fSet *token.FileSet, filename string, src []byte) {
 	if filepath.Ext(filename) != `.go` {
 		return
 	}
@@ -85,40 +83,49 @@ func (ar *augReader) addFile(filename string, src []byte) {
 		return
 	}
 
-	af, err := ar.fileParser.Parse(ar.pkg.TempFileSet(), filename, src)
+	f, err := ar.parser.Parse(fSet, filename, src)
 	if err != nil {
 		ar.errGroup.Panic(err)
 		return
 	}
-	f := artifacts.NewFile(ar.pkg.TempFileSet(), af)
 
-	if !ar.shouldAdd(f) {
+	ar.curFSet = fSet
+	ar.curFile = f
+	if !ar.shouldAdd() {
 		return
 	}
-
-	ar.curFile = f
-	for _, d := range f.File.Decls {
+	for _, d := range f.Decls {
 		ar.readDecl(d)
 	}
+	ar.curFSet = nil
 	ar.curFile = nil
 }
 
-func (ar *augReader) shouldAdd(f *artifacts.File) bool {
-	if f.IsTest() != ar.pkg.IsTest() || f.IsXTest() != ar.pkg.IsXTest() {
+func (ar *augReader) pkgPath() string {
+	return artifacts.PackagePath(ar.curFSet, ar.curFile)
+}
+
+func (ar *augReader) pos(p token.Pos) token.Position {
+	return ar.curFSet.Position(p)
+}
+
+func (ar *augReader) shouldAdd() bool {
+	if artifacts.IsTest(ar.curFSet, ar.curFile) != ar.pkg.IsTest() ||
+		artifacts.IsXTest(ar.curFile) != ar.pkg.IsXTest() {
 		return false
 	}
 
 	// Check build constraints
-	if f.File.Doc == nil || len(f.File.Doc.List) <= 0 {
+	if ar.curFile.Doc == nil || len(ar.curFile.Doc.List) <= 0 {
 		return true // No build constraints
 	}
 
-	for _, com := range f.File.Doc.List {
+	for _, com := range ar.curFile.Doc.List {
 		exp, err := constraint.Parse(com.Text)
 		if err != nil {
 			ar.errGroup.Panic(faults.From(ErrParsingBuildConstraints).
 				With(`error`, err).
-				With(`position`, f.TempFileSet.Position(com.Pos())))
+				With(`position`, ar.pos(com.Pos())))
 		}
 
 		if !exp.Eval(func(tag string) bool {
@@ -128,14 +135,6 @@ func (ar *augReader) shouldAdd(f *artifacts.File) bool {
 		}
 	}
 	return true
-}
-
-func (ar *augReader) pkgPath() string {
-	return ar.curFile.PackagePath()
-}
-
-func (ar *augReader) pos(p token.Pos) token.Position {
-	return ar.pkg.TempFileSet().Position(p)
 }
 
 func (ar *augReader) readDecl(decl ast.Decl) {
@@ -171,7 +170,7 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 	case dv.Add():
 		ar.add.newDecls = append(ar.add.newDecls, fd)
 		ar.add.newDeclsComments = append(ar.add.newDeclsComments,
-			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile.File, fd)})
+			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile, fd)})
 		ar.add.beingAdded[fd.Name.Name] = fd.Pos()
 	case dv.Delete():
 		// TODO: Implement
@@ -587,7 +586,7 @@ func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
 	default:
 		ar.add.newDecls = append(ar.add.newDecls, addGen)
 		ar.add.newDeclsComments = append(ar.add.newDeclsComments,
-			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile.File, addGen)})
+			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile, addGen)})
 	}
 
 	ar.addSpecs = []ast.Spec{}

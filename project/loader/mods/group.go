@@ -1,13 +1,14 @@
 package mods
 
 import (
+	"go/ast"
+
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 type Group []Modifier
 
-func (group Group) Modify(f *artifacts.File, errGroup *faults.Group) (bool, error) {
+func (group Group) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
 	for _, mod := range group {
 		if con, err := mod.Modify(f, errGroup); err != nil || !con {
 			return false, err

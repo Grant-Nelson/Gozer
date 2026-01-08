@@ -26,7 +26,8 @@ var (
 type delHandle func(*artifacts.IdentIteratorValue, *faults.Group) (bool, error)
 
 type augDel struct {
-	fileSet    *token.FileSet
+	fSet       *token.FileSet
+	pkg        *artifacts.Package
 	delImport  map[string]bool
 	delFunc    map[string]*ast.FuncDecl
 	delVar     map[string]*ast.ValueSpec
@@ -36,8 +37,10 @@ type augDel struct {
 	delHandles []delHandle
 }
 
-func newDel() *augDel {
+func newDel(fSet *token.FileSet, pkg *artifacts.Package) *augDel {
 	a := &augDel{
+		fSet:       fSet,
+		pkg:        pkg,
 		delImport:  map[string]bool{},
 		delFunc:    map[string]*ast.FuncDecl{},
 		delVar:     map[string]*ast.ValueSpec{},
@@ -58,8 +61,8 @@ func newDel() *augDel {
 var _ mods.Modifier = (*augDel)(nil)
 var _ mods.LoadDoneExt = (*augDel)(nil)
 
-func (a *augDel) Modify(f *artifacts.File, errGroup *faults.Group) (bool, error) {
-	for it := range f.Idents() {
+func (a *augDel) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
+	for it := range artifacts.Idents(a.fSet, f) {
 		for _, handle := range a.delHandles {
 			deleted, err := handle(it, errGroup)
 			if err != nil {
@@ -85,14 +88,14 @@ func (a *augDel) tryDelFunc(it *artifacts.IdentIteratorValue, errGroup *faults.G
 	}
 	if it.FuncDecl == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotFunc).
-			With(`package path`, it.File.PackagePath()).
+			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.fileSet.Position(d.Pos())).
+			With(`augmenter pos`, a.fSet.Position(d.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
 	}
-	it.File.File.Decls[it.DeclIndex] = nil
+	it.File.Decls[it.DeclIndex] = nil
 	delete(a.delFunc, it.Ident)
 	return true, nil
 }
@@ -104,9 +107,9 @@ func (a *augDel) tryDelVar(it *artifacts.IdentIteratorValue, errGroup *faults.Gr
 	}
 	if it.ValueSpec == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotValue).
-			With(`package path`, it.File.PackagePath()).
+			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.fileSet.Position(v.Pos())).
+			With(`augmenter pos`, a.fSet.Position(v.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -126,9 +129,9 @@ func (a *augDel) tryDelType(it *artifacts.IdentIteratorValue, errGroup *faults.G
 	}
 	if it.TypeSpec == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotType).
-			With(`package path`, it.File.PackagePath()).
+			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.fileSet.Position(t.Pos())).
+			With(`augmenter pos`, it.FileSet.Position(t.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -138,17 +141,17 @@ func (a *augDel) tryDelType(it *artifacts.IdentIteratorValue, errGroup *faults.G
 	if itInter != tInter {
 		if itInter {
 			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotStruct).
-				With(`package path`, it.File.PackagePath()).
+				With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 				With(`original pos`, it.Start()).
-				With(`augmenter pos`, a.fileSet.Position(t.Pos())).
+				With(`augmenter pos`, it.FileSet.Position(t.Pos())).
 				With(`identifier`, it.Ident)); err != nil {
 				return false, err
 			}
 		} else {
 			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotInterface).
-				With(`package path`, it.File.PackagePath()).
+				With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 				With(`original pos`, it.Start()).
-				With(`augmenter pos`, a.fileSet.Position(t.Pos())).
+				With(`augmenter pos`, it.FileSet.Position(t.Pos())).
 				With(`identifier`, it.Ident)); err != nil {
 				return false, err
 			}
@@ -167,9 +170,9 @@ func (a *augDel) tryDelFields(it *artifacts.IdentIteratorValue, errGroup *faults
 	st, ok := it.TypeSpec.Type.(*ast.StructType)
 	if !ok {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotField).
-			With(`package path`, it.File.PackagePath()).
+			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.fileSet.Position(fs.Pos())).
+			With(`augmenter pos`, it.FileSet.Position(fs.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -205,9 +208,9 @@ func (a *augDel) tryDelMethods(it *artifacts.IdentIteratorValue, errGroup *fault
 	st, ok := it.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotMethod).
-			With(`package path`, it.File.PackagePath()).
+			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.fileSet.Position(ms.Pos())).
+			With(`augmenter pos`, it.FileSet.Position(ms.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}

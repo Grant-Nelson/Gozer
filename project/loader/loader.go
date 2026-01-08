@@ -52,11 +52,9 @@ type Config struct {
 func Load(cfg Config) (*project.Project, error) {
 	finalFileSet := token.NewFileSet()
 	ld := &loader{
-		packages:     map[string]*artifacts.Package{},
-		errGroup:     faults.NewGroup(-1),
-		group:        mods.Group(cfg.Modifiers),
-		tempFileSet:  token.NewFileSet(),
-		finalFileSet: token.NewFileSet(),
+		group:    mods.Group(cfg.Modifiers),
+		fSet:     token.NewFileSet(),
+		errGroup: faults.NewGroup(-1),
 	}
 	c := &packages.Config{
 		Mode:       allNeeds,
@@ -90,32 +88,18 @@ const allNeeds = packages.NeedName |
 	packages.NeedTypesInfo
 
 type loader struct {
-	packages     map[string]*artifacts.Package
-	errGroup     *faults.Group
-	group        mods.Group
-	tempFileSet  *token.FileSet
-	finalFileSet *token.FileSet
+	group    mods.Group
+	fSet     *token.FileSet
+	errGroup *faults.Group
 }
 
 func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	fm, err := artifacts.DefaultFileParser.Parse(ld.tempFileSet, filename, src)
+	f, err := artifacts.DefaultParser.Parse(ld.fSet, filename, src)
 	if err != nil {
 		return nil, ld.errGroup.Fatal(err)
 	}
-	f := artifacts.NewFile(ld.tempFileSet, fm)
-
-	pkgKey := f.PackageKey()
-	pkg, exists := ld.packages[pkgKey]
-	if exists {
-		// replace the temporary package with a shared one
-		f.Package = pkg
-	} else {
-		// use the temporary package as a shared one
-		ld.packages[pkgKey] = f.Package
-	}
-
 	if _, err := ld.group.Modify(f, ld.errGroup); err != nil {
 		return nil, err
 	}
-	return f.File, nil
+	return f, nil
 }

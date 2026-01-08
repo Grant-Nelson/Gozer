@@ -182,22 +182,21 @@ func lines(lines ...string) string {
 func runAugTest(t testing.TB, test augTest) {
 	t.Helper()
 
-	tempFileSet := token.NewFileSet()
-	fm, err := artifacts.DefaultFileParser.Parse(tempFileSet, `original/orig.go`, []byte(test.origSrc))
+	fSet := token.NewFileSet()
+	f, err := artifacts.DefaultParser.Parse(fSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
 	}
-	f := artifacts.NewFile(tempFileSet, fm)
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, PathRebase(`original`, `base`), artifacts.DefaultFileParser)
+	a := New(nil, fSet, PathRebase(`original`, `base`), artifacts.DefaultParser)
 
 	// Create an augmenter for a package then add the aug file to it
-	pkg := f.Package
+	pkg := artifacts.PackageForFile(fSet, f)
 	ap := a.addPackage(pkg, errGroup)
-	if err := ap.AddFile(nil, `base/aug.go`, []byte(test.augSrc), errGroup, artifacts.DefaultFileParser); err != nil {
+	if err := ap.AddFile(nil, fSet, artifacts.DefaultParser, `base/aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}
@@ -224,7 +223,7 @@ func runAugTest(t testing.TB, test augTest) {
 	}
 
 	buf := &strings.Builder{}
-	if err := printer.Fprint(buf, tempFileSet, fm); err != nil {
+	if err := printer.Fprint(buf, fSet, f); err != nil {
 		t.Errorf(`failed to write result: %v`, err)
 		return
 	}

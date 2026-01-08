@@ -1,6 +1,9 @@
 package artifacts
 
 import (
+	"go/ast"
+	"go/token"
+
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
 
@@ -14,9 +17,9 @@ func newIdentIteratorValue(ds *DeclSpecIteratorValue, k int, ident string) *Iden
 	return &IdentIteratorValue{DeclSpecIteratorValue: ds, ValueIndex: k, Ident: ident}
 }
 
-func (f *File) Idents() iterator.Iterator[*IdentIteratorValue] {
+func Idents(fSet *token.FileSet, f *ast.File) iterator.Iterator[*IdentIteratorValue] {
 	return func(yield func(v *IdentIteratorValue) bool) {
-		for ds := range f.DeclSpecs() {
+		for ds := range DeclSpecs(fSet, f) {
 			switch {
 			case ds.ImportSpec != nil:
 				if !yield(newIdentIteratorValue(ds, -1, ds.ImportSpec.Path.Value)) {

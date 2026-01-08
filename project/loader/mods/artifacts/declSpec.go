@@ -8,7 +8,8 @@ import (
 )
 
 type DeclSpecIteratorValue struct {
-	File       *File
+	FileSet    *token.FileSet
+	File       *ast.File
 	DeclIndex  int
 	SpecIndex  int
 	FuncDecl   *ast.FuncDecl
@@ -28,7 +29,7 @@ func (ds *DeclSpecIteratorValue) End() token.Position {
 }
 
 func (ds *DeclSpecIteratorValue) Position(pos token.Pos) token.Position {
-	return ds.File.TempFileSet.Position(pos)
+	return ds.FileSet.Position(pos)
 }
 
 func JoinComments(cgs ...*ast.CommentGroup) []*ast.Comment {
@@ -55,45 +56,45 @@ func (ds *DeclSpecIteratorValue) Comments() []*ast.Comment {
 	return nil
 }
 
-func newDeclSpecIteratorFunc(f *File, i int, d *ast.FuncDecl) *DeclSpecIteratorValue {
-	return &DeclSpecIteratorValue{File: f, DeclIndex: i, FuncDecl: d, SpecIndex: -1, Node: d}
+func newDeclSpecIteratorFunc(fSet *token.FileSet, f *ast.File, i int, d *ast.FuncDecl) *DeclSpecIteratorValue {
+	return &DeclSpecIteratorValue{FileSet: fSet, File: f, DeclIndex: i, FuncDecl: d, SpecIndex: -1, Node: d}
 }
 
-func newDeclSpecIteratorType(f *File, i, j int, d *ast.GenDecl, s *ast.TypeSpec) *DeclSpecIteratorValue {
-	return &DeclSpecIteratorValue{File: f, DeclIndex: i, SpecIndex: j, GenDecl: d, TypeSpec: s, Node: s}
+func newDeclSpecIteratorType(fSet *token.FileSet, f *ast.File, i, j int, d *ast.GenDecl, s *ast.TypeSpec) *DeclSpecIteratorValue {
+	return &DeclSpecIteratorValue{FileSet: fSet, File: f, DeclIndex: i, SpecIndex: j, GenDecl: d, TypeSpec: s, Node: s}
 }
 
-func newDeclSpecIteratorValue(f *File, i, j int, d *ast.GenDecl, s *ast.ValueSpec) *DeclSpecIteratorValue {
-	return &DeclSpecIteratorValue{File: f, DeclIndex: i, SpecIndex: j, GenDecl: d, ValueSpec: s, Node: s}
+func newDeclSpecIteratorValue(fSet *token.FileSet, f *ast.File, i, j int, d *ast.GenDecl, s *ast.ValueSpec) *DeclSpecIteratorValue {
+	return &DeclSpecIteratorValue{FileSet: fSet, File: f, DeclIndex: i, SpecIndex: j, GenDecl: d, ValueSpec: s, Node: s}
 }
 
-func newDeclSpecIteratorImport(f *File, i, j int, d *ast.GenDecl, s *ast.ImportSpec) *DeclSpecIteratorValue {
-	return &DeclSpecIteratorValue{File: f, DeclIndex: i, SpecIndex: j, GenDecl: d, ImportSpec: s, Node: s}
+func newDeclSpecIteratorImport(fSet *token.FileSet, f *ast.File, i, j int, d *ast.GenDecl, s *ast.ImportSpec) *DeclSpecIteratorValue {
+	return &DeclSpecIteratorValue{FileSet: fSet, File: f, DeclIndex: i, SpecIndex: j, GenDecl: d, ImportSpec: s, Node: s}
 }
 
 // DeclSpecs iterates through all the declarations and
 // specifications in the file.
-func (f *File) DeclSpecs() iterator.Iterator[*DeclSpecIteratorValue] {
+func DeclSpecs(fSet *token.FileSet, f *ast.File) iterator.Iterator[*DeclSpecIteratorValue] {
 	return func(yield func(v *DeclSpecIteratorValue) bool) {
-		for i, decl := range f.File.Decls {
+		for i, decl := range f.Decls {
 			switch d := decl.(type) {
 			case *ast.FuncDecl:
-				if !yield(newDeclSpecIteratorFunc(f, i, d)) {
+				if !yield(newDeclSpecIteratorFunc(fSet, f, i, d)) {
 					return
 				}
 			case *ast.GenDecl:
 				for j, spec := range d.Specs {
 					switch s := spec.(type) {
 					case *ast.ImportSpec:
-						if !yield(newDeclSpecIteratorImport(f, i, j, d, s)) {
+						if !yield(newDeclSpecIteratorImport(fSet, f, i, j, d, s)) {
 							return
 						}
 					case *ast.TypeSpec:
-						if !yield(newDeclSpecIteratorType(f, i, j, d, s)) {
+						if !yield(newDeclSpecIteratorType(fSet, f, i, j, d, s)) {
 							return
 						}
 					case *ast.ValueSpec:
-						if !yield(newDeclSpecIteratorValue(f, i, j, d, s)) {
+						if !yield(newDeclSpecIteratorValue(fSet, f, i, j, d, s)) {
 							return
 						}
 					}

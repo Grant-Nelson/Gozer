@@ -1,6 +1,8 @@
 package augmenter
 
 import (
+	"go/ast"
+	"go/token"
 	"maps"
 	"slices"
 	"sort"
@@ -12,10 +14,11 @@ import (
 )
 
 type Augmenter struct {
-	fileParser artifacts.FileParser
-	packages   map[string]*augPackage
-	build      []string
-	pathConv   PathConverter
+	build    []string
+	fSet     *token.FileSet
+	pathConv PathConverter
+	parser   artifacts.Parser
+	packages map[string]*augPackage
 }
 
 // PathConverter takes the given import path for a package and returns
@@ -51,20 +54,21 @@ var _ mods.LoadDoneExt = (*Augmenter)(nil)
 //
 //   - The given build is the build constraints to load with.
 //   - The pathConv is the conversion from the source paths to the augmentation files' paths.
-//   - The fileParser is how files should be parsed and loaded.
+//   - The parser is how files should be parsed and loaded.
 //     If nil, the default file parser in the artifacts package.
-func New(build []string, pathConv PathConverter, fileParser artifacts.FileParser) *Augmenter {
+func New(build []string, fSet *token.FileSet, pathConv PathConverter, parser artifacts.Parser) *Augmenter {
 	return &Augmenter{
-		fileParser: fileParser,
-		packages:   map[string]*augPackage{},
-		build:      build,
-		pathConv:   pathConv,
+		build:    build,
+		fSet:     fSet,
+		pathConv: pathConv,
+		parser:   parser,
+		packages: map[string]*augPackage{},
 	}
 }
 
-func (a *Augmenter) Modify(f *artifacts.File, errGroup *faults.Group) (con bool, err error) {
+func (a *Augmenter) Modify(f *ast.File, errGroup *faults.Group) (con bool, err error) {
 	defer faults.Recover(&err)
-	pkg := f.Package
+	pkg := artifacts.PackageForFile(a.fSet, f)
 	ap, exists := a.getPackage(pkg.Key())
 	if !exists {
 		ap = a.addPackage(pkg, errGroup)
@@ -105,10 +109,10 @@ func (a *Augmenter) addPackage(pkg *artifacts.Package, errGroup *faults.Group) *
 		return nil
 	}
 
-	ap := newPackage(pkg)
+	ap := newPackage(a.fSet, pkg)
 	a.packages[key] = ap
 
-	ar := newReader(ap, errGroup, a.build, a.fileParser)
-	ar.readPackage(augPath)
+	ar := newReader(ap, a.build, a.parser, errGroup)
+	ar.readPackage(a.fSet, augPath)
 	return ap
 }
