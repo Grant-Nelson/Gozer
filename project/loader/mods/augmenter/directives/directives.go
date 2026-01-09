@@ -387,7 +387,5 @@ func (mod *directiveMod) checkRemainder() {
 }
 
 func RemoveDirectives(cg *ast.CommentGroup) {
-	if cg != nil {
-		cg.List = artifacts.RemoveDirectives(cg.List, directiveGroup)
-	}
+	artifacts.RemoveDirectives(cg, directiveGroup)
 }

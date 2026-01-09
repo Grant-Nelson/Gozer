@@ -9,7 +9,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
 // TODO: Add Modifiers:
@@ -47,14 +47,23 @@ type Config struct {
 
 	// Modifiers to process each file with.
 	Modifiers []mods.Modifier
+
+	// Parser is the file parser to use.
+	// If nil, then the default parser is used.
+	Parser parser.Parser
 }
 
 func Load(cfg Config) (*project.Project, error) {
+	p := cfg.Parser
+	if p == nil {
+		p = parser.Default
+	}
 	finalFileSet := token.NewFileSet()
 	ld := &loader{
 		group:    mods.Group(cfg.Modifiers),
 		fSet:     token.NewFileSet(),
 		errGroup: faults.NewGroup(-1),
+		parser:   p,
 	}
 	c := &packages.Config{
 		Mode:       allNeeds,
@@ -91,10 +100,11 @@ type loader struct {
 	group    mods.Group
 	fSet     *token.FileSet
 	errGroup *faults.Group
+	parser   parser.Parser
 }
 
 func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*ast.File, error) {
-	f, err := artifacts.DefaultParser.Parse(ld.fSet, filename, src)
+	f, err := ld.parser(ld.fSet, filename, src)
 	if err != nil {
 		return nil, ld.errGroup.Fatal(err)
 	}

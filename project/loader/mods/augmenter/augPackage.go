@@ -6,6 +6,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
 type augPackage struct {
@@ -32,7 +33,7 @@ func newPackage(fSet *token.FileSet, pkg *artifacts.Package) *augPackage {
 	return ap
 }
 
-func (a *augPackage) AddFile(build []string, fSet *token.FileSet, parser artifacts.Parser, filename string, src []byte, errGroup *faults.Group) (err error) {
+func (a *augPackage) AddFile(build []string, fSet *token.FileSet, parser parser.Parser, filename string, src []byte, errGroup *faults.Group) (err error) {
 	defer faults.Recover(&err)
 	ar := newReader(a, build, parser, errGroup)
 	ar.addFile(fSet, filename, src)

@@ -36,7 +36,7 @@ type augAdd struct {
 	newImports       []ast.Decl
 	newImportSpecs   []*ast.ImportSpec
 	newDecls         []ast.Decl
-	newDeclsComments []*ast.CommentGroup
+	newDeclsComments [][]*ast.CommentGroup
 	newFields        map[string]*ast.StructType
 	newMethods       map[string]*ast.InterfaceType
 }
@@ -49,7 +49,7 @@ func newAdd(fSet *token.FileSet, pkg *artifacts.Package) *augAdd {
 		newImports:       []ast.Decl{},
 		newImportSpecs:   []*ast.ImportSpec{},
 		newDecls:         []ast.Decl{},
-		newDeclsComments: []*ast.CommentGroup{},
+		newDeclsComments: [][]*ast.CommentGroup{},
 		newFields:        map[string]*ast.StructType{},
 		newMethods:       map[string]*ast.InterfaceType{},
 	}
@@ -254,7 +254,7 @@ func (a *augAdd) addDecls(f *ast.File) {
 	if len(a.newDecls) > 0 {
 		for i, d := range a.newDecls {
 			f.Decls = append(f.Decls, d)
-			f.Comments = append(f.Comments, a.newDeclsComments[i])
+			f.Comments = append(f.Comments, a.newDeclsComments[i]...)
 		}
 		a.newDecls = []ast.Decl{}
 	}

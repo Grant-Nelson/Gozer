@@ -13,8 +13,9 @@ import (
 )
 
 // Test_DocAndComment checks that comments in the file are placed into expected
-// AST Doc and Comment nodes. The assumption of where they are put is used
-// during augmentation and remapping.
+// AST Doc and Comment nodes. The assumption of where comments are put is used
+// during augmentation to ensure that no important comments, like directives,
+// are lost or attached to the wrong nodes.
 func Test_DocAndComment(t *testing.T) {
 	_, f := parseFile(t, lines(
 		`// file docs`,

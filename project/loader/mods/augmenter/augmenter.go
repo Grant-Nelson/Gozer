@@ -11,13 +11,14 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
 type Augmenter struct {
 	build    []string
 	fSet     *token.FileSet
 	pathConv PathConverter
-	parser   artifacts.Parser
+	parser   parser.Parser
 	packages map[string]*augPackage
 }
 
@@ -56,7 +57,7 @@ var _ mods.LoadDoneExt = (*Augmenter)(nil)
 //   - The pathConv is the conversion from the source paths to the augmentation files' paths.
 //   - The parser is how files should be parsed and loaded.
 //     If nil, the default file parser in the artifacts package.
-func New(build []string, fSet *token.FileSet, pathConv PathConverter, parser artifacts.Parser) *Augmenter {
+func New(build []string, fSet *token.FileSet, pathConv PathConverter, parser parser.Parser) *Augmenter {
 	return &Augmenter{
 		build:    build,
 		fSet:     fSet,

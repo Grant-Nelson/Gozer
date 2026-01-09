@@ -13,6 +13,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/augmenter/directives"
+	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
 var (
@@ -40,16 +41,18 @@ var (
 
 type augReader struct {
 	*augPackage
-	parser   artifacts.Parser
+	parser   parser.Parser
 	errGroup *faults.Group
 	build    []string
 
-	curFSet  *token.FileSet
-	curFile  *ast.File
-	addSpecs []ast.Spec
+	curFSet *token.FileSet
+	curFile *ast.File
+
+	addSpecs        []ast.Spec
+	addSpecComments []*ast.CommentGroup
 }
 
-func newReader(pkg *augPackage, build []string, parser artifacts.Parser, errGroup *faults.Group) *augReader {
+func newReader(pkg *augPackage, build []string, parser parser.Parser, errGroup *faults.Group) *augReader {
 	return &augReader{
 		augPackage: pkg,
 		parser:     parser,
@@ -83,7 +86,7 @@ func (ar *augReader) addFile(fSet *token.FileSet, filename string, src []byte) {
 		return
 	}
 
-	f, err := ar.parser.Parse(fSet, filename, src)
+	f, err := ar.parser(fSet, filename, src)
 	if err != nil {
 		ar.errGroup.Panic(err)
 		return
@@ -169,8 +172,8 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 		return
 	case dv.Add():
 		ar.add.newDecls = append(ar.add.newDecls, fd)
-		ar.add.newDeclsComments = append(ar.add.newDeclsComments,
-			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile, fd)})
+		localComments := artifacts.CommentsAttachedToNode(fd)
+		ar.add.newDeclsComments = append(ar.add.newDeclsComments, localComments)
 		ar.add.beingAdded[fd.Name.Name] = fd.Pos()
 	case dv.Delete():
 		// TODO: Implement
@@ -585,8 +588,8 @@ func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
 		ar.add.newImports = append(ar.add.newImports, addGen)
 	default:
 		ar.add.newDecls = append(ar.add.newDecls, addGen)
-		ar.add.newDeclsComments = append(ar.add.newDeclsComments,
-			&ast.CommentGroup{List: artifacts.CommentsForNode(ar.curFile, addGen)})
+		localComments := artifacts.CommentsAttachedToNode(addGen)
+		ar.add.newDeclsComments = append(ar.add.newDeclsComments, localComments)
 	}
 
 	ar.addSpecs = []ast.Spec{}

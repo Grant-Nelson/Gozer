@@ -1,6 +1,7 @@
 package artifacts
 
 import (
+	"fmt"
 	"go/ast"
 	"strings"
 )
@@ -25,25 +26,46 @@ func Directives(comments []*ast.Comment, prefix string) map[string][]string {
 	return result
 }
 
-func RemoveDirectives(comments []*ast.Comment, prefix string) []*ast.Comment {
+func RemoveDirectives(cg *ast.CommentGroup, prefix string) {
+	if cg == nil || len(cg.List) <= 0 {
+		return
+	}
 	prefix = `//` + prefix + `:`
-	result := make([]*ast.Comment, 0, len(comments))
-	for _, c := range comments {
+	result := make([]*ast.Comment, 0, len(cg.List))
+	for _, c := range cg.List {
 		if !strings.HasPrefix(c.Text, prefix) {
 			result = append(result, c)
 		}
 	}
-	return result
+	cg.List = result
 }
 
-func CommentsForNode(f *ast.File, n ast.Node) []*ast.Comment {
-	comments := []*ast.Comment{}
+func CommentsAttachedToNode(n ast.Node) []*ast.CommentGroup {
+	comments := []*ast.CommentGroup{}
+	ast.Inspect(n, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case nil:
+			return true
+		case *ast.CommentGroup:
+			comments = append(comments, n)
+			return false
+		}
+		return true
+	})
+	return comments
+}
+
+func FileCommentsForNode(f *ast.File, n ast.Node) []*ast.CommentGroup {
+	comments := []*ast.CommentGroup{}
 	for _, cg := range f.Comments {
 		if cg != nil {
-			for _, c := range cg.List {
-				if c.End() > n.Pos() && c.Pos() < n.End() {
-					comments = append(comments, c)
-				}
+			fmt.Printf("::: %d > %d (%t) && %d < %d (%t) ::: %q\n",
+				cg.End(), n.Pos(), cg.End() > n.Pos(),
+				cg.Pos(), n.End(), cg.Pos() < n.End(),
+				cg.Text()) // TODO: REMOVE
+
+			if cg.End() > n.Pos() && cg.Pos() < n.End() {
+				comments = append(comments, cg)
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package augmenter
 
 import (
 	"fmt"
+	"go/ast"
 	"go/printer"
 	"go/token"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
 func Test_Add_Import(t *testing.T) {
@@ -29,7 +31,6 @@ func Test_Add_Import(t *testing.T) {
 			``,
 			`import "fmt"`,
 			``,
-			`//line original/orig.go:3:1`,
 			`type Foo struct{}`),
 	})
 }
@@ -55,10 +56,10 @@ func Test_Add_Import_Specs(t *testing.T) {
 			``,
 			`import (`,
 			`	"fmt"`,
+			``,
 			`	gg "log"`,
 			`)`,
 			``,
-			`//line original/orig.go:3:1`,
 			`type Foo struct{}`,
 			``,
 			`type Bar struct{}`),
@@ -85,8 +86,6 @@ func Test_Add_WholeType(t *testing.T) {
 			`type Foo struct{}`,
 			``,
 			`// Bar is being added.`,
-			`//`,
-			`//line base/aug.go:5:1`,
 			`type Bar struct{}`),
 	})
 }
@@ -183,7 +182,7 @@ func runAugTest(t testing.TB, test augTest) {
 	t.Helper()
 
 	fSet := token.NewFileSet()
-	f, err := artifacts.DefaultParser.Parse(fSet, `original/orig.go`, []byte(test.origSrc))
+	f, err := parser.Default(fSet, `original/orig.go`, []byte(test.origSrc))
 	if err != nil {
 		t.Errorf(`failed to load origin file: %v`, err)
 		return
@@ -191,12 +190,12 @@ func runAugTest(t testing.TB, test augTest) {
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, fSet, PathRebase(`original`, `base`), artifacts.DefaultParser)
+	a := New(nil, fSet, PathRebase(`original`, `base`), parser.Default)
 
 	// Create an augmenter for a package then add the aug file to it
 	pkg := artifacts.PackageForFile(fSet, f)
 	ap := a.addPackage(pkg, errGroup)
-	if err := ap.AddFile(nil, fSet, artifacts.DefaultParser, `base/aug.go`, []byte(test.augSrc), errGroup); err != nil {
+	if err := ap.AddFile(nil, fSet, parser.Default, `base/aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}
@@ -233,6 +232,12 @@ func runAugTest(t testing.TB, test augTest) {
 		t.Logf("Got:\n%s\n", got)
 		t.Errorf("resulting source didn't match expected:\n%s", diff)
 		return
+	}
+
+	if t.Failed() {
+		buf := &strings.Builder{}
+		ast.Fprint(buf, fSet, f, nil)
+		fmt.Println(buf.String())
 	}
 }
 
