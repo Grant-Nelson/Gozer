@@ -7,6 +7,8 @@ import (
 	"go/token"
 	"iter"
 	"reflect"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -39,12 +41,6 @@ func WalkPos(node ast.Node, skipFileComments bool) iter.Seq[PosTuple] {
 	}
 }
 
-type PosTuple struct {
-	Node ast.Node
-	Pos  *token.Pos
-	Name string
-}
-
 type posVisitor func(pt PosTuple) bool
 
 type posWalker struct {
@@ -66,37 +62,69 @@ type posWalker struct {
 	handled map[*token.Pos]struct{}
 }
 
-func (pt PosTuple) String() string {
-	typStr := fmt.Sprintf("%T", pt.Node)
-	typStr = strings.TrimPrefix(typStr, `*ast.`)
-	return fmt.Sprintf("%d:%s:%v", *pt.Pos, typStr, pt.Name)
+type PosTuple struct {
+	Node  ast.Node
+	Pos   *token.Pos
+	Width int
+	Text  string
+	Id    string
+}
+
+func (pt *PosTuple) String() string {
+	id := pt.Id
+	if !strings.Contains(id, `.`) {
+		typStr := fmt.Sprintf("%T", pt.Node)
+		typStr = strings.TrimPrefix(typStr, `*ast.`)
+		id = typStr + `.` + id
+	}
+	text := ``
+	if len(pt.Text) > 0 {
+		text = strconv.Quote(pt.Text)
+	}
+	return fmt.Sprintf("%d:%v:%d%s", *pt.Pos, id, pt.Width, text)
+}
+
+func newPosTuple(n ast.Node, pos *token.Pos, text string, width int, id string) *PosTuple {
+	if pos.IsValid() {
+		return &PosTuple{
+			Node:  n,
+			Pos:   pos,
+			Width: width,
+			Text:  text,
+			Id:    id,
+		}
+	}
+	return nil
+}
+
+func commentTuple(c *ast.Comment, id string) *PosTuple {
+	return newPosTuple(c, &c.Slash, c.Text, len(c.Text), id)
+}
+
+func tokTuple(n ast.Node, pos *token.Pos, tok token.Token, id string) *PosTuple {
+	return newPosTuple(n, pos, tok.String(), len(tok.String()), id)
+}
+
+func appendTuple(frame []*PosTuple, pt *PosTuple) []*PosTuple {
+	if pt != nil {
+		return append(frame, pt)
+	}
+	return frame
 }
 
 func (p *posWalker) push(frame []*PosTuple) {
 	p.zipStack = append(p.zipStack, frame)
 }
 
-func (p *posWalker) pushSingle(n ast.Node, pos *token.Pos) {
-	var frame []*PosTuple
-	if pos.IsValid() {
-		pt := &PosTuple{
-			Node: n,
-			Pos:  pos,
-		}
-		frame = append(frame, pt)
-	}
-	p.push(frame)
+func (p *posWalker) pushTuple(pt *PosTuple) {
+	p.push(appendTuple(nil, pt))
 }
 
-func (p *posWalker) pushComments(cg *ast.CommentGroup, name string) {
-	frame := []*PosTuple{}
+func (p *posWalker) pushComments(cg *ast.CommentGroup, id string) {
+	var frame []*PosTuple
 	if cg != nil {
-		for _, comment := range cg.List {
-			frame = append(frame, &PosTuple{
-				Node: comment,
-				Pos:  &comment.Slash,
-				Name: name,
-			})
+		for _, c := range cg.List {
+			frame = appendTuple(frame, commentTuple(c, id))
 		}
 	}
 	p.push(frame)
@@ -139,15 +167,12 @@ func (p *posWalker) setAsHandled(pos *token.Pos) {
 	p.handled[pos] = struct{}{}
 }
 
-func (p *posWalker) visit(n ast.Node, pos *token.Pos, name string) {
-	if !pos.IsValid() {
-		return
-	}
-	p.visitTuple(&PosTuple{
-		Node: n,
-		Pos:  pos,
-		Name: name,
-	})
+func (p *posWalker) visit(n ast.Node, pos *token.Pos, text string, width int, id string) {
+	p.visitTuple(newPosTuple(n, pos, text, width, id))
+}
+
+func (p *posWalker) visitTok(n ast.Node, pos *token.Pos, tok token.Token, id string) {
+	p.visitTuple(tokTuple(n, pos, tok, id))
 }
 
 func (p *posWalker) visitPending(next token.Pos) bool {
@@ -166,6 +191,10 @@ func (p *posWalker) visitPending(next token.Pos) bool {
 }
 
 func (p *posWalker) visitTuple(pt *PosTuple) {
+	if pt == nil {
+		return
+	}
+
 	// Zip in all pending posTuples that come before `off`.
 	for p.visitPending(*pt.Pos) {
 		// Do Nothing
@@ -188,11 +217,19 @@ func walkPosList[N ast.Node](p *posWalker, list []N) {
 	}
 }
 
-func (p *posWalker) walkComment(cg *ast.CommentGroup, name string) {
+func (p *posWalker) walkComment(cg *ast.CommentGroup, id string) {
 	if cg != nil {
 		for _, c := range cg.List {
-			p.visit(c, &c.Slash, name)
+			p.visit(c, &c.Slash, c.Text, len(c.Text), id)
 		}
+	}
+}
+
+func (p *posWalker) walkFieldList(n *ast.FieldList, opening, closing token.Token) {
+	if n != nil {
+		p.visitTok(n, &n.Opening, opening, `Opening`)
+		walkPosList(p, n.List)
+		p.visitTok(n, &n.Closing, closing, `Closing`)
 	}
 }
 
@@ -205,10 +242,10 @@ func (p *posWalker) walk(node ast.Node) {
 
 	// ======[ Comments ]======
 	case *ast.Comment:
-		p.visit(n, &n.Slash, `Slash`)
+		p.visitTuple(commentTuple(n, `X.Comment`))
 
 	case *ast.CommentGroup:
-		walkPosList(p, n.List)
+		p.walkComment(n, `X.Comment`)
 
 	// ======[ Fields ]======
 	case *ast.Field:
@@ -220,24 +257,22 @@ func (p *posWalker) walk(node ast.Node) {
 		p.pop()
 
 	case *ast.FieldList:
-		p.visit(n, &n.Opening, `Opening`)
-		walkPosList(p, n.List)
-		p.visit(n, &n.Closing, `Closing`)
+		p.walkFieldList(n, token.LPAREN, token.RPAREN)
 
 	// ======[ Expressions ]======
 	case *ast.BadExpr:
-		p.visit(n, &n.From, `From`)
-		p.visit(n, &n.To, `To`)
+		p.visit(n, &n.From, ``, int(n.To)-int(n.From), `From`)
+		p.visit(n, &n.To, ``, 0, `To`)
 
 	case *ast.Ident:
-		p.visit(n, &n.NamePos, n.Name)
+		p.visit(n, &n.NamePos, n.Name, len(n.Name), `Name`)
 
 	case *ast.Ellipsis:
-		p.visit(n, &n.Ellipsis, `Ellipsis`)
+		p.visitTok(n, &n.Ellipsis, token.ELLIPSIS, `X.Ellipsis`)
 		p.walk(n.Elt)
 
 	case *ast.BasicLit:
-		p.visit(n, &n.ValuePos, `ValuePos`)
+		p.visit(n, &n.ValuePos, n.Value, len(n.Value), `Value`)
 
 	case *ast.FuncLit:
 		p.walk(n.Type)
@@ -245,14 +280,14 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.CompositeLit:
 		p.walk(n.Type)
-		p.visit(n, &n.Lbrace, `LeftBrace`)
+		p.visitTok(n, &n.Lbrace, token.LBRACE, `Lbrace`)
 		walkPosList(p, n.Elts)
-		p.visit(n, &n.Rbrace, `RightBrace`)
+		p.visitTok(n, &n.Rbrace, token.RBRACE, `Rbrace`)
 
 	case *ast.ParenExpr:
-		p.visit(n, &n.Lparen, `LeftParen`)
+		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
 		p.walk(n.X)
-		p.visit(n, &n.Rparen, `RightParen`)
+		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
 	case *ast.SelectorExpr:
 		p.walk(n.X)
@@ -260,101 +295,109 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.IndexExpr:
 		p.walk(n.X)
-		p.visit(n, &n.Lbrack, `LeftBrace`)
+		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
 		p.walk(n.Index)
-		p.visit(n, &n.Rbrack, `RightBrace`)
+		p.visitTok(n, &n.Rbrack, token.RBRACK, `Rbrack`)
 
 	case *ast.IndexListExpr:
 		p.walk(n.X)
-		p.visit(n, &n.Lbrack, `LeftBrace`)
+		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
 		walkPosList(p, n.Indices)
-		p.visit(n, &n.Rbrack, `RightBrace`)
+		p.visitTok(n, &n.Rbrack, token.RBRACK, `Rbrack`)
 
 	case *ast.SliceExpr:
 		p.walk(n.X)
-		p.visit(n, &n.Lbrack, `LeftBracket`)
+		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
 		p.walk(n.Low)
 		p.walk(n.High)
 		p.walk(n.Max)
-		p.visit(n, &n.Rbrack, `RightBracket`)
+		p.visitTok(n, &n.Rbrack, token.RBRACK, `Rbrack`)
 
 	case *ast.TypeAssertExpr:
 		p.walk(n.X)
-		p.visit(n, &n.Lparen, `LeftParen`)
+		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
 		p.walk(n.Type)
-		p.visit(n, &n.Rparen, `RightParen`)
+		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
 	case *ast.CallExpr:
 		p.walk(n.Fun)
-		p.visit(n, &n.Lparen, `LeftParen`)
-		p.pushSingle(n, &n.Ellipsis)
+		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
+		p.pushTuple(tokTuple(n, &n.Ellipsis, token.ELLIPSIS, `CallExpr.Ellipsis`))
 		walkPosList(p, n.Args)
-		p.visit(n, &n.Rparen, `RightParen`)
 		p.pop()
+		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
 	case *ast.StarExpr:
-		p.visit(n, &n.Star, `Star`)
+		p.visitTok(n, &n.Star, token.MUL, `Star`)
 		p.walk(n.X)
 
 	case *ast.UnaryExpr:
-		p.visit(n, &n.OpPos, n.Op.String())
+		p.visitTok(n, &n.OpPos, n.Op, `Op`)
 		p.walk(n.X)
 
 	case *ast.BinaryExpr:
 		p.walk(n.X)
-		p.visit(n, &n.OpPos, n.Op.String())
+		p.visitTok(n, &n.OpPos, n.Op, `Op`)
 		p.walk(n.Y)
 
 	case *ast.KeyValueExpr:
 		p.walk(n.Key)
-		p.visit(n, &n.Colon, `Colon`)
+		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
 		p.walk(n.Value)
 
 	// ======[ Types ]======
 	case *ast.ArrayType:
-		p.visit(n, &n.Lbrack, `LeftBracket`)
+		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
 		p.walk(n.Len)
 		// There is no Rbrack
 		p.walk(n.Elt)
 
 	case *ast.StructType:
-		p.visit(n, &n.Struct, `Struct`)
-		p.walk(n.Fields)
+		p.visitTok(n, &n.Struct, token.STRUCT, `Struct`)
+		p.walkFieldList(n.Fields, token.LBRACE, token.RBRACE)
 
 	case *ast.FuncType:
-		p.visit(n, &n.Func, `Func`)
-		p.walk(n.TypeParams)
-		p.walk(n.Params)
-		p.walk(n.Results)
+		p.visitTok(n, &n.Func, token.FUNC, `Func`)
+		p.walkFieldList(n.TypeParams, token.LBRACK, token.RBRACK)
+		p.walkFieldList(n.Params, token.LPAREN, token.RPAREN)
+		p.walkFieldList(n.Results, token.LPAREN, token.RPAREN)
 
 	case *ast.InterfaceType:
-		p.visit(n, &n.Interface, `Interface`)
-		p.walk(n.Methods)
+		p.visitTok(n, &n.Interface, token.INTERFACE, `Interface`)
+		p.walkFieldList(n.Methods, token.LBRACE, token.RBRACE)
 
 	case *ast.MapType:
-		p.visit(n, &n.Map, `Map`)
+		p.visitTok(n, &n.Map, token.MAP, `Map`)
 		p.walk(n.Key)
 		p.walk(n.Value)
 
 	case *ast.ChanType:
-		p.visit(n, &n.Begin, `Begin`)
-		p.visit(n, &n.Arrow, `Arrow`)
+		if n.Begin == n.Arrow {
+			p.visit(n, &n.Arrow, ``, 0, `ArrowChan.Arrow`)
+			text := token.ARROW.String() + token.CHAN.String()
+			p.visit(n, &n.Begin, text, len(text), `ArrowChan.Chan`)
+		} else if n.Arrow.IsValid() {
+			p.visitTok(n, &n.Begin, token.CHAN, `ChanArrow.Chan`)
+			p.visitTok(n, &n.Arrow, token.ARROW, `ChanArrow.Arrow`)
+		} else {
+			p.visitTok(n, &n.Begin, token.CHAN, `Chan.Chan`)
+		}
 		p.walk(n.Value)
 
 	// ======[ Statements ]======
 	case *ast.BadStmt:
-		p.visit(n, &n.From, `From`)
-		p.visit(n, &n.To, `To`)
+		p.visit(n, &n.From, ``, int(n.To)-int(n.From), `From`)
+		p.visit(n, &n.To, ``, 0, `To`)
 
 	case *ast.DeclStmt:
 		p.walk(n.Decl)
 
 	case *ast.EmptyStmt:
-		p.visit(n, &n.Semicolon, `Semicolon`)
+		p.visitTok(n, &n.Semicolon, token.SEMICOLON, `Semicolon`)
 
 	case *ast.LabeledStmt:
 		p.walk(n.Label)
-		p.visit(n, &n.Colon, `Colon`)
+		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
 		p.walk(n.Stmt)
 
 	case *ast.ExprStmt:
@@ -362,87 +405,87 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.SendStmt:
 		p.walk(n.Chan)
-		p.visit(n, &n.Arrow, `Arrow`)
+		p.visitTok(n, &n.Arrow, token.ARROW, `Arrow`)
 		p.walk(n.Value)
 
 	case *ast.IncDecStmt:
 		p.walk(n.X)
-		p.visit(n, &n.TokPos, n.Tok.String())
+		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 
 	case *ast.AssignStmt:
 		walkPosList(p, n.Lhs)
-		p.visit(n, &n.TokPos, n.Tok.String())
+		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 		walkPosList(p, n.Rhs)
 
 	case *ast.GoStmt:
-		p.visit(n, &n.Go, `Go`)
+		p.visitTok(n, &n.Go, token.GO, `Go`)
 		p.walk(n.Call)
 
 	case *ast.DeferStmt:
-		p.visit(n, &n.Defer, `Defer`)
+		p.visitTok(n, &n.Defer, token.DEFER, `Defer`)
 		p.walk(n.Call)
 
 	case *ast.ReturnStmt:
-		p.visit(n, &n.Return, `Return`)
+		p.visitTok(n, &n.Return, token.RETURN, `Return`)
 		walkPosList(p, n.Results)
 
 	case *ast.BranchStmt:
-		p.visit(n, &n.TokPos, n.Tok.String())
+		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 		p.walk(n.Label)
 
 	case *ast.BlockStmt:
-		p.visit(n, &n.Lbrace, `LeftBrace`)
+		p.visitTok(n, &n.Lbrace, token.LBRACE, `Lbrace`)
 		walkPosList(p, n.List)
-		p.visit(n, &n.Rbrace, `RightBrace`)
+		p.visitTok(n, &n.Rbrace, token.RBRACE, `Rbrace`)
 
 	case *ast.IfStmt:
-		p.visit(n, &n.If, `If`)
+		p.visitTok(n, &n.If, token.IF, `If`)
 		p.walk(n.Init)
 		p.walk(n.Cond)
 		p.walk(n.Body)
 		p.walk(n.Else)
 
 	case *ast.CaseClause:
-		p.visit(n, &n.Case, `Case`)
+		p.visitTok(n, &n.Case, token.CASE, `Case`)
 		walkPosList(p, n.List)
-		p.visit(n, &n.Colon, `Colon`)
+		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
 		walkPosList(p, n.Body)
 
 	case *ast.SwitchStmt:
-		p.visit(n, &n.Switch, `Switch`)
+		p.visitTok(n, &n.Switch, token.SWITCH, `Switch`)
 		p.walk(n.Init)
 		p.walk(n.Tag)
 		p.walk(n.Body)
 
 	case *ast.TypeSwitchStmt:
-		p.visit(n, &n.Switch, `Switch`)
+		p.visitTok(n, &n.Switch, token.SWITCH, `Switch`)
 		p.walk(n.Init)
 		p.walk(n.Assign)
 		p.walk(n.Body)
 
 	case *ast.CommClause:
-		p.visit(n, &n.Case, `Case`)
+		p.visitTok(n, &n.Case, token.CASE, `Case`)
 		p.walk(n.Comm)
-		p.visit(n, &n.Colon, `Colon`)
+		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
 		walkPosList(p, n.Body)
 
 	case *ast.SelectStmt:
-		p.visit(n, &n.Select, `Select`)
+		p.visitTok(n, &n.Select, token.SELECT, `Select`)
 		p.walk(n.Body)
 
 	case *ast.ForStmt:
-		p.visit(n, &n.For, `ForStmt.For`)
+		p.visitTok(n, &n.For, token.FOR, `For`)
 		p.walk(n.Init)
 		p.walk(n.Cond)
 		p.walk(n.Post)
 		p.walk(n.Body)
 
 	case *ast.RangeStmt:
-		p.visit(n, &n.For, `For`)
+		p.visitTok(n, &n.For, token.FOR, `For`)
 		p.walk(n.Key)
 		p.walk(n.Value)
-		p.visit(n, &n.TokPos, n.Tok.String())
-		p.visit(n, &n.Range, `Range`)
+		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
+		p.visitTok(n, &n.Range, token.RANGE, `Range`)
 		p.walk(n.X)
 		p.walk(n.Body)
 
@@ -453,7 +496,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.walk(n.Name)
 		p.walk(n.Path)
 		p.pop()
-		p.visit(n, &n.EndPos, `EndPos`)
+		p.visit(n, &n.EndPos, ``, 0, `EndPos`)
 
 	case *ast.ValueSpec:
 		p.pushComments(n.Comment, `ValueSpec.Comment`)
@@ -467,43 +510,43 @@ func (p *posWalker) walk(node ast.Node) {
 		p.pushComments(n.Comment, `TypeSpec.Comment`)
 		p.walkComment(n.Doc, `TypeSpec.Doc`)
 		p.walk(n.Name)
-		p.walk(n.TypeParams)
-		p.visit(n, &n.Assign, `Assign`)
+		p.walkFieldList(n.TypeParams, token.LBRACK, token.RBRACK)
+		p.visitTok(n, &n.Assign, token.EQL, `Assign`)
 		p.walk(n.Type)
 		p.pop()
 
 	case *ast.BadDecl:
-		p.visit(n, &n.From, `From`)
-		p.visit(n, &n.To, `To`)
+		p.visit(n, &n.From, ``, int(n.To)-int(n.From), `From`)
+		p.visit(n, &n.To, ``, 0, `To`)
 
 	case *ast.GenDecl:
 		p.walkComment(n.Doc, `GenDecl.Doc`)
-		p.visit(n, &n.TokPos, n.Tok.String()+`.Pos`)
-		p.visit(n, &n.Lparen, n.Tok.String()+`.LeftParen`)
+		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
+		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
 		walkPosList(p, n.Specs)
-		p.visit(n, &n.Rparen, n.Tok.String()+`.RightParen`)
+		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
 	case *ast.FuncDecl:
 		p.walkComment(n.Doc, `FuncDecl.Doc`)
 		// handle FuncType uniquely here to get the name in the correct order.
-		p.visit(n, &n.Type.Func, `Func`)
-		p.walk(n.Recv)
+		p.visitTok(n.Type, &n.Type.Func, token.FUNC, `Func`)
+		p.walkFieldList(n.Recv, token.LPAREN, token.RPAREN)
 		p.walk(n.Name)
-		p.walk(n.Type.TypeParams)
-		p.walk(n.Type.Params)
-		p.walk(n.Type.Results)
+		p.walkFieldList(n.Type.TypeParams, token.LBRACK, token.RBRACK)
+		p.walkFieldList(n.Type.Params, token.LPAREN, token.RPAREN)
+		p.walkFieldList(n.Type.Results, token.LPAREN, token.RPAREN)
 		p.walk(n.Body)
 
 	// ======[ Files ]======
 	case *ast.File:
-		p.visit(n, &n.FileStart, `Start`)
+		p.visit(n, &n.FileStart, ``, 0, `Start`)
 		if !p.skipFileComments {
-			for i := len(n.Comments) - 1; i >= 0; i-- {
-				p.pushComments(n.Comments[i], `File.Comment`)
+			for _, c := range slices.Backward(n.Comments) {
+				p.pushComments(c, `File.Comment`)
 			}
 		}
 		p.walkComment(n.Doc, `File.Doc`)
-		p.visit(n, &n.Package, `Package`)
+		p.visitTok(n, &n.Package, token.PACKAGE, `Package`)
 		p.walk(n.Name)
 		walkPosList(p, n.Decls)
 		if !p.skipFileComments {
@@ -511,7 +554,7 @@ func (p *posWalker) walk(node ast.Node) {
 				p.pop()
 			}
 		}
-		p.visit(n, &n.FileEnd, `End`)
+		p.visit(n, &n.FileEnd, ``, 0, `End`)
 
 	default:
 		panic(fmt.Errorf(`unexpected node in mapPos: (%[1]T) %[1]v`, n))

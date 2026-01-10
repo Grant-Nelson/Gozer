@@ -27,6 +27,8 @@ type fileData struct {
 }
 
 type posData struct {
+	width int
+
 	lines []int
 
 	tail []int
@@ -35,7 +37,7 @@ type posData struct {
 func createFileData(fs *token.File, f *ast.File) *fileData {
 	fd := &fileData{fs: fs}
 	fd.collectPosOrder(f)
-	fd.populatePosData()
+	fd.populatePosLines()
 
 	// TODO: Finish
 
@@ -80,31 +82,29 @@ func (fd *fileData) FindNext(pos token.Pos) token.Pos {
 	return token.Pos(fd.posOrder[next])
 }
 
-func (fd *fileData) populatePosData() {
+func (fd *fileData) populatePosLines() {
 	fd.posData = make(map[int]*posData, len(fd.posOrder))
-	for _, pos := range fd.posOrder[1:] {
-		lines := fd.measureLines(token.Pos(pos))
+
+	pos := fd.posOrder[0]
+	startLine := fd.fs.Line(token.Pos(pos))
+	for _, next := range fd.posOrder[1:] {
+		endLine := fd.fs.Line(token.Pos(next))
+		lines := fd.measureLines(pos, next, startLine, endLine)
 		fd.posData[pos] = &posData{
 			lines: lines,
 		}
+		pos, startLine = next, endLine
+	}
+
+	// Add one for the EOF position.
+	fd.posData[pos] = &posData{
+		lines: []int{},
+		tail:  []int{},
 	}
 }
 
 // measureLines measures the lines between the given pos and the prior pos.
-//
-// TODO: Update this method to make it do less work. The pos, startLine,
-// and others could be used in the next call since the given pos should
-// be called in order.
-func (fd *fileData) measureLines(pos token.Pos) []int {
-	next := fd.FindNext(pos)
-	if next <= pos {
-		// This occurs when pos is the eof.
-		return []int{0}
-	}
-
-	startLine := fd.fs.Line(pos)
-	endLine := fd.fs.Line(next)
-
+func (fd *fileData) measureLines(pos, next, startLine, endLine int) []int {
 	lines := []int{}
 	line := int(fd.fs.LineStart(startLine))
 	startCol := int(pos) - line
@@ -114,6 +114,5 @@ func (fd *fileData) measureLines(pos token.Pos) []int {
 		startCol = 0
 		line = cur
 	}
-	lines = append(lines, int(next)-line-startCol)
-	return lines
+	return append(lines, int(next)-line-startCol)
 }
