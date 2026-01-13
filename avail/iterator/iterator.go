@@ -1,6 +1,7 @@
 package iterator
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"slices"
@@ -471,8 +472,8 @@ func Aggregate[T1, T2 any](it Iterator[T1], init T2, ag func(T1, T2) T2) T2 {
 //
 // For example the reduction function could be `max` or `min` to get the
 // maximum or minimum value of all the values in the iterator.
-func Reduce[T1 any](it Iterator[T1], r func(T1, T1) T1) T1 {
-	var cur T1
+func Reduce[T any](it Iterator[T], r func(T, T) T) T {
+	var cur T
 	first := true
 	for v := range it {
 		if first {
@@ -483,4 +484,59 @@ func Reduce[T1 any](it Iterator[T1], r func(T1, T1) T1) T1 {
 		cur = r(v, cur)
 	}
 	return cur
+}
+
+// ErrIterationAlreadyDone is an error panicked when something is trying
+// to be done to an iterator after it has already finished, such as
+// trying to push back a value after the iteration finished.
+var ErrIterationAlreadyDone = errors.New(`iteration already done`)
+
+// PushBack will return a function to push values back into the iteration
+// and the iterator to read values from the given iterator and any value
+// that was pushed back into the iteration.
+// Any value pushed back will be LIFO and outputted before reading another
+// value off of the given iterator.
+// This is not thread safe, however value may be pushed back during iteration
+// up until the iteration has ended.
+func PushBack[T any](it Iterator[T]) (func(value T), Iterator[T]) {
+	var (
+		stack []T
+		zero  T
+		done  = false
+	)
+
+	pushBack := func(value T) {
+		if done {
+			panic(ErrIterationAlreadyDone)
+		}
+		stack = append(stack, value)
+	}
+
+	iterStack := func(yield func(T) bool) bool {
+		for len(stack) > 0 {
+			top := len(stack) - 1
+			v := stack[top]
+			stack[top] = zero
+			stack = stack[:top]
+			if !yield(v) {
+				return false
+			}
+		}
+		return true
+	}
+
+	return pushBack, func(yield func(T) bool) {
+		if !iterStack(yield) {
+			done = true
+			stack = nil
+			return
+		}
+		for v := range it {
+			if !yield(v) || !iterStack(yield) {
+				break
+			}
+		}
+		done = true
+		stack = nil
+	}
 }

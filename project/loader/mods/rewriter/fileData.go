@@ -1,12 +1,11 @@
 package rewriter
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
-	"slices"
 	"sort"
 
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
@@ -27,20 +26,34 @@ type fileData struct {
 }
 
 type posData struct {
+	// The total number of characters this pos data covers including
+	// all tailing white space. The sum of the widths in [lines] should
+	// be equal to this total.
+	total int
+
+	// The total number of characters this pos data covers, not including
+	// any tailing white space. This is the initial size of the token
+	// when the file was read. If the token is changed, such as renaming a
+	// method, this width and the [lines] helps determine how much tailing
+	// whitespace to put after the new token.
 	width int
 
+	// lines represents the size of lines that this pos data covers.
+	// The first value is the width to add to the current line.
+	// All following lines indicate there is a newline at the end of the
+	// prior line and then how much of the new line width is used.
+	// If there is a newline at the end of a line but the pos data ends
+	// at that newline, the following line will be 0.
 	lines []int
-
-	tail []int
 }
 
 func createFileData(fs *token.File, f *ast.File) *fileData {
-	fd := &fileData{fs: fs}
+	fd := &fileData{
+		fs:      fs,
+		posData: map[int]*posData{},
+	}
 	fd.collectPosOrder(f)
 	fd.populatePosLines()
-
-	// TODO: Finish
-
 	return fd
 }
 
@@ -49,58 +62,70 @@ func (fd *fileData) collectPosOrder(f *ast.File) {
 	var prior int
 	for pt := range artifacts.WalkPos(f, false) {
 		if !pt.Pos.IsValid() {
-			panic(fmt.Errorf(`file for %d (%s) got invalid position for %s`, fd.fs.Base(), f.Name.String(), pt.String()))
+			panic(faults.New(`walking a file returned an invalid position`).
+				With(`file base`, fd.fs.Base()).
+				With(`file path`, artifacts.FilePath(fd.fs, f)).
+				With(`position tuple`, pt.String()))
 		}
+
 		pos := int(*pt.Pos)
 		if pos < prior {
-			panic(fmt.Errorf(`file for %d (%s) got bad order for prior %d and %d for %s`, fd.fs.Base(), f.Name.String(), prior, pos, pt.String()))
+			panic(faults.New(`walking a file returned positions in wrong order`).
+				With(`file base`, fd.fs.Base()).
+				With(`file path`, artifacts.FilePath(fd.fs, f)).
+				With(`prior position`, prior).
+				With(`current position`, pos).
+				With(`position tuple`, pt.String()))
 		}
-		nodePos = append(nodePos, pos)
+
+		pd, has := fd.posData[pos]
+		if !has {
+			nodePos = append(nodePos, pos)
+			fd.posData[pos] = &posData{width: pt.Width}
+		} else {
+			if pd.width != 0 && pt.Width != 0 {
+				panic(faults.New(`walking a file got duplicate position with more than one non-zero width`).
+					With(`file base`, fd.fs.Base()).
+					With(`file path`, artifacts.FilePath(fd.fs, f)).
+					With(`position`, pos).
+					With(`prior width`, pd.width).
+					With(`current width`, pt.Width).
+					With(`position tuple`, pt.String()))
+			}
+			pd.width = max(pd.width, pt.Width)
+		}
+
 		prior = pos
 	}
-
-	// The nodes should already be in sorted order, but double check to be safe.
-	// Also remove duplicates if any exist since FileStart may be the same as another position.
-	sort.Ints(nodePos)
-	nodePos = slices.Compact(nodePos)
-
 	fd.posOrder = nodePos
 }
 
-func (fd *fileData) FindPrevious(pos token.Pos) token.Pos {
-	if prev := sort.SearchInts(fd.posOrder, int(pos)) - 1; prev > 0 {
-		return token.Pos(fd.posOrder[prev])
+func (fd *fileData) getPosData(pos int) *posData {
+	pd, has := fd.posData[int(pos)]
+	if !has {
+		panic(faults.New(`failed to find the position in the pos data`).
+			With(`file base`, fd.fs.Base()).
+			With(`file name`, fd.fs.Name()).
+			With(`position`, pos))
 	}
-	return token.Pos(fd.posOrder[0])
-}
-
-func (fd *fileData) FindNext(pos token.Pos) token.Pos {
-	next := sort.SearchInts(fd.posOrder, int(pos)) + 1
-	if max := len(fd.posOrder) - 1; next >= max {
-		return token.Pos(fd.posOrder[max])
-	}
-	return token.Pos(fd.posOrder[next])
+	return pd
 }
 
 func (fd *fileData) populatePosLines() {
-	fd.posData = make(map[int]*posData, len(fd.posOrder))
-
 	pos := fd.posOrder[0]
 	startLine := fd.fs.Line(token.Pos(pos))
 	for _, next := range fd.posOrder[1:] {
 		endLine := fd.fs.Line(token.Pos(next))
-		lines := fd.measureLines(pos, next, startLine, endLine)
-		fd.posData[pos] = &posData{
-			lines: lines,
-		}
+		pd := fd.getPosData(pos)
+		pd.total = int(next) - int(pos)
+		pd.lines = fd.measureLines(pos, next, startLine, endLine)
 		pos, startLine = next, endLine
 	}
 
-	// Add one for the EOF position.
-	fd.posData[pos] = &posData{
-		lines: []int{},
-		tail:  []int{},
-	}
+	// Set for the EOF position.
+	pd := fd.getPosData(pos)
+	pd.total = 0
+	pd.lines = []int{0}
 }
 
 // measureLines measures the lines between the given pos and the prior pos.
@@ -115,4 +140,67 @@ func (fd *fileData) measureLines(pos, next, startLine, endLine int) []int {
 		line = cur
 	}
 	return append(lines, int(next)-line-startCol)
+}
+
+func (fd *fileData) PosOrder() []int {
+	return fd.posOrder
+}
+
+func (fd *fileData) Total(pos token.Pos) int {
+	return fd.getPosData(int(pos)).total
+}
+
+func (fd *fileData) Width(pos token.Pos) int {
+	return fd.getPosData(int(pos)).width
+}
+
+func (fd *fileData) Lines(pos token.Pos) []int {
+	return fd.getPosData(int(pos)).lines
+}
+
+func (fd *fileData) Previous(pos token.Pos) token.Pos {
+	if prev := sort.SearchInts(fd.posOrder, int(pos)) - 1; prev > 0 {
+		return token.Pos(fd.posOrder[prev])
+	}
+	return token.Pos(fd.posOrder[0])
+}
+
+func (fd *fileData) Next(pos token.Pos) token.Pos {
+	next := sort.SearchInts(fd.posOrder, int(pos)) + 1
+	if max := len(fd.posOrder) - 1; next >= max {
+		return token.Pos(fd.posOrder[max])
+	}
+	return token.Pos(fd.posOrder[next])
+}
+
+func (fd *fileData) Tail(pos token.Pos) []int {
+	return fd.TailWithWidth(pos, -1)
+}
+
+// TailWithWidth gets the tails with the given width,
+// this width should be the same or smaller than the
+// width of this position.
+// If the given width is less than zero, the position's width is used.
+func (fd *fileData) TailWithWidth(pos token.Pos, width int) []int {
+	pd := fd.getPosData(int(pos))
+	if width < 0 {
+		width = pd.width
+	}
+	line, lineCount := 0, len(pd.lines)
+	for {
+		if line >= lineCount {
+			return []int{}
+		}
+		lw := pd.lines[line]
+		if lw >= width {
+			break
+		}
+		width -= lw
+		line++
+	}
+
+	tail := make([]int, lineCount-line)
+	copy(tail, pd.lines[line:])
+	tail[0] -= width
+	return tail
 }

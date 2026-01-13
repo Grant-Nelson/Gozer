@@ -2,6 +2,7 @@ package faults
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -72,6 +73,13 @@ func (f *Fault) With(key string, value any) *Fault {
 		f.data[key] = t
 	default:
 		f.data[key] = fmt.Sprint(t)
+	}
+	return f
+}
+
+func (f *Fault) WithNonZero(key string, value any) *Fault {
+	if !reflect.ValueOf(value).IsZero() {
+		return f.With(key, value)
 	}
 	return f
 }
