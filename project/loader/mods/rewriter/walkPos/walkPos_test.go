@@ -1,4 +1,4 @@
-package artifacts
+package walkPos
 
 import (
 	"go/ast"
@@ -196,7 +196,7 @@ func Test_WalkPos_Values_Comments(t *testing.T) {
 		`	// comment 8`,
 		`	e int // comment 9`,
 		`)`)
-	checkWalkPos(t, f)(
+	checkWalkPos(t, f, AddPseudoNodes)(
 		`1:File.Start:0`,
 		`1:File.Package:7"package"`,
 		`9:Ident.Name:3"foo"`,

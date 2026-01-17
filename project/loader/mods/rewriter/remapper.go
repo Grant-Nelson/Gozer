@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/rewriter/posFile"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/rewriter/walkPos"
 )
 
 type remapper struct {
@@ -54,7 +54,7 @@ func (rm *remapper) calculateFloaters() {
 func getSolidPosOrder(f *ast.File) ([]int, map[int]bool) {
 	posSorted := []int{}
 	posMap := map[int]bool{}
-	for pt := range artifacts.WalkPos(f, artifacts.SkipFileComments) {
+	for pt := range walkPos.WalkPos(f, walkPos.SkipFileComments) {
 		pos := int(*pt.Pos)
 		posSorted = append(posSorted, pos)
 		posMap[pos] = true
@@ -114,30 +114,30 @@ func (rm *remapper) remapFile(targetFileSet *token.FileSet) {
 	posFile := posFile.New(rm.fileData.Name())
 
 	// TODO: Need to ensure lines between decls
-	for pt := range artifacts.WalkPos(rm.f, artifacts.SkipFileComments) {
+	for pt := range walkPos.WalkPos(rm.f, walkPos.SkipFileComments) {
 		rm.placePos(posFile, pt)
 		rm.placeFloaters(posFile, pt)
 	}
 
 	base := posFile.Write(targetFileSet)
-	for pt := range artifacts.WalkPos(rm.f, artifacts.SkipFileComments) {
+	for pt := range walkPos.WalkPos(rm.f, walkPos.SkipFileComments) {
 		*pt.Pos = token.Pos(base + int(*pt.Pos))
 	}
 }
 
-func (rm *remapper) placeFloaters(posFile *posFile.PosFile, prior artifacts.PosTuple) {
+func (rm *remapper) placeFloaters(posFile *posFile.PosFile, prior walkPos.PosTuple) {
 	cgs, found := rm.floaters[int(*prior.Pos)]
 	if !found {
 		return
 	}
 	for _, cg := range cgs {
-		for pt := range artifacts.WalkPos(cg) {
+		for pt := range walkPos.WalkPos(cg) {
 			rm.placePos(posFile, pt)
 		}
 	}
 }
 
-func (rm *remapper) placePos(posFile *posFile.PosFile, pt artifacts.PosTuple) {
+func (rm *remapper) placePos(posFile *posFile.PosFile, pt walkPos.PosTuple) {
 	cur := posFile.Offset()
 
 	rest := false

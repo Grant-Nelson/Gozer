@@ -7,6 +7,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/mods/rewriter/walkPos"
 )
 
 // TODO: Calculate widths beyond size of a node to get the whitespace
@@ -60,7 +61,7 @@ func createFileData(fs *token.File, f *ast.File) *fileData {
 func (fd *fileData) collectPosOrder(f *ast.File) {
 	var nodePos []int
 	var prior int
-	for pt := range artifacts.WalkPos(f) {
+	for pt := range walkPos.WalkPos(f) {
 		if !pt.Pos.IsValid() {
 			panic(faults.New(`walking a file returned an invalid position`).
 				With(`file base`, fd.fs.Base()).
