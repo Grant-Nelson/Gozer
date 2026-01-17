@@ -61,7 +61,7 @@ func createFileData(fs *token.File, f *ast.File) *fileData {
 func (fd *fileData) collectPosOrder(f *ast.File) {
 	var nodePos []int
 	var prior int
-	for pt := range walkPos.WalkPos(f) {
+	for pt := range walkPos.WalkPos(fd.fs, f) {
 		if !pt.Pos.IsValid() {
 			panic(faults.New(`walking a file returned an invalid position`).
 				With(`file base`, fd.fs.Base()).

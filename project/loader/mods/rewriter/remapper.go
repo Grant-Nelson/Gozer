@@ -41,7 +41,7 @@ func (rm *remapper) checkForUnmodifiedFile() bool {
 // the sorted comments that need to be added after the node with the position
 // used as the key.
 func (rm *remapper) calculateFloaters() {
-	posSorted, posMap := getSolidPosOrder(rm.f)
+	posSorted, posMap := getSolidPosOrder(rm.fileData.fs, rm.f)
 	floating := getFloatingComments(rm.f, posMap)
 	rm.floaters = getFloaterAttachments(posSorted, floating)
 }
@@ -51,10 +51,10 @@ func (rm *remapper) calculateFloaters() {
 // the floating ones in those will have to be positioned specially for them
 // to be close to the correct location in the modified file as they were
 // in the original files that were used to create the modified file.
-func getSolidPosOrder(f *ast.File) ([]int, map[int]bool) {
+func getSolidPosOrder(fs *token.File, f *ast.File) ([]int, map[int]bool) {
 	posSorted := []int{}
 	posMap := map[int]bool{}
-	for pt := range walkPos.WalkPos(f, walkPos.SkipFileComments) {
+	for pt := range walkPos.WalkPos(fs, f, walkPos.SkipFileComments) {
 		pos := int(*pt.Pos)
 		posSorted = append(posSorted, pos)
 		posMap[pos] = true
@@ -114,13 +114,13 @@ func (rm *remapper) remapFile(targetFileSet *token.FileSet) {
 	posFile := posFile.New(rm.fileData.Name())
 
 	// TODO: Need to ensure lines between decls
-	for pt := range walkPos.WalkPos(rm.f, walkPos.SkipFileComments) {
+	for pt := range walkPos.WalkPos(rm.fileData.fs, rm.f, walkPos.SkipFileComments) {
 		rm.placePos(posFile, pt)
 		rm.placeFloaters(posFile, pt)
 	}
 
 	base := posFile.Write(targetFileSet)
-	for pt := range walkPos.WalkPos(rm.f, walkPos.SkipFileComments) {
+	for pt := range walkPos.WalkPos(rm.fileData.fs, rm.f, walkPos.SkipFileComments) {
 		*pt.Pos = token.Pos(base + int(*pt.Pos))
 	}
 }
@@ -131,7 +131,7 @@ func (rm *remapper) placeFloaters(posFile *posFile.PosFile, prior walkPos.PosTup
 		return
 	}
 	for _, cg := range cgs {
-		for pt := range walkPos.WalkPos(cg) {
+		for pt := range walkPos.WalkPos(rm.fileData.fs, cg) {
 			rm.placePos(posFile, pt)
 		}
 	}

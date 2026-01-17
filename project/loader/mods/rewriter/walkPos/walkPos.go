@@ -16,7 +16,7 @@ type WalkPosOption string
 
 const (
 	SkipFileComments WalkPosOption = `SkipFileComments`
-	AddPseudoNodes   WalkPosOption = `AddPseudoNodes`
+	SkipPseudoPos    WalkPosOption = `SkipPseudoPos`
 )
 
 // WalkPos will walk the branch of AST nodes with the given node as the root.
@@ -29,19 +29,22 @@ const (
 //
 // The position is a pointer to the actual field so that the positions
 // can be updated with care. Invalid positions are not returned.
-func WalkPos(node ast.Node, options ...WalkPosOption) iter.Seq[PosTuple] {
+func WalkPos(fs *token.File, node ast.Node, options ...WalkPosOption) iter.Seq[PosTuple] {
 	return func(yield func(PosTuple) bool) {
 		defer func() {
 			if r := recover(); r != nil && r != errEndWalkPos {
 				panic(r)
 			}
 		}()
-
-		p := &posWalker{
-			yield:            yield,
-			handled:          map[*token.Pos]struct{}{},
+		op := pwOptions{
 			skipFileComments: slices.Contains(options, SkipFileComments),
-			addPseudoNodes:   slices.Contains(options, AddPseudoNodes),
+			skipPseudoPos:    slices.Contains(options, SkipPseudoPos),
+		}
+		p := &posWalker{
+			fs:        fs,
+			yield:     yield,
+			handled:   map[*token.Pos]struct{}{},
+			pwOptions: op,
 		}
 		p.walk(node)
 	}
@@ -49,17 +52,21 @@ func WalkPos(node ast.Node, options ...WalkPosOption) iter.Seq[PosTuple] {
 
 type posVisitor func(pt PosTuple) bool
 
-type posWalker struct {
-	yield posVisitor
-
+type pwOptions struct {
 	// skipFileComments will skip over the comments from the file.
 	// The only comments that will then be skipped will be the floating ones
 	// not attached to a node.
 	skipFileComments bool
 
-	// addPseudoNodes will add pseudo nodes for glyphs that are not given
-	// a specific actual location but will appear in the source.
-	addPseudoNodes bool
+	// skipPseudoPos will skip over pseudo positions for glyphs that are not
+	// given a specific actual location in the AST but will appear in the source.
+	skipPseudoPos bool
+}
+
+type posWalker struct {
+	pwOptions
+	fs    *token.File
+	yield posVisitor
 
 	// lastEndPos stores the next unused position after the currently yielded
 	// position information.
@@ -147,6 +154,19 @@ func (p *posWalker) visitTok(n ast.Node, pos *token.Pos, tok token.Token, id str
 	p.visitTuple(tokTuple(n, pos, tok, id))
 }
 
+func (p *posWalker) visitPseudo(n ast.Node, tok token.Token, id string) {
+	if p.skipPseudoPos {
+		return
+	}
+
+	// make a copy of the pos so that it can have a pointer for it
+	// without any concern of the lastEndPos of being modified.
+	pos := p.lastEndPos
+	pt := tokTuple(n, &pos, tok, id)
+	pt.Pseudo = true
+	p.visitTuple(pt)
+}
+
 func (p *posWalker) visitPending(next token.Pos) bool {
 	pt := p.takeTuple(next)
 	if pt == nil {
@@ -164,14 +184,9 @@ func (p *posWalker) visitPending(next token.Pos) bool {
 	return true
 }
 
-func (p *posWalker) visitPseudo(n ast.Node, tok token.Token, id string) {
-	if p.addPseudoNodes {
-		// make a copy of the pos so that it can have a pointer for it
-		// without any concern of the lastEndPos of being modified.
-		pos := p.lastEndPos
-		pt := tokTuple(n, &pos, tok, id)
-		pt.Pseudo = true
-		p.visitTuple(pt)
+func (p *posWalker) visitAllPending(next token.Pos) {
+	for p.visitPending(next) {
+		// Do Nothing
 	}
 }
 
@@ -180,10 +195,8 @@ func (p *posWalker) visitTuple(pt *PosTuple) {
 		return
 	}
 
-	// Zip in all pending posTuples that come before `off`.
-	for p.visitPending(*pt.Pos) {
-		// Do Nothing
-	}
+	// Zip in all pending posTuples that come before [pt].
+	p.visitAllPending(*pt.Pos)
 
 	if p.beenHandled(pt.Pos) {
 		return
@@ -197,8 +210,12 @@ func (p *posWalker) visitTuple(pt *PosTuple) {
 	}
 }
 
-func walkList[N ast.Node](p *posWalker, list []N) {
-	for _, node := range list {
+func walkSemicolonSepList[N ast.Node](p *posWalker, parent ast.Node, list []N, semicolonId string) {
+	for i, node := range list {
+		if i > 0 {
+			// TODO: Need newline or semicolon?
+			//p.visitPseudo(parent, token.COMMA, commaId)
+		}
 		p.walk(node)
 	}
 }
@@ -210,6 +227,7 @@ func walkCommaSepList[N ast.Node](p *posWalker, parent ast.Node, list []N, comma
 		}
 		p.walk(node)
 	}
+	// TODO: Need a comma if there is a newline before the close token.
 }
 
 func (p *posWalker) walkComments(cg *ast.CommentGroup, id string) {
@@ -220,11 +238,27 @@ func (p *posWalker) walkComments(cg *ast.CommentGroup, id string) {
 	}
 }
 
-func (p *posWalker) walkFieldList(n *ast.FieldList, opening, closing token.Token) {
+func (p *posWalker) walkFieldList(n *ast.FieldList) {
 	if n != nil {
-		p.visitTok(n, &n.Opening, opening, `Opening`)
-		walkList(p, n.List) // TODO: Need separator?
-		p.visitTok(n, &n.Closing, closing, `Closing`)
+		p.visitTok(n, &n.Opening, token.LBRACE, `LBrace`)
+		walkSemicolonSepList(p, n, n.List, `FieldSep`)
+		p.visitTok(n, &n.Closing, token.RBRACE, `RBrace`)
+	}
+}
+
+func (p *posWalker) walkTypeParams(n *ast.FieldList) {
+	if n != nil {
+		p.visitTok(n, &n.Opening, token.LBRACK, `LBrack`)
+		walkCommaSepList(p, n, n.List, `Comma`)
+		p.visitTok(n, &n.Closing, token.RBRACK, `RBrack`)
+	}
+}
+
+func (p *posWalker) walkParams(n *ast.FieldList) {
+	if n != nil {
+		p.visitTok(n, &n.Opening, token.LPAREN, `LParen`)
+		walkCommaSepList(p, n, n.List, `Comma`)
+		p.visitTok(n, &n.Closing, token.RPAREN, `RParen`)
 	}
 }
 
@@ -246,13 +280,13 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.Field:
 		p.pushComments(n.Comment, `Field.Comment`)
 		p.walkComments(n.Doc, `Field.Doc`)
-		walkList(p, n.Names) // TODO: Need field separators?
+		walkCommaSepList(p, n, n.Names, `NameComma`)
 		p.walk(n.Type)
 		p.walk(n.Tag)
 		p.pop()
 
 	case *ast.FieldList:
-		p.walkFieldList(n, token.LPAREN, token.RPAREN)
+		p.walkParams(n) // Without context, just treat like parameters
 
 	// ======[ Expressions ]======
 	case *ast.BadExpr:
@@ -276,7 +310,7 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.CompositeLit:
 		p.walk(n.Type)
 		p.visitTok(n, &n.Lbrace, token.LBRACE, `Lbrace`)
-		walkList(p, n.Elts) // TODO: Needs separators?
+		walkSemicolonSepList(p, n, n.Elts, `EltSep`)
 		p.visitTok(n, &n.Rbrace, token.RBRACE, `Rbrace`)
 
 	case *ast.ParenExpr:
@@ -354,17 +388,17 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.StructType:
 		p.visitTok(n, &n.Struct, token.STRUCT, `Struct`)
-		p.walkFieldList(n.Fields, token.LBRACE, token.RBRACE)
+		p.walkFieldList(n.Fields)
 
 	case *ast.FuncType:
 		p.visitTok(n, &n.Func, token.FUNC, `Func`)
-		p.walkFieldList(n.TypeParams, token.LBRACK, token.RBRACK)
-		p.walkFieldList(n.Params, token.LPAREN, token.RPAREN)
-		p.walkFieldList(n.Results, token.LPAREN, token.RPAREN)
+		p.walkTypeParams(n.TypeParams)
+		p.walkParams(n.Params)
+		p.walkParams(n.Results)
 
 	case *ast.InterfaceType:
 		p.visitTok(n, &n.Interface, token.INTERFACE, `Interface`)
-		p.walkFieldList(n.Methods, token.LBRACE, token.RBRACE)
+		p.walkFieldList(n.Methods)
 
 	case *ast.MapType:
 		p.visitTok(n, &n.Map, token.MAP, `Map`)
@@ -435,7 +469,7 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.BlockStmt:
 		p.visitTok(n, &n.Lbrace, token.LBRACE, `Lbrace`)
-		walkList(p, n.List) // TODO: newlines or semicolons?
+		walkSemicolonSepList(p, n, n.List, `Sep`)
 		p.visitTok(n, &n.Rbrace, token.RBRACE, `Rbrace`)
 
 	case *ast.IfStmt:
@@ -449,7 +483,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.visitTok(n, &n.Case, token.CASE, `Case`)
 		walkCommaSepList(p, n, n.List, `CaseComma`)
 		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
-		walkList(p, n.Body) // TODO: newlines or semicolons?
+		walkSemicolonSepList(p, n, n.Body, `BodySep`)
 
 	case *ast.SwitchStmt:
 		p.visitTok(n, &n.Switch, token.SWITCH, `Switch`)
@@ -473,7 +507,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.visitTok(n, &n.Case, token.CASE, `Case`)
 		p.walk(n.Comm)
 		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
-		walkList(p, n.Body) // TODO: newlines or semicolons?
+		walkSemicolonSepList(p, n, n.Body, `BodySep`)
 
 	case *ast.SelectStmt:
 		p.visitTok(n, &n.Select, token.SELECT, `Select`)
@@ -525,7 +559,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.pushComments(n.Comment, `TypeSpec.Comment`)
 		p.walkComments(n.Doc, `TypeSpec.Doc`)
 		p.walk(n.Name)
-		p.walkFieldList(n.TypeParams, token.LBRACK, token.RBRACK)
+		p.walkTypeParams(n.TypeParams)
 		p.visitTok(n, &n.Assign, token.EQL, `Assign`)
 		p.walk(n.Type)
 		p.pop()
@@ -538,18 +572,18 @@ func (p *posWalker) walk(node ast.Node) {
 		p.walkComments(n.Doc, `GenDecl.Doc`)
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
-		walkList(p, n.Specs) // TODO: newlines or semicolons?
+		walkSemicolonSepList(p, n, n.Specs, `SpecSep`)
 		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
 	case *ast.FuncDecl:
 		p.walkComments(n.Doc, `FuncDecl.Doc`)
 		// handle FuncType uniquely here to get the name in the correct order.
 		p.visitTok(n.Type, &n.Type.Func, token.FUNC, `Func`)
-		p.walkFieldList(n.Recv, token.LPAREN, token.RPAREN)
+		p.walkParams(n.Recv)
 		p.walk(n.Name)
-		p.walkFieldList(n.Type.TypeParams, token.LBRACK, token.RBRACK)
-		p.walkFieldList(n.Type.Params, token.LPAREN, token.RPAREN)
-		p.walkFieldList(n.Type.Results, token.LPAREN, token.RPAREN)
+		p.walkTypeParams(n.Type.TypeParams)
+		p.walkParams(n.Type.Params)
+		p.walkParams(n.Type.Results)
 		p.walk(n.Body)
 
 	// ======[ Files ]======
@@ -563,7 +597,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.walkComments(n.Doc, `File.Doc`)
 		p.visitTok(n, &n.Package, token.PACKAGE, `Package`)
 		p.walk(n.Name)
-		walkList(p, n.Decls) // TODO: newlines or semicolons?
+		walkSemicolonSepList(p, n, n.Decls, `DeclSep`)
 		if !p.skipFileComments {
 			for range n.Comments {
 				p.pop()
