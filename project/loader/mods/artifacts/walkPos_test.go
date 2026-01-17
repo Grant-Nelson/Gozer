@@ -19,7 +19,7 @@ func Test_WalkPos_Package(t *testing.T) {
 		`// comment 3`,
 		``,
 		`// comment 4`)
-	checkWalkPos(t, f, false,
+	checkWalkPos(t, f)(
 		`1:File.Start:0`,
 		`1:File.Comment:12"// comment 1"`,
 		`15:File.Doc:12"// comment 2"`,
@@ -48,7 +48,7 @@ func Test_WalkPos_MultilineFunc(t *testing.T) {
 		`	return false // comment 10`,
 		`	// comment 11`,
 		`} // comment 12`)
-	checkWalkPos(t, f, false,
+	checkWalkPos(t, f)(
 		`1:File.Start:0`,
 		`1:File.Package:7"package"`,
 		`9:Ident.Name:3"foo"`,
@@ -83,7 +83,7 @@ func Test_WalkPos_MultilineFunc(t *testing.T) {
 		`225:BlockStmt.Rbrace:1"}"`,
 		`227:File.Comment:13"// comment 12"`,
 		`240:File.End:0`)
-	checkWalkPos(t, f, true,
+	checkWalkPos(t, f, SkipFileComments)(
 		`1:File.Start:0`,
 		`1:File.Package:7"package"`,
 		`9:Ident.Name:3"foo"`,
@@ -119,7 +119,7 @@ func Test_WalkPos_Values_Arrays(t *testing.T) {
 		`	c [...]int`,
 		`	d [42]int`,
 		`)`)
-	checkWalkPos(t, f, false,
+	checkWalkPos(t, f)(
 		`1:File.Start:0`,
 		`1:File.Package:7"package"`,
 		`9:Ident.Name:3"foo"`,
@@ -145,6 +145,36 @@ func Test_WalkPos_Values_Arrays(t *testing.T) {
 		`62:Ident.Name:3"int"`,
 		`66:GenDecl.Rparen:1")"`,
 		`67:File.End:0`)
+	checkWalkPos(t, f, AddPseudoNodes)(
+		`1:File.Start:0`,
+		`1:File.Package:7"package"`,
+		`9:Ident.Name:3"foo"`,
+		`14:GenDecl.Tok:3"var"`,
+		`18:GenDecl.Lparen:1"("`,
+		// a []int
+		`21:Ident.Name:1"a"`,
+		`23:ArrayType.Lbrack:1"["`,
+		`24:ArrayType.Rbrack:1"]"(P)`,
+		`25:Ident.Name:3"int"`,
+		// b [   ]  int
+		`30:Ident.Name:1"b"`,
+		`32:ArrayType.Lbrack:1"["`,
+		`33:ArrayType.Rbrack:1"]"(P)`,
+		`39:Ident.Name:3"int"`,
+		// c [...]int
+		`44:Ident.Name:1"c"`,
+		`46:ArrayType.Lbrack:1"["`,
+		`47:X.Ellipsis:3"..."`,
+		`50:ArrayType.Rbrack:1"]"(P)`,
+		`51:Ident.Name:3"int"`,
+		// d [42]int
+		`56:Ident.Name:1"d"`,
+		`58:ArrayType.Lbrack:1"["`,
+		`59:BasicLit.Value:2"42"`,
+		`61:ArrayType.Rbrack:1"]"(P)`,
+		`62:Ident.Name:3"int"`,
+		`66:GenDecl.Rparen:1")"`,
+		`67:File.End:0`)
 }
 
 func Test_WalkPos_Values_Comments(t *testing.T) {
@@ -166,7 +196,7 @@ func Test_WalkPos_Values_Comments(t *testing.T) {
 		`	// comment 8`,
 		`	e int // comment 9`,
 		`)`)
-	checkWalkPos(t, f, false,
+	checkWalkPos(t, f)(
 		`1:File.Start:0`,
 		`1:File.Package:7"package"`,
 		`9:Ident.Name:3"foo"`,
@@ -213,7 +243,7 @@ func Test_WalkPos_Struct(t *testing.T) {
 		``,
 		`	// comment 9`,
 		`}`)
-	checkWalkPos(t, f, false,
+	checkWalkPos(t, f)(
 		`1:File.Start:0`,
 		`1:File.Package:7"package"`,
 		`9:Ident.Name:3"foo"`,
@@ -250,7 +280,7 @@ func Test_WalkPos_Channels(t *testing.T) {
 		`func Foo(src <-chan int, dst chan<- int, notUsed chan int) {`,
 		`	dst <- src`,
 		`}`)
-	checkWalkPos(t, f, false,
+	checkWalkPos(t, f)(
 		`1:File.Start:0`,
 		`1:File.Package:7"package"`,
 		`9:Ident.Name:3"foo"`,
@@ -295,11 +325,11 @@ func loadTest(t testing.TB, code ...string) (*ast.File, *token.FileSet) {
 	return f, fs
 }
 
-func checkWalkPos(t testing.TB, f *ast.File, skipFileComments bool, expLines ...string) {
+func checkWalkPos(t testing.TB, f *ast.File, options ...WalkPosOption) func(expLines ...string) {
 	t.Helper()
 	lines := []string{}
 	var prior int
-	for pt := range WalkPos(f, skipFileComments) {
+	for pt := range WalkPos(f, options...) {
 		if !pt.Pos.IsValid() {
 			t.Errorf("invalid position returned for %s", pt.String())
 		}
@@ -309,7 +339,9 @@ func checkWalkPos(t testing.TB, f *ast.File, skipFileComments bool, expLines ...
 		lines = append(lines, pt.String())
 		prior = int(*pt.Pos)
 	}
-	if diff := cmp.Diff(expLines, lines); len(diff) > 0 {
-		t.Errorf("the line for WalkPos didn't match expected lines:\n%s", diff)
+	return func(expLines ...string) {
+		if diff := cmp.Diff(expLines, lines); len(diff) > 0 {
+			t.Errorf("the line for WalkPos didn't match expected lines:\n%s", diff)
+		}
 	}
 }

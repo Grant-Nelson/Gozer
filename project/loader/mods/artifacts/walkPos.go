@@ -14,6 +14,13 @@ import (
 
 var errEndWalkPos = errors.New(`end WalkPos`)
 
+type WalkPosOption string
+
+const (
+	SkipFileComments WalkPosOption = `SkipFileComments`
+	AddPseudoNodes   WalkPosOption = `AddPseudoNodes`
+)
+
 // WalkPos will walk the branch of AST nodes with the given node as the root.
 // It will return all the positions in the branch.
 //
@@ -24,7 +31,7 @@ var errEndWalkPos = errors.New(`end WalkPos`)
 //
 // The position is a pointer to the actual field so that the positions
 // can be updated with care. Invalid positions are not returned.
-func WalkPos(node ast.Node, skipFileComments bool) iter.Seq[PosTuple] {
+func WalkPos(node ast.Node, options ...WalkPosOption) iter.Seq[PosTuple] {
 	return func(yield func(PosTuple) bool) {
 		defer func() {
 			if r := recover(); r != nil && r != errEndWalkPos {
@@ -33,10 +40,19 @@ func WalkPos(node ast.Node, skipFileComments bool) iter.Seq[PosTuple] {
 		}()
 
 		p := &posWalker{
-			yield:            yield,
-			skipFileComments: skipFileComments,
-			handled:          map[*token.Pos]struct{}{},
+			yield:   yield,
+			handled: map[*token.Pos]struct{}{},
 		}
+
+		for _, op := range options {
+			switch op {
+			case SkipFileComments:
+				p.skipFileComments = true
+			case AddPseudoNodes:
+				p.addPseudoNodes = true
+			}
+		}
+
 		p.walk(node)
 	}
 }
@@ -51,6 +67,10 @@ type posWalker struct {
 	// not attached to a node.
 	skipFileComments bool
 
+	// addPseudoNodes will add pseudo nodes for glyphs that are not given
+	// a specific actual location but will appear in the source.
+	addPseudoNodes bool
+
 	// zipStack is a stack of positions that need to be interwoven into other
 	// positions. These are typically comments. Once a frame of positions is
 	// done (popped), all unused positions will be outputted.
@@ -63,11 +83,28 @@ type posWalker struct {
 }
 
 type PosTuple struct {
-	Node  ast.Node
-	Pos   *token.Pos
+	// Node is the ast.Node that has this position as a field.
+	Node ast.Node
+
+	// Pos it the pointer to the position field.
+	// If this value is modified, it will modify the node.
+	Pos *token.Pos
+
+	// Width is the width of the token for this position.
+	// This may not always be the length of the Text.
 	Width int
-	Text  string
-	Id    string
+
+	// Text is the token at this position.
+	Text string
+
+	// Id is an indicator of what position this is in the document.
+	// This should mostly used for debugging.
+	Id string
+
+	// Pseudo indicates if this tuple is a pseudo position that
+	// does not actually exist as a field on the given node.
+	// If pseudo, then setting the position will have no effect on the node.
+	Pseudo bool
 }
 
 func (pt *PosTuple) String() string {
@@ -80,6 +117,9 @@ func (pt *PosTuple) String() string {
 	text := ``
 	if len(pt.Text) > 0 {
 		text = strconv.Quote(pt.Text)
+	}
+	if pt.Pseudo {
+		text += `(P)`
 	}
 	return fmt.Sprintf("%d:%v:%d%s", *pt.Pos, id, pt.Width, text)
 }
@@ -190,6 +230,14 @@ func (p *posWalker) visitPending(next token.Pos) bool {
 	return true
 }
 
+func (p *posWalker) visitPseudo(n ast.Node, pos token.Pos, tok token.Token, id string) {
+	if p.addPseudoNodes {
+		pt := tokTuple(n, &pos, tok, id)
+		pt.Pseudo = true
+		p.visitTuple(pt)
+	}
+}
+
 func (p *posWalker) visitTuple(pt *PosTuple) {
 	if pt == nil {
 		return
@@ -251,7 +299,7 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.Field:
 		p.pushComments(n.Comment, `Field.Comment`)
 		p.walkComment(n.Doc, `Field.Doc`)
-		walkPosList(p, n.Names)
+		walkPosList(p, n.Names) // TODO: Needs commas?
 		p.walk(n.Type)
 		p.walk(n.Tag)
 		p.pop()
@@ -281,7 +329,7 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.CompositeLit:
 		p.walk(n.Type)
 		p.visitTok(n, &n.Lbrace, token.LBRACE, `Lbrace`)
-		walkPosList(p, n.Elts)
+		walkPosList(p, n.Elts) // TODO: Needs separators?
 		p.visitTok(n, &n.Rbrace, token.RBRACE, `Rbrace`)
 
 	case *ast.ParenExpr:
@@ -291,6 +339,7 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.SelectorExpr:
 		p.walk(n.X)
+		p.visitPseudo(n, n.X.End(), token.PERIOD, `Dot`)
 		p.walk(n.Sel)
 
 	case *ast.IndexExpr:
@@ -302,15 +351,27 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.IndexListExpr:
 		p.walk(n.X)
 		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
-		walkPosList(p, n.Indices)
+		walkPosList(p, n.Indices) // TODO: Need commas?
 		p.visitTok(n, &n.Rbrack, token.RBRACK, `Rbrack`)
 
 	case *ast.SliceExpr:
 		p.walk(n.X)
 		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
-		p.walk(n.Low)
-		p.walk(n.High)
-		p.walk(n.Max)
+		endPos := n.Lbrack + 1
+		if n.Low != nil {
+			p.walk(n.Low)
+			endPos = n.Low.End()
+		}
+		p.visitPseudo(n, endPos, token.COLON, `FirstColon`)
+		endPos += 1
+		if n.High != nil {
+			p.walk(n.High)
+			endPos = n.High.End()
+		}
+		if n.Max != nil {
+			p.visitPseudo(n, endPos, token.COLON, `SecondColon`)
+			p.walk(n.Max)
+		}
 		p.visitTok(n, &n.Rbrack, token.RBRACK, `Rbrack`)
 
 	case *ast.TypeAssertExpr:
@@ -323,7 +384,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.walk(n.Fun)
 		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
 		p.pushTuple(tokTuple(n, &n.Ellipsis, token.ELLIPSIS, `CallExpr.Ellipsis`))
-		walkPosList(p, n.Args)
+		walkPosList(p, n.Args) // TODO: need commas?
 		p.pop()
 		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
@@ -348,8 +409,12 @@ func (p *posWalker) walk(node ast.Node) {
 	// ======[ Types ]======
 	case *ast.ArrayType:
 		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
-		p.walk(n.Len)
-		// There is no Rbrack
+		endPos := n.Lbrack + 1
+		if n.Len != nil {
+			p.walk(n.Len)
+			endPos = n.Len.End()
+		}
+		p.visitPseudo(n, endPos, token.RBRACK, `Rbrack`)
 		p.walk(n.Elt)
 
 	case *ast.StructType:
@@ -413,9 +478,9 @@ func (p *posWalker) walk(node ast.Node) {
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 
 	case *ast.AssignStmt:
-		walkPosList(p, n.Lhs)
+		walkPosList(p, n.Lhs) // TODO: need commas?
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
-		walkPosList(p, n.Rhs)
+		walkPosList(p, n.Rhs) // TODO: need commas?
 
 	case *ast.GoStmt:
 		p.visitTok(n, &n.Go, token.GO, `Go`)
@@ -427,7 +492,7 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.ReturnStmt:
 		p.visitTok(n, &n.Return, token.RETURN, `Return`)
-		walkPosList(p, n.Results)
+		walkPosList(p, n.Results) // TODO: need commas?
 
 	case *ast.BranchStmt:
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
@@ -435,7 +500,7 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.BlockStmt:
 		p.visitTok(n, &n.Lbrace, token.LBRACE, `Lbrace`)
-		walkPosList(p, n.List)
+		walkPosList(p, n.List) // TODO: newlines or semicolons?
 		p.visitTok(n, &n.Rbrace, token.RBRACE, `Rbrace`)
 
 	case *ast.IfStmt:
@@ -447,19 +512,21 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.CaseClause:
 		p.visitTok(n, &n.Case, token.CASE, `Case`)
-		walkPosList(p, n.List)
+		walkPosList(p, n.List) // TODO: need commas?
 		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
-		walkPosList(p, n.Body)
+		walkPosList(p, n.Body) // TODO: newlines or semicolons?
 
 	case *ast.SwitchStmt:
 		p.visitTok(n, &n.Switch, token.SWITCH, `Switch`)
 		p.walk(n.Init)
+		// TODO: Need a semicolon?
 		p.walk(n.Tag)
 		p.walk(n.Body)
 
 	case *ast.TypeSwitchStmt:
 		p.visitTok(n, &n.Switch, token.SWITCH, `Switch`)
 		p.walk(n.Init)
+		// TODO: Need a semicolon?
 		p.walk(n.Assign)
 		p.walk(n.Body)
 
@@ -467,7 +534,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.visitTok(n, &n.Case, token.CASE, `Case`)
 		p.walk(n.Comm)
 		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
-		walkPosList(p, n.Body)
+		walkPosList(p, n.Body) // TODO: newlines or semicolons?
 
 	case *ast.SelectStmt:
 		p.visitTok(n, &n.Select, token.SELECT, `Select`)
@@ -475,15 +542,29 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.ForStmt:
 		p.visitTok(n, &n.For, token.FOR, `For`)
-		p.walk(n.Init)
-		p.walk(n.Cond)
-		p.walk(n.Post)
+		endPos := n.For + token.Pos(len(token.FOR.String())) + 1
+		if n.Init != nil {
+			p.walk(n.Init)
+			p.visitPseudo(n, n.Init.End(), token.SEMICOLON, `FirstSemicolon`)
+			endPos = n.Init.End() + token.Pos(len(token.SEMICOLON.String()))
+		}
+		if n.Cond != nil {
+			p.walk(n.Cond)
+			endPos = n.Cond.End()
+		}
+		if n.Post != nil {
+			p.visitPseudo(n, endPos, token.SEMICOLON, `SecondSemicolon`)
+			p.walk(n.Post)
+		}
 		p.walk(n.Body)
 
 	case *ast.RangeStmt:
 		p.visitTok(n, &n.For, token.FOR, `For`)
 		p.walk(n.Key)
-		p.walk(n.Value)
+		if n.Value != nil {
+			p.visitPseudo(n, n.Key.End(), token.COMMA, `Comma`)
+			p.walk(n.Value)
+		}
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 		p.visitTok(n, &n.Range, token.RANGE, `Range`)
 		p.walk(n.X)
@@ -501,9 +582,9 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.ValueSpec:
 		p.pushComments(n.Comment, `ValueSpec.Comment`)
 		p.walkComment(n.Doc, `ValueSpec.Doc`)
-		walkPosList(p, n.Names)
+		walkPosList(p, n.Names) // TODO: Add commas?
 		p.walk(n.Type)
-		walkPosList(p, n.Values)
+		walkPosList(p, n.Values) // TODO: Add commas?
 		p.pop()
 
 	case *ast.TypeSpec:
@@ -523,7 +604,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.walkComment(n.Doc, `GenDecl.Doc`)
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
-		walkPosList(p, n.Specs)
+		walkPosList(p, n.Specs) // TODO: newlines or semicolons?
 		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
 	case *ast.FuncDecl:
@@ -548,7 +629,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.walkComment(n.Doc, `File.Doc`)
 		p.visitTok(n, &n.Package, token.PACKAGE, `Package`)
 		p.walk(n.Name)
-		walkPosList(p, n.Decls)
+		walkPosList(p, n.Decls) // TODO: newlines or semicolons?
 		if !p.skipFileComments {
 			for range n.Comments {
 				p.pop()

@@ -60,7 +60,7 @@ func createFileData(fs *token.File, f *ast.File) *fileData {
 func (fd *fileData) collectPosOrder(f *ast.File) {
 	var nodePos []int
 	var prior int
-	for pt := range artifacts.WalkPos(f, false) {
+	for pt := range artifacts.WalkPos(f) {
 		if !pt.Pos.IsValid() {
 			panic(faults.New(`walking a file returned an invalid position`).
 				With(`file base`, fd.fs.Base()).
@@ -140,6 +140,10 @@ func (fd *fileData) measureLines(pos, next, startLine, endLine int) []int {
 		line = cur
 	}
 	return append(lines, int(next)-line-startCol)
+}
+
+func (fd *fileData) Name() string {
+	return fd.fs.Name()
 }
 
 func (fd *fileData) PosOrder() []int {

@@ -84,3 +84,18 @@ func (rw *Rewriter) getFileData(fileSet *token.FileSet, f *ast.File) *fileData {
 
 	return fd
 }
+
+func (rw *Rewriter) Remap(fileSet *token.FileSet, f *ast.File, targetFileSet *token.FileSet) (err error) {
+	faults.Recover(&err)
+	if targetFileSet == nil {
+		targetFileSet = fileSet
+	}
+
+	rm := &remapper{
+		fileSet:  fileSet,
+		f:        f,
+		fileData: rw.getFileData(fileSet, f),
+	}
+	rm.perform(targetFileSet)
+	return nil
+}
