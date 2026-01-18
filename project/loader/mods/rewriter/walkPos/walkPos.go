@@ -72,6 +72,10 @@ type posWalker struct {
 	// position information.
 	lastEndPos token.Pos
 
+	// cond, if not nil, is a conditional pseudo position that may or
+	// may not be added to the output before the next position.
+	cond *conditionalPseudo
+
 	// zipStack is a stack of positions that need to be interwoven into other
 	// positions. These are typically comments. Once a frame of positions is
 	// done (popped), all unused positions will be outputted.
@@ -81,6 +85,20 @@ type posWalker struct {
 	// This is only used for positions that might be outputted multiple times
 	// such as those put into the zipStack.
 	handled map[*token.Pos]struct{}
+}
+
+type conditionalPseudo struct {
+	// newLine indicates that:
+	// - if true, the conditionalPseudo needs to be added
+	//   iff a newLine is between the prior position and the next position
+	// - if false, the conditional Pseudo needs to be added
+	//   iff a newline is NOT between the prior position and the next position
+	newLine bool
+
+	prior token.Pos
+	n     ast.Node
+	tok   token.Token
+	id    string
 }
 
 func isNodeNil(node ast.Node) bool {
@@ -118,6 +136,9 @@ func (p *posWalker) pop() {
 	}
 }
 
+// takeTuple will get all the tokens before but not equal to the given
+// [next] position. The next position could be a pending tuple but with more
+// information so will go in place of the pending tuple.
 func (p *posWalker) takeTuple(next token.Pos) *PosTuple {
 	index := -1
 	var min *PosTuple
@@ -146,6 +167,33 @@ func (p *posWalker) setAsHandled(pos *token.Pos) {
 	p.handled[pos] = struct{}{}
 }
 
+func (p *posWalker) setConditionalPseudo(newLine bool, prior token.Pos, n ast.Node, tok token.Token, id string) {
+	if p.cond != nil {
+		panic(fmt.Errorf(`can not set a conditional when one is already set`))
+	}
+	p.cond = &conditionalPseudo{
+		newLine: newLine,
+		prior:   prior,
+		n:       n,
+		tok:     tok,
+		id:      id,
+	}
+}
+
+func (p *posWalker) visitConditionalPseudo(next token.Pos) {
+	if p.cond == nil {
+		return
+	}
+
+	hasNL := p.fs.Line(p.cond.prior) != p.fs.Line(next)
+	if hasNL != p.cond.newLine {
+		p.cond = nil
+		return
+	}
+	p.visitPseudo(p.cond.n, p.cond.tok, p.cond.id)
+	p.cond = nil
+}
+
 func (p *posWalker) visit(n ast.Node, pos *token.Pos, text string, width int, id string) {
 	p.visitTuple(newPosTuple(n, pos, text, width, id))
 }
@@ -159,12 +207,27 @@ func (p *posWalker) visitPseudo(n ast.Node, tok token.Token, id string) {
 		return
 	}
 
+	// If any pending is at the lastEndPos output them and
+	// bump the pseudo until after those pending.
+	width := token.Pos(tokWidth(tok))
+	for p.visitAllPending(p.lastEndPos + width) {
+		// Do Nothing
+	}
+
 	// make a copy of the pos so that it can have a pointer for it
 	// without any concern of the lastEndPos of being modified.
 	pos := p.lastEndPos
 	pt := tokTuple(n, &pos, tok, id)
 	pt.Pseudo = true
 	p.visitTuple(pt)
+}
+
+func (p *posWalker) visitAllPending(next token.Pos) bool {
+	hadAny := false
+	for p.visitPending(next) {
+		hadAny = true
+	}
+	return hadAny
 }
 
 func (p *posWalker) visitPending(next token.Pos) bool {
@@ -184,16 +247,12 @@ func (p *posWalker) visitPending(next token.Pos) bool {
 	return true
 }
 
-func (p *posWalker) visitAllPending(next token.Pos) {
-	for p.visitPending(next) {
-		// Do Nothing
-	}
-}
-
 func (p *posWalker) visitTuple(pt *PosTuple) {
 	if pt == nil {
 		return
 	}
+
+	p.visitConditionalPseudo(*pt.Pos)
 
 	// Zip in all pending posTuples that come before [pt].
 	p.visitAllPending(*pt.Pos)
@@ -213,21 +272,22 @@ func (p *posWalker) visitTuple(pt *PosTuple) {
 func walkSemicolonSepList[N ast.Node](p *posWalker, parent ast.Node, list []N, semicolonId string) {
 	for i, node := range list {
 		if i > 0 {
-			// TODO: Need newline or semicolon?
-			//p.visitPseudo(parent, token.COMMA, commaId)
+			p.setConditionalPseudo(false, p.lastEndPos, parent, token.SEMICOLON, semicolonId)
 		}
 		p.walk(node)
 	}
 }
 
-func walkCommaSepList[N ast.Node](p *posWalker, parent ast.Node, list []N, commaId string) {
+func walkCommaSepList[N ast.Node](p *posWalker, parent ast.Node, list []N, commaId string, enclosed bool) {
 	for i, node := range list {
 		if i > 0 {
 			p.visitPseudo(parent, token.COMMA, commaId)
 		}
 		p.walk(node)
 	}
-	// TODO: Need a comma if there is a newline before the close token.
+	if enclosed {
+		p.setConditionalPseudo(true, p.lastEndPos, parent, token.COMMA, commaId)
+	}
 }
 
 func (p *posWalker) walkComments(cg *ast.CommentGroup, id string) {
@@ -249,7 +309,7 @@ func (p *posWalker) walkFieldList(n *ast.FieldList) {
 func (p *posWalker) walkTypeParams(n *ast.FieldList) {
 	if n != nil {
 		p.visitTok(n, &n.Opening, token.LBRACK, `LBrack`)
-		walkCommaSepList(p, n, n.List, `Comma`)
+		walkCommaSepList(p, n, n.List, `Comma`, true)
 		p.visitTok(n, &n.Closing, token.RBRACK, `RBrack`)
 	}
 }
@@ -257,7 +317,7 @@ func (p *posWalker) walkTypeParams(n *ast.FieldList) {
 func (p *posWalker) walkParams(n *ast.FieldList) {
 	if n != nil {
 		p.visitTok(n, &n.Opening, token.LPAREN, `LParen`)
-		walkCommaSepList(p, n, n.List, `Comma`)
+		walkCommaSepList(p, n, n.List, `Comma`, true)
 		p.visitTok(n, &n.Closing, token.RPAREN, `RParen`)
 	}
 }
@@ -280,7 +340,7 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.Field:
 		p.pushComments(n.Comment, `Field.Comment`)
 		p.walkComments(n.Doc, `Field.Doc`)
-		walkCommaSepList(p, n, n.Names, `NameComma`)
+		walkCommaSepList(p, n, n.Names, `NameComma`, false)
 		p.walk(n.Type)
 		p.walk(n.Tag)
 		p.pop()
@@ -332,7 +392,7 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.IndexListExpr:
 		p.walk(n.X)
 		p.visitTok(n, &n.Lbrack, token.LBRACK, `Lbrack`)
-		walkCommaSepList(p, n, n.Indices, `Comma`)
+		walkCommaSepList(p, n, n.Indices, `Comma`, true)
 		p.visitTok(n, &n.Rbrack, token.RBRACK, `Rbrack`)
 
 	case *ast.SliceExpr:
@@ -357,7 +417,7 @@ func (p *posWalker) walk(node ast.Node) {
 		p.walk(n.Fun)
 		p.visitTok(n, &n.Lparen, token.LPAREN, `Lparen`)
 		p.pushTuple(tokTuple(n, &n.Ellipsis, token.ELLIPSIS, `CallExpr.Ellipsis`))
-		walkCommaSepList(p, n, n.Args, `ArgComma`)
+		walkCommaSepList(p, n, n.Args, `ArgComma`, true)
 		p.pop()
 		p.visitTok(n, &n.Rparen, token.RPAREN, `Rparen`)
 
@@ -447,9 +507,9 @@ func (p *posWalker) walk(node ast.Node) {
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
 
 	case *ast.AssignStmt:
-		walkCommaSepList(p, n, n.Lhs, `LhsComma`)
+		walkCommaSepList(p, n, n.Lhs, `LhsComma`, false)
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
-		walkCommaSepList(p, n, n.Rhs, `RhsComma`)
+		walkCommaSepList(p, n, n.Rhs, `RhsComma`, false)
 
 	case *ast.GoStmt:
 		p.visitTok(n, &n.Go, token.GO, `Go`)
@@ -461,7 +521,7 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.ReturnStmt:
 		p.visitTok(n, &n.Return, token.RETURN, `Return`)
-		walkCommaSepList(p, n, n.Results, `Comma`)
+		walkCommaSepList(p, n, n.Results, `Comma`, false)
 
 	case *ast.BranchStmt:
 		p.visitTok(n, &n.TokPos, n.Tok, `Tok`)
@@ -481,7 +541,7 @@ func (p *posWalker) walk(node ast.Node) {
 
 	case *ast.CaseClause:
 		p.visitTok(n, &n.Case, token.CASE, `Case`)
-		walkCommaSepList(p, n, n.List, `CaseComma`)
+		walkCommaSepList(p, n, n.List, `CaseComma`, false)
 		p.visitTok(n, &n.Colon, token.COLON, `Colon`)
 		walkSemicolonSepList(p, n, n.Body, `BodySep`)
 
@@ -550,9 +610,9 @@ func (p *posWalker) walk(node ast.Node) {
 	case *ast.ValueSpec:
 		p.pushComments(n.Comment, `ValueSpec.Comment`)
 		p.walkComments(n.Doc, `ValueSpec.Doc`)
-		walkCommaSepList(p, n, n.Names, `NameComma`)
+		walkCommaSepList(p, n, n.Names, `NameComma`, false)
 		p.walk(n.Type)
-		walkCommaSepList(p, n, n.Values, `ValueComma`)
+		walkCommaSepList(p, n, n.Values, `ValueComma`, false)
 		p.pop()
 
 	case *ast.TypeSpec:

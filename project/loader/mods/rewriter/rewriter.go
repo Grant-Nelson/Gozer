@@ -33,6 +33,7 @@ func (rw *Rewriter) Parser(fileSet *token.FileSet, filename string, src any) (f 
 		return nil, err
 	}
 
+	// TODO: Try using the scanner if se can get the raw text file.
 	rw.recordFile(fileSet, f)
 	return f, nil
 }
