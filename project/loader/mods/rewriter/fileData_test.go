@@ -19,11 +19,11 @@ func Test_Rewriter_FileData_Simple(t *testing.T) {
 		`import "fmt"`, // 15 import, 22 "fmt"
 		``,
 		`func main() {`,               // 29 func, 34 main, 38 (, 39 ), 41 {
-		`	fmt.Println("Hello World")`, // 44 fmt, 48 Println, 55 (, 56 "Hello World", 69 )
+		`	fmt.Println("Hello World")`, // 44 fmt, 47 ., 48 Println, 55 (, 56 "Hello World", 69 )
 		`}`,                           // 71 }, 72 [eof]
 	)
 
-	checkPosOrder(t, fd, 1, 9, 15, 22, 29, 34, 38, 39, 41, 44, 48, 55, 56, 69, 71, 72)
+	checkPosOrder(t, fd, 1, 9, 15, 22, 29, 34, 38, 39, 41, 44, 47, 48, 55, 56, 69, 71, 72)
 
 	checkFileData(t, fd, 1, ` t: 8;  w: 7;  ln:[ 8      ];  tl:[1      ];  p: 1;  n: 9`) //  1 package
 	checkFileData(t, fd, 9, ` t: 6;  w: 4;  ln:[ 5, 1, 0];  tl:[1, 1, 0];  p: 1;  n:15`) //  9 test
@@ -34,8 +34,9 @@ func Test_Rewriter_FileData_Simple(t *testing.T) {
 	checkFileData(t, fd, 38, `t: 1;  w: 1;  ln:[ 1      ];  tl:[0      ];  p:34;  n:39`) // 38 (
 	checkFileData(t, fd, 39, `t: 2;  w: 1;  ln:[ 2      ];  tl:[1      ];  p:38;  n:41`) // 39 )
 	checkFileData(t, fd, 41, `t: 3;  w: 1;  ln:[ 2, 1   ];  tl:[1, 1   ];  p:39;  n:44`) // 41 {
-	checkFileData(t, fd, 44, `t: 4;  w: 3;  ln:[ 4      ];  tl:[1      ];  p:41;  n:48`) // 44 fmt
-	checkFileData(t, fd, 48, `t: 7;  w: 7;  ln:[ 7      ];  tl:[0      ];  p:44;  n:55`) // 48 Println
+	checkFileData(t, fd, 44, `t: 3;  w: 3;  ln:[ 3      ];  tl:[0      ];  p:41;  n:47`) // 44 fmt
+	checkFileData(t, fd, 47, `t: 1;  w: 1;  ln:[ 1      ];  tl:[0      ];  p:44;  n:48`) // 47 .
+	checkFileData(t, fd, 48, `t: 7;  w: 7;  ln:[ 7      ];  tl:[0      ];  p:47;  n:55`) // 48 Println
 	checkFileData(t, fd, 55, `t: 1;  w: 1;  ln:[ 1      ];  tl:[0      ];  p:48;  n:56`) // 55 (
 	checkFileData(t, fd, 56, `t:13;  w:13;  ln:[13      ];  tl:[0      ];  p:55;  n:69`) // 56 "Hello World"
 	checkFileData(t, fd, 69, `t: 2;  w: 1;  ln:[ 2, 0   ];  tl:[1, 0   ];  p:56;  n:71`) // 69 )

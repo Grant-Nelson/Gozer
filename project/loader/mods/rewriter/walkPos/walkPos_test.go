@@ -111,6 +111,46 @@ func Test_WalkPos_MultilineFunc(t *testing.T) {
 		`190:Ident.Name:5"false"`,
 		`225:BlockStmt.Rbrace:1"}"`,
 		`240:File.End:0`)
+	checkWalkPos(t, fSet, f, SkipFileComments, SkipPseudoPos, AddNodeEdges)(
+		`1:File.Start:0`,
+		`1:File.Package:7"package"`,
+		`9:Ident.Name:3"foo"`,
+		`27:FuncDecl.NodeStart:0(P)`,
+		`   27:FuncDecl.Doc:12"// comment 2"`,
+		`   40:FuncType.NodeStart:0(P)`,
+		`      40:FuncType.Func:4"func"`,
+		`      45:Ident.Name:3"Foo"`,
+		`      48:FieldList.LParen:1"("`,
+		`      64:Field.NodeStart:0(P)`,
+		`         64:Ident.Name:1"a"`,
+		`         66:ArrayType.NodeStart:0(P)`,
+		`            66:ArrayType.Lbrack:1"["`,
+		`            68:Ident.Name:3"int"`,
+		`         71:ArrayType.NodeEnd:0(P)`,
+		`      71:Field.NodeEnd:0(P)`,
+		`      87:Field.NodeStart:0(P)`,
+		`         87:Ident.Name:1"b"`,
+		`         89:X.Ellipsis:3"..."`,
+		`         92:Ident.Name:6"string"`,
+		`      98:Field.NodeEnd:0(P)`,
+		`      113:FieldList.RParen:1")"`,
+		`      114:FieldList.LParen:1"("`,
+		`      130:Field.NodeStart:0(P)`,
+		`         130:Ident.Name:1"c"`,
+		`         132:Ident.Name:4"bool"`,
+		`      136:Field.NodeEnd:0(P)`,
+		`      165:FieldList.RParen:1")"`,
+		`   166:FuncType.NodeEnd:0(P)`,
+		`   166:BlockStmt.NodeStart:0(P)`,
+		`      166:BlockStmt.Lbrace:1"{"`,
+		`      183:ReturnStmt.NodeStart:0(P)`,
+		`         183:ReturnStmt.Return:6"return"`,
+		`         190:Ident.Name:5"false"`,
+		`      195:ReturnStmt.NodeEnd:0(P)`,
+		`      225:BlockStmt.Rbrace:1"}"`,
+		`   226:BlockStmt.NodeEnd:0(P)`,
+		`226:FuncDecl.NodeEnd:0(P)`,
+		`240:File.End:0`)
 }
 
 func Test_WalkPos_Values_Arrays(t *testing.T) {
@@ -326,6 +366,9 @@ func checkWalkPos(t testing.TB, fSet *token.FileSet, f *ast.File, options ...Wal
 	}
 	return func(expLines ...string) {
 		t.Helper()
+		for i, line := range expLines {
+			expLines[i] = strings.TrimSpace(line)
+		}
 		if diff := cmp.Diff(expLines, lines); len(diff) > 0 {
 			t.Errorf("the line for WalkPos didn't match expected lines:\n%s", diff)
 		}

@@ -46,6 +46,13 @@ type posData struct {
 	// If there is a newline at the end of a line but the pos data ends
 	// at that newline, the following line will be 0.
 	lines []int
+
+	// text s the original text for this position.
+	text string
+
+	// pseudo indicates this position is for something not explicitly
+	// defined in the ast.File such as commas, semicolons, some closings, etc.
+	pseudo bool
 }
 
 func createFileData(fs *token.File, f *ast.File) *fileData {
@@ -82,7 +89,11 @@ func (fd *fileData) collectPosOrder(f *ast.File) {
 		pd, has := fd.posData[pos]
 		if !has {
 			nodePos = append(nodePos, pos)
-			fd.posData[pos] = &posData{width: pt.Width}
+			fd.posData[pos] = &posData{
+				text:   pt.Text,
+				width:  pt.Width,
+				pseudo: pt.Pseudo,
+			}
 		} else {
 			if pd.width != 0 && pt.Width != 0 {
 				panic(faults.New(`walking a file got duplicate position with more than one non-zero width`).

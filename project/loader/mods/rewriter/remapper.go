@@ -16,15 +16,18 @@ type remapper struct {
 	f        *ast.File
 	fileData *fileData
 	floaters map[int][]*ast.CommentGroup
+	pf       *posFile.PosFile
 }
 
 func (rm *remapper) perform(targetFileSet *token.FileSet) {
 	if rm.checkForUnmodifiedFile() {
+		// TODO: If unmodified but targetFileSet is different,
+		// do a quick copy over to new fileSet.
 		return
 	}
-
 	rm.calculateFloaters()
-	rm.remapFile(targetFileSet)
+	rm.remapFile()
+	rm.outputPosFile(targetFileSet)
 }
 
 // checkForUnmodifiedFile quickly checks if the file is consistent with
@@ -110,55 +113,64 @@ func commentCmp(a, b *ast.CommentGroup) int {
 	return int(a.Pos()) - int(b.Pos())
 }
 
-func (rm *remapper) remapFile(targetFileSet *token.FileSet) {
-	posFile := posFile.New(rm.fileData.Name())
+func (rm *remapper) remapFile() {
+	rm.pf = posFile.New(rm.fileData.Name())
 
 	// TODO: Need to ensure lines between decls
-	for pt := range walkPos.WalkPos(rm.fileData.fs, rm.f, walkPos.SkipFileComments) {
-		rm.placePos(posFile, pt)
-		rm.placeFloaters(posFile, pt)
-	}
+	// TODO: Write line info directives for decls and specs
 
-	base := posFile.Write(targetFileSet)
 	for pt := range walkPos.WalkPos(rm.fileData.fs, rm.f, walkPos.SkipFileComments) {
+		rm.placePos(pt)
+		rm.placeFloaters(pt)
+	}
+}
+
+func (rm *remapper) outputPosFile(targetFileSet *token.FileSet) {
+	base := rm.pf.Write(targetFileSet)
+	for pt := range walkPos.WalkPos(rm.fileData.fs, rm.f, walkPos.SkipPseudoPos) {
 		*pt.Pos = token.Pos(base + int(*pt.Pos))
 	}
 }
 
-func (rm *remapper) placeFloaters(posFile *posFile.PosFile, prior walkPos.PosTuple) {
+func (rm *remapper) placeFloaters(prior walkPos.PosTuple) {
 	cgs, found := rm.floaters[int(*prior.Pos)]
 	if !found {
 		return
 	}
 	for _, cg := range cgs {
 		for pt := range walkPos.WalkPos(rm.fileData.fs, cg) {
-			rm.placePos(posFile, pt)
+			rm.placePos(pt)
 		}
 	}
 }
 
-func (rm *remapper) placePos(posFile *posFile.PosFile, pt walkPos.PosTuple) {
-	cur := posFile.Offset()
+func (rm *remapper) placePos(pt walkPos.PosTuple) {
+	cur := rm.pf.Offset()
 
-	rest := false
-	for line := range strings.Lines(pt.Text) {
-		if rest {
-			posFile.AddLine()
-		}
-		posFile.Add(len(line))
-		rest = true
-	}
-
-	// TODO: Figure out a way to ensure there is space if needed to separate identifiers,
-	// insert a ".", "]", etc.
+	rm.placeText(pt.Text)
 
 	tail := rm.fileData.TailWithWidth(*pt.Pos, pt.Width)
-	for i, width := range tail {
-		if i > 0 {
-			posFile.AddLine()
-		}
-		posFile.Add(width)
-	}
+	rm.placeWhitespace(tail)
 
 	*pt.Pos = token.Pos(cur)
+}
+
+func (rm *remapper) placeText(text string) {
+	rest := false
+	for line := range strings.Lines(text) {
+		if rest {
+			rm.pf.AddLine()
+		}
+		rm.pf.Add(len(line))
+		rest = true
+	}
+}
+
+func (rm *remapper) placeWhitespace(lines []int) {
+	for i, width := range lines {
+		if i > 0 {
+			rm.pf.AddLine()
+		}
+		rm.pf.Add(width)
+	}
 }

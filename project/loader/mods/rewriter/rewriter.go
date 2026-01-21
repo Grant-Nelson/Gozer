@@ -33,7 +33,6 @@ func (rw *Rewriter) Parser(fileSet *token.FileSet, filename string, src any) (f 
 		return nil, err
 	}
 
-	// TODO: Try using the scanner if se can get the raw text file.
 	rw.recordFile(fileSet, f)
 	return f, nil
 }
@@ -91,12 +90,25 @@ func (rw *Rewriter) Remap(fileSet *token.FileSet, f *ast.File, targetFileSet *to
 	if targetFileSet == nil {
 		targetFileSet = fileSet
 	}
-
 	rm := &remapper{
 		fileSet:  fileSet,
 		f:        f,
 		fileData: rw.getFileData(fileSet, f),
 	}
 	rm.perform(targetFileSet)
+	return nil
+}
+
+func (rw *Rewriter) Rewrite(fileSet *token.FileSet, f *ast.File, targetFileSet *token.FileSet) (err error) {
+	faults.Recover(&err)
+	if targetFileSet == nil {
+		targetFileSet = fileSet
+	}
+	if err := rw.Remap(fileSet, f, targetFileSet); err != nil {
+		return err
+	}
+
+	// TODO: Finish
+
 	return nil
 }
