@@ -33,10 +33,27 @@ type PosTuple struct {
 	Pseudo bool
 }
 
+const (
+	nodeStartId = `NodeStart`
+	nodeEndId   = `NodeEnd`
+)
+
 // End is the first position after this position tuple
 // that is not used by this tuple.
 func (pt *PosTuple) End() token.Pos {
 	return *(pt.Pos) + token.Pos(pt.Width)
+}
+
+func (pt *PosTuple) IsNodeEdge() bool {
+	return pt.IsNodeStart() || pt.IsNodeEnd()
+}
+
+func (pt *PosTuple) IsNodeStart() bool {
+	return pt.Id == nodeStartId
+}
+
+func (pt *PosTuple) IsNodeEnd() bool {
+	return pt.Id == nodeEndId
 }
 
 func (pt *PosTuple) String() string {

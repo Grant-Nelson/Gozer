@@ -218,11 +218,11 @@ func (p *posWalker) visitNodeStart(n ast.Node, doc *ast.CommentGroup) {
 			pos = docPos
 		}
 	}
-	p.visitNodeEdge(n, pos, `NodeStart`)
+	p.visitNodeEdge(n, pos, nodeStartId)
 }
 
 func (p *posWalker) visitNodeEnd(n ast.Node) {
-	p.visitNodeEdge(n, n.End(), `NodeEnd`)
+	p.visitNodeEdge(n, n.End(), nodeEndId)
 }
 
 func (p *posWalker) visit(n ast.Node, pos *token.Pos, text string, width int, id string) {

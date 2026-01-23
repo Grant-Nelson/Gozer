@@ -12,12 +12,15 @@ import (
 )
 
 type remapper struct {
-	fileSet  *token.FileSet
-	f        *ast.File
-	fileData *fileData
-	floaters map[int][]*ast.CommentGroup
-	pf       *posFile.PosFile
+	fileSet     *token.FileSet
+	f           *ast.File
+	fileData    *fileData
+	floaters    map[int][]*ast.CommentGroup
+	pf          *posFile.PosFile
+	handledSpec map[ast.Spec]bool
 }
+
+// TODO: Create a way to write an output instead of just remapping.
 
 func (rm *remapper) perform(targetFileSet *token.FileSet) {
 	if rm.checkForUnmodifiedFile() {
@@ -115,11 +118,13 @@ func commentCmp(a, b *ast.CommentGroup) int {
 
 func (rm *remapper) remapFile() {
 	rm.pf = posFile.New(rm.fileData.Name())
-
-	// TODO: Need to ensure lines between decls
-	// TODO: Write line info directives for decls and specs
-
-	for pt := range walkPos.WalkPos(rm.fileData.fs, rm.f, walkPos.SkipFileComments) {
+	for pt := range walkPos.WalkPos(rm.fileData.fs, rm.f, walkPos.SkipFileComments, walkPos.AddNodeEdges) {
+		if pt.IsNodeEdge() {
+			if pt.IsNodeStart() {
+				rm.prepareNode(pt)
+			}
+			continue
+		}
 		rm.placePos(pt)
 		rm.placeFloaters(pt)
 	}
@@ -142,6 +147,63 @@ func (rm *remapper) placeFloaters(prior walkPos.PosTuple) {
 			rm.placePos(pt)
 		}
 	}
+}
+
+func (rm *remapper) ensureLineBreak() {
+	if !rm.pf.HadLine() {
+		rm.pf.Add(1)
+		rm.pf.AddLine()
+		rm.pf.Add(1)
+		rm.pf.AddLine()
+	}
+}
+
+func (rm *remapper) prepareNode(pt walkPos.PosTuple) {
+	switch n := pt.Node.(type) {
+	case *ast.FuncDecl:
+		rm.prepareFuncDecl(n)
+	case *ast.GenDecl:
+		rm.prepareGenDecl(n)
+	case *ast.TypeSpec:
+		rm.prepareTypeSpec(n)
+	case *ast.ValueSpec:
+		rm.prepareValueSpec(n)
+	}
+}
+
+func (rm *remapper) prepareFuncDecl(n *ast.FuncDecl) {
+	rm.ensureLineBreak()
+	// TODO: Write line info directives for decls and specs
+}
+
+func (rm *remapper) prepareGenDecl(n *ast.GenDecl) {
+	if n.Tok != token.IMPORT {
+		return
+	}
+	rm.ensureLineBreak()
+	if len(n.Specs) != 1 {
+		return
+	}
+	if rm.handledSpec == nil {
+		rm.handledSpec = map[ast.Spec]bool{}
+	}
+	spec := n.Specs[0]
+	rm.handledSpec[spec] = true
+	// TODO: Write line info directives for decls and specs
+}
+
+func (rm *remapper) prepareTypeSpec(n *ast.TypeSpec) {
+	if rm.handledSpec[n] {
+		return
+	}
+	// TODO: Write line info directives for decls and specs
+}
+
+func (rm *remapper) prepareValueSpec(n *ast.ValueSpec) {
+	if rm.handledSpec[n] {
+		return
+	}
+	// TODO: Write line info directives for decls and specs
 }
 
 func (rm *remapper) placePos(pt walkPos.PosTuple) {
