@@ -58,7 +58,7 @@ func Load(cfg Config) (*project.Project, error) {
 	if p == nil {
 		p = parser.Default
 	}
-	finalFileSet := token.NewFileSet()
+	fileSet := token.NewFileSet()
 	ld := &loader{
 		group:    mods.Group(cfg.Modifiers),
 		fSet:     token.NewFileSet(),
@@ -70,7 +70,7 @@ func Load(cfg Config) (*project.Project, error) {
 		Dir:        cfg.Dir,
 		BuildFlags: cfg.BuildFlags,
 		ParseFile:  ld.parseFile,
-		Fset:       finalFileSet,
+		Fset:       fileSet,
 		Tests:      cfg.Tests,
 		Overlay:    cfg.Overlay,
 	}
@@ -83,7 +83,7 @@ func Load(cfg Config) (*project.Project, error) {
 		return nil, err
 	}
 
-	proj := project.New(finalFileSet, packages)
+	proj := project.New(fileSet, packages)
 	return proj, nil
 }
 

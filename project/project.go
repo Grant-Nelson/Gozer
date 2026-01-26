@@ -7,10 +7,10 @@ import (
 )
 
 type Project struct {
-	fSet     *token.FileSet
-	packages []*packages.Package
+	FileSet  *token.FileSet
+	Packages []*packages.Package
 }
 
 func New(fSet *token.FileSet, packages []*packages.Package) *Project {
-	return &Project{fSet: fSet, packages: packages}
+	return &Project{FileSet: fSet, Packages: packages}
 }

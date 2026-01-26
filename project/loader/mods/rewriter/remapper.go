@@ -150,6 +150,7 @@ func (rm *remapper) placeFloaters(prior walkPos.PosTuple) {
 }
 
 func (rm *remapper) ensureLineBreak() {
+	// TODO: Fix to handle indents
 	if !rm.pf.HadLine() {
 		rm.pf.Add(1)
 		rm.pf.AddLine()
@@ -158,22 +159,26 @@ func (rm *remapper) ensureLineBreak() {
 	}
 }
 
+func (rm *remapper) addLineInfo(pos token.Pos) {
+	p := rm.fileSet.Position(pos)
+	rm.pf.AddInfo(p.Filename, p.Line, p.Column)
+	// TODO: Write line info to output (try to determine the indent using whitespace from prior pos)
+}
+
 func (rm *remapper) prepareNode(pt walkPos.PosTuple) {
 	switch n := pt.Node.(type) {
 	case *ast.FuncDecl:
 		rm.prepareFuncDecl(n)
 	case *ast.GenDecl:
 		rm.prepareGenDecl(n)
-	case *ast.TypeSpec:
-		rm.prepareTypeSpec(n)
-	case *ast.ValueSpec:
-		rm.prepareValueSpec(n)
+	case ast.Spec:
+		rm.prepareSpec(n)
 	}
 }
 
 func (rm *remapper) prepareFuncDecl(n *ast.FuncDecl) {
 	rm.ensureLineBreak()
-	// TODO: Write line info directives for decls and specs
+	rm.addLineInfo(n.Pos())
 }
 
 func (rm *remapper) prepareGenDecl(n *ast.GenDecl) {
@@ -189,21 +194,13 @@ func (rm *remapper) prepareGenDecl(n *ast.GenDecl) {
 	}
 	spec := n.Specs[0]
 	rm.handledSpec[spec] = true
-	// TODO: Write line info directives for decls and specs
+	rm.addLineInfo(n.Pos())
 }
 
-func (rm *remapper) prepareTypeSpec(n *ast.TypeSpec) {
-	if rm.handledSpec[n] {
-		return
+func (rm *remapper) prepareSpec(n ast.Spec) {
+	if !rm.handledSpec[n] {
+		rm.addLineInfo(n.Pos())
 	}
-	// TODO: Write line info directives for decls and specs
-}
-
-func (rm *remapper) prepareValueSpec(n *ast.ValueSpec) {
-	if rm.handledSpec[n] {
-		return
-	}
-	// TODO: Write line info directives for decls and specs
 }
 
 func (rm *remapper) placePos(pt walkPos.PosTuple) {
