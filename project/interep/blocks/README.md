@@ -433,14 +433,24 @@ Some block control methods only change the state of the running thread.
   This will remove the thread with the current id, if that thread is
   asleep, suspended, awaiting a channel, or was just paused.
   When a thread is killed, any locks it had gained will be unlocked.
-  If the thread doesn't exist, has ended, or is the same id as the
-  current thread, false will return.
+  If the thread doesn't exist, or has already been killed ended,
+  or is the same id as the current thread (use exitThread instead),
+  then false will return.
 
   Kill can be called on the main thread. If the main thread is killed
   then all threads will exit. Since kill is not a blocking call, the
   application is in a zombie state until the current block is finished.
   If a "keep alive" option was used when starting an application,
   then killing the main thread is the same as killing any other thread.
+
+- **exitThread**: Creates a block return value.
+  It is called like `return exitThread()`.
+  This will suspend and then kill the current thread.
+
+- **exitApp**: Creates a block return value.
+  It is called like `return exitApp()`.
+  This will shutdown all running threads and stop the application
+  even if the application was started with a "keep alive" option.
 
 - **threadId**: Does not create a block return value.
   It is called like `num := threadId()`.
