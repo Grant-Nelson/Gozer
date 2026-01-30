@@ -1,5 +1,4 @@
-namespace Scheduler {
-
+export namespace Scheduler {
     export interface BlockRet {
         _apply(scheduler: Scheduler, thread: Thread): void;
     }
@@ -13,13 +12,39 @@ namespace Scheduler {
             this.followArgs  = followArgs; 
         }
 
-        _apply(scheduler: Scheduler, thread: Thread) {
-            scheduler._addCall(thread, this.followBlock, this.followArgs);
+        _apply(_: Scheduler, thread: Thread) {
+            thread.addCall(this.followBlock, this.followArgs);
         }
     }
 
     export function Goto(block: number, args: any[] = []): BlockRet {
         return new GotoRet(block, args);
+    }
+
+    class RetRet implements BlockRet {
+        readonly results: any[];
+
+        constructor(results: any[] = []) {
+            this.results = results;
+        }
+
+        _apply(_: Scheduler, thread: Thread): void {
+            const len = thread.callStack.length;
+            // NOTE: Need to deal with returns for an entry point call by
+            // setting these values to a promise attached to a thread.
+            if (len === 0) return;
+
+            const node = thread.callStack[len-1];
+            node.args.push(...this.results);
+        }
+    }
+
+    export function Ret(results: any[] = []): BlockRet {
+        return new RetRet(results);
+    }
+
+    export async function Sleep(ms: number) {
+        await new Promise(r => setTimeout(r, ms));
     }
 
     export type BlockDelegate = (args: any[]) => BlockRet;
@@ -30,20 +55,17 @@ namespace Scheduler {
         _nextId:   number   = 0;
         _running?: Thread   = undefined;
         _active:   Thread[] = [];
+        _halt:     boolean  = false;
 
-        // TODO: Consider using more precise (nanoseconds) or faster time
-        _swapTimeOut: number;
-        _pumpTimeOut: number;
+        // NOTE: Consider using more precise (nanoseconds) or faster time
+        _swapTimeOut: number = 0;
+        _pumpTimeOut: number = 0;
         readonly _swapMs: number;
         readonly _pumpMs: number;
 
         constructor(swapMs: number = 20, pumpMs: number = 50) {
             this._swapMs = swapMs;
             this._pumpMs = pumpMs;
-
-            const now = Number(new Date());
-            this._swapTimeOut = now + this._swapMs;
-            this._pumpTimeOut = now + this._pumpMs;
         }
 
         addBlock(fn: BlockDelegate): number {
@@ -54,23 +76,30 @@ namespace Scheduler {
             const id = this._nextId;
             this._nextId++;
             const thread = new Thread(id);
-            this._addCall(thread, block, args);
+            thread.addCall(block, args);
             this._active.push(thread);
 
-            if (this._running === undefined) {
-                setTimeout(() => this._run());
-            }
-
+            if (this._running === undefined) this.restart();
             return id;
         }
+
+        restart() { setTimeout(() => this._run()); }
+
+        isRunning(): boolean { return !(this._running === undefined); }
         
-        _addCall(thread: Thread, block: number, args: any[]) {
-            thread.callStack.push(new CallNode(block, args));
-        }
+        halt() { this._halt = true; }
 
         async _run() {
+            if (this.isRunning()) return;
+            this._prepare();
             while (true) {
+                if (this._halt) {
+                    this._halt = false;
+                    return;
+                }
+
                 const now = Number(new Date());
+                if (this._shouldPump(now)) await this._pump();
                 if (this._shouldSwap(now)) this._swapThreads(now);
 
                 // If running is set to undefined, then all threads have ended
@@ -78,55 +107,60 @@ namespace Scheduler {
                 const running = this._running;
                 if (running === undefined) return;
 
-                if (this._shouldPump(now)) await this._pump(now);
-
-
-
                 const call = running.callStack.pop();
                 if (call === undefined) {
-                    // TODO: deal with an empty thread.
-                    return
+                    this._active.pop();
+                    this._running = undefined;
+                    continue;
                 }
-                const ret = this._blocks[call.block](call.args);
-                ret._apply(this, running);o
-                // TODO: finish implementing
 
+                const ret = this._blocks[call.block](call.args);
+                ret._apply(this, running);
             }
         }
 
-        _shouldSwap(now: Number): boolean {
-            if (this._running === undefined) return true;
+        _prepare() {
+            const now = Number(new Date());
+            this._swapTimeOut = now + this._swapMs;
+            this._pumpTimeOut = now + this._pumpMs;
+        }
 
+        _shouldSwap(now: number): boolean {
+            return this._running === undefined && this._swapTimeOut < now;
+        }
 
-
-            return false;
+        _shouldPump(now: number): boolean {
+            return this._pumpTimeOut < now;
         }
         
-        _swapThreads(now: Number) {
-
+        _swapThreads(now: number) {
+            this._swapTimeOut = now + this._swapMs;
+            // NOTE: May want to use a random selection.
+            const thread = this._active.shift();
+            if (thread === undefined) {
+                this._running = undefined;
+                return;
+            }
+            // Put running thread back in active at the end.
+            this._active.push(thread);
         }
 
-        _shouldPump(now: Number): boolean {
-
-
-
-            return this._pumpTimer
-        }
-
-        async _pump(now: Number) {
-
+        async _pump() {
+            Sleep(0);
+            this._pumpTimeOut = Number(new Date()) + this._pumpMs;
         }
     }
 
     class Thread {
         readonly id: number;
         callStack:   CallNode[] = [];
+        alive:       boolean    = true;
 
-        constructor(id: number) {
-            this.id = id;
+        constructor(id: number) { this.id = id; }
+
+        addCall(block: number, args: any[] = []) {
+            this.callStack.push(new CallNode(block, args));
         }
-
-        isMain(): boolean { return this.id == 0; }
     }
 
     class CallNode {

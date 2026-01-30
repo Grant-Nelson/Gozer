@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Grant-Nelson/Gozer/internal/args"
+	"github.com/Grant-Nelson/Gozer/avail/args"
 	"github.com/Grant-Nelson/Gozer/tools/builder"
 	"github.com/Grant-Nelson/Gozer/tools/listLangs"
 	"github.com/Grant-Nelson/Gozer/tools/runner"
@@ -20,6 +20,9 @@ type mainConfig struct {
 	Version   *version.Config   `arg:"tool, v|version, Shows the version."`
 	ListLangs *listLangs.Config `arg:"tool, list, Shows the list of languages available to transpile into."`
 }
+
+// TODO: Add 'env' for printing environment variables that are used.
+// TODO: Add 'serve' to serve a website
 
 func defaultConfig(defaultLang string) *mainConfig {
 	return &mainConfig{
