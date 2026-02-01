@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"embed"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,8 +32,8 @@ var Config = &struct {
 		`then the server will look for a *.ts with the same name. ` +
 		`If a *.ts exists, then it will be compiled for the missing *.js ` +
 		`and source mapping will also be generated. If index.html doesn't ` +
-		`exist on disk, a very simple one will be generated to load all of ` +
-		`the *.js and *.ts scripts.`,
+		`exist on disk, a very simple one will be returned that will load` +
+		`a "main.js" script.`,
 	BasePath: `.`,
 	Verbose:  false,
 	Port:     `8080`,
@@ -58,12 +62,13 @@ func (builderFileSystem) Open(name string) (fs.File, error) {
 	logf("Request: %q\n", name)
 	f, err := http.Dir(Config.BasePath).Open(name)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) && strings.HasSuffix(name, `index.html`) {
+		if errors.Is(err, fs.ErrNotExist) {
 			f, err := generateFile(name)
 			if err == nil {
 				return f, nil
 			}
 			if !errors.Is(err, fs.ErrNotExist) {
+				logf("Error generating: %v\n", err)
 				return nil, err
 			}
 		}
@@ -73,12 +78,27 @@ func (builderFileSystem) Open(name string) (fs.File, error) {
 	return f, nil
 }
 
-func generateFile(name string) (http.File, error) {
-	if strings.HasSuffix(name, `index.html`) {
-		return generateIndexPage()
-	}
+const (
+	indexPageName = `index.html`
+	faviconName   = `favicon.ico`
+)
 
-	if strings.HasSuffix(name, `.js`) {
+func generateFile(name string) (http.File, error) {
+	switch filepath.Ext(name) {
+	case `.html`:
+		// TODO: Change the server embedded file to just check for any base
+		// name then on "not exists" continue onto generate. Also move the
+		// embedded files into a dir and just embed the whole dir.
+		if filepath.Base(name) == indexPageName {
+			return serveEmbeddedFile(indexPageName)
+		}
+
+	case `.ico`:
+		if filepath.Base(name) == faviconName {
+			return serveEmbeddedFile(faviconName)
+		}
+
+	case `.js`:
 		f, err := readAndBuild(name, `.ts`, api.LoaderTS)
 		if err == nil {
 			return f, nil
@@ -102,6 +122,7 @@ func generateFile(name string) (http.File, error) {
 }
 
 func readAndBuild(jsName, ext string, loader api.Loader) (http.File, error) {
+	start := time.Now()
 	name := strings.TrimSuffix(jsName, filepath.Ext(jsName)) + ext
 	f, err := http.Dir(Config.BasePath).Open(name)
 	if err != nil {
@@ -114,25 +135,52 @@ func readAndBuild(jsName, ext string, loader api.Loader) (http.File, error) {
 		return nil, err
 	}
 
-	content, err := buildJS(buf.String(), loader)
+	content, err := buildJS(name, buf.String(), loader)
 	if err != nil {
 		return nil, err
 	}
 
-	logf("Built %q from %q\n", jsName, name)
+	content = postBuildProcess(content)
 
+	logf("Built %q from %q (%v)\n", jsName, name, time.Since(start))
 	return &pseudoFile{
 		name:    jsName,
+		size:    int64(len(content)),
 		source:  f,
-		content: strings.NewReader(content),
+		content: bytes.NewReader(content),
 	}, nil
 }
 
-func buildJS(content string, loader api.Loader) (string, error) {
+var importReg = regexp.MustCompile(`import.*from\s*".+(\.\w+)";`)
+
+// postBuildProcess will search for imports that import *.ts, *.tsx, and *.jsx
+// files and replace the extensions to import *.js files.
+func postBuildProcess(data []byte) []byte {
+	var jsExt = []byte(`.js`)
+	matches := importReg.FindAllSubmatchIndex(data, -1)
+	for i := len(matches) - 1; i >= 0; i-- {
+		sub := matches[i]
+		if len(sub) != 4 {
+			logf(`match %d found with wrong number of values: %v`, i, sub)
+			continue
+		}
+		ext := string(data[sub[2]:sub[3]])
+		switch ext {
+		case `.ts`, `.tsx`, `.jsx`:
+			head, tail := data[:sub[2]], data[sub[3]:]
+			data = append(append(head, jsExt...), tail...)
+		}
+	}
+	return data
+}
+
+func buildJS(sourceFile, content string, loader api.Loader) ([]byte, error) {
 	options := api.TransformOptions{
 		Target:      api.ES2015,
 		TreeShaking: api.TreeShakingFalse,
 		Sourcemap:   api.SourceMapInline,
+		Sourcefile:  sourceFile,
+		SourceRoot:  Config.BasePath,
 		Loader:      loader,
 	}
 
@@ -151,23 +199,24 @@ func buildJS(content string, loader api.Loader) (string, error) {
 		for _, e := range result.Errors {
 			logf("Error: %d:%d: %s\n%s\n", e.Location.Line, e.Location.Column, e.Text, e.Location.LineText)
 		}
-		return ``, fmt.Errorf(`JS transform failed with %d errors.`, errCount)
+		return nil, fmt.Errorf(`JS transform failed with %d errors.`, errCount)
 	}
 
-	return string(result.Code), nil
+	return result.Code, nil
 }
 
-func generateIndexPage() (http.File, error) {
+//go:embed favicon.ico index.html
+var embeddedFiles embed.FS
 
-	// TODO: Implement
-
-	return nil, fmt.Errorf(`not implemented`)
+func serveEmbeddedFile(name string) (http.File, error) {
+	return http.FS(embeddedFiles).Open(name)
 }
 
 type pseudoFile struct {
 	name    string
+	size    int64
 	source  http.File
-	content *strings.Reader
+	content io.ReadSeeker
 }
 
 func (pf *pseudoFile) Close() error {
@@ -175,11 +224,11 @@ func (pf *pseudoFile) Close() error {
 }
 
 func (pf *pseudoFile) Read(p []byte) (n int, err error) {
-	return pf.source.Read(p)
+	return pf.content.Read(p)
 }
 
 func (pf *pseudoFile) Seek(offset int64, whence int) (int64, error) {
-	return pf.source.Seek(offset, whence)
+	return pf.content.Seek(offset, whence)
 }
 
 func (pf *pseudoFile) Readdir(count int) ([]fs.FileInfo, error) {
@@ -193,7 +242,7 @@ func (pf *pseudoFile) Stat() (fs.FileInfo, error) {
 	}
 	return &pseudoStat{
 		name: pf.name,
-		size: int64(pf.content.Len()),
+		size: pf.size,
 		stat: stat,
 	}, nil
 }

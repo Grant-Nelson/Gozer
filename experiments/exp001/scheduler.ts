@@ -126,7 +126,7 @@ export namespace Scheduler {
         }
 
         _shouldSwap(now: number): boolean {
-            return this._running === undefined && this._swapTimeOut < now;
+            return this._running === undefined || this._swapTimeOut < now;
         }
 
         _shouldPump(now: number): boolean {
@@ -141,12 +141,13 @@ export namespace Scheduler {
                 this._running = undefined;
                 return;
             }
+            this._running = thread;
             // Put running thread back in active at the end.
             this._active.push(thread);
         }
 
         async _pump() {
-            Sleep(0);
+            await Sleep(0);
             this._pumpTimeOut = Number(new Date()) + this._pumpMs;
         }
     }
