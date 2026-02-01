@@ -3,37 +3,58 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
+
+	"github.com/Grant-Nelson/Gozer/avail/args"
 )
 
-const (
-	input  = "../../experiments/exp001/scheduler.ts"
-	output = "../../experiments/exp001/scheduler.js"
-)
+var Config = &struct {
+	Help   string `arg:"help"`
+	Output string `arg:"optional,flag,o|out,Output file to write to instead of the input with *.js extension"`
+	Input  string `arg:"required,pos,Input,The input *.ts file to transform into *.js."`
+	Minify bool   `arg:"optional,flag,m|mini,Minifies any *.js being built"`
+}{
+	Help:   `This compiles a *.ts file into a *.js file.`,
+	Output: ``,
+	Input:  ``,
+	Minify: false,
+}
 
 func main() {
-	data, err := os.ReadFile(input)
+	if !args.Parse(Config) {
+		return
+	}
+
+	if len(Config.Output) <= 0 {
+		Config.Output = strings.TrimSuffix(Config.Input, filepath.Ext(Config.Input)) + `*.js`
+	}
+
+	data, err := os.ReadFile(Config.Input)
 	if err != nil {
 		log.Fatalf(`Failed reading source: %v`, err)
 	}
 
-	result := transformToJS(string(data), false)
+	result := transformToJS(string(data))
 
-	err = os.WriteFile(output, result, 0644)
+	err = os.WriteFile(Config.Output, result, 0644)
 	if err != nil {
 		log.Fatalf(`Failed writing output: %v`, err)
 	}
 }
 
-func transformToJS(source string, minify bool) []byte {
+func transformToJS(source string) []byte {
 	options := api.TransformOptions{
 		Target:      api.ES2015,
 		Loader:      api.LoaderTS,
 		TreeShaking: api.TreeShakingFalse,
+		Sourcemap:   api.SourceMapInline,
+		Sourcefile:  Config.Input,
 	}
 
-	if minify {
+	if Config.Minify {
 		options.MinifyWhitespace = true
 		options.MinifyIdentifiers = true
 		options.MinifySyntax = true
