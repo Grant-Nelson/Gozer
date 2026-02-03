@@ -15,5 +15,20 @@ ideas while prototyping and designing Gozer.
 - [exp001](./exp001/): The first experiment were the application is simply
   a bunch of goto's between blocks for a single function using hand-written
   blocks and an experimental simple scheduler.
-- [exp002](./exp002/): This experiment add to the prior experiment to include
-  calling another method and returning from the method.
+
+- [exp002](./exp002/): This experiment includes calling another method and
+  returning from the method.
+
+## List of Experiments that may be done
+
+- An experiment to add to include defer, recover, and panic.
+
+- An experiment to add to include tests of several threads running at the
+  same time whilst usings locks or channels to synchronize the threads
+  and sleep them.
+
+- An experiment to add calling across several packages and
+  linking them together to allow cross package method calls.
+
+- An experiment to add closures and captured values
+  including named results.

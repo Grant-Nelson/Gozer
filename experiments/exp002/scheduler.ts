@@ -1,53 +1,87 @@
 export namespace Scheduler {
-    export interface BlockRet {
-        _apply(scheduler: Scheduler, thread: Thread): void;
+    export interface BlockResult {
+        _apply(thread: Thread): void;
     }
 
-    class GotoRet implements BlockRet {
-        readonly followBlock: number;
+    export class Goto implements BlockResult {
+        readonly followBlock: Block;
         readonly followArgs:  any[];
 
-        constructor(followBlock: number, followArgs: any[] = []) {
+        constructor(followBlock: Block, followArgs: any[] = []) {
             this.followBlock = followBlock;
             this.followArgs  = followArgs; 
         }
 
-        _apply(_: Scheduler, thread: Thread) {
+        _apply(thread: Thread) {
             thread.addCall(this.followBlock, this.followArgs);
         }
     }
 
-    export function Goto(block: number, args: any[] = []): BlockRet {
-        return new GotoRet(block, args);
-    }
-
-    class RetRet implements BlockRet {
+    export class Ret implements BlockResult {
         readonly results: any[];
 
         constructor(results: any[] = []) {
             this.results = results;
         }
 
-        _apply(_: Scheduler, thread: Thread): void {
+        _apply(thread: Thread): void {
             const len = thread.callStack.length;
             // NOTE: Need to deal with returns for an entry point call by
             // setting these values to a promise attached to a thread.
             if (len === 0) return;
 
+            // NOTE: Needs to skip over defer blocks and any blocks before
+            // the follow after a call block.
             const node = thread.callStack[len-1];
             node.args.push(...this.results);
         }
     }
 
-    export function Ret(results: any[] = []): BlockRet {
-        return new RetRet(results);
+    export class Call implements BlockResult {
+        readonly followBlock: Block;
+        readonly followArgs:  any[];
+        readonly callBlock:   Block;
+        readonly callArgs:    any[];
+
+        constructor(followBlock: Block, followArgs: any[], callBlock: Block, callArgs: any[]) {
+            this.followBlock = followBlock;
+            this.followArgs  = followArgs;
+            this.callBlock   = callBlock;
+            this.callArgs    = callArgs; 
+        }
+
+        _apply(thread: Thread): void {
+            thread.addCall(this.followBlock, this.followArgs);
+            thread.addCall(this.callBlock, this.callArgs);
+        }
     }
 
     export async function Sleep(ms: number) {
         await new Promise(r => setTimeout(r, ms));
     }
 
-    export type BlockDelegate = (args: any[]) => BlockRet;
+    export type Block = (args: any[]) => BlockResult;
+
+    class Thread {
+        readonly id: number;
+        callStack:   CallNode[] = [];
+
+        constructor(id: number) { this.id = id; }
+
+        addCall(block: Block, args: any[] = []) {
+            this.callStack.push(new CallNode(block, args));
+        }
+    }
+
+    class CallNode {
+        readonly block: Block;
+        readonly args:  any[];
+
+        constructor(block: Block, args: any[] = []) {
+            this.block = block;
+            this.args  = args; 
+        }
+    }
 
     enum status {
         Starting,
@@ -56,13 +90,11 @@ export namespace Scheduler {
         Stopped,
     }
 
-    export class Scheduler {
-        _blocks: BlockDelegate[] = [];
-
-        _nextId:   number   = 0;
-        _running?: Thread   = undefined;
-        _active:   Thread[] = [];
-        _status:   status   = status.Stopped;
+    class scheduler {
+        _nextThreadId: number   = 0;
+        _running?:     Thread   = undefined;
+        _active:       Thread[] = [];
+        _status:       status   = status.Stopped;
 
         // NOTE: Consider using more precise (nanoseconds) or faster time
         _swapTimeOut: number = 0;
@@ -75,13 +107,9 @@ export namespace Scheduler {
             this._pumpMs = pumpMs;
         }
 
-        addBlock(fn: BlockDelegate): number {
-            return this._blocks.push(fn);
-        }
-
-        addThread(block: number, args: any[] = []): number {
-            const id = this._nextId;
-            this._nextId++;
+        addThread(block: Block, args: any[] = []): number {
+            const id = this._nextThreadId;
+            this._nextThreadId++;
             const thread = new Thread(id);
             thread.addCall(block, args);
             this._active.push(thread);
@@ -135,13 +163,8 @@ export namespace Scheduler {
                 // Run the block and get return.
                 // NOTE: This could be optimized to keep thread cycling without
                 //   checking as much until a swap is needed.
-                // NOTE: The block call needs to be able to call blocks in other
-                //   packages (modules) while making package linking stable enough
-                //   to allow block indices or use some kind of naming for blocks.
-                // NOTE: May want to check that the block exists and to wrap the
-                //   block call in a try-catch to protect the app from a bad block.
-                const ret = this._blocks[call.block](call.args);
-                ret._apply(this, running);
+                const ret = call.block(call.args);
+                ret._apply(running);
             }
             this._shutdown();
         }
@@ -183,25 +206,6 @@ export namespace Scheduler {
             this._pumpTimeOut = Number(new Date()) + this._pumpMs;
         }
     }
-
-    class Thread {
-        readonly id: number;
-        callStack:   CallNode[] = [];
-
-        constructor(id: number) { this.id = id; }
-
-        addCall(block: number, args: any[] = []) {
-            this.callStack.push(new CallNode(block, args));
-        }
-    }
-
-    class CallNode {
-        readonly block: number;
-        readonly args:  any[];
-
-        constructor(block: number, args: any[] = []) {
-            this.block = block;
-            this.args  = args; 
-        }
-    }
+    
+    export const Schedular = new scheduler();
 }
