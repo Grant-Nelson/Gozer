@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,9 @@ import (
 )
 
 func main() {
+	setLockFile()
+	defer unsetLockFile()
+
 	ctx, cancel := withInterrupt(context.Background())
 	defer cancel()
 
@@ -52,4 +56,22 @@ func withInterrupt(parentCtx context.Context) (context.Context, context.CancelFu
 	}()
 	signal.Notify(ch, os.Interrupt)
 	return ctx, cancel
+}
+
+const lockFileName = `driver.lock`
+
+func setLockFile() {
+	// Check that the lock file does not exist.
+	// TODO: Until we are further along with this development we don't want to
+	// risk recursively starting up this application causing major problems.
+	if _, err := os.Stat(lockFileName); !errors.Is(err, os.ErrNotExist) {
+		panic(`only one driver may run at a time for now`)
+	}
+	if err := os.WriteFile(lockFileName, []byte(`Lock`), 0644); err != nil {
+		panic(`failed to write lock file`)
+	}
+}
+
+func unsetLockFile() {
+	os.Remove(lockFileName)
 }

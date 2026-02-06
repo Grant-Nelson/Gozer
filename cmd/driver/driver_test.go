@@ -36,7 +36,7 @@ func Test_Driver_Basic(t *testing.T) {
 
 	for pkg := range packages.Postorder(pkgs) {
 		fmt.Printf("Package: %q\n", pkg.PkgPath)
-		printOneFile(`Dir`, pkg.Dir)
+		printOneFile(`ID`, pkg.ID)
 		printOneFile(`Name`, pkg.Name)
 		printOneFile(`Dir`, pkg.Dir)
 		printFiles(`Go Files`, pkg.GoFiles)
