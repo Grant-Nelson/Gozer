@@ -14,25 +14,41 @@ import (
 	"github.com/Grant-Nelson/Gozer/cmd/driver/internal/driver"
 )
 
+const (
+	verbose      = true
+	logFile      = `driver.log`
+	lockFileName = `driver.lock`
+)
+
 func main() {
 	setLockFile()
 	defer unsetLockFile()
 
+	var logs io.Writer
+	if verbose {
+		f, err := os.Create(logFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, `driver failed to create log file: %v`, err)
+		}
+		logs = f
+		defer f.Close()
+	}
+
 	ctx, cancel := withInterrupt(context.Background())
 	defer cancel()
 
-	if err := run(ctx, os.Args[1:], os.Stdin, os.Stdout); err != nil {
+	if err := run(ctx, os.Args[1:], os.Stdin, os.Stdout, logs); err != nil {
 		fmt.Fprintf(os.Stderr, `driver failed: %v`, err)
 	}
 }
 
-func run(ctx context.Context, patterns []string, in io.Reader, out io.Writer) error {
+func run(ctx context.Context, patterns []string, in io.Reader, out, logs io.Writer) error {
 	request := &packages.DriverRequest{}
 	if err := json.NewDecoder(in).Decode(request); err != nil {
 		return fmt.Errorf(`unable to unmarshal request: %w`, err)
 	}
 
-	response, err := driver.New(ctx, patterns, request).Drive()
+	response, err := driver.New(ctx, patterns, request, logs).Drive()
 	if err != nil {
 		return fmt.Errorf(`error running driver: %w`, err)
 	}
@@ -57,8 +73,6 @@ func withInterrupt(parentCtx context.Context) (context.Context, context.CancelFu
 	signal.Notify(ch, os.Interrupt)
 	return ctx, cancel
 }
-
-const lockFileName = `driver.lock`
 
 func setLockFile() {
 	// Check that the lock file does not exist.

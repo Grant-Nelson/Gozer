@@ -3,7 +3,7 @@ package driver
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"slices"
 	"strings"
 
@@ -19,16 +19,18 @@ type driver struct {
 	patterns []string
 	request  *packages.DriverRequest
 	response *packages.DriverResponse
+	logs     io.Writer
 	roots    []*packages.Package
-	packs    []*packages.Package
+	packages []*packages.Package
 }
 
-func New(ctx context.Context, patterns []string, request *packages.DriverRequest) Driver {
+func New(ctx context.Context, patterns []string, request *packages.DriverRequest, logs io.Writer) Driver {
 	return &driver{
 		ctx:      ctx,
 		patterns: patterns,
 		request:  request,
 		response: &packages.DriverResponse{},
+		logs:     logs,
 	}
 }
 
@@ -50,9 +52,10 @@ func (d *driver) loadPackages() error {
 		packages.NeedImports |
 		packages.NeedDeps
 
+	// Prevent this call to packages.Load from starting up this driver otherwise
+	// it will recursively start driver processes until the OS is restarted.
 	env := slices.DeleteFunc(d.request.Env,
 		func(e string) bool { return strings.HasPrefix(e, `GOPACKAGES`) })
-	fmt.Fprintf(os.Stderr, "Env: %v\n\n", env)
 
 	c := &packages.Config{
 		Mode:       allNeeds,
@@ -66,19 +69,21 @@ func (d *driver) loadPackages() error {
 	if err != nil {
 		return fmt.Errorf(`Failed to load list of file paths: %w`, err)
 	}
+
 	d.roots = roots
+	d.response.Roots = make([]string, len(d.roots))
+	for i, root := range d.roots {
+		d.response.Roots[i] = root.ID
+	}
+
 	return nil
 }
 
 func (d *driver) flattenForest() {
-	d.packs = slices.Collect(packages.Postorder(d.roots))
-	for i, pkg := range d.packs {
-		fmt.Fprintf(os.Stderr, "(%d) ID = %q\n", i, pkg.ID)
-	}
+	d.packages = slices.Collect(packages.Postorder(d.roots))
+	d.response.Packages = d.packages
 }
 
 func (d *driver) prepareResponse() {
-
-	//d.response.Roots
 
 }
