@@ -35,7 +35,7 @@ func newPackage(pkg *project.Package) *augPackage {
 }
 
 func (a *augPackage) AddFile(build []string, parser parser.Parser, filename string, src []byte, errGroup *faults.Group) (err error) {
-	//defer faults.Recover(&err)
+	defer faults.Recover(&err) // TODO: Fix to use errGroup
 	ar := newReader(a, build, parser, errGroup)
 	ar.addFile(filename, src)
 	return nil

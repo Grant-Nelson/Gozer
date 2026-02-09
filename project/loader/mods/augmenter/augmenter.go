@@ -65,7 +65,7 @@ func New(build []string, pathConv PathConverter, parser parser.Parser) *Augmente
 }
 
 func (a *Augmenter) Modify(f *ast.File, errGroup *faults.Group) (con bool, err error) {
-	//defer faults.Recover(&err)// TODO: Connect these faults.Recover to errGroup
+	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
 	if a.curPkg == nil {
 		// no augmentation for this package.
 		return true, nil
@@ -77,7 +77,7 @@ func (a *Augmenter) Modify(f *ast.File, errGroup *faults.Group) (con bool, err e
 }
 
 func (a *Augmenter) PackageStart(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
-	//defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
+	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
 	// TODO: assert `a.curPkg == nil`
 
 	hasAug, augPath := a.pathConv(pkg.PkgPath)
@@ -93,7 +93,7 @@ func (a *Augmenter) PackageStart(pkg *project.Package, errGroup *faults.Group) (
 }
 
 func (a *Augmenter) PackageDone(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
-	//defer faults.Recover(&err)// TODO: Connect these faults.Recover to errGroup
+	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
 	// TODO: assert `a.curPkg.pkg == pkg`
 
 	if a.curPkg != nil {
