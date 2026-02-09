@@ -3,7 +3,6 @@ package project
 import (
 	"go/ast"
 	"go/token"
-	"os"
 
 	"golang.org/x/tools/go/packages"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
+// Config is the configuration for the loader.
 type Config struct {
 
 	// Dir is the directory in which to run the build system's query tool
@@ -41,62 +41,103 @@ type Config struct {
 	Parser parser.Parser
 }
 
+// Load reads, parses, modifies, and collects type information for a project
+// based on the given configuration.
 func Load(cfg Config) (*project.Project, error) {
 	p := cfg.Parser
 	if p == nil {
 		p = parser.Default
 	}
-	fileSet := token.NewFileSet()
+
 	ld := &loader{
 		group:    mods.Group(cfg.Modifiers),
 		fSet:     token.NewFileSet(),
 		errGroup: faults.NewGroup(-1),
 		parser:   p,
+		overlay:  cfg.Overlay,
 	}
-	c := &packages.Config{
-		Mode:       allNeeds,
-		Dir:        cfg.Dir,
-		BuildFlags: cfg.BuildFlags,
-		ParseFile:  ld.parseFile,
-		Fset:       fileSet,
-		Tests:      cfg.Tests,
-		Overlay:    cfg.Overlay,
-		Env:        append(os.Environ(), `GOPACKAGESDRIVER=../../cmd/driver/driver.exe`),
-	}
-	packages, err := packages.Load(c, cfg.Patterns...)
-	if err != nil {
+	if err := ld.loadFileNames(cfg); err != nil {
 		return nil, err
 	}
 
-	if err := ld.group.LoadDone(ld.errGroup); err != nil {
+	// TODO: Need to check packages for errors.
+	if err := ld.parseProject(); err != nil {
 		return nil, err
 	}
-
-	proj := project.New(fileSet, packages)
-	return proj, nil
+	return ld.proj, nil
 }
-
-const allNeeds = packages.NeedName |
-	packages.NeedFiles |
-	packages.NeedImports |
-	packages.NeedDeps |
-	packages.NeedExportFile |
-	packages.NeedTypes |
-	packages.NeedSyntax |
-	packages.NeedTypesInfo
 
 type loader struct {
 	group    mods.Group
 	fSet     *token.FileSet
 	errGroup *faults.Group
+	proj     *project.Project
 	parser   parser.Parser
+	overlay  map[string][]byte
 }
 
-func (ld *loader) parseFile(fs *token.FileSet, filename string, src []byte) (*ast.File, error) {
+func (ld *loader) loadFileNames(cfg Config) error {
+	const allNeeds = packages.NeedName |
+		packages.NeedFiles |
+		packages.NeedImports |
+		packages.NeedDeps |
+		packages.NeedEmbedFiles
+
+	c := &packages.Config{
+		Mode:       allNeeds,
+		Dir:        cfg.Dir,
+		BuildFlags: cfg.BuildFlags,
+		Tests:      cfg.Tests,
+		Fset:       ld.fSet,
+		Overlay:    cfg.Overlay,
+	}
+	roots, err := packages.Load(c, cfg.Patterns...)
+	if err != nil {
+		return err
+	}
+	ld.proj = project.New(ld.fSet, roots)
+	return nil
+}
+
+func (ld *loader) parseProject() error {
+	// TODO: Could load these asynchronously any package that
+	// has had all of its dependencies finished.
+	for _, pkg := range ld.proj.AllPackages {
+		if err := ld.parsePackage(pkg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ld *loader) parsePackage(pkg *project.Package) error {
+	if con, err := ld.group.PackageStart(pkg, ld.errGroup); err != nil || !con {
+		return err
+	}
+
+	for _, filename := range pkg.GoFiles {
+		f, err := ld.parseFile(filename)
+		if err != nil {
+			return err
+		}
+		pkg.Syntax = append(pkg.Syntax, f)
+	}
+
+	_, err := ld.group.PackageDone(pkg, ld.errGroup)
+	return err
+}
+
+func (ld *loader) parseFile(filename string) (*ast.File, error) {
+	var src []byte
+	if over, ok := ld.overlay[filename]; ok {
+		src = over
+	}
+
 	f, err := ld.parser(ld.fSet, filename, src)
 	if err != nil {
 		return nil, ld.errGroup.Fatal(err)
 	}
+
 	if _, err := ld.group.Modify(f, ld.errGroup); err != nil {
 		return nil, err
 	}

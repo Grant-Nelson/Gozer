@@ -45,7 +45,6 @@ type augReader struct {
 	errGroup *faults.Group
 	build    []string
 
-	curFSet *token.FileSet
 	curFile *ast.File
 
 	addSpecs        []ast.Spec
@@ -61,7 +60,7 @@ func newReader(pkg *augPackage, build []string, parser parser.Parser, errGroup *
 	}
 }
 
-func (ar *augReader) readPackage(fSet *token.FileSet, dir string) {
+func (ar *augReader) readPackage(dir string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -72,12 +71,12 @@ func (ar *augReader) readPackage(fSet *token.FileSet, dir string) {
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			ar.addFile(fSet, entry.Name(), nil)
+			ar.addFile(entry.Name(), nil)
 		}
 	}
 }
 
-func (ar *augReader) addFile(fSet *token.FileSet, filename string, src []byte) {
+func (ar *augReader) addFile(filename string, src []byte) {
 	if filepath.Ext(filename) != `.go` {
 		return
 	}
@@ -86,13 +85,12 @@ func (ar *augReader) addFile(fSet *token.FileSet, filename string, src []byte) {
 		return
 	}
 
-	f, err := ar.parser(fSet, filename, src)
+	f, err := ar.parser(ar.pkg.Fset, filename, src)
 	if err != nil {
 		ar.errGroup.Panic(err)
 		return
 	}
 
-	ar.curFSet = fSet
 	ar.curFile = f
 	if !ar.shouldAdd() {
 		return
@@ -100,20 +98,19 @@ func (ar *augReader) addFile(fSet *token.FileSet, filename string, src []byte) {
 	for _, d := range f.Decls {
 		ar.readDecl(d)
 	}
-	ar.curFSet = nil
 	ar.curFile = nil
 }
 
 func (ar *augReader) pkgPath() string {
-	return artifacts.PackagePath(ar.curFSet, ar.curFile)
+	return artifacts.PackagePath(ar.pkg.Fset, ar.curFile)
 }
 
 func (ar *augReader) pos(p token.Pos) token.Position {
-	return ar.curFSet.Position(p)
+	return ar.pkg.Fset.Position(p)
 }
 
 func (ar *augReader) shouldAdd() bool {
-	if artifacts.IsTest(ar.curFSet, ar.curFile) != ar.pkg.IsTest() ||
+	if artifacts.IsTest(ar.pkg.Fset, ar.curFile) != ar.pkg.IsTest() ||
 		artifacts.IsXTest(ar.curFile) != ar.pkg.IsXTest() {
 		return false
 	}

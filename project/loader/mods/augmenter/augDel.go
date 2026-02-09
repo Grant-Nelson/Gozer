@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
@@ -26,8 +27,7 @@ var (
 type delHandle func(*artifacts.IdentIteratorValue, *faults.Group) (bool, error)
 
 type augDel struct {
-	fSet       *token.FileSet
-	pkg        *artifacts.Package
+	pkg        *project.Package
 	delImport  map[string]bool
 	delFunc    map[string]*ast.FuncDecl
 	delVar     map[string]*ast.ValueSpec
@@ -37,9 +37,8 @@ type augDel struct {
 	delHandles []delHandle
 }
 
-func newDel(fSet *token.FileSet, pkg *artifacts.Package) *augDel {
+func newDel(pkg *project.Package) *augDel {
 	a := &augDel{
-		fSet:       fSet,
 		pkg:        pkg,
 		delImport:  map[string]bool{},
 		delFunc:    map[string]*ast.FuncDecl{},
@@ -58,11 +57,13 @@ func newDel(fSet *token.FileSet, pkg *artifacts.Package) *augDel {
 	return a
 }
 
-var _ mods.Modifier = (*augDel)(nil)
-var _ mods.LoadDoneExt = (*augDel)(nil)
+var (
+	_ mods.Modifier       = (*augDel)(nil)
+	_ mods.PackageDoneExt = (*augDel)(nil)
+)
 
 func (a *augDel) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
-	for it := range artifacts.Idents(a.fSet, f) {
+	for it := range artifacts.Idents(a.pkg.Fset, f) {
 		for _, handle := range a.delHandles {
 			deleted, err := handle(it, errGroup)
 			if err != nil {
@@ -76,9 +77,9 @@ func (a *augDel) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
 	return true, nil
 }
 
-func (a *augDel) LoadDone(errGroup *faults.Group) error {
+func (a *augDel) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool, error) {
 	// TODO: Check for any identifiers that weren't found.
-	return nil
+	return true, nil
 }
 
 func (a *augDel) tryDelFunc(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
@@ -90,7 +91,7 @@ func (a *augDel) tryDelFunc(it *artifacts.IdentIteratorValue, errGroup *faults.G
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotFunc).
 			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.fSet.Position(d.Pos())).
+			With(`augmenter pos`, a.pkg.Fset.Position(d.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -109,7 +110,7 @@ func (a *augDel) tryDelVar(it *artifacts.IdentIteratorValue, errGroup *faults.Gr
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotValue).
 			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.fSet.Position(v.Pos())).
+			With(`augmenter pos`, a.pkg.Fset.Position(v.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}

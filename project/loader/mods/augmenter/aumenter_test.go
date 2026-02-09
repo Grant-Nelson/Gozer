@@ -9,9 +9,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
@@ -190,12 +191,16 @@ func runAugTest(t testing.TB, test augTest) {
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, fSet, PathRebase(`original`, `base`), parser.Default)
+	a := New(nil, PathRebase(`original`, `base`), parser.Default)
 
 	// Create an augmenter for a package then add the aug file to it
-	pkg := artifacts.PackageForFile(fSet, f)
-	ap := a.addPackage(pkg, errGroup)
-	if err := ap.AddFile(nil, fSet, parser.Default, `base/aug.go`, []byte(test.augSrc), errGroup); err != nil {
+	pkg := &project.Package{Package: &packages.Package{
+		Fset:   fSet,
+		Syntax: []*ast.File{f},
+	}}
+	a.curPkg = newPackage(pkg)
+
+	if err := a.curPkg.AddFile(nil, parser.Default, `base/aug.go`, []byte(test.augSrc), errGroup); err != nil {
 		checkErr(t, `load augment file`, test, err)
 		return
 	}
@@ -211,7 +216,7 @@ func runAugTest(t testing.TB, test augTest) {
 		return
 	}
 
-	if err := a.LoadDone(errGroup); err != nil {
+	if _, err := a.PackageDone(nil, errGroup); err != nil {
 		checkErr(t, `load done`, test, err)
 		return
 	}

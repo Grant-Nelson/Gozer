@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
@@ -26,8 +27,7 @@ var (
 )
 
 type augAdd struct {
-	fSet *token.FileSet
-	pkg  *artifacts.Package
+	pkg *project.Package
 
 	// beingAdded is the import paths and identifiers for the decls and specs
 	// that are being added, the value is the position value for the node.
@@ -41,9 +41,8 @@ type augAdd struct {
 	newMethods       map[string]*ast.InterfaceType
 }
 
-func newAdd(fSet *token.FileSet, pkg *artifacts.Package) *augAdd {
+func newAdd(pkg *project.Package) *augAdd {
 	return &augAdd{
-		fSet:             fSet,
 		pkg:              pkg,
 		beingAdded:       map[string]token.Pos{},
 		newImports:       []ast.Decl{},
@@ -55,18 +54,20 @@ func newAdd(fSet *token.FileSet, pkg *artifacts.Package) *augAdd {
 	}
 }
 
-var _ mods.Modifier = (*augAdd)(nil)
-var _ mods.LoadDoneExt = (*augAdd)(nil)
+var (
+	_ mods.Modifier       = (*augAdd)(nil)
+	_ mods.PackageDoneExt = (*augAdd)(nil)
+)
 
 func (a *augAdd) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
-	for id := range artifacts.Idents(a.fSet, f) {
-		if err := a.checkForExistingId(a.fSet, id, errGroup); err != nil {
+	for id := range artifacts.Idents(a.pkg.Fset, f) {
+		if err := a.checkForExistingId(id, errGroup); err != nil {
 			return false, err
 		}
-		if err := a.tryToAddFields(a.fSet, id, errGroup); err != nil {
+		if err := a.tryToAddFields(id, errGroup); err != nil {
 			return false, err
 		}
-		if err := a.tryToAddMethods(a.fSet, id, errGroup); err != nil {
+		if err := a.tryToAddMethods(id, errGroup); err != nil {
 			return false, err
 		}
 	}
@@ -75,17 +76,17 @@ func (a *augAdd) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
 	return true, nil
 }
 
-func (a *augAdd) LoadDone(errGroup *faults.Group) error {
+func (a *augAdd) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool, error) {
 	if len(a.newFields) > 0 {
 		names := slices.Collect(maps.Keys(a.newFields))
 		sort.Strings(names)
 		for _, name := range names {
 			st := a.newFields[name]
 			if err := errGroup.Add(faults.From(ErrAugAddStructIdDidNotExist).
-				With(`package path`, a.pkg.Path()).
-				With(`augmenter pos`, a.fSet.Position(st.Pos())).
+				With(`package path`, a.pkg.PkgPath).
+				With(`augmenter pos`, a.pkg.Fset.Position(st.Pos())).
 				With(`identifier`, name)); err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
@@ -95,48 +96,48 @@ func (a *augAdd) LoadDone(errGroup *faults.Group) error {
 		for _, name := range names {
 			st := a.newMethods[name]
 			if err := errGroup.Add(faults.From(ErrAugAddInterfaceIdDidNotExist).
-				With(`package path`, a.pkg.Path()).
-				With(`augmenter pos`, a.fSet.Position(st.Pos())).
+				With(`package path`, a.pkg.PkgPath).
+				With(`augmenter pos`, a.pkg.Fset.Position(st.Pos())).
 				With(`identifier`, name)); err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
-	return nil
+	return true, nil
 }
 
 // checkForExistingId checks that none of the decls being added already exist.
-func (a *augAdd) checkForExistingId(fSet *token.FileSet, id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) checkForExistingId(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
 	pos, has := a.beingAdded[id.Ident]
 	if !has {
 		return nil
 	}
 	return errGroup.Add(faults.From(ErrAugAddIdAlreadyExists).
-		With(`package path`, a.pkg.Path()).
+		With(`package path`, a.pkg.PkgPath).
 		With(`original pos`, id.Start()).
-		With(`augmenter pos`, fSet.Position(pos)).
+		With(`augmenter pos`, a.pkg.Fset.Position(pos)).
 		With(`identifier`, id.Ident))
 }
 
 // tryToAddFields checks if the given ident is a structure to add fields to.
-func (a *augAdd) tryToAddFields(fSet *token.FileSet, id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) tryToAddFields(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
 	fieldsToAdd, has := a.newFields[id.Ident]
 	if !has {
 		return nil
 	}
 	if id.TypeSpec == nil {
 		return errGroup.Add(faults.From(ErrAugAddStructIdNotForType).
-			With(`package path`, a.pkg.Path()).
+			With(`package path`, a.pkg.PkgPath).
 			With(`original pos`, id.Start()).
-			With(`augmenter pos`, fSet.Position(fieldsToAdd.Pos())).
+			With(`augmenter pos`, a.pkg.Fset.Position(fieldsToAdd.Pos())).
 			With(`identifier`, id.Ident))
 	}
 	structToAddTo, ok := id.TypeSpec.Type.(*ast.StructType)
 	if !ok {
 		return errGroup.Add(faults.From(ErrAugAddStructTypeMismatch).
-			With(`package path`, a.pkg.Path()).
+			With(`package path`, a.pkg.PkgPath).
 			With(`original pos`, id.Start()).
-			With(`augmenter pos`, fSet.Position(fieldsToAdd.Pos())).
+			With(`augmenter pos`, a.pkg.Fset.Position(fieldsToAdd.Pos())).
 			With(`identifier`, id.Ident))
 	}
 	// Collect the fields being added to check that the field doesn't exist already.
@@ -154,11 +155,11 @@ func (a *augAdd) tryToAddFields(fSet *token.FileSet, id *artifacts.IdentIterator
 				continue
 			}
 			return errGroup.Add(faults.From(ErrAugAddIdFieldAlreadyExists).
-				With(`package path`, a.pkg.Path()).
+				With(`package path`, a.pkg.PkgPath).
 				With(`original struct pos`, id.Start()).
-				With(`augmenter struct pos`, fSet.Position(fieldsToAdd.Pos())).
+				With(`augmenter struct pos`, a.pkg.Fset.Position(fieldsToAdd.Pos())).
 				With(`original field pos`, id.Position(name.Pos())).
-				With(`augmenter field pos`, fSet.Position(pos)).
+				With(`augmenter field pos`, a.pkg.Fset.Position(pos)).
 				With(`struct identifier`, id.Ident).
 				With(`field identifier`, name.Name))
 		}
@@ -170,24 +171,24 @@ func (a *augAdd) tryToAddFields(fSet *token.FileSet, id *artifacts.IdentIterator
 }
 
 // tryToAddMethods checks if the given ident is an interface to add methods to.
-func (a *augAdd) tryToAddMethods(fSet *token.FileSet, id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) tryToAddMethods(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
 	methodsToAdd, has := a.newMethods[id.Ident]
 	if !has {
 		return nil
 	}
 	if id.TypeSpec == nil {
 		return errGroup.Add(faults.From(ErrAugAddInterfaceIdNotForType).
-			With(`package path`, a.pkg.Path()).
+			With(`package path`, a.pkg.PkgPath).
 			With(`original pos`, id.Start()).
-			With(`augmenter pos`, a.fSet.Position(methodsToAdd.Pos())).
+			With(`augmenter pos`, a.pkg.Fset.Position(methodsToAdd.Pos())).
 			With(`identifier`, id.Ident))
 	}
 	interfaceToAddTo, ok := id.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
 		return errGroup.Add(faults.From(ErrAugAddInterfaceTypeMismatch).
-			With(`package path`, a.pkg.Path()).
+			With(`package path`, a.pkg.PkgPath).
 			With(`original pos`, id.Start()).
-			With(`augmenter pos`, a.fSet.Position(methodsToAdd.Pos())).
+			With(`augmenter pos`, a.pkg.Fset.Position(methodsToAdd.Pos())).
 			With(`identifier`, id.Ident))
 	}
 	// Collect the methods being added to check that the method doesn't exist already.
@@ -205,11 +206,11 @@ func (a *augAdd) tryToAddMethods(fSet *token.FileSet, id *artifacts.IdentIterato
 				continue
 			}
 			return errGroup.Add(faults.From(ErrAugAddIdMethodAlreadyExists).
-				With(`package path`, a.pkg.Path()).
+				With(`package path`, a.pkg.PkgPath).
 				With(`original interface pos`, id.Start()).
-				With(`augmenter interface pos`, a.fSet.Position(methodsToAdd.Pos())).
+				With(`augmenter interface pos`, a.pkg.Fset.Position(methodsToAdd.Pos())).
 				With(`original method pos`, id.Position(name.Pos())).
-				With(`augmenter method pos`, a.fSet.Position(pos)).
+				With(`augmenter method pos`, a.pkg.Fset.Position(pos)).
 				With(`interface identifier`, id.Ident).
 				With(`method identifier`, name.Name))
 		}

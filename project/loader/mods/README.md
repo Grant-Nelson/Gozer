@@ -13,4 +13,5 @@
   - to replace multiple assignments with a `multiAssign` call
   - to flatten select statements and switches as needed
   - to adjust imports
+  - type check package
 - Need post processing for determining things like inheritance

@@ -2,25 +2,13 @@ package augmenter
 
 import (
 	"go/ast"
-	"go/token"
-	"maps"
-	"slices"
-	"sort"
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
-
-type Augmenter struct {
-	build    []string
-	fSet     *token.FileSet
-	pathConv PathConverter
-	parser   parser.Parser
-	packages map[string]*augPackage
-}
 
 // PathConverter takes the given import path for a package and returns
 // the paths to where the augmentation files are found.
@@ -48,8 +36,18 @@ func PathRebase(oldBase, newBase string) PathConverter {
 	}
 }
 
-var _ mods.Modifier = (*Augmenter)(nil)
-var _ mods.LoadDoneExt = (*Augmenter)(nil)
+type Augmenter struct {
+	build    []string
+	pathConv PathConverter
+	parser   parser.Parser
+	curPkg   *augPackage
+}
+
+var (
+	_ mods.Modifier        = (*Augmenter)(nil)
+	_ mods.PackageStartExt = (*Augmenter)(nil)
+	_ mods.PackageDoneExt  = (*Augmenter)(nil)
+)
 
 // Creates a new Modifier for augmenting Go files.
 //
@@ -57,63 +55,50 @@ var _ mods.LoadDoneExt = (*Augmenter)(nil)
 //   - The pathConv is the conversion from the source paths to the augmentation files' paths.
 //   - The parser is how files should be parsed and loaded.
 //     If nil, the default file parser in the artifacts package.
-func New(build []string, fSet *token.FileSet, pathConv PathConverter, parser parser.Parser) *Augmenter {
+func New(build []string, pathConv PathConverter, parser parser.Parser) *Augmenter {
 	return &Augmenter{
 		build:    build,
-		fSet:     fSet,
 		pathConv: pathConv,
 		parser:   parser,
-		packages: map[string]*augPackage{},
+		curPkg:   nil,
 	}
 }
 
 func (a *Augmenter) Modify(f *ast.File, errGroup *faults.Group) (con bool, err error) {
-	defer faults.Recover(&err)
-	pkg := artifacts.PackageForFile(a.fSet, f)
-	ap, exists := a.getPackage(pkg.Key())
-	if !exists {
-		ap = a.addPackage(pkg, errGroup)
-	}
-	if ap == nil {
+	//defer faults.Recover(&err)// TODO: Connect these faults.Recover to errGroup
+	if a.curPkg == nil {
+		// no augmentation for this package.
 		return true, nil
 	}
-	if con, err := ap.Modify(f, errGroup); err != nil || !con {
+	if con, err := a.curPkg.Modify(f, errGroup); err != nil || !con {
 		return false, err
 	}
 	return true, nil
 }
 
-func (a *Augmenter) LoadDone(errGroup *faults.Group) (err error) {
-	defer faults.Recover(&err)
-	keys := slices.Collect(maps.Keys(a.packages))
-	sort.Strings(keys)
-	for _, key := range keys {
-		if ap := a.packages[key]; ap != nil {
-			ap.LoadDone(errGroup)
-		}
-	}
-	return nil
-}
+func (a *Augmenter) PackageStart(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
+	//defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
+	// TODO: assert `a.curPkg == nil`
 
-func (a *Augmenter) getPackage(pkgKey string) (*augPackage, bool) {
-	ap, exists := a.packages[pkgKey]
-	return ap, exists
-}
-
-func (a *Augmenter) addPackage(pkg *artifacts.Package, errGroup *faults.Group) *augPackage {
-	key := pkg.Key()
-
-	hasAug, augPath := a.pathConv(pkg.Path())
+	hasAug, augPath := a.pathConv(pkg.PkgPath)
 	if !hasAug {
-		// store as nil to prevent trying again
-		a.packages[key] = nil
-		return nil
+		// store as nil to skip this package.
+		return true, nil
 	}
 
-	ap := newPackage(a.fSet, pkg)
-	a.packages[key] = ap
+	a.curPkg = newPackage(pkg)
+	ar := newReader(a.curPkg, a.build, a.parser, errGroup)
+	ar.readPackage(augPath)
+	return true, nil
+}
 
-	ar := newReader(ap, a.build, a.parser, errGroup)
-	ar.readPackage(a.fSet, augPath)
-	return ap
+func (a *Augmenter) PackageDone(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
+	//defer faults.Recover(&err)// TODO: Connect these faults.Recover to errGroup
+	// TODO: assert `a.curPkg.pkg == pkg`
+
+	if a.curPkg != nil {
+		a.curPkg.PackageDone(pkg, errGroup)
+		a.curPkg = nil
+	}
+	return true, nil
 }

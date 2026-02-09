@@ -2,34 +2,33 @@ package augmenter
 
 import (
 	"go/ast"
-	"go/token"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 type augRename struct {
-	fSet *token.FileSet
-	pkg  *artifacts.Package
+	pkg *project.Package
 }
 
-func newRename(fSet *token.FileSet, pkg *artifacts.Package) *augRename {
+func newRename(pkg *project.Package) *augRename {
 	return &augRename{
-		fSet: fSet,
-		pkg:  pkg,
+		pkg: pkg,
 	}
 }
 
-var _ mods.Modifier = (*augRename)(nil)
-var _ mods.LoadDoneExt = (*augRename)(nil)
+var (
+	_ mods.Modifier       = (*augRename)(nil)
+	_ mods.PackageDoneExt = (*augRename)(nil)
+)
 
 func (a *augRename) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
 	// TODO: Implement
 	return true, nil
 }
 
-func (a *augRename) LoadDone(errGroup *faults.Group) error {
+func (a *augRename) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool, error) {
 	// TODO: Implement
-	return nil
+	return true, nil
 }
