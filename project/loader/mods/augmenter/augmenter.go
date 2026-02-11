@@ -2,7 +2,6 @@ package augmenter
 
 import (
 	"go/ast"
-	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
@@ -10,41 +9,16 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
-// PathConverter takes the given import path for a package and returns
-// the paths to where the augmentation files are found.
-// Return false to skip this path.
-//
-// TODO: Maybe make this more full featured so that it can return `[]byte` data
-// for a file instead of requiring it to be loaded from a file.
-type PathConverter func(string) (bool, string)
-
-// PathRebase performs a simple string-wise match of a prefix path (oldBase)
-// and replaces it with a new prefix path (newBase).
-// If the oldBase id not prefixed then it will return false.
-// If oldBase is empty, this will simply always concatenate the newBase.
-func PathRebase(oldBase, newBase string) PathConverter {
-	if len(oldBase) <= 0 {
-		return func(s string) (bool, string) {
-			return true, newBase + s
-		}
-	}
-	return func(s string) (bool, string) {
-		if suffix, ok := strings.CutPrefix(s, oldBase); ok {
-			return true, newBase + suffix
-		}
-		return false, ``
-	}
-}
-
 type Augmenter struct {
 	build    []string
-	pathConv PathConverter
+	pathConv parser.SourceConverter
 	parser   parser.Parser
 	curPkg   *augPackage
 }
 
 var (
 	_ mods.Modifier        = (*Augmenter)(nil)
+	_ mods.ModifyFileExt   = (*Augmenter)(nil)
 	_ mods.PackageStartExt = (*Augmenter)(nil)
 	_ mods.PackageDoneExt  = (*Augmenter)(nil)
 )
@@ -55,7 +29,7 @@ var (
 //   - The pathConv is the conversion from the source paths to the augmentation files' paths.
 //   - The parser is how files should be parsed and loaded.
 //     If nil, the default file parser in the artifacts package.
-func New(build []string, pathConv PathConverter, parser parser.Parser) *Augmenter {
+func New(build []string, pathConv parser.SourceConverter, parser parser.Parser) *Augmenter {
 	return &Augmenter{
 		build:    build,
 		pathConv: pathConv,
@@ -64,13 +38,15 @@ func New(build []string, pathConv PathConverter, parser parser.Parser) *Augmente
 	}
 }
 
-func (a *Augmenter) Modify(f *ast.File, errGroup *faults.Group) (con bool, err error) {
+func (a *Augmenter) ModName() string { return `Augmenter` }
+
+func (a *Augmenter) ModifyFile(f *ast.File, errGroup *faults.Group) (con bool, err error) {
 	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
 	if a.curPkg == nil {
 		// no augmentation for this package.
 		return true, nil
 	}
-	if con, err := a.curPkg.Modify(f, errGroup); err != nil || !con {
+	if con, err := a.curPkg.ModifyFile(f, errGroup); err != nil || !con {
 		return false, err
 	}
 	return true, nil
@@ -80,7 +56,7 @@ func (a *Augmenter) PackageStart(pkg *project.Package, errGroup *faults.Group) (
 	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
 	// TODO: assert `a.curPkg == nil`
 
-	hasAug, augPath := a.pathConv(pkg.PkgPath)
+	hasAug, augPath, augData, err := a.pathConv(pkg.PkgPath, nil)
 	if !hasAug {
 		// store as nil to skip this package.
 		return true, nil
@@ -88,7 +64,7 @@ func (a *Augmenter) PackageStart(pkg *project.Package, errGroup *faults.Group) (
 
 	a.curPkg = newPackage(pkg)
 	ar := newReader(a.curPkg, a.build, a.parser, errGroup)
-	ar.readPackage(augPath)
+	ar.readPackage(augPath, augData)
 	return true, nil
 }
 

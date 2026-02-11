@@ -20,10 +20,13 @@ func newReplace(pkg *project.Package) *augReplace {
 
 var (
 	_ mods.Modifier       = (*augReplace)(nil)
+	_ mods.ModifyFileExt  = (*augReplace)(nil)
 	_ mods.PackageDoneExt = (*augReplace)(nil)
 )
 
-func (a *augReplace) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (a *augReplace) ModName() string { return `Augmenter.Replace` }
+
+func (a *augReplace) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
 	// TODO: Implement
 	return true, nil
 }

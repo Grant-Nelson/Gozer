@@ -59,10 +59,13 @@ func newDel(pkg *project.Package) *augDel {
 
 var (
 	_ mods.Modifier       = (*augDel)(nil)
+	_ mods.ModifyFileExt  = (*augDel)(nil)
 	_ mods.PackageDoneExt = (*augDel)(nil)
 )
 
-func (a *augDel) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (a *augDel) ModName() string { return `Augmenter.Delete` }
+
+func (a *augDel) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
 	for it := range artifacts.Idents(a.pkg.Fset, f) {
 		for _, handle := range a.delHandles {
 			deleted, err := handle(it, errGroup)

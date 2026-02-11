@@ -191,7 +191,7 @@ func runAugTest(t testing.TB, test augTest) {
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, PathRebase(`original`, `base`), parser.Default)
+	a := New(nil, parser.PathRebase(`original`, `base`), parser.Default)
 
 	// Create an augmenter for a package then add the aug file to it
 	pkg := &project.Package{Package: &packages.Package{
@@ -206,7 +206,7 @@ func runAugTest(t testing.TB, test augTest) {
 	}
 
 	// Perform the augmentation on the file
-	con, err := a.Modify(f, errGroup)
+	con, err := a.ModifyFile(f, errGroup)
 	if err != nil {
 		checkErr(t, `modify file`, test, err)
 		return

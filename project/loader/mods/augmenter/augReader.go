@@ -60,7 +60,9 @@ func newReader(pkg *augPackage, build []string, parser parser.Parser, errGroup *
 	}
 }
 
-func (ar *augReader) readPackage(dir string) {
+func (ar *augReader) readPackage(dir string, data any) {
+	// TODO: Handle the data if it is not nil, e.g. an embed.FS.
+
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {

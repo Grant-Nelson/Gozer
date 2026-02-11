@@ -20,10 +20,13 @@ func newRename(pkg *project.Package) *augRename {
 
 var (
 	_ mods.Modifier       = (*augRename)(nil)
+	_ mods.ModifyFileExt  = (*augRename)(nil)
 	_ mods.PackageDoneExt = (*augRename)(nil)
 )
 
-func (a *augRename) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (a *augRename) ModName() string { return `Augmenter.Rename` }
+
+func (a *augRename) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
 	// TODO: Implement
 	return true, nil
 }

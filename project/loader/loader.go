@@ -138,7 +138,7 @@ func (ld *loader) parseFile(filename string) (*ast.File, error) {
 		return nil, ld.errGroup.Fatal(err)
 	}
 
-	if _, err := ld.group.Modify(f, ld.errGroup); err != nil {
+	if _, err := ld.group.ModifyFile(f, ld.errGroup); err != nil {
 		return nil, err
 	}
 	return f, nil

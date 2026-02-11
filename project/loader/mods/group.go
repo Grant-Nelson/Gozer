@@ -9,10 +9,14 @@ import (
 
 type Group []Modifier
 
-func (group Group) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (group Group) ModName() string { return `Modifier Group` }
+
+func (group Group) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
 	for _, mod := range group {
-		if con, err := mod.Modify(f, errGroup); err != nil || !con {
-			return false, err
+		if m, ok := mod.(ModifyFileExt); ok {
+			if con, err := m.ModifyFile(f, errGroup); err != nil || !con {
+				return false, err
+			}
 		}
 	}
 	return true, nil

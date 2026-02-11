@@ -7,11 +7,16 @@ import (
 	"github.com/Grant-Nelson/Gozer/project"
 )
 
-// Modifier performs a set changes to the given file.
+// Modifier is a tool for modifying parts of a project during a load.
+type Modifier interface {
+	ModName() string
+}
+
+// ModifyFileExt extends a modifier to perform changes to the given file.
 // If the modifier returns true, the modification will continue,
 // otherwise all following modifiers will be skipped.
-type Modifier interface {
-	Modify(f *ast.File, errGroup *faults.Group) (bool, error)
+type ModifyFileExt interface {
+	ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error)
 }
 
 // PackageStartExt extends a modifier to indicate a package is starting.

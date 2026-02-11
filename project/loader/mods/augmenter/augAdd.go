@@ -56,10 +56,13 @@ func newAdd(pkg *project.Package) *augAdd {
 
 var (
 	_ mods.Modifier       = (*augAdd)(nil)
+	_ mods.ModifyFileExt  = (*augAdd)(nil)
 	_ mods.PackageDoneExt = (*augAdd)(nil)
 )
 
-func (a *augAdd) Modify(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (a *augAdd) ModName() string { return `Augmenter.Add` }
+
+func (a *augAdd) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
 	for id := range artifacts.Idents(a.pkg.Fset, f) {
 		if err := a.checkForExistingId(id, errGroup); err != nil {
 			return false, err
