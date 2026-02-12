@@ -14,6 +14,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
+	"github.com/Grant-Nelson/Gozer/project/loader/source"
 )
 
 func Test_Add_Import(t *testing.T) {
@@ -191,7 +192,7 @@ func runAugTest(t testing.TB, test augTest) {
 
 	test.errLimit = max(test.errLimit, 1)
 	errGroup := faults.NewGroup(test.errLimit)
-	a := New(nil, parser.PathRebase(`original`, `base`), parser.Default)
+	a := New(nil, source.PathRebase(`original`, `base`), parser.Default)
 
 	// Create an augmenter for a package then add the aug file to it
 	pkg := &project.Package{Package: &packages.Package{

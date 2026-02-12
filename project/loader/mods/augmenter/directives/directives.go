@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/astTools"
 )
 
 const (
@@ -165,7 +165,7 @@ func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position, er
 func Read(comments []*ast.Comment, pkgPath string, pos token.Position, errGroup *faults.Group) (dv *Directives, err error) {
 	defer faults.Recover(&err)
 	mod := &directiveMod{
-		dm:       artifacts.Directives(comments, directiveGroup),
+		dm:       astTools.Directives(comments, directiveGroup),
 		dv:       &Directives{},
 		pkgPath:  pkgPath,
 		pos:      pos,
@@ -387,5 +387,5 @@ func (mod *directiveMod) checkRemainder() {
 }
 
 func RemoveDirectives(cg *ast.CommentGroup) {
-	artifacts.RemoveDirectives(cg, directiveGroup)
+	astTools.RemoveDirectives(cg, directiveGroup)
 }

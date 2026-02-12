@@ -10,7 +10,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/parser"
+	"github.com/Grant-Nelson/Gozer/project/loader/source"
 )
 
 // TODO: Need to add a manifest file to manage several different builds for the
@@ -18,7 +18,7 @@ import (
 // should be filtered to flags that actually affect the package.
 
 type Cache struct {
-	conv parser.SourceConverter
+	conv source.Converter
 }
 
 var (
@@ -27,7 +27,7 @@ var (
 	_ mods.PackageDoneExt  = (*Cache)(nil)
 )
 
-func New(conv parser.SourceConverter) *Cache {
+func New(conv source.Converter) *Cache {
 	return &Cache{conv: conv}
 }
 

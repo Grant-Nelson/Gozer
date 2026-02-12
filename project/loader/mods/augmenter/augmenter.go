@@ -7,11 +7,12 @@ import (
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
+	"github.com/Grant-Nelson/Gozer/project/loader/source"
 )
 
 type Augmenter struct {
 	build    []string
-	pathConv parser.SourceConverter
+	pathConv source.Converter
 	parser   parser.Parser
 	curPkg   *augPackage
 }
@@ -29,7 +30,7 @@ var (
 //   - The pathConv is the conversion from the source paths to the augmentation files' paths.
 //   - The parser is how files should be parsed and loaded.
 //     If nil, the default file parser in the artifacts package.
-func New(build []string, pathConv parser.SourceConverter, parser parser.Parser) *Augmenter {
+func New(build []string, pathConv source.Converter, parser parser.Parser) *Augmenter {
 	return &Augmenter{
 		build:    build,
 		pathConv: pathConv,

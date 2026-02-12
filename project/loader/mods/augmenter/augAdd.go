@@ -10,8 +10,8 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/project/loader/astTools"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 var (
@@ -63,7 +63,7 @@ var (
 func (a *augAdd) ModName() string { return `Augmenter.Add` }
 
 func (a *augAdd) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
-	for id := range artifacts.Idents(a.pkg.Fset, f) {
+	for id := range astTools.Idents(a.pkg.Fset, f) {
 		if err := a.checkForExistingId(id, errGroup); err != nil {
 			return false, err
 		}
@@ -110,7 +110,7 @@ func (a *augAdd) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool
 }
 
 // checkForExistingId checks that none of the decls being added already exist.
-func (a *augAdd) checkForExistingId(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) checkForExistingId(id *astTools.IdentIteratorValue, errGroup *faults.Group) error {
 	pos, has := a.beingAdded[id.Ident]
 	if !has {
 		return nil
@@ -123,7 +123,7 @@ func (a *augAdd) checkForExistingId(id *artifacts.IdentIteratorValue, errGroup *
 }
 
 // tryToAddFields checks if the given ident is a structure to add fields to.
-func (a *augAdd) tryToAddFields(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) tryToAddFields(id *astTools.IdentIteratorValue, errGroup *faults.Group) error {
 	fieldsToAdd, has := a.newFields[id.Ident]
 	if !has {
 		return nil
@@ -174,7 +174,7 @@ func (a *augAdd) tryToAddFields(id *artifacts.IdentIteratorValue, errGroup *faul
 }
 
 // tryToAddMethods checks if the given ident is an interface to add methods to.
-func (a *augAdd) tryToAddMethods(id *artifacts.IdentIteratorValue, errGroup *faults.Group) error {
+func (a *augAdd) tryToAddMethods(id *astTools.IdentIteratorValue, errGroup *faults.Group) error {
 	methodsToAdd, has := a.newMethods[id.Ident]
 	if !has {
 		return nil

@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
+	"github.com/Grant-Nelson/Gozer/project/loader/astTools"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/augmenter/directives"
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
@@ -104,7 +104,7 @@ func (ar *augReader) addFile(filename string, src []byte) {
 }
 
 func (ar *augReader) pkgPath() string {
-	return artifacts.PackagePath(ar.pkg.Fset, ar.curFile)
+	return astTools.PackagePath(ar.pkg.Fset, ar.curFile)
 }
 
 func (ar *augReader) pos(p token.Pos) token.Position {
@@ -112,8 +112,8 @@ func (ar *augReader) pos(p token.Pos) token.Position {
 }
 
 func (ar *augReader) shouldAdd() bool {
-	if artifacts.IsTest(ar.pkg.Fset, ar.curFile) != ar.pkg.IsTest() ||
-		artifacts.IsXTest(ar.curFile) != ar.pkg.IsXTest() {
+	if astTools.IsTest(ar.pkg.Fset, ar.curFile) != ar.pkg.IsTest() ||
+		astTools.IsXTest(ar.curFile) != ar.pkg.IsXTest() {
 		return false
 	}
 
@@ -154,7 +154,7 @@ func (ar *augReader) readDecl(decl ast.Decl) {
 
 func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 	pos := ar.pos(fd.Pos())
-	dv, err := directives.Read(artifacts.JoinComments(fd.Doc), ar.pkgPath(), pos, ar.errGroup)
+	dv, err := directives.Read(astTools.JoinComments(fd.Doc), ar.pkgPath(), pos, ar.errGroup)
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +171,7 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 		return
 	case dv.Add():
 		ar.add.newDecls = append(ar.add.newDecls, fd)
-		localComments := artifacts.CommentsAttachedToNode(fd)
+		localComments := astTools.CommentsAttachedToNode(fd)
 		ar.add.newDeclsComments = append(ar.add.newDeclsComments, localComments)
 		ar.add.beingAdded[fd.Name.Name] = fd.Pos()
 	case dv.Delete():
@@ -185,7 +185,7 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 
 func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 	declPos := ar.pos(gd.Pos())
-	declDv, err := directives.Read(artifacts.JoinComments(gd.Doc), ar.pkgPath(), declPos, ar.errGroup)
+	declDv, err := directives.Read(astTools.JoinComments(gd.Doc), ar.pkgPath(), declPos, ar.errGroup)
 	if err != nil {
 		panic(err)
 	}
@@ -223,7 +223,7 @@ func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 
 func (ar *augReader) readSpecDirectives(declDv *directives.Directives, pos token.Pos, doc, comment *ast.CommentGroup) *directives.Directives {
 	specPos := ar.pos(pos)
-	comments := artifacts.JoinComments(doc, comment)
+	comments := astTools.JoinComments(doc, comment)
 	directives.RemoveDirectives(doc)
 	directives.RemoveDirectives(comment)
 
@@ -333,7 +333,7 @@ func (ar *augReader) readStructTypeSpec(specDv *directives.Directives, gd *ast.G
 }
 
 func (ar *augReader) readStructField(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.StructType, m *ast.Field) {
-	comments := artifacts.JoinComments(m.Comment, m.Doc)
+	comments := astTools.JoinComments(m.Comment, m.Doc)
 	directives.RemoveDirectives(m.Comment)
 	directives.RemoveDirectives(m.Doc)
 	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
@@ -435,7 +435,7 @@ func (ar *augReader) readInterfaceTypeSpec(specDv *directives.Directives, gd *as
 }
 
 func (ar *augReader) readInterfaceMethod(specDv *directives.Directives, gd *ast.GenDecl, spec *ast.TypeSpec, ts *ast.InterfaceType, m *ast.Field) {
-	comments := artifacts.JoinComments(m.Comment, m.Doc)
+	comments := astTools.JoinComments(m.Comment, m.Doc)
 	directives.RemoveDirectives(m.Comment)
 	directives.RemoveDirectives(m.Doc)
 	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
@@ -587,7 +587,7 @@ func (ar *augReader) finishGenDecl(gd *ast.GenDecl) {
 		ar.add.newImports = append(ar.add.newImports, addGen)
 	default:
 		ar.add.newDecls = append(ar.add.newDecls, addGen)
-		localComments := artifacts.CommentsAttachedToNode(addGen)
+		localComments := astTools.CommentsAttachedToNode(addGen)
 		ar.add.newDeclsComments = append(ar.add.newDeclsComments, localComments)
 	}
 

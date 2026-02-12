@@ -10,8 +10,8 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/project/loader/astTools"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/artifacts"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 	ErrAugDelIdentifierNotMethod    = errors.New(`can not delete identifier via augmenter: identifier for method not in interface`)
 )
 
-type delHandle func(*artifacts.IdentIteratorValue, *faults.Group) (bool, error)
+type delHandle func(*astTools.IdentIteratorValue, *faults.Group) (bool, error)
 
 type augDel struct {
 	pkg        *project.Package
@@ -66,7 +66,7 @@ var (
 func (a *augDel) ModName() string { return `Augmenter.Delete` }
 
 func (a *augDel) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
-	for it := range artifacts.Idents(a.pkg.Fset, f) {
+	for it := range astTools.Idents(a.pkg.Fset, f) {
 		for _, handle := range a.delHandles {
 			deleted, err := handle(it, errGroup)
 			if err != nil {
@@ -85,14 +85,14 @@ func (a *augDel) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool
 	return true, nil
 }
 
-func (a *augDel) tryDelFunc(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelFunc(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	d, has := a.delFunc[it.Ident]
 	if !has {
 		return false, nil
 	}
 	if it.FuncDecl == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotFunc).
-			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
+			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.pkg.Fset.Position(d.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
@@ -104,14 +104,14 @@ func (a *augDel) tryDelFunc(it *artifacts.IdentIteratorValue, errGroup *faults.G
 	return true, nil
 }
 
-func (a *augDel) tryDelVar(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelVar(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	v, has := a.delVar[it.Ident]
 	if !has {
 		return false, nil
 	}
 	if it.ValueSpec == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotValue).
-			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
+			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.pkg.Fset.Position(v.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
@@ -126,14 +126,14 @@ func (a *augDel) tryDelVar(it *artifacts.IdentIteratorValue, errGroup *faults.Gr
 	return true, nil
 }
 
-func (a *augDel) tryDelType(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelType(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	t, has := a.delType[it.Ident]
 	if !has {
 		return false, nil
 	}
 	if it.TypeSpec == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotType).
-			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
+			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, it.FileSet.Position(t.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
@@ -145,7 +145,7 @@ func (a *augDel) tryDelType(it *artifacts.IdentIteratorValue, errGroup *faults.G
 	if itInter != tInter {
 		if itInter {
 			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotStruct).
-				With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
+				With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
 				With(`original pos`, it.Start()).
 				With(`augmenter pos`, it.FileSet.Position(t.Pos())).
 				With(`identifier`, it.Ident)); err != nil {
@@ -153,7 +153,7 @@ func (a *augDel) tryDelType(it *artifacts.IdentIteratorValue, errGroup *faults.G
 			}
 		} else {
 			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotInterface).
-				With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
+				With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
 				With(`original pos`, it.Start()).
 				With(`augmenter pos`, it.FileSet.Position(t.Pos())).
 				With(`identifier`, it.Ident)); err != nil {
@@ -166,7 +166,7 @@ func (a *augDel) tryDelType(it *artifacts.IdentIteratorValue, errGroup *faults.G
 	return true, nil
 }
 
-func (a *augDel) tryDelFields(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelFields(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	fs, has := a.delFields[it.Ident]
 	if !has {
 		return false, nil
@@ -174,7 +174,7 @@ func (a *augDel) tryDelFields(it *artifacts.IdentIteratorValue, errGroup *faults
 	st, ok := it.TypeSpec.Type.(*ast.StructType)
 	if !ok {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotField).
-			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
+			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, it.FileSet.Position(fs.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
@@ -204,7 +204,7 @@ func (a *augDel) tryDelFields(it *artifacts.IdentIteratorValue, errGroup *faults
 	return true, nil
 }
 
-func (a *augDel) tryDelMethods(it *artifacts.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelMethods(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
 	ms, has := a.delMethods[it.Ident]
 	if !has {
 		return false, nil
@@ -212,7 +212,7 @@ func (a *augDel) tryDelMethods(it *artifacts.IdentIteratorValue, errGroup *fault
 	st, ok := it.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotMethod).
-			With(`package path`, artifacts.PackagePath(it.FileSet, it.File)).
+			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, it.FileSet.Position(ms.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
