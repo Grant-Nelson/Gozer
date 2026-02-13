@@ -1,6 +1,12 @@
 package source
 
-import "strings"
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+)
 
 // Converter takes the given path for a directory (e.g. package) or file
 // and converts the path to reference a new location.
@@ -91,5 +97,27 @@ func Skipper(skipPaths ...string) Converter {
 	}
 	return func(path string, data any) (bool, string, any, error) {
 		return !skip[path], path, data, nil
+	}
+}
+
+// ToReader will get a reader from the given path and data.
+// If the data is nil, the file at the given path will be read
+// from the OS file system.
+func ToReader(path string, data any) (io.Reader, error) {
+	switch d := data.(type) {
+	case nil:
+		fd, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(fd), nil
+	case string:
+		return strings.NewReader(d), nil
+	case []byte:
+		return bytes.NewReader(d), nil
+	case io.Reader:
+		return d, nil
+	default:
+		return nil, fmt.Errorf(`unexpected data type: %T`, d)
 	}
 }

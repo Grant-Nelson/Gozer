@@ -8,6 +8,11 @@ import (
 
 type Package struct {
 	*packages.Package
+
+	// TempTypeFile is set when the [types.Package] and related data was
+	// serialized into a temporary file to be used as part of the cache.
+	// This will be set to the path of that temporary file.
+	TempTypeFile string
 }
 
 func (p *Package) IsTest() bool {
