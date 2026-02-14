@@ -10,8 +10,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/astTools"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/augmenter/directives"
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
@@ -87,7 +87,7 @@ func (ar *augReader) addFile(filename string, src []byte) {
 		return
 	}
 
-	f, err := ar.parser(ar.pkg.Fset, filename, src)
+	f, err := ar.parser(ar.pkg.Ast.Fset, filename, src)
 	if err != nil {
 		ar.errGroup.Panic(err)
 		return
@@ -104,15 +104,15 @@ func (ar *augReader) addFile(filename string, src []byte) {
 }
 
 func (ar *augReader) pkgPath() string {
-	return astTools.PackagePath(ar.pkg.Fset, ar.curFile)
+	return ar.pkg.PkgPath()
 }
 
 func (ar *augReader) pos(p token.Pos) token.Position {
-	return ar.pkg.Fset.Position(p)
+	return ar.pkg.Position(p)
 }
 
 func (ar *augReader) shouldAdd() bool {
-	if astTools.IsTest(ar.pkg.Fset, ar.curFile) != ar.pkg.IsTest() ||
+	if astTools.IsTest(ar.pkg.Ast.Fset, ar.curFile) != ar.pkg.IsTest() ||
 		astTools.IsXTest(ar.curFile) != ar.pkg.IsXTest() {
 		return false
 	}

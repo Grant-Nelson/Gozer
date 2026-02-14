@@ -8,9 +8,9 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/loader/astTools"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
@@ -66,7 +66,7 @@ var (
 func (a *augDel) ModName() string { return `Augmenter.Delete` }
 
 func (a *augDel) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
-	for it := range astTools.Idents(a.pkg.Fset, f) {
+	for it := range astTools.Idents(a.pkg.Ast.Fset, f) {
 		for _, handle := range a.delHandles {
 			deleted, err := handle(it, errGroup)
 			if err != nil {
@@ -92,9 +92,9 @@ func (a *augDel) tryDelFunc(it *astTools.IdentIteratorValue, errGroup *faults.Gr
 	}
 	if it.FuncDecl == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotFunc).
-			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
+			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.pkg.Fset.Position(d.Pos())).
+			With(`augmenter pos`, a.pkg.Position(d.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -111,9 +111,9 @@ func (a *augDel) tryDelVar(it *astTools.IdentIteratorValue, errGroup *faults.Gro
 	}
 	if it.ValueSpec == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotValue).
-			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
+			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, a.pkg.Fset.Position(v.Pos())).
+			With(`augmenter pos`, a.pkg.Position(v.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -133,9 +133,9 @@ func (a *augDel) tryDelType(it *astTools.IdentIteratorValue, errGroup *faults.Gr
 	}
 	if it.TypeSpec == nil {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotType).
-			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
+			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, it.FileSet.Position(t.Pos())).
+			With(`augmenter pos`, a.pkg.Position(t.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -145,17 +145,17 @@ func (a *augDel) tryDelType(it *astTools.IdentIteratorValue, errGroup *faults.Gr
 	if itInter != tInter {
 		if itInter {
 			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotStruct).
-				With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
+				With(`package path`, a.pkg.PkgPath()).
 				With(`original pos`, it.Start()).
-				With(`augmenter pos`, it.FileSet.Position(t.Pos())).
+				With(`augmenter pos`, a.pkg.Position(t.Pos())).
 				With(`identifier`, it.Ident)); err != nil {
 				return false, err
 			}
 		} else {
 			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotInterface).
-				With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
+				With(`package path`, a.pkg.PkgPath()).
 				With(`original pos`, it.Start()).
-				With(`augmenter pos`, it.FileSet.Position(t.Pos())).
+				With(`augmenter pos`, a.pkg.Position(t.Pos())).
 				With(`identifier`, it.Ident)); err != nil {
 				return false, err
 			}
@@ -174,9 +174,9 @@ func (a *augDel) tryDelFields(it *astTools.IdentIteratorValue, errGroup *faults.
 	st, ok := it.TypeSpec.Type.(*ast.StructType)
 	if !ok {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotField).
-			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
+			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, it.FileSet.Position(fs.Pos())).
+			With(`augmenter pos`, a.pkg.Position(fs.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}
@@ -212,9 +212,9 @@ func (a *augDel) tryDelMethods(it *astTools.IdentIteratorValue, errGroup *faults
 	st, ok := it.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
 		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotMethod).
-			With(`package path`, astTools.PackagePath(it.FileSet, it.File)).
+			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
-			With(`augmenter pos`, it.FileSet.Position(ms.Pos())).
+			With(`augmenter pos`, a.pkg.Position(ms.Pos())).
 			With(`identifier`, it.Ident)); err != nil {
 			return false, err
 		}

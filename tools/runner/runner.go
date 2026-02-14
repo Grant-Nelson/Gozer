@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Grant-Nelson/Gozer/presets"
 	"github.com/Grant-Nelson/Gozer/tools/builder"
 )
 
@@ -15,13 +16,13 @@ type Config struct {
 	Patterns []string       `arg:"pos, patterns, One or more patterns for the root files for a project."`
 }
 
-func DefaultConfig(defaultLang string) *Config {
+func DefaultConfig() *Config {
 	return &Config{
 		Usage: `Builds a project then runs it. If needed, the run will use ` +
 			`a tool specific to the transpiled language, e.g. node.js. ` +
 			`This application will not end until the running program ends ` +
 			`or until a set timeout it hit.`,
-		Lang: defaultLang,
+		Lang: presets.DefaultLang,
 	}
 }
 
@@ -38,7 +39,7 @@ func Run(cfg *Config) bool {
 }
 
 func build(cfg *Config, output string) bool {
-	bCfg := builder.DefaultConfig(cfg.Lang)
+	bCfg := builder.DefaultConfig()
 	bCfg.Lang = cfg.Lang
 	bCfg.Output = output
 	bCfg.Patterns = cfg.Patterns

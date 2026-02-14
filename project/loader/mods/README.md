@@ -1,17 +1,21 @@
 # Modifiers
 
+## Augmenter
+
+## Cache
+
+This modifier will attempt to shortcut the loading process of a package
+by loading precompiled serialized information, i.e. load from a cache.
+
+[See cache for more information](./cache/README.md)
+
+## TypeChecker
+
 ## TODO
 
-- Add Modifiers
-  - to preload cached packages then shortcut modified files
-  - to store modified files in a cached package that saves when load is done
-  - to simplify constants (except concatenated strings that have separate variables)
-  - to remove defers into a `deferBlock` call
-  - to remove Goto and labels (aka flatten)
-  - to inject Jumps and labels to replace other flow-controls
-  - to generate return structures for multiple returns
-  - to replace multiple assignments with a `multiAssign` call
-  - to flatten select statements and switches as needed
-  - to adjust imports
-  - type check package
+- Add modifier to adjust the source file list before parsing
+- Add modifier to simplify code if needed:
+  - Simplify constants (except concatenated strings that have separate variables)
+- Get actual useful build flags for a package. This is to help when loading
+  a cache manifest to know which build flags affect a package build
 - Need post processing for determining things like inheritance

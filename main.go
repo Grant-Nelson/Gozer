@@ -24,7 +24,7 @@ type mainConfig struct {
 // TODO: Add 'env' for printing environment variables that are used.
 // TODO: Add 'serve' to serve a website
 
-func defaultConfig(defaultLang string) *mainConfig {
+func defaultConfig() *mainConfig {
 	return &mainConfig{
 		Usage: `Gozer cross compiles from Go into other languages, transpilation. ` +
 			`Complicated code should be tested, vetted, and written once ` +
@@ -32,16 +32,16 @@ func defaultConfig(defaultLang string) *mainConfig {
 			`Gozer transpile allows complicated code be written once in Go ` +
 			`and reused in several other languages.` +
 			`To use Gozer, select a tool to build, run, test, etc a project.`,
-		Builder:   builder.DefaultConfig(defaultLang),
-		Runner:    runner.DefaultConfig(defaultLang),
-		Tester:    tester.DefaultConfig(defaultLang),
+		Builder:   builder.DefaultConfig(),
+		Runner:    runner.DefaultConfig(),
+		Tester:    tester.DefaultConfig(),
 		Version:   version.DefaultConfig(),
 		ListLangs: listLangs.DefaultConfig(),
 	}
 }
 
 func main() {
-	cfg := defaultConfig(`typescript`)
+	cfg := defaultConfig()
 	if !args.Parse(cfg) {
 		os.Exit(1)
 	}
@@ -66,7 +66,5 @@ func main() {
 		fmt.Fprintln(os.Stderr, `Must select a tool to use.`)
 		fmt.Fprintf(os.Stderr, "Use %q to print help.\n", os.Args[0]+` -h`)
 		os.Exit(1)
-		return
 	}
-	os.Exit(0)
 }

@@ -1,4 +1,4 @@
-package project
+package loader
 
 import (
 	"go/ast"
@@ -20,9 +20,9 @@ type Config struct {
 	// If Dir is empty, the tool is run in the current directory.
 	Dir string
 
-	// BuildFlags is a list of command-line flags to be passed through to
+	// Build is a list of command-line flags to be passed through to
 	// the build system's query tool.
-	BuildFlags []string
+	Build []string
 
 	// Patterns are the file patterns to use for the project root.
 	Patterns []string
@@ -86,7 +86,7 @@ func (ld *loader) loadFileNames(cfg Config) error {
 	c := &packages.Config{
 		Mode:       allNeeds,
 		Dir:        cfg.Dir,
-		BuildFlags: cfg.BuildFlags,
+		BuildFlags: cfg.Build,
 		Tests:      cfg.Tests,
 		Fset:       ld.fSet,
 		Overlay:    cfg.Overlay,
@@ -115,12 +115,12 @@ func (ld *loader) parsePackage(pkg *project.Package) error {
 		return err
 	}
 
-	for _, filename := range pkg.GoFiles {
+	for _, filename := range pkg.Ast.GoFiles {
 		f, err := ld.parseFile(filename)
 		if err != nil {
 			return err
 		}
-		pkg.Syntax = append(pkg.Syntax, f)
+		pkg.Ast.Syntax = append(pkg.Ast.Syntax, f)
 	}
 
 	_, err := ld.group.PackageDone(pkg, ld.errGroup)

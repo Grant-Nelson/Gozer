@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/astTools"
 )
 
 const (
