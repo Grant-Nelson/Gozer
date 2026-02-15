@@ -2,11 +2,9 @@ package project
 
 import (
 	"go/token"
-	"slices"
 
+	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
 	"golang.org/x/tools/go/packages"
-
-	"github.com/Grant-Nelson/Gozer/avail/faults"
 )
 
 // Project represents all the information for a build of an application,
@@ -30,6 +28,10 @@ type Project struct {
 	PackageMap map[string]*Package
 }
 
+// New constructs a new project and initializes that project
+// with the given package information.
+// The current packages are expected to only have file names listed
+// and no syntax nor types determined yet.
 func New(fSet *token.FileSet, roots []*packages.Package) *Project {
 	proj := &Project{
 		FileSet: fSet,
@@ -37,28 +39,22 @@ func New(fSet *token.FileSet, roots []*packages.Package) *Project {
 
 	// Collect and prepare all the packages.
 	pkgMap := map[string]*Package{}
-	allBasePkgs := slices.Collect(packages.Postorder(roots))
-	allPkgs := make([]*Package, len(allBasePkgs))
-	for i, basePkg := range allBasePkgs {
+	allPkgs := []*Package{}
+	for basePkg := range packages.Postorder(roots) {
 		pkg := &Package{
-			Project: proj,
-			Ast:     basePkg,
+			State: buildState.Listed,
+			Ast:   basePkg,
 		}
-		allPkgs[i] = pkg
+		allPkgs = append(allPkgs, pkg)
 		pkgMap[basePkg.PkgPath] = pkg
 	}
 	proj.AllPackages = allPkgs
 	proj.PackageMap = pkgMap
 
-	// Get set of root packages.
+	// Get set of root packages from base package root.
 	rootPkgs := make([]*Package, len(roots))
 	for i, root := range roots {
-		pkg, found := pkgMap[root.PkgPath]
-		if !found {
-			panic(faults.New(`failed to find root package in set of packages`).
-				With(`path`, root.PkgPath))
-		}
-		rootPkgs[i] = pkg
+		rootPkgs[i] = pkgMap[root.PkgPath]
 	}
 	proj.Roots = rootPkgs
 	return proj

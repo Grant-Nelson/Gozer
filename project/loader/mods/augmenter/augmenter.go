@@ -1,8 +1,6 @@
 package augmenter
 
 import (
-	"go/ast"
-
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/source"
 	"github.com/Grant-Nelson/Gozer/project"
@@ -27,15 +25,9 @@ type Augmenter struct {
 	build    []string
 	pathConv source.Converter
 	parser   parser.Parser
-	curPkg   *augPackage
 }
 
-var (
-	_ mods.Modifier        = (*Augmenter)(nil)
-	_ mods.ModifyFileExt   = (*Augmenter)(nil)
-	_ mods.PackageStartExt = (*Augmenter)(nil)
-	_ mods.PackageDoneExt  = (*Augmenter)(nil)
-)
+var _ mods.ModFactory = (*Augmenter)(nil)
 
 // Creates a new Modifier for augmenting Go files.
 func New(cfg *Config) *Augmenter {
@@ -43,47 +35,21 @@ func New(cfg *Config) *Augmenter {
 		build:    cfg.Build,
 		pathConv: cfg.Converter,
 		parser:   cfg.Parser,
-		curPkg:   nil,
 	}
 }
 
-func (a *Augmenter) ModName() string { return `Augmenter` }
-
-func (a *Augmenter) ModifyFile(f *ast.File, errGroup *faults.Group) (con bool, err error) {
-	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
-	if a.curPkg == nil {
-		// no augmentation for this package.
-		return true, nil
-	}
-	if con, err := a.curPkg.ModifyFile(f, errGroup); err != nil || !con {
-		return false, err
-	}
-	return true, nil
-}
-
-func (a *Augmenter) PackageStart(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
+func (a *Augmenter) StartPackage(pkg *project.Package, errGroup *faults.Group) (con bool, mod mods.Modifier, err error) {
 	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
 	// TODO: assert `a.curPkg == nil`
 
 	hasAug, augPath, augData, err := a.pathConv(pkg.PkgPath(), nil)
 	if !hasAug {
-		// store as nil to skip this package.
-		return true, nil
+		// Skip this package since there is no aug source.
+		return true, nil, nil
 	}
 
-	a.curPkg = newPackage(pkg)
-	ar := newReader(a.curPkg, a.build, a.parser, errGroup)
+	augPkg := newPackage(pkg, errGroup)
+	ar := newReader(augPkg, a.build, a.parser, errGroup)
 	ar.readPackage(augPath, augData)
-	return true, nil
-}
-
-func (a *Augmenter) PackageDone(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
-	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
-	// TODO: assert `a.curPkg.pkg == pkg`
-
-	if a.curPkg != nil {
-		a.curPkg.PackageDone(pkg, errGroup)
-		a.curPkg = nil
-	}
-	return true, nil
+	return true, augPkg, nil
 }

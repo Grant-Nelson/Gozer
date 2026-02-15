@@ -38,7 +38,6 @@ func Build(cfg *Config) bool {
 	switch strings.ToLower(cfg.Lang) {
 	case `ts`, `typescript`:
 		return buildTs(cfg)
-		// TODO: add `js`, `javascript`, `wasm`, `webassembly`, etc
 	default:
 		fmt.Fprintln(os.Stderr, `Unknown language selected: %q`, cfg.Lang)
 		return false
@@ -48,7 +47,7 @@ func Build(cfg *Config) bool {
 func buildTs(cfg *Config) bool {
 	build := []string{`ts`}
 
-	mods := []mods.Modifier{
+	mods := mods.Group{
 		//cache.New(&cache.Config{
 		//	Build: build,
 		//	//Converter: , // TODO:
@@ -73,6 +72,6 @@ func buildTs(cfg *Config) bool {
 		return false
 	}
 
-	interep.Remodel()
+	interep.Remodel(proj)
 
 }

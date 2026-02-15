@@ -34,11 +34,17 @@ type Config struct {
 	Overlay map[string][]byte
 
 	// Modifiers to process each file with.
-	Modifiers []mods.Modifier
+	Modifiers mods.Group
 
 	// Parser is the file parser to use.
 	// If nil, then the default parser is used.
 	Parser parser.Parser
+
+	// Parallel indicates that the packages should be loaded
+	// in parallel when possible based on dependencies.
+	// Otherwise, the packages are loaded one at a time in the order
+	// that the packages are defined in the project.
+	Parallel bool
 }
 
 // Load reads, parses, modifies, and collects type information for a project
@@ -50,7 +56,7 @@ func Load(cfg Config) (*project.Project, error) {
 	}
 
 	ld := &loader{
-		group:    mods.Group(cfg.Modifiers),
+		group:    cfg.Modifiers,
 		fSet:     token.NewFileSet(),
 		errGroup: faults.NewGroup(-1),
 		parser:   p,
@@ -61,10 +67,14 @@ func Load(cfg Config) (*project.Project, error) {
 	}
 
 	// TODO: Need to check packages for errors.
-	if err := ld.parseProject(); err != nil {
-		return nil, err
+
+	if cfg.Parallel {
+		err := ld.parallelParseProject()
+		return ld.proj, err
 	}
-	return ld.proj, nil
+
+	err := ld.parseProject()
+	return ld.proj, err
 }
 
 type loader struct {
@@ -75,6 +85,8 @@ type loader struct {
 	parser   parser.Parser
 	overlay  map[string][]byte
 }
+
+type blockChan chan struct{}
 
 func (ld *loader) loadFileNames(cfg Config) error {
 	const allNeeds = packages.NeedName |
@@ -99,9 +111,29 @@ func (ld *loader) loadFileNames(cfg Config) error {
 	return nil
 }
 
+func (ld *loader) parallelParseProject() error {
+	cancel := make(blockChan)
+	pending := make(map[string]blockChan, len(ld.proj.AllPackages))
+	allDeps := make([]blockChan, len(ld.proj.AllPackages))
+	for i, pkg := range ld.proj.AllPackages {
+		pkgChan := make(blockChan)
+		pending[pkg.PkgPath()] = pkgChan
+		allDeps[i] = pkgChan
+
+		deps := make([]blockChan, len(pkg.Ast.Imports))
+		for pkgPath := range pkg.Ast.Imports {
+			deps = append(deps, pending[pkgPath])
+		}
+
+		go ld.asyncParsePackage(pkg, pkgChan, cancel, deps)
+	}
+
+	waitOnDeps(cancel, deps)
+
+	return nil
+}
+
 func (ld *loader) parseProject() error {
-	// TODO: Could load these asynchronously any package that
-	// has had all of its dependencies finished.
 	for _, pkg := range ld.proj.AllPackages {
 		if err := ld.parsePackage(pkg); err != nil {
 			return err
@@ -111,23 +143,24 @@ func (ld *loader) parseProject() error {
 }
 
 func (ld *loader) parsePackage(pkg *project.Package) error {
-	if con, err := ld.group.PackageStart(pkg, ld.errGroup); err != nil || !con {
+	con, mg, err := ld.group.StartPackage(pkg, ld.errGroup)
+	if err != nil || !con {
 		return err
 	}
 
 	for _, filename := range pkg.Ast.GoFiles {
-		f, err := ld.parseFile(filename)
+		f, err := ld.parseFile(mg, filename)
 		if err != nil {
 			return err
 		}
 		pkg.Ast.Syntax = append(pkg.Ast.Syntax, f)
 	}
 
-	_, err := ld.group.PackageDone(pkg, ld.errGroup)
+	_, err = mg.PackageDone()
 	return err
 }
 
-func (ld *loader) parseFile(filename string) (*ast.File, error) {
+func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error) {
 	var src []byte
 	if over, ok := ld.overlay[filename]; ok {
 		src = over
@@ -138,8 +171,10 @@ func (ld *loader) parseFile(filename string) (*ast.File, error) {
 		return nil, ld.errGroup.Fatal(err)
 	}
 
-	if _, err := ld.group.ModifyFile(f, ld.errGroup); err != nil {
-		return nil, err
+	if m, ok := mg.(mods.ModifyAstFileExt); ok {
+		if _, err := m.ModifyAstFile(f); err != nil {
+			return nil, err
+		}
 	}
 	return f, nil
 }

@@ -10,13 +10,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
-// The default size to use when no size is provided.
-//
-// This default size is based on what sizes of int (i.e. 32 bit or 64 bit)
-// would fit into a JS number. A JS number is IEEE-754 64 bit double float
-// with a mantissa of 53 bits, therefore a 32 bit int is used.
-var defaultSize types.Sizes = &types.StdSizes{WordSize: 4, MaxAlign: 8}
-
 type Config struct {
 
 	// Context is the context used for resolving global identifiers. If nil, the
@@ -42,11 +35,26 @@ type TypeChecker struct {
 	sizes     types.Sizes
 }
 
+type typeCheckerMod struct {
+	ctx       *types.Context
+	goVersion string
+	sizes     types.Sizes
+	pkg       *project.Package
+	errGroup  *faults.Group
+}
+
 var (
-	_ mods.Modifier       = (*TypeChecker)(nil)
-	_ mods.PackageDoneExt = (*TypeChecker)(nil)
-	_ types.Importer      = (*importer)(nil)
+	_ mods.ModFactory = (*TypeChecker)(nil)
+	_ mods.Modifier   = (*typeCheckerMod)(nil)
+	_ types.Importer  = (*typeCheckerMod)(nil)
 )
+
+// The default size to use when no size is provided.
+//
+// This default size is based on what sizes of int (i.e. 32 bit or 64 bit)
+// would fit into a JS number. A JS number is IEEE-754 64 bit double float
+// with a mantissa of 53 bits, therefore a 32 bit int is used.
+var defaultSize types.Sizes = &types.StdSizes{WordSize: 4, MaxAlign: 8}
 
 func New(cfg *Config) *TypeChecker {
 	mod := &TypeChecker{
@@ -62,23 +70,28 @@ func New(cfg *Config) *TypeChecker {
 	return mod
 }
 
-func (tc *TypeChecker) ModName() string { return `TypeChecker` }
-
-type importer struct {
-	pkg *project.Package
+func (tc *TypeChecker) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool, mods.Modifier, error) {
+	mod := &typeCheckerMod{
+		ctx:       tc.ctx,
+		goVersion: tc.goVersion,
+		sizes:     tc.sizes,
+		pkg:       pkg,
+		errGroup:  errGroup,
+	}
+	return true, mod, nil
 }
 
-func (i *importer) Import(path string) (*types.Package, error) {
-	if imp, ok := i.pkg.Ast.Imports[path]; ok {
+func (tc *typeCheckerMod) Import(path string) (*types.Package, error) {
+	if imp, ok := tc.pkg.Ast.Imports[path]; ok {
 		if imp.Types != nil {
 			return imp.Types, nil
 		}
-		return nil, fmt.Errorf(`the types from package %q was nil`, path)
+		return nil, fmt.Errorf(`the types from package %q was nil`, path) // TODO: Change to faults
 	}
-	return nil, fmt.Errorf(`failed to find import for package %q`, path)
+	return nil, fmt.Errorf(`failed to find import for package %q`, path) // TODO: Change to faults
 }
 
-func (tc *TypeChecker) newInfo() *types.Info {
+func (tc *typeCheckerMod) newInfo() *types.Info {
 	return &types.Info{
 		Types:        map[ast.Expr]types.TypeAndValue{},
 		Instances:    map[*ast.Ident]types.Instance{},
@@ -92,7 +105,11 @@ func (tc *TypeChecker) newInfo() *types.Info {
 	}
 }
 
-func (tc *TypeChecker) PackageDone(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
+func (tc *typeCheckerMod) addError(err error) {
+	tc.errGroup.Add(err)
+}
+
+func (tc *typeCheckerMod) PackageDone() (bool, error) {
 	ctx := tc.ctx
 	if ctx == nil {
 		ctx = types.NewContext()
@@ -101,20 +118,23 @@ func (tc *TypeChecker) PackageDone(pkg *project.Package, errGroup *faults.Group)
 	cfg := &types.Config{
 		Context:   tc.ctx,
 		GoVersion: tc.goVersion,
-		Error:     func(err error) { errGroup.Add(err) },
-		Importer:  &importer{pkg: pkg},
+		Error:     tc.addError,
+		Importer:  tc,
 		Sizes:     tc.sizes,
 	}
 
-	tPkg := &types.Package{}
+	pkg := tc.pkg.Ast
+	typPkg := &types.Package{}
 	info := tc.newInfo()
-	err = types.NewChecker(cfg, pkg.Ast.Fset, tPkg, info).Files(pkg.Ast.Syntax)
+
+	err := types.NewChecker(cfg, pkg.Fset, typPkg, info).
+		Files(pkg.Syntax)
 	if err != nil {
-		return false, errGroup.Add(err)
+		return false, tc.errGroup.Add(err)
 	}
 
-	pkg.Ast.Types = tPkg
-	pkg.Ast.TypesInfo = info
-	pkg.Ast.TypesSizes = tc.sizes
+	pkg.Types = typPkg
+	pkg.TypesInfo = info
+	pkg.TypesSizes = tc.sizes
 	return true, nil
 }

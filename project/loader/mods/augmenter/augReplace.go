@@ -9,29 +9,28 @@ import (
 )
 
 type augReplace struct {
-	pkg *project.Package
+	pkg      *project.Package
+	errGroup *faults.Group
 }
 
-func newReplace(pkg *project.Package) *augReplace {
+func newReplace(pkg *project.Package, errGroup *faults.Group) *augReplace {
 	return &augReplace{
-		pkg: pkg,
+		pkg:      pkg,
+		errGroup: errGroup,
 	}
 }
 
 var (
-	_ mods.Modifier       = (*augReplace)(nil)
-	_ mods.ModifyFileExt  = (*augReplace)(nil)
-	_ mods.PackageDoneExt = (*augReplace)(nil)
+	_ mods.Modifier         = (*augReplace)(nil)
+	_ mods.ModifyAstFileExt = (*augReplace)(nil)
 )
 
-func (a *augReplace) ModName() string { return `Augmenter.Replace` }
-
-func (a *augReplace) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (a *augReplace) ModifyAstFile(f *ast.File) (bool, error) {
 	// TODO: Implement
 	return true, nil
 }
 
-func (a *augReplace) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool, error) {
+func (a *augReplace) PackageDone() (bool, error) {
 	// TODO: Implement
 	return true, nil
 }

@@ -24,10 +24,11 @@ var (
 	ErrAugDelIdentifierNotMethod    = errors.New(`can not delete identifier via augmenter: identifier for method not in interface`)
 )
 
-type delHandle func(*astTools.IdentIteratorValue, *faults.Group) (bool, error)
+type delHandle func(*astTools.IdentIteratorValue) (bool, error)
 
 type augDel struct {
 	pkg        *project.Package
+	errGroup   *faults.Group
 	delImport  map[string]bool
 	delFunc    map[string]*ast.FuncDecl
 	delVar     map[string]*ast.ValueSpec
@@ -37,9 +38,10 @@ type augDel struct {
 	delHandles []delHandle
 }
 
-func newDel(pkg *project.Package) *augDel {
+func newDel(pkg *project.Package, errGroup *faults.Group) *augDel {
 	a := &augDel{
 		pkg:        pkg,
+		errGroup:   errGroup,
 		delImport:  map[string]bool{},
 		delFunc:    map[string]*ast.FuncDecl{},
 		delVar:     map[string]*ast.ValueSpec{},
@@ -58,17 +60,14 @@ func newDel(pkg *project.Package) *augDel {
 }
 
 var (
-	_ mods.Modifier       = (*augDel)(nil)
-	_ mods.ModifyFileExt  = (*augDel)(nil)
-	_ mods.PackageDoneExt = (*augDel)(nil)
+	_ mods.Modifier         = (*augDel)(nil)
+	_ mods.ModifyAstFileExt = (*augDel)(nil)
 )
 
-func (a *augDel) ModName() string { return `Augmenter.Delete` }
-
-func (a *augDel) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (a *augDel) ModifyAstFile(f *ast.File) (bool, error) {
 	for it := range astTools.Idents(a.pkg.Ast.Fset, f) {
 		for _, handle := range a.delHandles {
-			deleted, err := handle(it, errGroup)
+			deleted, err := handle(it)
 			if err != nil {
 				return false, err
 			}
@@ -80,18 +79,18 @@ func (a *augDel) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
 	return true, nil
 }
 
-func (a *augDel) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool, error) {
+func (a *augDel) PackageDone() (bool, error) {
 	// TODO: Check for any identifiers that weren't found.
 	return true, nil
 }
 
-func (a *augDel) tryDelFunc(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelFunc(it *astTools.IdentIteratorValue) (bool, error) {
 	d, has := a.delFunc[it.Ident]
 	if !has {
 		return false, nil
 	}
 	if it.FuncDecl == nil {
-		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotFunc).
+		if err := a.errGroup.Add(faults.From(ErrAugDelIdentifierNotFunc).
 			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.pkg.Position(d.Pos())).
@@ -104,13 +103,13 @@ func (a *augDel) tryDelFunc(it *astTools.IdentIteratorValue, errGroup *faults.Gr
 	return true, nil
 }
 
-func (a *augDel) tryDelVar(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelVar(it *astTools.IdentIteratorValue) (bool, error) {
 	v, has := a.delVar[it.Ident]
 	if !has {
 		return false, nil
 	}
 	if it.ValueSpec == nil {
-		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotValue).
+		if err := a.errGroup.Add(faults.From(ErrAugDelIdentifierNotValue).
 			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.pkg.Position(v.Pos())).
@@ -126,13 +125,13 @@ func (a *augDel) tryDelVar(it *astTools.IdentIteratorValue, errGroup *faults.Gro
 	return true, nil
 }
 
-func (a *augDel) tryDelType(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelType(it *astTools.IdentIteratorValue) (bool, error) {
 	t, has := a.delType[it.Ident]
 	if !has {
 		return false, nil
 	}
 	if it.TypeSpec == nil {
-		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotType).
+		if err := a.errGroup.Add(faults.From(ErrAugDelIdentifierNotType).
 			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.pkg.Position(t.Pos())).
@@ -144,7 +143,7 @@ func (a *augDel) tryDelType(it *astTools.IdentIteratorValue, errGroup *faults.Gr
 	_, tInter := t.Type.(*ast.InterfaceType)
 	if itInter != tInter {
 		if itInter {
-			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotStruct).
+			if err := a.errGroup.Add(faults.From(ErrAugDelIdentifierNotStruct).
 				With(`package path`, a.pkg.PkgPath()).
 				With(`original pos`, it.Start()).
 				With(`augmenter pos`, a.pkg.Position(t.Pos())).
@@ -152,7 +151,7 @@ func (a *augDel) tryDelType(it *astTools.IdentIteratorValue, errGroup *faults.Gr
 				return false, err
 			}
 		} else {
-			if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotInterface).
+			if err := a.errGroup.Add(faults.From(ErrAugDelIdentifierNotInterface).
 				With(`package path`, a.pkg.PkgPath()).
 				With(`original pos`, it.Start()).
 				With(`augmenter pos`, a.pkg.Position(t.Pos())).
@@ -166,14 +165,14 @@ func (a *augDel) tryDelType(it *astTools.IdentIteratorValue, errGroup *faults.Gr
 	return true, nil
 }
 
-func (a *augDel) tryDelFields(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelFields(it *astTools.IdentIteratorValue) (bool, error) {
 	fs, has := a.delFields[it.Ident]
 	if !has {
 		return false, nil
 	}
 	st, ok := it.TypeSpec.Type.(*ast.StructType)
 	if !ok {
-		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotField).
+		if err := a.errGroup.Add(faults.From(ErrAugDelIdentifierNotField).
 			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.pkg.Position(fs.Pos())).
@@ -204,14 +203,14 @@ func (a *augDel) tryDelFields(it *astTools.IdentIteratorValue, errGroup *faults.
 	return true, nil
 }
 
-func (a *augDel) tryDelMethods(it *astTools.IdentIteratorValue, errGroup *faults.Group) (bool, error) {
+func (a *augDel) tryDelMethods(it *astTools.IdentIteratorValue) (bool, error) {
 	ms, has := a.delMethods[it.Ident]
 	if !has {
 		return false, nil
 	}
 	st, ok := it.TypeSpec.Type.(*ast.InterfaceType)
 	if !ok {
-		if err := errGroup.Add(faults.From(ErrAugDelIdentifierNotMethod).
+		if err := a.errGroup.Add(faults.From(ErrAugDelIdentifierNotMethod).
 			With(`package path`, a.pkg.PkgPath()).
 			With(`original pos`, it.Start()).
 			With(`augmenter pos`, a.pkg.Position(ms.Pos())).

@@ -9,29 +9,28 @@ import (
 )
 
 type augRename struct {
-	pkg *project.Package
+	pkg      *project.Package
+	errGroup *faults.Group
 }
 
-func newRename(pkg *project.Package) *augRename {
+func newRename(pkg *project.Package, errGroup *faults.Group) *augRename {
 	return &augRename{
-		pkg: pkg,
+		pkg:      pkg,
+		errGroup: errGroup,
 	}
 }
 
 var (
-	_ mods.Modifier       = (*augRename)(nil)
-	_ mods.ModifyFileExt  = (*augRename)(nil)
-	_ mods.PackageDoneExt = (*augRename)(nil)
+	_ mods.Modifier         = (*augRename)(nil)
+	_ mods.ModifyAstFileExt = (*augRename)(nil)
 )
 
-func (a *augRename) ModName() string { return `Augmenter.Rename` }
-
-func (a *augRename) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
+func (a *augRename) ModifyAstFile(f *ast.File) (bool, error) {
 	// TODO: Implement
 	return true, nil
 }
 
-func (a *augRename) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool, error) {
+func (a *augRename) PackageDone() (bool, error) {
 	// TODO: Implement
 	return true, nil
 }

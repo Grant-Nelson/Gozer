@@ -24,10 +24,14 @@ type Cache struct {
 	conv  source.Converter
 }
 
+type cacheMod struct {
+	pkg      *project.Package
+	errGroup *faults.Group
+}
+
 var (
-	_ mods.Modifier        = (*Cache)(nil)
-	_ mods.PackageStartExt = (*Cache)(nil)
-	_ mods.PackageDoneExt  = (*Cache)(nil)
+	_ mods.ModFactory = (*Cache)(nil)
+	_ mods.Modifier   = (*cacheMod)(nil)
 )
 
 func New(cfg *Config) *Cache {
@@ -37,58 +41,63 @@ func New(cfg *Config) *Cache {
 	}
 }
 
-func (c *Cache) ModName() string { return `Cache` }
+func (c *Cache) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool, mods.Modifier, error) {
+	cm := &cacheMod{
+		pkg:      pkg,
+		errGroup: errGroup,
+	}
 
-func (c *Cache) PackageStart(pkg *project.Package, errGroup *faults.Group) (bool, error) {
 	ok, path, data, err := c.conv(pkg.Ast.Dir, nil)
 	if !ok || err != nil {
-		return true, errGroup.Add(err)
+		return true, cm, errGroup.Add(err)
 	}
+
+	// TODO: See TODOs in README.md
 
 	reader, err := source.ToReader(path, data)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// Cache miss
-			return true, nil
+			return true, cm, nil
 		}
-		return true, errGroup.Add(err)
+		return true, cm, errGroup.Add(err)
 	}
 
-	if err = readPackage(reader, pkg, errGroup); err != nil {
-		return true, errGroup.Add(err)
+	if err = readPackage(reader, pkg); err != nil {
+		return true, cm, errGroup.Add(err)
 	}
 
 	// Cache hit so skip rest of loading.
-	return false, nil
+	return false, nil, nil
 }
 
-func (c *Cache) PackageDone(pkg *project.Package, errGroup *faults.Group) (con bool, err error) {
+func (c *cacheMod) PackageDone() (con bool, err error) {
 	f, err := os.CreateTemp(``, `gozerTypePkg*.a`)
 	if err != nil {
-		return true, errGroup.Add(err)
+		return true, c.errGroup.Add(err)
 	}
 	defer func() {
 		if closeErr := f.Close(); err == nil {
-			err = errGroup.Add(closeErr)
+			err = c.errGroup.Add(closeErr)
 		}
 	}()
 
-	if err = writePackage(f, pkg, errGroup); err != nil {
-		return true, errGroup.Add(err)
+	if err = writePackage(f, c.pkg); err != nil {
+		return true, c.errGroup.Add(err)
 	}
 
-	pkg.TempTypeFile = f.Name()
+	c.pkg.TempTypeFile = f.Name()
 	return true, nil
 }
 
-func readPackage(in io.Reader, pkg *project.Package, errGroup *faults.Group) error {
+func readPackage(in io.Reader, pkg *project.Package) error {
 	imports := make(map[string]*types.Package, len(pkg.Ast.Imports))
 	for path, pkg := range pkg.Ast.Imports {
 		imports[path] = pkg.Types
 	}
 
 	tPkg, err := gcexportdata.Read(in, pkg.Ast.Fset, imports, pkg.Ast.PkgPath)
-	if err = errGroup.Add(err); err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -96,7 +105,6 @@ func readPackage(in io.Reader, pkg *project.Package, errGroup *faults.Group) err
 	return nil
 }
 
-func writePackage(out io.Writer, pkg *project.Package, errGroup *faults.Group) error {
-	err := gcexportdata.Write(out, pkg.Ast.Fset, pkg.Ast.Types)
-	return errGroup.Add(err)
+func writePackage(out io.Writer, pkg *project.Package) error {
+	return gcexportdata.Write(out, pkg.Ast.Fset, pkg.Ast.Types)
 }

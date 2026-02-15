@@ -7,36 +7,41 @@ import (
 	"github.com/Grant-Nelson/Gozer/project"
 )
 
-type Group []Modifier
+type (
+	Group    []ModFactory
+	ModGroup []Modifier
+)
 
-func (group Group) ModName() string { return `Modifier Group` }
+func (group Group) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool, Modifier, error) {
+	mg := make(ModGroup, 0, len(group))
+	for _, factory := range group {
+		con, mod, err := factory.StartPackage(pkg, errGroup)
+		if err != nil || !con {
+			return false, nil, err
+		}
+		if mod != nil {
+			mg = append(mg, mod)
+		}
+	}
+	if len(mg) <= 0 {
+		return true, nil, nil
+	}
+	return true, mg, nil
+}
 
-func (group Group) ModifyFile(f *ast.File, errGroup *faults.Group) (bool, error) {
-	for _, mod := range group {
-		if m, ok := mod.(ModifyFileExt); ok {
-			if con, err := m.ModifyFile(f, errGroup); err != nil || !con {
-				return false, err
-			}
+func (mg ModGroup) PackageDone() (bool, error) {
+	for _, mod := range mg {
+		if con, err := mod.PackageDone(); err != nil || !con {
+			return false, err
 		}
 	}
 	return true, nil
 }
 
-func (group Group) PackageStart(pkg *project.Package, errGroup *faults.Group) (bool, error) {
-	for _, mod := range group {
-		if m, ok := mod.(PackageStartExt); ok {
-			if con, err := m.PackageStart(pkg, errGroup); err != nil || !con {
-				return false, err
-			}
-		}
-	}
-	return true, nil
-}
-
-func (group Group) PackageDone(pkg *project.Package, errGroup *faults.Group) (bool, error) {
-	for _, mod := range group {
-		if m, ok := mod.(PackageDoneExt); ok {
-			if con, err := m.PackageDone(pkg, errGroup); err != nil || !con {
+func (mg ModGroup) ModifyAstFile(f *ast.File) (bool, error) {
+	for _, mod := range mg {
+		if m, ok := mod.(ModifyAstFileExt); ok {
+			if con, err := m.ModifyAstFile(f); err != nil || !con {
 				return false, err
 			}
 		}

@@ -3,26 +3,40 @@
 The augmenter modifier reads in specially marked up `*.go` files
 that specify what changes need to be made to files for a package.
 
-- [Augmenter](#augmenter)
-  - [Adding](#adding)
-    - [Adding an Import](#adding-an-import)
-    - [Adding a Func](#adding-a-func)
-    - [Adding a Var or Const](#adding-a-var-or-const)
-    - [Adding a Data Type](#adding-a-data-type)
-    - [Adding an Interface](#adding-an-interface)
-    - [Adding a Field](#adding-a-field)
-  - [Deleting](#deleting)
-    - [Deleting a Func](#deleting-a-func)
-    - [Deleting a Var or Const](#deleting-a-var-or-const)
-    - [Deleting a Data Type or Interface](#deleting-a-data-type-or-interface)
-    - [Deleting a Field](#deleting-a-field)
-  - [Replacing](#replacing)
-    - [Replacing a Signature](#replacing-a-signature)
-  - [Rename](#rename)
-    - [ReplaceRecv](#replacerecv)
-  - [Ignoring](#ignoring)
+:warning: The cache modifier does not check for updated augmenter files
+so if you are working on the augmenter code, disable the cache to ensure
+changes in the augmenter are being applied correctly.
 
-## Adding
+- [Augmenter](#augmenter)
+  - [By Directive](#by-directive)
+    - [Adding](#adding)
+      - [Adding an Import](#adding-an-import)
+      - [Adding a Func](#adding-a-func)
+      - [Adding a Var or Const](#adding-a-var-or-const)
+      - [Adding a Data Type](#adding-a-data-type)
+      - [Adding an Interface](#adding-an-interface)
+      - [Adding a Field](#adding-a-field)
+    - [Deleting](#deleting)
+      - [Deleting a Func](#deleting-a-func)
+      - [Deleting a Var or Const](#deleting-a-var-or-const)
+      - [Deleting a Data Type or Interface](#deleting-a-data-type-or-interface)
+      - [Deleting a Field](#deleting-a-field)
+    - [Replacing](#replacing)
+      - [Replacing a Signature](#replacing-a-signature)
+    - [Rename](#rename)
+      - [ReplaceRecv](#replacerecv)
+    - [Ignoring](#ignoring)
+  - [By Construct](#by-construct)
+    - [Imports](#imports)
+    - [Functions](#functions)
+    - [Vars and Consts](#vars-and-consts)
+    - [Data Types](#data-types)
+    - [Interfaces](#interfaces)
+    - [Fields](#fields)
+
+## By Directive
+
+### Adding
 
 Adding new code into a package can be done with `//gozer:add`.
 When adding something new to the code, the existing code is checked for a match
@@ -30,7 +44,7 @@ code to ensure that the code isn't accidentally overwriting existing code.
 Any comments or directives, other than the `//gozer:add`, attached to the code
 being added, will be added as well.
 
-### Adding an Import
+#### Adding an Import
 
 An import can be added with or without an alias.
 
@@ -39,7 +53,7 @@ An import can be added with or without an alias.
 import "foo/bar"
 ```
 
-### Adding a Func
+#### Adding a Func
 
 A function can be added with or without a receiver.
 The function should have a body or have a `go:linkname` directive.
@@ -50,7 +64,7 @@ A new `init()` function may be added.
 func (x *X) Foo(y int, z string) { /*...*/ }
 ```
 
-### Adding a Var or Const
+#### Adding a Var or Const
 
 A variable can be added with or without initialization.
 A constant can be added with an initialization.
@@ -82,7 +96,7 @@ In the prior example, `x` and `y` may not be added in the same group
 so things like `iota` may not work correctly. To use `iota` correctly
 add the vars as part of declaration, like the example in the middle.
 
-### Adding a Data Type
+#### Adding a Data Type
 
 A package-level type, struct, alias, etc can be added.
 
@@ -91,7 +105,7 @@ A package-level type, struct, alias, etc can be added.
 type Foo struct { /*...*/ }
 ```
 
-### Adding an Interface
+#### Adding an Interface
 
 A package-level interface can be added.
 
@@ -100,7 +114,7 @@ A package-level interface can be added.
 type Foo interface { /*...*/ }
 ```
 
-### Adding a Field
+#### Adding a Field
 
 A package-level struct can have a field added to it.
 The structure must exist originally or added in a previous modifier.
@@ -122,13 +136,13 @@ type Foo interface {
 }
 ```
 
-## Deleting
+### Deleting
 
 A type, interface, function, field, var, or const can be deleted
 with `gozer:delete`. The name of the code to delete must match
 the original name.
 
-### Deleting a Func
+#### Deleting a Func
 
 When deleting a function with a receiver, the receiver name and
 if the receiver is a pointer must match te function. The type parameters
@@ -140,7 +154,7 @@ a function body.
 func Foo()
 ```
 
-### Deleting a Var or Const
+#### Deleting a Var or Const
 
 A var or const can be deleted. They do not have to have the original's
 identifier and the actual type of the var or const does not have to match.
@@ -181,7 +195,7 @@ var (
 Note that if the deleted var or const is in the middle of `iota`
 then it will cause the iota to offset.
 
-### Deleting a Data Type or Interface
+#### Deleting a Data Type or Interface
 
 Deleting a type can be done as long as the name matches.
 The type may be any underlying type but if deleting an interface
@@ -212,7 +226,7 @@ type
 When deleting a data type, all the functions with that type as the
 receiver can be deleted too with `gozer:deleteAll`.
 
-### Deleting a Field
+#### Deleting a Field
 
 A field may be deleted from a structure or interface.
 
@@ -223,7 +237,7 @@ type Foo interface {
 }
 ```
 
-## Replacing
+### Replacing
 
 Replacing is similar to deleting and adding where it matches based on name
 and basic type kind and it must provide the new function, type, var, const,
@@ -240,7 +254,7 @@ type Foo struct { x int; y int }
 May not use replace on a multi-var or multi-type declaration.
 Only one spec can be replaced by one replace at a time.
 
-### Replacing a Signature
+#### Replacing a Signature
 
 A function can have the signature changed without modifying any of the code
 with `gozer:replaceSig`. The function name must match with the package-level
@@ -253,7 +267,7 @@ The generic parameter can be modified with the signature.
 func Foo[T any](x T)
 ```
 
-## Rename
+### Rename
 
 An type, interface, function, field, var, or const can be renamed with
 `gozer:rename <newName>`. `<newName>` must be a valid id.
@@ -271,7 +285,7 @@ For imports, a rename can be done with a simple replace since imports
 will use the import path to find a matching import to replace and
 the replaced one can have a different alias.
 
-### ReplaceRecv
+#### ReplaceRecv
 
 The receiver of a function can be replaced with `gozer:replaceRecv (*)<newType>`.
 This can be paired with `gozer:rename` to replace the receiver and function
@@ -287,7 +301,7 @@ parameter names with `gozer:replaceRecv` to change the type.
 func (f *Foo) Bar(x int, y int)
 ```
 
-## Ignoring
+### Ignoring
 
 An import, type, function, variable, and constant can be ignored
 with `gozer:ignore`. Ignored items will have no affect in the augmenter
@@ -298,3 +312,29 @@ can be added and ignored so that the editor doesn't complained about
 the missing type.
 
 If imports doesn't have any directives, they will default to ignore.
+
+## By Construct
+
+### Imports
+
+TODO: Fill out
+
+### Functions
+
+TODO: Fill out
+
+### Vars and Consts
+
+TODO: Fill out
+
+### Data Types
+
+TODO: Fill out
+
+### Interfaces
+
+TODO: Fill out
+
+### Fields
+
+TODO: Fill out

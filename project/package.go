@@ -11,9 +11,6 @@ import (
 // Package describes a single package in a project.
 type Package struct {
 
-	// The project this package belongs to.
-	Project *Project
-
 	// State indicates the status of the package during a build.
 	State buildState.BuildState
 
