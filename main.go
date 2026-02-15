@@ -6,23 +6,24 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/args"
 	"github.com/Grant-Nelson/Gozer/tools/builder"
-	"github.com/Grant-Nelson/Gozer/tools/listLangs"
+	"github.com/Grant-Nelson/Gozer/tools/langs"
 	"github.com/Grant-Nelson/Gozer/tools/runner"
 	"github.com/Grant-Nelson/Gozer/tools/tester"
 	"github.com/Grant-Nelson/Gozer/tools/version"
 )
 
 type mainConfig struct {
-	Usage     string            `arg:"help"`
-	Builder   *builder.Config   `arg:"tool, b|build, Builds a project."`
-	Runner    *runner.Config    `arg:"tool, r|run, Builds a project then runs it."`
-	Tester    *tester.Config    `arg:"tool, t|test, Builds and tests all or part of a project"`
-	Version   *version.Config   `arg:"tool, v|version, Shows the version."`
-	ListLangs *listLangs.Config `arg:"tool, list, Shows the list of languages available to transpile into."`
+	Usage   string          `arg:"help"`
+	Builder *builder.Config `arg:"tool, b|build, Builds a project."`
+	Runner  *runner.Config  `arg:"tool, r|run, Builds a project then runs it."`
+	Tester  *tester.Config  `arg:"tool, t|test, Builds and tests all or part of a project"`
+	Version *version.Config `arg:"tool, v|version, Shows the version."`
+	Langs   *langs.Config   `arg:"tool, langs, Shows the list of languages available to transpile into."`
 }
 
 // TODO: Add 'env' for printing environment variables that are used.
 // TODO: Add 'serve' to serve a website
+// TODO: Add `list` that prints the files used when building.
 
 func defaultConfig() *mainConfig {
 	return &mainConfig{
@@ -32,11 +33,11 @@ func defaultConfig() *mainConfig {
 			`Gozer transpile allows complicated code be written once in Go ` +
 			`and reused in several other languages.` +
 			`To use Gozer, select a tool to build, run, test, etc a project.`,
-		Builder:   builder.DefaultConfig(),
-		Runner:    runner.DefaultConfig(),
-		Tester:    tester.DefaultConfig(),
-		Version:   version.DefaultConfig(),
-		ListLangs: listLangs.DefaultConfig(),
+		Builder: builder.DefaultConfig(),
+		Runner:  runner.DefaultConfig(),
+		Tester:  tester.DefaultConfig(),
+		Version: version.DefaultConfig(),
+		Langs:   langs.DefaultConfig(),
 	}
 }
 
@@ -59,8 +60,8 @@ func main() {
 	case cfg.Version != nil:
 		version.Version(cfg.Version)
 
-	case cfg.ListLangs != nil:
-		listLangs.ListLangs(cfg.ListLangs)
+	case cfg.Langs != nil:
+		langs.Langs(cfg.Langs)
 
 	default:
 		fmt.Fprintln(os.Stderr, `Must select a tool to use.`)

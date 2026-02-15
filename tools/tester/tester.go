@@ -2,10 +2,12 @@ package tester
 
 import (
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/presets"
-	"github.com/Grant-Nelson/Gozer/tools/builder"
+	"github.com/Grant-Nelson/Gozer/project/builder"
 )
 
 type Config struct {
@@ -27,23 +29,22 @@ func DefaultConfig() *Config {
 }
 
 func Test(cfg *Config) bool {
-	output := `./temp` // TODO: Should use a temp directory
-	if !build(cfg, output) {
-		return false
+	// TODO: Validate configs
+
+	// TODO: Add optional build flags to config
+	// TODO: Add optional parallel flags to config
+
+	buildCfg := &builder.Config{
+		Lang:     cfg.Lang,
+		Patterns: cfg.Patterns,
+		Logger:   logger.New(cfg.Verbose),
+		Tests:    true,
+	}
+	if err := builder.Build(buildCfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Tests failed when building: %v\n", err)
 	}
 
-	// TODO: Implement
-	fmt.Println(`Test is not implemented yet.`)
-	fmt.Printf("\tConfig was %#v\n", cfg)
+	// TODO: Finish implementing
+	fmt.Println(`Run is not implemented yet.`)
 	return false
-}
-
-func build(cfg *Config, output string) bool {
-	bCfg := builder.DefaultConfig()
-	bCfg.Lang = cfg.Lang
-	bCfg.Output = output
-	bCfg.Patterns = cfg.Patterns
-	bCfg.Verbose = cfg.Verbose
-	bCfg.Test = true
-	return builder.Build(bCfg)
 }

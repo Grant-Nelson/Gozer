@@ -11,6 +11,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/source"
 	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 )
 
@@ -68,6 +69,7 @@ func (c *Cache) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool
 	}
 
 	// Cache hit so skip rest of loading.
+	pkg.State = buildState.Finished
 	return false, nil, nil
 }
 

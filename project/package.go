@@ -22,6 +22,14 @@ type Package struct {
 	// and augmented for the target languages.
 	Ast *packages.Package
 
+	// Depth is the depth of this node in the dependency tree where 0
+	// means the package is a leave package with no dependencies and
+	// the highest depth is a root. With multiple roots, some of the roots
+	// may not have the highest depth value.
+	//
+	// This is used for determining which packages can be loaded in parallel.
+	Depth int
+
 	// TempTypeFile is set when the [types.Package] and related data was
 	// serialized into a temporary file to be used as part of the cache.
 	// This will be set to the path of that temporary file.

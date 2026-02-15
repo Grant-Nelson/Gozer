@@ -21,4 +21,7 @@ const (
 	// Loaded indicates that the package has finished [Loading] and is waiting
 	// for other packages to finish loading before moving to the next state.
 	Loaded
+
+	// Finished indicates the package has finished building.
+	Finished
 )

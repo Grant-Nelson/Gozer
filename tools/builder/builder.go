@@ -3,22 +3,19 @@ package builder
 import (
 	"fmt"
 	"os"
-	"strings"
 
+	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/presets"
-	"github.com/Grant-Nelson/Gozer/project/interep"
-	"github.com/Grant-Nelson/Gozer/project/loader"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/typeChecker"
+	projBuilder "github.com/Grant-Nelson/Gozer/project/builder"
 )
 
 type Config struct {
 	Usage    string   `arg:"help"`
 	Lang     string   `arg:"flag, l|lang|language, The language to transpile into."`
 	Verbose  bool     `arg:"flag, v|verbose, Indicates status information should be printed while building."`
-	Output   string   `arg:"flag, o|out, The directory to write the resulting application out to."`
+	Output   string   `arg:"flag, o|out, The optional directory to copy the resulting application out to."`
 	Patterns []string `arg:"pos, patterns, One or more patterns for the root files for a project."`
-	Test     bool     `arg:"skip"` // Set via tester tool
+	Tests    bool     `arg:"skip"` // Set via tester tool
 }
 
 func DefaultConfig() *Config {
@@ -30,48 +27,24 @@ func DefaultConfig() *Config {
 		Verbose:  false,
 		Output:   `./out`,
 		Patterns: []string{},
-		Test:     false,
+		Tests:    false,
 	}
 }
 
-func Build(cfg *Config) bool {
-	switch strings.ToLower(cfg.Lang) {
-	case `ts`, `typescript`:
-		return buildTs(cfg)
-	default:
-		fmt.Fprintln(os.Stderr, `Unknown language selected: %q`, cfg.Lang)
-		return false
+func Build(cfg *Config) {
+	// TODO: Validate configs
+
+	// TODO: Add optional build flags to config
+	// TODO: Add optional parallel flags to config
+
+	buildCfg := &projBuilder.Config{
+		Lang:     cfg.Lang,
+		Logger:   logger.New(cfg.Verbose),
+		Output:   cfg.Output,
+		Patterns: cfg.Patterns,
+		Tests:    cfg.Tests,
 	}
-}
-
-func buildTs(cfg *Config) bool {
-	build := []string{`ts`}
-
-	mods := mods.Group{
-		//cache.New(&cache.Config{
-		//	Build: build,
-		//	//Converter: , // TODO:
-		//}),
-		//augmenter.New(&augmenter.Config{
-		//	Build: build,
-		//	//Converter: , // TODO:
-		//}),
-		typeChecker.New(nil),
+	if err := projBuilder.Build(buildCfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Build failed: %v\n", err)
 	}
-
-	loaderCfg := loader.Config{
-		Build:     build,
-		Patterns:  cfg.Patterns,
-		Tests:     cfg.Test,
-		Modifiers: mods,
-	}
-
-	proj, err := loader.Load(loaderCfg)
-	if err != nil {
-		// TODO: log error
-		return false
-	}
-
-	interep.Remodel(proj)
-
 }

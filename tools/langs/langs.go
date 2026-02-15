@@ -1,4 +1,4 @@
-package listLangs
+package langs
 
 import "fmt"
 
@@ -14,7 +14,7 @@ func DefaultConfig() *Config {
 	}
 }
 
-func ListLangs(cfg *Config) bool {
+func Langs(cfg *Config) bool {
 	// TODO: Implement
 	fmt.Println(`ListLang is not implemented yet.`)
 	fmt.Printf("\tConfig was %#v\n", cfg)

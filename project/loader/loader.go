@@ -3,17 +3,23 @@ package loader
 import (
 	"go/ast"
 	"go/token"
+	"sync"
 
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/parser"
 )
 
 // Config is the configuration for the loader.
 type Config struct {
+
+	// Logger to log verbose messages with. Has no affect if verbose was false.
+	Logger logger.Logger
 
 	// Dir is the directory in which to run the build system's query tool
 	// that provides information about the packages.
@@ -49,7 +55,13 @@ type Config struct {
 
 // Load reads, parses, modifies, and collects type information for a project
 // based on the given configuration.
-func Load(cfg Config) (*project.Project, error) {
+func Load(cfg Config) (proj *project.Project, err error) {
+	errGroup := faults.NewGroup(-1)
+	defer faults.Recover(&err) // TODO: Make this use the errGroup
+	defer cfg.Logger.LogGroup("Loading")()
+
+	// TODO: Add verbose logs (which packages loaded from cache, etc)
+
 	p := cfg.Parser
 	if p == nil {
 		p = parser.Default
@@ -58,23 +70,22 @@ func Load(cfg Config) (*project.Project, error) {
 	ld := &loader{
 		group:    cfg.Modifiers,
 		fSet:     token.NewFileSet(),
-		errGroup: faults.NewGroup(-1),
+		errGroup: errGroup,
 		parser:   p,
 		overlay:  cfg.Overlay,
 	}
 	if err := ld.loadFileNames(cfg); err != nil {
-		return nil, err
+		return nil, errGroup.Fatal(err)
 	}
 
 	// TODO: Need to check packages for errors.
 
 	if cfg.Parallel {
-		err := ld.parallelParseProject()
-		return ld.proj, err
+		err = ld.parallelParseProject()
+		return ld.proj, errGroup.Fatal(err)
 	}
-
-	err := ld.parseProject()
-	return ld.proj, err
+	err = ld.parseProject()
+	return ld.proj, errGroup.Fatal(err)
 }
 
 type loader struct {
@@ -85,8 +96,6 @@ type loader struct {
 	parser   parser.Parser
 	overlay  map[string][]byte
 }
-
-type blockChan chan struct{}
 
 func (ld *loader) loadFileNames(cfg Config) error {
 	const allNeeds = packages.NeedName |
@@ -111,26 +120,41 @@ func (ld *loader) loadFileNames(cfg Config) error {
 	return nil
 }
 
+// parallelParseProject loads all the packages as parallel as possible.
+// If there are any errors between groups of parallel packages, then
+// the errors will be returned since after that group is a group that
+// depends on the group with errors.
 func (ld *loader) parallelParseProject() error {
-	cancel := make(blockChan)
-	pending := make(map[string]blockChan, len(ld.proj.AllPackages))
-	allDeps := make([]blockChan, len(ld.proj.AllPackages))
+	prev, depth := 0, 0
 	for i, pkg := range ld.proj.AllPackages {
-		pkgChan := make(blockChan)
-		pending[pkg.PkgPath()] = pkgChan
-		allDeps[i] = pkgChan
-
-		deps := make([]blockChan, len(pkg.Ast.Imports))
-		for pkgPath := range pkg.Ast.Imports {
-			deps = append(deps, pending[pkgPath])
+		if pkg.Depth != depth {
+			ld.parallelParseGroup(ld.proj.AllPackages[prev:i])
+			if err := ld.errGroup.Wrap(); err != nil {
+				return err
+			}
+			prev, depth = i, pkg.Depth
 		}
-
-		go ld.asyncParsePackage(pkg, pkgChan, cancel, deps)
 	}
+	ld.parallelParseGroup(ld.proj.AllPackages[prev:])
+	return ld.errGroup.Wrap()
+}
 
-	waitOnDeps(cancel, deps)
-
-	return nil
+// parallelParseGroup is a group of packages that all have their imports already
+// loaded and do not depend on each other, so they can be loaded in parallel.
+func (ld *loader) parallelParseGroup(pkgs []*project.Package) {
+	wg := &sync.WaitGroup{}
+	wg.Add(len(pkgs))
+	for _, pkg := range pkgs {
+		go func(pkg *project.Package) {
+			// errors should already be added to the error group.
+			// Adding the error again here may cause it to be added a second
+			// time since another package loading could have added an error
+			// between this error and the prior error so it wouldn't be skipped.
+			_ = ld.parsePackage(pkg)
+			wg.Done()
+		}(pkg)
+	}
+	wg.Wait()
 }
 
 func (ld *loader) parseProject() error {
@@ -143,21 +167,27 @@ func (ld *loader) parseProject() error {
 }
 
 func (ld *loader) parsePackage(pkg *project.Package) error {
+	pkg.State = buildState.Loading
+
 	con, mg, err := ld.group.StartPackage(pkg, ld.errGroup)
 	if err != nil || !con {
-		return err
+		return ld.errGroup.Add(err)
 	}
 
 	for _, filename := range pkg.Ast.GoFiles {
 		f, err := ld.parseFile(mg, filename)
-		if err != nil {
-			return err
+		if err2 := ld.errGroup.Add(err); err2 != nil {
+			return err2
 		}
 		pkg.Ast.Syntax = append(pkg.Ast.Syntax, f)
 	}
 
-	_, err = mg.PackageDone()
-	return err
+	if _, err = mg.PackageDone(); err != nil {
+		return ld.errGroup.Add(err)
+	}
+
+	pkg.State = buildState.Loaded
+	return nil
 }
 
 func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error) {
