@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"sync"
@@ -57,7 +58,7 @@ type Config struct {
 // based on the given configuration.
 func Load(cfg Config) (proj *project.Project, err error) {
 	errGroup := faults.NewGroup(-1)
-	defer faults.Recover(&err) // TODO: Make this use the errGroup
+	//defer faults.Recover(&err) // TODO: Make this use the errGroup
 	defer cfg.Logger.LogGroup("Loading")()
 
 	// TODO: Add verbose logs (which packages loaded from cache, etc)
@@ -102,19 +103,21 @@ func (ld *loader) loadFileNames(cfg Config) error {
 		packages.NeedFiles |
 		packages.NeedImports |
 		packages.NeedDeps |
-		packages.NeedEmbedFiles
+		packages.NeedEmbedFiles |
+		packages.NeedForTest
 
-	c := &packages.Config{
-		Mode:       allNeeds,
-		Dir:        cfg.Dir,
-		BuildFlags: cfg.Build,
-		Tests:      cfg.Tests,
-		Fset:       ld.fSet,
-		Overlay:    cfg.Overlay,
+	loadCfg := &packages.Config{
+		Mode: allNeeds,
+		Dir:  cfg.Dir,
+		//BuildFlags: cfg.Build, // TODO: Fix the build constraints not working
+		Tests:   cfg.Tests,
+		Fset:    ld.fSet,
+		Overlay: cfg.Overlay,
 	}
-	roots, err := packages.Load(c, cfg.Patterns...)
+
+	roots, err := packages.Load(loadCfg, cfg.Patterns...)
 	if err != nil {
-		return err
+		return fmt.Errorf(`Listing files failed: %w`, err)
 	}
 	ld.proj = project.New(ld.fSet, roots)
 	return nil
@@ -176,8 +179,12 @@ func (ld *loader) parsePackage(pkg *project.Package) error {
 
 	for _, filename := range pkg.Ast.GoFiles {
 		f, err := ld.parseFile(mg, filename)
-		if err2 := ld.errGroup.Add(err); err2 != nil {
-			return err2
+		if err != nil {
+			fmt.Printf("ERROR: %v", err) // TODO: REMOVE
+			if err2 := ld.errGroup.Add(err); err2 != nil {
+				return err2
+			}
+			continue
 		}
 		pkg.Ast.Syntax = append(pkg.Ast.Syntax, f)
 	}
@@ -191,7 +198,7 @@ func (ld *loader) parsePackage(pkg *project.Package) error {
 }
 
 func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error) {
-	var src []byte
+	var src any = nil
 	if over, ok := ld.overlay[filename]; ok {
 		src = over
 	}

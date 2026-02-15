@@ -54,6 +54,8 @@ func New(fSet *token.FileSet, roots []*packages.Package) *Project {
 // This assumes all imports of this package have already been added
 // and that the current package has not been added yet.
 func (proj *Project) insertPackage(basePkg *packages.Package) {
+	basePkg.Fset = proj.FileSet
+
 	pkg := &Package{
 		State: buildState.Listed,
 		Ast:   basePkg,

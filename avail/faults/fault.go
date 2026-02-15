@@ -36,9 +36,10 @@ func From(r any) *Fault {
 }
 
 func Recover(pe *error) {
-	if r := recover(); r != nil {
-		*pe = From(r)
-	}
+	// TODO: Should make a simple way to disable recovers when a stack trace is being consumed
+	//if r := recover(); r != nil {
+	//	*pe = From(r)
+	//}
 }
 
 func (f *Fault) Unwrap() []error {

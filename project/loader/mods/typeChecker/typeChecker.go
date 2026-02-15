@@ -124,12 +124,12 @@ func (tc *typeCheckerMod) PackageDone() (bool, error) {
 	}
 
 	pkg := tc.pkg.Ast
-	typPkg := &types.Package{}
 	info := tc.newInfo()
-
-	err := types.NewChecker(cfg, pkg.Fset, typPkg, info).
-		Files(pkg.Syntax)
+	typPkg, err := cfg.Check(pkg.PkgPath, pkg.Fset, pkg.Syntax, info)
 	if err != nil {
+
+		fmt.Printf("ERROR: %v\n", err) // TODO: FIX
+
 		return false, tc.errGroup.Add(err)
 	}
 

@@ -1,6 +1,8 @@
 package builder
 
 import (
+	"fmt"
+
 	"github.com/Grant-Nelson/Gozer/project/interep"
 	"github.com/Grant-Nelson/Gozer/project/loader"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
@@ -38,7 +40,7 @@ func buildTS(cfg *Config) error {
 	}
 	proj, err := loader.Load(loaderCfg)
 	if err != nil {
-		return err
+		return fmt.Errorf(`Loading failed: %w`, err)
 	}
 
 	// Remodel any packages that need to be compiled into the intermediate form.

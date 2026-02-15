@@ -37,18 +37,22 @@ func (g *Group) addErr(err error) bool {
 	return true
 }
 
+func errsEqual(a, b error) bool {
+	return a.Error() == b.Error()
+}
+
 func (g *Group) isPriorWrap(err error) bool {
 	if wErr, ok := err.(wrappedError); ok {
 		inner := wErr.Unwrap()
 		count := len(inner)
-		return count > 0 && count <= len(g.err) && inner[0] == g.err[0]
+		return count > 0 && count <= len(g.err) && errsEqual(inner[0], g.err[0])
 	}
 	return false
 }
 
 func (g *Group) isLastError(err error) bool {
 	count := len(g.err)
-	return count > 0 && g.err[count-1] == err
+	return count > 0 && errsEqual(g.err[count-1], err)
 }
 
 func (g *Group) wrapErrs() error {
