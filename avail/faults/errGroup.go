@@ -46,14 +46,12 @@ func (g *ErrGroup) Error() string {
 		return g.errs[0].Error()
 	default:
 		buf := &strings.Builder{}
+		buf.WriteString("multiple errors:\n")
 		for i, err := range g.errs {
-			if i > 0 {
-				buf.WriteByte('\n')
-			}
-			fmt.Fprintf(buf, `%d. %s`, i+1, err.Error())
+			fmt.Fprintf(buf, "%d. %s\n", i+1, err.Error())
 		}
 		if g.remainder > 0 {
-			fmt.Fprintf(buf, "\n%d. too many errors (%d remaining)", count, g.remainder)
+			fmt.Fprintf(buf, "%d. too many errors (%d discarded)", count, g.remainder)
 		}
 		return buf.String()
 	}
@@ -169,9 +167,9 @@ func (g *ErrGroup) Add(errs ...error) error {
 		return nil
 	}
 
-	extra := newSize - g.limit - 1
+	extra := newSize - g.limit
 	g.remainder += extra
-	g.errs = append(g.errs, errs[:extra]...)
+	g.errs = append(g.errs, errs[:count-extra]...)
 	return g
 }
 
