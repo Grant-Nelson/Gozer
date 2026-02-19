@@ -10,10 +10,10 @@ import (
 
 type augRename struct {
 	pkg      *project.Package
-	errGroup *faults.Group
+	errGroup *faults.ErrGroup
 }
 
-func newRename(pkg *project.Package, errGroup *faults.Group) *augRename {
+func newRename(pkg *project.Package, errGroup *faults.ErrGroup) *augRename {
 	return &augRename{
 		pkg:      pkg,
 		errGroup: errGroup,

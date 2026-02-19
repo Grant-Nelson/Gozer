@@ -1,13 +1,18 @@
 package typeChecker
 
 import (
-	"fmt"
+	"errors"
 	"go/ast"
 	"go/types"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+)
+
+var (
+	ErrTypesForPackageWasNil = errors.New(`the types for a package was nil`)
+	ErrFailedToFindImport    = errors.New(`failed to find import for package`)
 )
 
 type Config struct {
@@ -27,20 +32,24 @@ type Config struct {
 	// This will affect int and uint sizes and how the fields align in struct.
 	// If nil, then a default 32 bit sizes and 8 byte max alignment.
 	Sizes types.Sizes
+
+	// ErrGroup is used to collect multiple errors.
+	ErrGroup *faults.ErrGroup
 }
 
 type TypeChecker struct {
 	ctx       *types.Context
 	goVersion string
 	sizes     types.Sizes
+	errGroup  *faults.ErrGroup
 }
 
 type typeCheckerMod struct {
 	ctx       *types.Context
 	goVersion string
 	sizes     types.Sizes
+	errGroup  *faults.ErrGroup
 	pkg       *project.Package
-	errGroup  *faults.Group
 }
 
 var (
@@ -58,25 +67,24 @@ var defaultSize types.Sizes = &types.StdSizes{WordSize: 4, MaxAlign: 8}
 
 func New(cfg *Config) *TypeChecker {
 	mod := &TypeChecker{
-		sizes: defaultSize,
+		ctx:       cfg.Context,
+		goVersion: cfg.GoVersion,
+		sizes:     cfg.Sizes,
+		errGroup:  cfg.ErrGroup,
 	}
-	if cfg != nil {
-		mod.ctx = cfg.Context
-		mod.goVersion = cfg.GoVersion
-		if cfg.Sizes != nil {
-			mod.sizes = cfg.Sizes
-		}
+	if mod.sizes == nil {
+		mod.sizes = defaultSize
 	}
 	return mod
 }
 
-func (tc *TypeChecker) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool, mods.Modifier, error) {
+func (tc *TypeChecker) StartPackage(pkg *project.Package) (bool, mods.Modifier, error) {
 	mod := &typeCheckerMod{
 		ctx:       tc.ctx,
 		goVersion: tc.goVersion,
 		sizes:     tc.sizes,
+		errGroup:  tc.errGroup,
 		pkg:       pkg,
-		errGroup:  errGroup,
 	}
 	return true, mod, nil
 }
@@ -86,9 +94,11 @@ func (tc *typeCheckerMod) Import(path string) (*types.Package, error) {
 		if imp.Types != nil {
 			return imp.Types, nil
 		}
-		return nil, fmt.Errorf(`the types from package %q was nil`, path) // TODO: Change to faults
+		return nil, faults.From(ErrTypesForPackageWasNil).
+			With(`path`, path)
 	}
-	return nil, fmt.Errorf(`failed to find import for package %q`, path) // TODO: Change to faults
+	return nil, faults.From(ErrFailedToFindImport).
+		With(`path`, path)
 }
 
 func (tc *typeCheckerMod) newInfo() *types.Info {
@@ -127,9 +137,6 @@ func (tc *typeCheckerMod) PackageDone() (bool, error) {
 	info := tc.newInfo()
 	typPkg, err := cfg.Check(pkg.PkgPath, pkg.Fset, pkg.Syntax, info)
 	if err != nil {
-
-		fmt.Printf("ERROR: %v\n", err) // TODO: FIX
-
 		return false, tc.errGroup.Add(err)
 	}
 

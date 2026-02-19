@@ -3,7 +3,6 @@ package mods
 import (
 	"go/ast"
 
-	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 )
 
@@ -22,7 +21,7 @@ type ModFactory interface {
 	//
 	// This may return a modifier or may return nil if no other modification
 	// is needed from this modification.
-	StartPackage(pkg *project.Package, errGroup *faults.Group) (bool, Modifier, error)
+	StartPackage(pkg *project.Package) (bool, Modifier, error)
 }
 
 // Modifier will perform a modification on a package.

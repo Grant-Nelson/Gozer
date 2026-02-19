@@ -3,7 +3,6 @@ package mods
 import (
 	"go/ast"
 
-	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 )
 
@@ -12,10 +11,10 @@ type (
 	ModGroup []Modifier
 )
 
-func (group Group) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool, Modifier, error) {
+func (group Group) StartPackage(pkg *project.Package) (bool, Modifier, error) {
 	mg := make(ModGroup, 0, len(group))
 	for _, factory := range group {
-		con, mod, err := factory.StartPackage(pkg, errGroup)
+		con, mod, err := factory.StartPackage(pkg)
 		if err != nil || !con {
 			return false, nil, err
 		}

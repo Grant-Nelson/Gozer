@@ -16,18 +16,24 @@ import (
 )
 
 type Config struct {
-	Build     []string
-	Converter source.Converter
+	Build        []string
+	Converter    source.Converter
+	ErrGroup     *faults.ErrGroup
+	DisableRead  bool
+	DisableWrite bool
 }
 
 type Cache struct {
-	build []string
-	conv  source.Converter
+	build        []string
+	conv         source.Converter
+	errGroup     *faults.ErrGroup
+	disableRead  bool
+	disableWrite bool
 }
 
 type cacheMod struct {
 	pkg      *project.Package
-	errGroup *faults.Group
+	errGroup *faults.ErrGroup
 }
 
 var (
@@ -37,20 +43,31 @@ var (
 
 func New(cfg *Config) *Cache {
 	return &Cache{
-		build: cfg.Build,
-		conv:  cfg.Converter,
+		build:        cfg.Build,
+		conv:         cfg.Converter,
+		errGroup:     cfg.ErrGroup,
+		disableRead:  cfg.DisableRead,
+		disableWrite: cfg.DisableWrite,
 	}
 }
 
-func (c *Cache) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool, mods.Modifier, error) {
-	cm := &cacheMod{
-		pkg:      pkg,
-		errGroup: errGroup,
+func (c *Cache) StartPackage(pkg *project.Package) (con bool, mod mods.Modifier, err error) {
+	defer c.errGroup.Recover(&err)
+
+	if !c.disableWrite {
+		mod = &cacheMod{
+			pkg:      pkg,
+			errGroup: c.errGroup,
+		}
+	}
+
+	if c.disableRead {
+		return true, mod, nil
 	}
 
 	ok, path, data, err := c.conv(pkg.Ast.Dir, nil)
 	if !ok || err != nil {
-		return true, cm, errGroup.Add(err)
+		return true, mod, c.errGroup.Add(err)
 	}
 
 	// TODO: See TODOs in README.md
@@ -59,13 +76,13 @@ func (c *Cache) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// Cache miss
-			return true, cm, nil
+			return true, mod, nil
 		}
-		return true, cm, errGroup.Add(err)
+		return true, mod, c.errGroup.Add(err)
 	}
 
 	if err = readPackage(reader, pkg); err != nil {
-		return true, cm, errGroup.Add(err)
+		return true, mod, c.errGroup.Add(err)
 	}
 
 	// Cache hit so skip rest of loading.
@@ -74,12 +91,14 @@ func (c *Cache) StartPackage(pkg *project.Package, errGroup *faults.Group) (bool
 }
 
 func (c *cacheMod) PackageDone() (con bool, err error) {
+	defer c.errGroup.Recover(&err)
+
 	f, err := os.CreateTemp(``, `gozerTypePkg*.a`)
 	if err != nil {
 		return true, c.errGroup.Add(err)
 	}
 	defer func() {
-		if closeErr := f.Close(); err == nil {
+		if closeErr := f.Close(); closeErr != nil {
 			err = c.errGroup.Add(closeErr)
 		}
 	}()

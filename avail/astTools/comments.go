@@ -1,7 +1,6 @@
 package astTools
 
 import (
-	"fmt"
 	"go/ast"
 	"strings"
 )
@@ -59,11 +58,6 @@ func FileCommentsForNode(f *ast.File, n ast.Node) []*ast.CommentGroup {
 	comments := []*ast.CommentGroup{}
 	for _, cg := range f.Comments {
 		if cg != nil {
-			fmt.Printf("::: %d > %d (%t) && %d < %d (%t) ::: %q\n",
-				cg.End(), n.Pos(), cg.End() > n.Pos(),
-				cg.Pos(), n.End(), cg.Pos() < n.End(),
-				cg.Text()) // TODO: REMOVE
-
 			if cg.End() > n.Pos() && cg.Pos() < n.End() {
 				comments = append(comments, cg)
 			}

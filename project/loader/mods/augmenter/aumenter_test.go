@@ -190,7 +190,7 @@ func runAugTest(t testing.TB, test augTest) {
 	}
 
 	test.errLimit = max(test.errLimit, 1)
-	errGroup := faults.NewGroup(test.errLimit)
+	errGroup := faults.NewErrGroup(test.errLimit)
 
 	// Create an augmenter for a package then add the aug file to it
 	pkg := &project.Package{Ast: &packages.Package{
@@ -220,7 +220,7 @@ func runAugTest(t testing.TB, test augTest) {
 		return
 	}
 
-	if err := errGroup.Wrap(); err != nil {
+	if err := errGroup.ErrorOrNil(); err != nil {
 		checkErr(t, `accumulated error`, test, err)
 		return
 	}

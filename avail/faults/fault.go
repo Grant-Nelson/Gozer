@@ -7,11 +7,18 @@ import (
 	"strings"
 )
 
+// disableRecovers is used to disable the [Recover] methods.
+// This is useful when trying to find an error and the stack trace
+// keeps being consumed by a recover.
+const disableRecovers = false
+
 type Fault struct {
 	msg   string
 	inner []error
 	data  map[string]any
 }
+
+var _ error = (*Fault)(nil)
 
 func New(msg string, inner ...error) *Fault {
 	return &Fault{
@@ -24,8 +31,8 @@ func From(r any) *Fault {
 	switch t := r.(type) {
 	case *Fault:
 		return t
-	case *Group:
-		return New(`several errors`, t.err...)
+	case *ErrGroup:
+		return New(`error group`, t)
 	case error:
 		return New(t.Error(), t)
 	case string:
@@ -36,10 +43,12 @@ func From(r any) *Fault {
 }
 
 func Recover(pe *error) {
-	// TODO: Should make a simple way to disable recovers when a stack trace is being consumed
-	//if r := recover(); r != nil {
-	//	*pe = From(r)
-	//}
+	if disableRecovers {
+		return
+	}
+	if r := recover(); r != nil {
+		*pe = From(r)
+	}
 }
 
 func (f *Fault) Unwrap() []error {
@@ -83,6 +92,10 @@ func (f *Fault) WithNonZero(key string, value any) *Fault {
 		return f.With(key, value)
 	}
 	return f
+}
+
+func (f *Fault) WithF(key, format string, args ...any) *Fault {
+	return f.With(key, fmt.Sprintf(format, args...))
 }
 
 func (f *Fault) Error() string {

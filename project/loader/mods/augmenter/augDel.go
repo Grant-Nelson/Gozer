@@ -28,7 +28,7 @@ type delHandle func(*astTools.IdentIteratorValue) (bool, error)
 
 type augDel struct {
 	pkg        *project.Package
-	errGroup   *faults.Group
+	errGroup   *faults.ErrGroup
 	delImport  map[string]bool
 	delFunc    map[string]*ast.FuncDecl
 	delVar     map[string]*ast.ValueSpec
@@ -38,7 +38,7 @@ type augDel struct {
 	delHandles []delHandle
 }
 
-func newDel(pkg *project.Package, errGroup *faults.Group) *augDel {
+func newDel(pkg *project.Package, errGroup *faults.ErrGroup) *augDel {
 	a := &augDel{
 		pkg:        pkg,
 		errGroup:   errGroup,

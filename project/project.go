@@ -6,6 +6,7 @@ import (
 	"iter"
 	"slices"
 
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
 	"golang.org/x/tools/go/packages"
 )
@@ -85,6 +86,8 @@ func sortPackagesByDepth(pkgs []*Package) {
 	})
 }
 
+// UnfinishedPackages projects gets all the packages that are not finished
+// being compiled. The packages that are finished were likely loaded via cache.
 func (proj *Project) UnfinishedPackages() iter.Seq[*Package] {
 	return func(yield func(*Package) bool) {
 		for _, pkg := range proj.AllPackages {
@@ -92,5 +95,13 @@ func (proj *Project) UnfinishedPackages() iter.Seq[*Package] {
 				return
 			}
 		}
+	}
+}
+
+// CollectErrors checks the types for any errors and
+// adds all of them to the given error group.
+func (proj *Project) CollectErrors(errGroup *faults.ErrGroup) {
+	for _, pkg := range proj.AllPackages {
+		pkg.CollectErrors(errGroup)
 	}
 }

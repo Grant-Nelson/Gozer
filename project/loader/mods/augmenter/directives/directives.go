@@ -126,13 +126,12 @@ func (d *Directives) String() string {
 }
 
 // Join will join the two directives into another directive.
-func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position, errGroup *faults.Group) (dv *Directives, err error) {
+func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position) (dv *Directives, err error) {
 	defer faults.Recover(&err)
 	mod := &directiveMod{
-		dv:       d.Copy(),
-		pkgPath:  pkgPath,
-		pos:      pos,
-		errGroup: errGroup,
+		dv:      d.Copy(),
+		pkgPath: pkgPath,
+		pos:     pos,
 	}
 	if d2.add {
 		mod.setAdd()
@@ -162,14 +161,13 @@ func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position, er
 }
 
 // Read will read the given comments and gather the directives in those comments.
-func Read(comments []*ast.Comment, pkgPath string, pos token.Position, errGroup *faults.Group) (dv *Directives, err error) {
+func Read(comments []*ast.Comment, pkgPath string, pos token.Position) (dv *Directives, err error) {
 	defer faults.Recover(&err)
 	mod := &directiveMod{
-		dm:       astTools.Directives(comments, directiveGroup),
-		dv:       &Directives{},
-		pkgPath:  pkgPath,
-		pos:      pos,
-		errGroup: errGroup,
+		dm:      astTools.Directives(comments, directiveGroup),
+		dv:      &Directives{},
+		pkgPath: pkgPath,
+		pos:     pos,
 	}
 	mod.readAdd()
 	mod.readDelete()
@@ -184,17 +182,16 @@ func Read(comments []*ast.Comment, pkgPath string, pos token.Position, errGroup 
 }
 
 type directiveMod struct {
-	dm       map[string][]string
-	dv       *Directives
-	pkgPath  string
-	pos      token.Position
-	errGroup *faults.Group
+	dm      map[string][]string
+	dv      *Directives
+	pkgPath string
+	pos     token.Position
 }
 
 // check will panic with the given error when the test is true.
 func (mod *directiveMod) check(test bool, errMsg error) {
 	if test {
-		mod.errGroup.Panic(faults.From(errMsg).
+		panic(faults.From(errMsg).
 			With(`package`, mod.pkgPath).
 			With(`pos`, mod.pos))
 	}
@@ -379,7 +376,7 @@ var ErrAugUnknownDirectives = errors.New(`unknown directive(s) found`)
 func (mod *directiveMod) checkRemainder() {
 	if keys := slices.Collect(maps.Keys(mod.dm)); len(keys) > 0 {
 		sort.Strings(keys)
-		mod.errGroup.Panic(faults.From(ErrAugUnknownDirectives).
+		panic(faults.From(ErrAugUnknownDirectives).
 			With(`package`, mod.pkgPath).
 			With(`pos`, mod.pos).
 			With(`directives`, strings.Join(keys, `, `)))

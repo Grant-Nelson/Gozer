@@ -11,7 +11,7 @@ import (
 
 type augPackage struct {
 	pkg      *project.Package
-	errGroup *faults.Group
+	errGroup *faults.ErrGroup
 
 	del *augDel
 	rep *augReplace
@@ -25,7 +25,7 @@ var (
 	_ mods.ModifyAstFileExt = (*augPackage)(nil)
 )
 
-func newPackage(pkg *project.Package, errGroup *faults.Group) *augPackage {
+func newPackage(pkg *project.Package, errGroup *faults.ErrGroup) *augPackage {
 	ap := &augPackage{
 		pkg:      pkg,
 		errGroup: errGroup,
@@ -39,17 +39,15 @@ func newPackage(pkg *project.Package, errGroup *faults.Group) *augPackage {
 	return ap
 }
 
-func (a *augPackage) ModName() string { return `Augmenter.Package` }
-
 func (a *augPackage) AddFile(build []string, parser parser.Parser, filename string, src []byte) (err error) {
-	defer faults.Recover(&err) // TODO: Fix to use errGroup
+	defer a.errGroup.Recover(&err)
 	ar := newReader(a, build, parser, a.errGroup)
 	ar.addFile(filename, src)
 	return nil
 }
 
 func (a *augPackage) ModifyAstFile(f *ast.File) (con bool, err error) {
-	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
+	defer a.errGroup.Recover(&err)
 	if con, err := a.mg.ModifyAstFile(f); err != nil || !con {
 		return false, err
 	}
@@ -57,6 +55,6 @@ func (a *augPackage) ModifyAstFile(f *ast.File) (con bool, err error) {
 }
 
 func (a *augPackage) PackageDone() (con bool, err error) {
-	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
+	defer a.errGroup.Recover(&err)
 	return a.mg.PackageDone()
 }

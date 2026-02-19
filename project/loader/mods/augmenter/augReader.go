@@ -42,7 +42,7 @@ var (
 type augReader struct {
 	*augPackage
 	parser   parser.Parser
-	errGroup *faults.Group
+	errGroup *faults.ErrGroup
 	build    []string
 
 	curFile *ast.File
@@ -51,7 +51,7 @@ type augReader struct {
 	addSpecComments []*ast.CommentGroup
 }
 
-func newReader(pkg *augPackage, build []string, parser parser.Parser, errGroup *faults.Group) *augReader {
+func newReader(pkg *augPackage, build []string, parser parser.Parser, errGroup *faults.ErrGroup) *augReader {
 	return &augReader{
 		augPackage: pkg,
 		parser:     parser,
@@ -68,7 +68,8 @@ func (ar *augReader) readPackage(dir string, data any) {
 		if os.IsNotExist(err) {
 			return
 		}
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 
 	for _, entry := range entries {
@@ -89,8 +90,8 @@ func (ar *augReader) addFile(filename string, src []byte) {
 
 	f, err := ar.parser(ar.pkg.Ast.Fset, filename, src)
 	if err != nil {
-		ar.errGroup.Panic(err)
-		return
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 
 	ar.curFile = f
@@ -125,9 +126,10 @@ func (ar *augReader) shouldAdd() bool {
 	for _, com := range ar.curFile.Doc.List {
 		exp, err := constraint.Parse(com.Text)
 		if err != nil {
-			ar.errGroup.Panic(faults.From(ErrParsingBuildConstraints).
+			ar.errGroup.Add(faults.From(ErrParsingBuildConstraints).
 				With(`error`, err).
 				With(`position`, ar.pos(com.Pos())))
+			panic(ar.errGroup)
 		}
 
 		if !exp.Eval(func(tag string) bool {
@@ -146,17 +148,19 @@ func (ar *augReader) readDecl(decl ast.Decl) {
 	case *ast.GenDecl:
 		ar.readGenDecl(d)
 	default:
-		ar.errGroup.Panic(faults.From(ErrParsingUnexpectedDecl).
+		ar.errGroup.Add(faults.From(ErrParsingUnexpectedDecl).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(d.Pos())))
+		panic(ar.errGroup)
 	}
 }
 
 func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 	pos := ar.pos(fd.Pos())
-	dv, err := directives.Read(astTools.JoinComments(fd.Doc), ar.pkgPath(), pos, ar.errGroup)
+	dv, err := directives.Read(astTools.JoinComments(fd.Doc), ar.pkgPath(), pos)
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 	directives.RemoveDirectives(fd.Doc)
 
@@ -164,11 +168,11 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 	case dv.Ignore():
 		return
 	case dv.None():
-		ar.errGroup.Panic(faults.From(ErrAugFuncNone).
+		ar.errGroup.Add(faults.From(ErrAugFuncNone).
 			With(`package path`, ar.pkgPath()).
 			With(`function name`, fd.Name.Name).
 			With(`position`, pos))
-		return
+		panic(ar.errGroup)
 	case dv.Add():
 		ar.add.newDecls = append(ar.add.newDecls, fd)
 		localComments := astTools.CommentsAttachedToNode(fd)
@@ -185,25 +189,27 @@ func (ar *augReader) readFuncDecl(fd *ast.FuncDecl) {
 
 func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 	declPos := ar.pos(gd.Pos())
-	declDv, err := directives.Read(astTools.JoinComments(gd.Doc), ar.pkgPath(), declPos, ar.errGroup)
+	declDv, err := directives.Read(astTools.JoinComments(gd.Doc), ar.pkgPath(), declPos)
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 	directives.RemoveDirectives(gd.Doc)
 
 	if declDv.HasReplaceRecv() || declDv.ReplaceSig() {
-		ar.errGroup.Panic(faults.From(ErrAugGenWithFuncDirective).
+		ar.errGroup.Add(faults.From(ErrAugGenWithFuncDirective).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, declPos))
+		panic(ar.errGroup)
 	}
 
 	if declDv.HasRename() && len(gd.Specs) != 1 {
-		ar.errGroup.Panic(faults.From(ErrAugRenameMultipleSpec).
+		ar.errGroup.Add(faults.From(ErrAugRenameMultipleSpec).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, declPos).
 			With(`name`, declDv.Rename()).
 			With(`count`, len(gd.Specs)))
-		return
+		panic(ar.errGroup)
 	}
 
 	switch gd.Tok {
@@ -214,10 +220,11 @@ func (ar *augReader) readGenDecl(gd *ast.GenDecl) {
 	case token.VAR, token.CONST:
 		ar.readValueDecl(declDv, gd)
 	default:
-		ar.errGroup.Panic(faults.From(ErrParsingUnexpectedGenDecl).
+		ar.errGroup.Add(faults.From(ErrParsingUnexpectedGenDecl).
 			With(`package path`, ar.pkgPath()).
 			With(`token`, gd.Tok.String()).
 			With(`position`, ar.pos(gd.Pos())))
+		panic(ar.errGroup)
 	}
 }
 
@@ -227,14 +234,16 @@ func (ar *augReader) readSpecDirectives(declDv *directives.Directives, pos token
 	directives.RemoveDirectives(doc)
 	directives.RemoveDirectives(comment)
 
-	specDv, err := directives.Read(comments, ar.pkgPath(), specPos, ar.errGroup)
+	specDv, err := directives.Read(comments, ar.pkgPath(), specPos)
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 
-	joinDv, err := declDv.Join(specDv, ar.pkgPath(), specPos, ar.errGroup)
+	joinDv, err := declDv.Join(specDv, ar.pkgPath(), specPos)
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 	return joinDv
 }
@@ -246,9 +255,10 @@ func (ar *augReader) readImportDecl(declDv *directives.Directives, gd *ast.GenDe
 			specDv := ar.readSpecDirectives(declDv, s.Pos(), s.Doc, s.Comment)
 			ar.readImportSpec(specDv, gd, s)
 		default:
-			ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
+			ar.errGroup.Add(faults.From(ErrParsingUnexpectedSpec).
 				With(`package path`, ar.pkgPath()).
 				With(`position`, spec.Pos()))
+			panic(ar.errGroup)
 		}
 	}
 	ar.finishGenDecl(gd)
@@ -260,19 +270,21 @@ func (ar *augReader) readImportSpec(specDv *directives.Directives, gd *ast.GenDe
 		// Imports default to ignore with none.
 		return
 	case specDv.HasRename():
-		ar.errGroup.Panic(faults.From(ErrAugRenameImport).
+		ar.errGroup.Add(faults.From(ErrAugRenameImport).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`import path`, spec.Path.Value))
+		panic(ar.errGroup)
 	case specDv.Add():
 		ar.addSpecs = append(ar.addSpecs, spec)
 		ar.add.newImportSpecs = append(ar.add.newImportSpecs, spec)
 		ar.add.beingAdded[spec.Path.Value] = spec.Pos()
 	case specDv.DeleteAll():
-		ar.errGroup.Panic(faults.From(ErrAugDeleteAllImport).
+		ar.errGroup.Add(faults.From(ErrAugDeleteAllImport).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`import path`, spec.Path.Value))
+		panic(ar.errGroup)
 	case specDv.Delete():
 		// TODO: Implement
 	case specDv.Replace():
@@ -294,9 +306,10 @@ func (ar *augReader) readTypeDecl(declDv *directives.Directives, gd *ast.GenDecl
 				ar.readOtherTypeSpec(specDv, gd, s)
 			}
 		default:
-			ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
+			ar.errGroup.Add(faults.From(ErrParsingUnexpectedSpec).
 				With(`package path`, ar.pkgPath()).
 				With(`position`, spec.Pos()))
+			panic(ar.errGroup)
 		}
 	}
 	ar.finishGenDecl(gd)
@@ -314,10 +327,11 @@ func (ar *augReader) readStructTypeSpec(specDv *directives.Directives, gd *ast.G
 	switch {
 	case specDv.None():
 		// TODO: Need to check if a type spec for field and method directives.
-		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
+		ar.errGroup.Add(faults.From(ErrAugSpecNone).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`structure`, spec.Name.Name))
+		panic(ar.errGroup)
 	case specDv.Add():
 		ar.addSpecs = append(ar.addSpecs, spec)
 		ar.add.beingAdded[spec.Name.Name] = spec.Pos()
@@ -336,45 +350,50 @@ func (ar *augReader) readStructField(specDv *directives.Directives, gd *ast.GenD
 	comments := astTools.JoinComments(m.Comment, m.Doc)
 	directives.RemoveDirectives(m.Comment)
 	directives.RemoveDirectives(m.Doc)
-	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()))
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
-	joinDv, err := specDv.Join(mDv, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	joinDv, err := specDv.Join(mDv, ar.pkgPath(), ar.pos(m.Pos()))
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 	if joinDv.Ignore() {
 		return
 	}
 	if joinDv.None() {
-		ar.errGroup.Panic(faults.From(ErrAugFieldNone).
+		ar.errGroup.Add(faults.From(ErrAugFieldNone).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`struct`, spec.Name.Name).
 			With(`field`, m.Names[0].Name))
-		return
+		panic(ar.errGroup)
 	}
 	if mDv.HasReplaceRecv() {
-		ar.errGroup.Panic(faults.From(ErrAugFieldReplaceRecv).
+		ar.errGroup.Add(faults.From(ErrAugFieldReplaceRecv).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`struct`, spec.Name.Name).
 			With(`field`, m.Names[0].Name))
+		panic(ar.errGroup)
 	}
 	if mDv.DeleteAll() {
-		ar.errGroup.Panic(faults.From(ErrAugFieldDeleteAll).
+		ar.errGroup.Add(faults.From(ErrAugFieldDeleteAll).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`struct`, spec.Name.Name).
 			With(`field`, m.Names[0].Name))
+		panic(ar.errGroup)
 	}
 	if mDv.ReplaceSig() {
-		ar.errGroup.Panic(faults.From(ErrAugFieldReplaceSig).
+		ar.errGroup.Add(faults.From(ErrAugFieldReplaceSig).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`struct`, spec.Name.Name).
 			With(`field`, m.Names[0].Name))
+		panic(ar.errGroup)
 	}
 	if mDv.HasRename() {
 		// TODO: Implement
@@ -411,10 +430,11 @@ func (ar *augReader) readInterfaceTypeSpec(specDv *directives.Directives, gd *as
 	case specDv.Ignore():
 		return
 	case specDv.DeleteAll():
-		ar.errGroup.Panic(faults.From(ErrAugDeleteAllInterface).
+		ar.errGroup.Add(faults.From(ErrAugDeleteAllInterface).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`interface`, spec.Name.Name))
+		panic(ar.errGroup)
 	}
 
 	for _, m := range ts.Methods.List {
@@ -438,45 +458,50 @@ func (ar *augReader) readInterfaceMethod(specDv *directives.Directives, gd *ast.
 	comments := astTools.JoinComments(m.Comment, m.Doc)
 	directives.RemoveDirectives(m.Comment)
 	directives.RemoveDirectives(m.Doc)
-	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	mDv, err := directives.Read(comments, ar.pkgPath(), ar.pos(m.Pos()))
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
-	joinDv, err := specDv.Join(mDv, ar.pkgPath(), ar.pos(m.Pos()), ar.errGroup)
+	joinDv, err := specDv.Join(mDv, ar.pkgPath(), ar.pos(m.Pos()))
 	if err != nil {
-		panic(err)
+		ar.errGroup.Add(err)
+		panic(ar.errGroup)
 	}
 	if joinDv.Ignore() {
 		return
 	}
 	if joinDv.None() {
-		ar.errGroup.Panic(faults.From(ErrAugMethodNone).
+		ar.errGroup.Add(faults.From(ErrAugMethodNone).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`interface`, spec.Name.Name).
 			With(`method`, m.Names[0].Name))
-		return
+		panic(ar.errGroup)
 	}
 	if mDv.HasReplaceRecv() {
-		ar.errGroup.Panic(faults.From(ErrAugMethodReplaceRecv).
+		ar.errGroup.Add(faults.From(ErrAugMethodReplaceRecv).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`interface`, spec.Name.Name).
 			With(`method`, m.Names[0].Name))
+		panic(ar.errGroup)
 	}
 	if mDv.DeleteAll() {
-		ar.errGroup.Panic(faults.From(ErrAugMethodDeleteAll).
+		ar.errGroup.Add(faults.From(ErrAugMethodDeleteAll).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`interface`, spec.Name.Name).
 			With(`method`, m.Names[0].Name))
+		panic(ar.errGroup)
 	}
 	if mDv.ReplaceSig() {
-		ar.errGroup.Panic(faults.From(ErrAugMethodReplaceSig).
+		ar.errGroup.Add(faults.From(ErrAugMethodReplaceSig).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())).
 			With(`interface`, spec.Name.Name).
 			With(`method`, m.Names[0].Name))
+		panic(ar.errGroup)
 	}
 	if mDv.HasRename() {
 		// TODO: Implement
@@ -513,9 +538,10 @@ func (ar *augReader) readOtherTypeSpec(specDv *directives.Directives, gd *ast.Ge
 	case specDv.Ignore():
 		return
 	case specDv.None():
-		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
+		ar.errGroup.Add(faults.From(ErrAugSpecNone).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())))
+		panic(ar.errGroup)
 	case specDv.Add():
 		ar.addSpecs = append(ar.addSpecs, spec)
 		ar.add.beingAdded[spec.Name.Name] = spec.Pos()
@@ -537,9 +563,10 @@ func (ar *augReader) readValueDecl(declDv *directives.Directives, gd *ast.GenDec
 			specDv := ar.readSpecDirectives(declDv, s.Pos(), s.Doc, s.Comment)
 			ar.readValueSpec(specDv, gd, s)
 		default:
-			ar.errGroup.Panic(faults.From(ErrParsingUnexpectedSpec).
+			ar.errGroup.Add(faults.From(ErrParsingUnexpectedSpec).
 				With(`package path`, ar.pkgPath()).
 				With(`position`, spec.Pos()))
+			panic(ar.errGroup)
 		}
 	}
 	ar.finishGenDecl(gd)
@@ -550,15 +577,17 @@ func (ar *augReader) readValueSpec(specDv *directives.Directives, gd *ast.GenDec
 	case specDv.Ignore():
 		return
 	case specDv.None():
-		ar.errGroup.Panic(faults.From(ErrAugSpecNone).
+		ar.errGroup.Add(faults.From(ErrAugSpecNone).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())))
+		panic(ar.errGroup)
 	case specDv.Add():
 		ar.addSpecs = append(ar.addSpecs, spec)
 	case specDv.DeleteAll():
-		ar.errGroup.Panic(faults.From(ErrAugDeleteAllValue).
+		ar.errGroup.Add(faults.From(ErrAugDeleteAllValue).
 			With(`package path`, ar.pkgPath()).
 			With(`position`, ar.pos(spec.Pos())))
+		panic(ar.errGroup)
 	case specDv.Delete():
 		// TODO: Implement
 	case specDv.HasRename():

@@ -10,10 +10,10 @@ import (
 
 type augReplace struct {
 	pkg      *project.Package
-	errGroup *faults.Group
+	errGroup *faults.ErrGroup
 }
 
-func newReplace(pkg *project.Package, errGroup *faults.Group) *augReplace {
+func newReplace(pkg *project.Package, errGroup *faults.ErrGroup) *augReplace {
 	return &augReplace{
 		pkg:      pkg,
 		errGroup: errGroup,

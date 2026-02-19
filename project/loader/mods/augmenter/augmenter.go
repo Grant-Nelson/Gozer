@@ -19,12 +19,16 @@ type Config struct {
 	// Parser is the method for parsing Go files.
 	// If nil, the default file parser.
 	Parser parser.Parser
+
+	// ErrGroup is to collect multiple errors.
+	ErrGroup *faults.ErrGroup
 }
 
 type Augmenter struct {
 	build    []string
 	pathConv source.Converter
 	parser   parser.Parser
+	errGroup *faults.ErrGroup
 }
 
 var _ mods.ModFactory = (*Augmenter)(nil)
@@ -35,12 +39,12 @@ func New(cfg *Config) *Augmenter {
 		build:    cfg.Build,
 		pathConv: cfg.Converter,
 		parser:   cfg.Parser,
+		errGroup: cfg.ErrGroup,
 	}
 }
 
-func (a *Augmenter) StartPackage(pkg *project.Package, errGroup *faults.Group) (con bool, mod mods.Modifier, err error) {
-	defer faults.Recover(&err) // TODO: Connect these faults.Recover to errGroup
-	// TODO: assert `a.curPkg == nil`
+func (a *Augmenter) StartPackage(pkg *project.Package) (con bool, mod mods.Modifier, err error) {
+	defer a.errGroup.Recover(&err)
 
 	hasAug, augPath, augData, err := a.pathConv(pkg.PkgPath(), nil)
 	if !hasAug {
@@ -48,8 +52,8 @@ func (a *Augmenter) StartPackage(pkg *project.Package, errGroup *faults.Group) (
 		return true, nil, nil
 	}
 
-	augPkg := newPackage(pkg, errGroup)
-	ar := newReader(augPkg, a.build, a.parser, errGroup)
+	augPkg := newPackage(pkg, a.errGroup)
+	ar := newReader(augPkg, a.build, a.parser, a.errGroup)
 	ar.readPackage(augPath, augData)
 	return true, augPkg, nil
 }

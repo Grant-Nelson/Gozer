@@ -28,7 +28,7 @@ var (
 
 type augAdd struct {
 	pkg      *project.Package
-	errGroup *faults.Group
+	errGroup *faults.ErrGroup
 
 	// beingAdded is the import paths and identifiers for the decls and specs
 	// that are being added, the value is the position value for the node.
@@ -42,7 +42,7 @@ type augAdd struct {
 	newMethods       map[string]*ast.InterfaceType
 }
 
-func newAdd(pkg *project.Package, errGroup *faults.Group) *augAdd {
+func newAdd(pkg *project.Package, errGroup *faults.ErrGroup) *augAdd {
 	return &augAdd{
 		pkg:              pkg,
 		errGroup:         errGroup,

@@ -18,18 +18,23 @@ func buildTS(cfg *Config) error {
 	mods := mods.Group{
 		//cache.New(&cache.Config{
 		//	Build: build,
+		//	ErrGroup: cfg.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
 		//augmenter.New(&augmenter.Config{
 		//	Build: build,
+		//	ErrGroup: cfg.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
-		typeChecker.New(nil),
+		typeChecker.New(&typeChecker.Config{
+			ErrGroup: cfg.ErrGroup,
+		}),
 	}
 
 	// Load all packages for this project.
 	loaderCfg := loader.Config{
 		Logger:    cfg.Logger,
+		ErrGroup:  cfg.ErrGroup,
 		Dir:       cfg.Dir,
 		Build:     build,
 		Patterns:  cfg.Patterns,
@@ -44,7 +49,10 @@ func buildTS(cfg *Config) error {
 	}
 
 	// Remodel any packages that need to be compiled into the intermediate form.
-	remodelCfg := &interep.Config{}
+	remodelCfg := &interep.Config{
+		Logger:   cfg.Logger,
+		ErrGroup: cfg.ErrGroup,
+	}
 	for pkg := range proj.UnfinishedPackages() {
 		// TODO: Use work group to run several of these in parallel when [cfg.Parallel] is `true`.
 		if err := interep.Remodel(pkg, remodelCfg); err != nil {
@@ -55,5 +63,5 @@ func buildTS(cfg *Config) error {
 	// Compile of packages that need to be compiled.
 	// TODO: Finish
 
-	return nil
+	return cfg.ErrGroup
 }

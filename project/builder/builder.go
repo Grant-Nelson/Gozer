@@ -7,14 +7,21 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 )
 
+const defaultErrorGroupLimit = 10
+
 type Config struct {
 
-	// The language to transpile into, e.g. `ts` or `typescript`.
+	// Lang is the language to transpile into, e.g. `ts` or `typescript`.
 	// This is case insensitive.
 	Lang string
 
 	// Logger to log verbose messages with. Has no affect if verbose was false.
 	Logger logger.Logger
+
+	// ErrGroup is the collector to handle multiple errors.
+	// This will be returned from the [Build] method.
+	// If nil, a error group will be created with the default limit.
+	ErrGroup *faults.ErrGroup
 
 	// Output is the directory to copy the resulting application out to.
 	//
@@ -48,7 +55,11 @@ type Config struct {
 }
 
 func Build(cfg *Config) (err error) {
-	defer faults.Recover(&err)
+	if cfg.ErrGroup == nil {
+		cfg.ErrGroup = faults.NewErrGroup(defaultErrorGroupLimit)
+	}
+	defer cfg.ErrGroup.Recover(&err)
+
 	switch strings.ToLower(cfg.Lang) {
 	case `ts`, `typescript`:
 		return buildTS(cfg)

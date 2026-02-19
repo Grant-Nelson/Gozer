@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"strings"
 
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
 	"golang.org/x/tools/go/packages"
 )
@@ -54,4 +55,14 @@ func (p *Package) IsXTest() bool {
 // for the source file that the code labelled with the [Pos] came from.
 func (p *Package) Position(pos token.Pos) token.Position {
 	return p.Ast.Fset.Position(pos)
+}
+
+// CollectErrors checks the types for any errors and
+// adds all of them to the given error group.
+func (p *Package) CollectErrors(errGroup *faults.ErrGroup) {
+	errs := make([]error, len(p.Ast.Errors))
+	for i, err := range p.Ast.Errors {
+		errs[i] = err
+	}
+	errGroup.Add(errs...)
 }
