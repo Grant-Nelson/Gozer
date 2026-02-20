@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/presets"
-	"github.com/Grant-Nelson/Gozer/project/builder"
+	"github.com/Grant-Nelson/Gozer/targets"
 )
 
 type Config struct {
@@ -24,7 +23,7 @@ func DefaultConfig() *Config {
 			`a tool specific to the transpiled language, e.g. node.js. ` +
 			`This application will not end until the running program ends ` +
 			`or until a set timeout it hit.`,
-		Lang: presets.DefaultLang,
+		Lang: targets.DefaultLang,
 	}
 }
 
@@ -34,13 +33,13 @@ func Run(cfg *Config) bool {
 	// TODO: Add optional build flags to config
 	// TODO: Add optional parallel flags to config
 
-	buildCfg := &builder.Config{
+	buildCfg := &targets.BuildConfig{
 		Lang:     cfg.Lang,
 		Patterns: cfg.Patterns,
 		Logger:   logger.New(cfg.Verbose),
 		Tests:    false,
 	}
-	if err := builder.Build(buildCfg); err != nil {
+	if err := targets.Build(buildCfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Run failed when building: %v\n", err)
 	}
 

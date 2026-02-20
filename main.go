@@ -7,6 +7,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/args"
 	"github.com/Grant-Nelson/Gozer/tools/builder"
 	"github.com/Grant-Nelson/Gozer/tools/langs"
+	"github.com/Grant-Nelson/Gozer/tools/list"
 	"github.com/Grant-Nelson/Gozer/tools/runner"
 	"github.com/Grant-Nelson/Gozer/tools/tester"
 	"github.com/Grant-Nelson/Gozer/tools/version"
@@ -18,12 +19,12 @@ type mainConfig struct {
 	Runner  *runner.Config  `arg:"tool, r|run, Builds a project then runs it."`
 	Tester  *tester.Config  `arg:"tool, t|test, Builds and tests all or part of a project"`
 	Version *version.Config `arg:"tool, v|version, Shows the version."`
+	List    *list.Config    `arg:"tool, l|list, Shows the list of files used when building."`
 	Langs   *langs.Config   `arg:"tool, langs, Shows the list of languages available to transpile into."`
 }
 
 // TODO: Add 'env' for printing environment variables that are used.
 // TODO: Add 'serve' to serve a website
-// TODO: Add `list` that prints the files used when building.
 
 func defaultConfig() *mainConfig {
 	return &mainConfig{
@@ -37,6 +38,7 @@ func defaultConfig() *mainConfig {
 		Runner:  runner.DefaultConfig(),
 		Tester:  tester.DefaultConfig(),
 		Version: version.DefaultConfig(),
+		List:    list.DefaultConfig(),
 		Langs:   langs.DefaultConfig(),
 	}
 }
@@ -59,6 +61,9 @@ func main() {
 
 	case cfg.Version != nil:
 		version.Version(cfg.Version)
+
+	case cfg.List != nil:
+		list.List(cfg.List)
 
 	case cfg.Langs != nil:
 		langs.Langs(cfg.Langs)

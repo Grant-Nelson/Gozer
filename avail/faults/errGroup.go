@@ -51,7 +51,7 @@ func (g *ErrGroup) Error() string {
 			fmt.Fprintf(buf, "%d. %s\n", i+1, err.Error())
 		}
 		if g.remainder > 0 {
-			fmt.Fprintf(buf, "%d. too many errors (%d discarded)", count, g.remainder)
+			fmt.Fprintf(buf, "%d. too many errors (%d discarded)", count+1, g.remainder)
 		}
 		return buf.String()
 	}

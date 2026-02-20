@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/presets"
-	"github.com/Grant-Nelson/Gozer/project/builder"
+	"github.com/Grant-Nelson/Gozer/targets"
 )
 
 type Config struct {
@@ -24,7 +23,7 @@ func DefaultConfig() *Config {
 			`tests will be run using a tool specific to the transpiled ` +
 			`language. The results of the tests will be outputted to the ` +
 			`console similarly to how Go's tests are outputted.`,
-		Lang: presets.DefaultLang,
+		Lang: targets.DefaultLang,
 	}
 }
 
@@ -34,13 +33,13 @@ func Test(cfg *Config) bool {
 	// TODO: Add optional build flags to config
 	// TODO: Add optional parallel flags to config
 
-	buildCfg := &builder.Config{
+	buildCfg := &targets.BuildConfig{
 		Lang:     cfg.Lang,
 		Patterns: cfg.Patterns,
 		Logger:   logger.New(cfg.Verbose),
 		Tests:    true,
 	}
-	if err := builder.Build(buildCfg); err != nil {
+	if err := targets.Build(buildCfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Tests failed when building: %v\n", err)
 	}
 

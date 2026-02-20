@@ -16,7 +16,7 @@ func DefaultConfig() *Config {
 
 func Langs(cfg *Config) bool {
 	// TODO: Implement
-	fmt.Println(`ListLang is not implemented yet.`)
+	fmt.Println(`Langs is not implemented yet.`)
 	fmt.Printf("\tConfig was %#v\n", cfg)
 	return false
 }

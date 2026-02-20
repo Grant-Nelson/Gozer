@@ -5,8 +5,7 @@ import (
 	"os"
 
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/presets"
-	projBuilder "github.com/Grant-Nelson/Gozer/project/builder"
+	"github.com/Grant-Nelson/Gozer/targets"
 )
 
 type Config struct {
@@ -23,7 +22,7 @@ func DefaultConfig() *Config {
 		Usage: `Builds a project into a specific language at a specific` +
 			`output location. The outputted code may be a package, library, ` +
 			`or full application that may be used in other projects.`,
-		Lang:     presets.DefaultLang,
+		Lang:     targets.DefaultLang,
 		Verbose:  false,
 		Output:   `./out`,
 		Patterns: []string{},
@@ -37,14 +36,14 @@ func Build(cfg *Config) {
 	// TODO: Add optional build flags to config
 	// TODO: Add optional parallel flags to config
 
-	buildCfg := &projBuilder.Config{
+	buildCfg := &targets.BuildConfig{
 		Lang:     cfg.Lang,
 		Logger:   logger.New(cfg.Verbose),
 		Output:   cfg.Output,
 		Patterns: cfg.Patterns,
 		Tests:    cfg.Tests,
 	}
-	if err := projBuilder.Build(buildCfg); err != nil {
+	if err := targets.Build(buildCfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Build failed: %v\n", err)
 	}
 }

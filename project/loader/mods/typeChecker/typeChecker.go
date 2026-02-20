@@ -15,6 +15,13 @@ var (
 	ErrFailedToFindImport    = errors.New(`failed to find import for package`)
 )
 
+// The default size to use when no size is provided.
+//
+// This default size is based on what sizes of int (i.e. 32 bit or 64 bit)
+// would fit into a JS number. A JS number is IEEE-754 64 bit double float
+// with a mantissa of 53 bits, therefore a 32 bit int is used.
+var defaultSize types.Sizes = &types.StdSizes{WordSize: 4, MaxAlign: 8}
+
 type Config struct {
 
 	// Context is the context used for resolving global identifiers. If nil, the
@@ -58,24 +65,17 @@ var (
 	_ types.Importer  = (*typeCheckerMod)(nil)
 )
 
-// The default size to use when no size is provided.
-//
-// This default size is based on what sizes of int (i.e. 32 bit or 64 bit)
-// would fit into a JS number. A JS number is IEEE-754 64 bit double float
-// with a mantissa of 53 bits, therefore a 32 bit int is used.
-var defaultSize types.Sizes = &types.StdSizes{WordSize: 4, MaxAlign: 8}
-
 func New(cfg *Config) *TypeChecker {
-	mod := &TypeChecker{
+	tc := &TypeChecker{
 		ctx:       cfg.Context,
 		goVersion: cfg.GoVersion,
 		sizes:     cfg.Sizes,
 		errGroup:  cfg.ErrGroup,
 	}
-	if mod.sizes == nil {
-		mod.sizes = defaultSize
+	if tc.sizes == nil {
+		tc.sizes = defaultSize
 	}
-	return mod
+	return tc
 }
 
 func (tc *TypeChecker) StartPackage(pkg *project.Package) (bool, mods.Modifier, error) {

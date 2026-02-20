@@ -42,6 +42,10 @@ type Config struct {
 	// Overlay is a mapping from absolute file paths to file contents.
 	Overlay map[string][]byte
 
+	// Env is the environment to use when invoking the build system's query tool.
+	// If Env is nil, the current environment is used.
+	Env []string
+
 	// Modifiers to process each file with.
 	Modifiers mods.Group
 
@@ -112,12 +116,13 @@ func (ld *loader) loadFileNames(cfg Config) error {
 		packages.NeedForTest
 
 	loadCfg := &packages.Config{
-		Mode: allNeeds,
-		Dir:  cfg.Dir,
-		//BuildFlags: cfg.Build, // TODO: Fix the build constraints not working
-		Tests:   cfg.Tests,
-		Fset:    ld.fSet,
-		Overlay: cfg.Overlay,
+		Mode:       allNeeds,
+		Dir:        cfg.Dir,
+		BuildFlags: cfg.Build, // TODO: Fix the build constraints not working
+		Tests:      cfg.Tests,
+		Fset:       ld.fSet,
+		Overlay:    cfg.Overlay,
+		Env:        cfg.Env,
 	}
 
 	roots, err := packages.Load(loadCfg, cfg.Patterns...)
