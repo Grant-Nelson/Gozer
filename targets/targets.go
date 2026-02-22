@@ -24,7 +24,7 @@ type ListConfig struct {
 	Lang string
 
 	// Logger to log verbose messages with. Has no affect if verbose was false.
-	Logger logger.Logger
+	Logger *logger.Logger
 
 	// ErrGroup is the collector to handle multiple errors.
 	// This will be returned from the [Build] method.
@@ -54,7 +54,7 @@ type BuildConfig struct {
 	Lang string
 
 	// Logger to log verbose messages with. Has no affect if verbose was false.
-	Logger logger.Logger
+	Logger *logger.Logger
 
 	// ErrGroup is the collector to handle multiple errors.
 	// This will be returned from the [Build] method.
@@ -154,7 +154,9 @@ func List(cfg *ListConfig) (proj *project.Project, err error) {
 		cfg.ErrGroup = faults.NewErrGroup(defaultErrorGroupLimit)
 	}
 	defer cfg.ErrGroup.Recover(&err)
-	return findTargetOrFail(cfg.Lang).List(cfg)
+	proj, err = findTargetOrFail(cfg.Lang).List(cfg)
+	cfg.ErrGroup.Add(err)
+	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
 // Build performs a build to the target language.
@@ -163,5 +165,6 @@ func Build(cfg *BuildConfig) (err error) {
 		cfg.ErrGroup = faults.NewErrGroup(defaultErrorGroupLimit)
 	}
 	defer cfg.ErrGroup.Recover(&err)
-	return findTargetOrFail(cfg.Lang).Build(cfg)
+	cfg.ErrGroup.Add(findTargetOrFail(cfg.Lang).Build(cfg))
+	return cfg.ErrGroup.AnyOrNil()
 }

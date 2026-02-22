@@ -19,7 +19,7 @@ import (
 type Config struct {
 
 	// Logger to log verbose messages with. Has no affect if verbose was false.
-	Logger logger.Logger
+	Logger *logger.Logger
 
 	// ErrGroup is the collector to handle multiple errors.
 	ErrGroup *faults.ErrGroup
@@ -66,7 +66,7 @@ type Config struct {
 
 // Load reads, parses, modifies, and collects type information for a project
 // based on the given configuration.
-func Load(cfg Config) (proj *project.Project, err error) {
+func Load(cfg *Config) (proj *project.Project, err error) {
 	defer cfg.ErrGroup.Recover(&err)
 	defer cfg.Logger.LogGroup(`Loading`)()
 
@@ -91,13 +91,15 @@ func Load(cfg Config) (proj *project.Project, err error) {
 	}
 
 	if cfg.Parallel {
-		return ld.proj, ld.parallelParseProject()
+		err = ld.parallelParseProject()
+		return ld.proj, err
 	}
-	return ld.proj, ld.parseProject()
+	err = ld.parseProject()
+	return ld.proj, err
 }
 
 type loader struct {
-	logger          logger.Logger
+	logger          *logger.Logger
 	errGroup        *faults.ErrGroup
 	group           mods.Group
 	fSet            *token.FileSet
@@ -107,7 +109,7 @@ type loader struct {
 	skipFileParsing bool
 }
 
-func (ld *loader) loadFileNames(cfg Config) error {
+func (ld *loader) loadFileNames(cfg *Config) error {
 	const allNeeds = packages.NeedName |
 		packages.NeedFiles |
 		packages.NeedImports |
@@ -134,7 +136,7 @@ func (ld *loader) loadFileNames(cfg Config) error {
 
 	ld.proj = project.New(ld.fSet, roots)
 	ld.proj.CollectErrors(ld.errGroup)
-	return ld.errGroup.ErrorOrNil()
+	return ld.errGroup.AnyOrNil()
 }
 
 // parallelParseProject loads all the packages as parallel as possible.
@@ -147,7 +149,7 @@ func (ld *loader) parallelParseProject() error {
 		if pkg.Depth != depth {
 			err := ld.parallelParseGroup(ld.proj.AllPackages[prev:i])
 			if err != nil {
-				return err
+				return ld.errGroup.Add(err)
 			}
 			prev, depth = i, pkg.Depth
 		}
@@ -162,47 +164,50 @@ func (ld *loader) parallelParseGroup(pkgs []*project.Package) error {
 	wg.Add(len(pkgs))
 	for _, pkg := range pkgs {
 		go func(pkg *project.Package) {
-			_ = ld.parsePackage(pkg)
-			wg.Done()
+			defer wg.Done()
+			ld.errGroup.Add(ld.parsePackage(pkg))
 		}(pkg)
 	}
 	wg.Wait()
-	return ld.errGroup.ErrorOrNil()
+	return ld.errGroup.AnyOrNil()
 }
 
 func (ld *loader) parseProject() error {
 	for _, pkg := range ld.proj.AllPackages {
 		if err := ld.parsePackage(pkg); err != nil {
-			return err
+			return ld.errGroup.Add(err)
 		}
 	}
-	return ld.errGroup.ErrorOrNil()
+	return ld.errGroup.AnyOrNil()
 }
 
-func (ld *loader) parsePackage(pkg *project.Package) error {
+func (ld *loader) parsePackage(pkg *project.Package) (err error) {
+	ld.errGroup.Recover(&err)
 	pkg.State = buildState.Loading
 
 	con, mg, err := ld.group.StartPackage(pkg)
 	if err != nil || !con {
-		return err
+		return ld.errGroup.Add(err)
 	}
 
 	for _, filename := range pkg.Ast.GoFiles {
 		f, err := ld.parseFile(mg, filename)
 		if err != nil {
-			return err
+			return ld.errGroup.Add(err)
 		}
 		if f != nil {
 			pkg.Ast.Syntax = append(pkg.Ast.Syntax, f)
 		}
 	}
 
-	if _, err = mg.PackageDone(); err != nil {
-		return err
+	if mg != nil {
+		if _, err = mg.PackageDone(); err != nil {
+			return ld.errGroup.Add(err)
+		}
 	}
 
 	pkg.State = buildState.Loaded
-	return nil
+	return ld.errGroup.FullOrNil()
 }
 
 func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error) {
@@ -220,10 +225,12 @@ func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error
 		return nil, ld.errGroup.Add(err)
 	}
 
-	if m, ok := mg.(mods.ModifyAstFileExt); ok {
-		if _, err := m.ModifyAstFile(f); err != nil {
-			return nil, err
+	if mg != nil {
+		if m, ok := mg.(mods.ModifyAstFileExt); ok {
+			if _, err := m.ModifyAstFile(f); err != nil {
+				return nil, ld.errGroup.Add(err)
+			}
 		}
 	}
-	return f, nil
+	return f, ld.errGroup.FullOrNil()
 }

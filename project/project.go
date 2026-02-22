@@ -75,6 +75,7 @@ func (proj *Project) insertPackage(basePkg *packages.Package) {
 // This assumes that the package has already been added.
 func (proj *Project) assignRootPackage(root *packages.Package) {
 	rootPkg := proj.PackageMap[root.PkgPath]
+	rootPkg.Root = true
 	proj.Roots = append(proj.Roots, rootPkg)
 }
 

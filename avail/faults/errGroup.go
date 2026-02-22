@@ -46,12 +46,12 @@ func (g *ErrGroup) Error() string {
 		return g.errs[0].Error()
 	default:
 		buf := &strings.Builder{}
-		buf.WriteString("multiple errors:\n")
+		buf.WriteString("multiple errors:")
 		for i, err := range g.errs {
-			fmt.Fprintf(buf, "%d. %s\n", i+1, err.Error())
+			fmt.Fprintf(buf, "\n%d. %s", i+1, err.Error())
 		}
 		if g.remainder > 0 {
-			fmt.Fprintf(buf, "%d. too many errors (%d discarded)", count+1, g.remainder)
+			fmt.Fprintf(buf, "\n%d. too many errors (%d discarded)", count+1, g.remainder)
 		}
 		return buf.String()
 	}
@@ -70,9 +70,9 @@ func (g *ErrGroup) Unwrap() []error {
 	return g.errs[:max:max]
 }
 
-// Len gets the number of errors in this group including any
-// discarded because they are over the limit.
-func (g *ErrGroup) Len() int {
+// Count gets the number of errors in this group,
+// including any discarded errors.
+func (g *ErrGroup) Count() int {
 	if g == nil {
 		return 0
 	}
@@ -98,19 +98,20 @@ func (g *ErrGroup) Full() bool {
 
 // Empty indicates if there has been one or more errors collected.
 func (g *ErrGroup) Empty() bool {
-	if g == nil {
-		return true
-	}
-
-	g.lock.Lock()
-	defer g.lock.Unlock()
-
-	return len(g.errs) <= 0
+	return g.Count() <= 0
 }
 
-// ErrorOrNil will return this error if not empty or nil if empty.
-func (g *ErrGroup) ErrorOrNil() error {
+// AnyOrNil will return this error if not empty or nil if empty.
+func (g *ErrGroup) AnyOrNil() error {
 	if g.Empty() {
+		return nil
+	}
+	return g
+}
+
+// FullOrNil will return this error if full or nil otherwise.
+func (g *ErrGroup) FullOrNil() error {
+	if !g.Full() {
 		return nil
 	}
 	return g
@@ -174,16 +175,30 @@ func (g *ErrGroup) Add(errs ...error) error {
 }
 
 // Recover handles catching a panic and adding it to the group,
-// then setting the given pointer, [pe], to the result error to the result
-// of the [Add]. If [pe] is nil then it will not be set.
+// then setting the given pointer, [pe], to the result error group
+// after adding any recovered panic.
+// If [pe] is nil then it will not be set.
 func (g *ErrGroup) Recover(pe *error) {
 	if disableRecovers {
 		return
 	}
-	if r := recover(); r != nil {
-		err := g.Add(From(r))
+
+	if g == nil {
 		if pe != nil {
-			*pe = err
+			if r := recover(); r != nil {
+				*pe = From(r)
+			}
 		}
+		return
+	}
+
+	if pe != nil {
+		g.Add(*pe)
+	}
+	if r := recover(); r != nil {
+		g.Add(From(r))
+	}
+	if pe != nil {
+		*pe = g.AnyOrNil()
 	}
 }

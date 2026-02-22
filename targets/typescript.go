@@ -1,9 +1,9 @@
 package targets
 
 import (
-	"fmt"
 	"os"
 
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/interep"
 	"github.com/Grant-Nelson/Gozer/project/loader"
@@ -24,8 +24,7 @@ func (ts typeScriptTarget) Env() []string {
 
 func (ts typeScriptTarget) List(cfg *ListConfig) (*project.Project, error) {
 	defer cfg.Logger.LogGroup("Listing %s", ts.Language())()
-
-	loaderCfg := loader.Config{
+	loaderCfg := &loader.Config{
 		Logger:          cfg.Logger,
 		ErrGroup:        cfg.ErrGroup,
 		Dir:             cfg.Dir,
@@ -37,9 +36,9 @@ func (ts typeScriptTarget) List(cfg *ListConfig) (*project.Project, error) {
 	}
 	proj, err := loader.Load(loaderCfg)
 	if err != nil {
-		cfg.ErrGroup.Add(fmt.Errorf(`Listing failed: %w`, err))
+		cfg.ErrGroup.Add(faults.New(`listing failed`, err))
 	}
-	return proj, cfg.ErrGroup.ErrorOrNil()
+	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
 func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
@@ -65,7 +64,7 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 	}
 
 	// Load all packages for this project.
-	loaderCfg := loader.Config{
+	loaderCfg := &loader.Config{
 		Logger:    cfg.Logger,
 		ErrGroup:  cfg.ErrGroup,
 		Dir:       cfg.Dir,
@@ -79,9 +78,9 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 	}
 	proj, err := loader.Load(loaderCfg)
 	if err != nil {
-		cfg.ErrGroup.Add(fmt.Errorf(`Loading failed: %w`, err))
+		cfg.ErrGroup.Add(faults.New(`loading failed: %w`, err))
 	}
-	return proj, cfg.ErrGroup.ErrorOrNil()
+	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
 func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
@@ -107,5 +106,5 @@ func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
 	// Compile of packages that need to be compiled.
 	// TODO: Finish
 
-	return cfg.ErrGroup.ErrorOrNil()
+	return cfg.ErrGroup.AnyOrNil()
 }

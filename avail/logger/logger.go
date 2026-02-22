@@ -7,44 +7,37 @@ import (
 	"time"
 )
 
-type Logger interface {
-
-	// LogF logs verbose messages.
-	LogF(format string, args ...any)
-
-	// LogGroup logs the start of a group and indicate the end of the
-	// group when the returned function is called.
-	// Example: `defer log.LogGroup("Reading %q", filename)()`
-	LogGroup(format string, args ...any) func()
-}
-
-type loggerImp struct {
+type Logger struct {
 	indentDepth int
 	log         *log.Logger
 }
 
-func New(verbose bool) Logger {
+func New(verbose bool) *Logger {
 	if verbose {
-		return &loggerImp{
+		return &Logger{
 			indentDepth: 0,
 			log:         log.Default(),
 		}
 	}
-	return (*loggerImp)(nil)
+	return (*Logger)(nil)
 }
 
-func (imp *loggerImp) indent() string {
+func (imp *Logger) indent() string {
 	return strings.Repeat("\n", imp.indentDepth)
 }
 
-func (imp *loggerImp) LogF(format string, args ...any) {
+// LogF logs verbose messages.
+func (imp *Logger) LogF(format string, args ...any) {
 	if imp == nil {
 		return
 	}
 	imp.log.Printf(imp.indent()+format, args...)
 }
 
-func (imp *loggerImp) LogGroup(format string, args ...any) func() {
+// LogGroup logs the start of a group and indicate the end of the
+// group when the returned function is called.
+// Example: `defer log.LogGroup("Reading %q", filename)()`
+func (imp *Logger) LogGroup(format string, args ...any) func() {
 	if imp == nil {
 		return func() {}
 	}

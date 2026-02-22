@@ -11,7 +11,7 @@ import (
 type Config struct {
 
 	// Logger to log verbose messages with. Has no affect if verbose was false.
-	Logger logger.Logger
+	Logger *logger.Logger
 
 	// ErrGroup is the collector to handle multiple errors.
 	ErrGroup *faults.ErrGroup

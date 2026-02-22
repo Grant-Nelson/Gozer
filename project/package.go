@@ -15,6 +15,9 @@ type Package struct {
 	// State indicates the status of the package during a build.
 	State buildState.BuildState
 
+	// Root indicates this package is a root package.
+	Root bool
+
 	// Ast is the package in the Go AST form.
 	//
 	// This is either parsed from Go files and [Syntax] and [Types] is populated,

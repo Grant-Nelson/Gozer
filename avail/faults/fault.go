@@ -46,8 +46,10 @@ func Recover(pe *error) {
 	if disableRecovers {
 		return
 	}
-	if r := recover(); r != nil {
-		*pe = From(r)
+	if pe != nil {
+		if r := recover(); r != nil {
+			*pe = From(r)
+		}
 	}
 }
 

@@ -220,7 +220,7 @@ func runAugTest(t testing.TB, test augTest) {
 		return
 	}
 
-	if err := errGroup.ErrorOrNil(); err != nil {
+	if err := errGroup.AnyOrNil(); err != nil {
 		checkErr(t, `accumulated error`, test, err)
 		return
 	}
