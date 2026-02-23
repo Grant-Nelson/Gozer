@@ -30,6 +30,17 @@
 // the struct's fields. The help message will show the help for tool being
 // used, so it is helpful to define help messages specific to each tool.
 //
+// The help output will show the default values assigned to the fields
+// of the structure. However, if the `-help` is after several arguments, those
+// arguments are processed first, meaning that instead of the defaults
+// the values that were assigned will be shown. This is useful to help
+// debug and demonstrate how the arguments are being used. For example,
+// if there is a flag `lang string` that defaults to `golang`, then if
+// the arguments are `-lang python -help`, the help will show `lang` set to
+// `python` instead. This happens with the help comment too, so the help
+// could be modified as arguments are processed. That is not recommended
+// but could provide more useful feedback is needed.
+//
 // # Skip a field
 //
 // Skip a field by using the tag `arg:"skip"`. This is useful for other

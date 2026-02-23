@@ -27,8 +27,9 @@ type Config struct {
 	Patterns []string `arg:"pos, patterns, One or more patterns for the root files for a project."`
 	Tests    bool     `arg:"flag, t|test, Indicate the transpile would be for a test."`
 	Deps     bool     `arg:"flag, d|deps, Indicate that dependencies should be listed as well."`
-	Json     bool     `arg:"flag, j|json, Outputs as json. Json is ignored if a format is given."`
+	Json     bool     `arg:"flag, j|json, Outputs as json."`
 	Format   string   `arg:"flag, f|fmt|format, Outputs with the given template format."`
+	Mermaid  bool     `arg:"flag, m|mermaid, Outputs as a mermaid diagram."`
 }
 
 func DefaultConfig() *Config {
@@ -65,6 +66,8 @@ func List(cfg *Config) {
 		outputFormatted(out, cfg.Format, pkgs)
 	case cfg.Json:
 		outputJson(out, pkgs)
+	case cfg.Mermaid:
+		outputMermaid(out, pkgs)
 	default:
 		outputDefault(out, pkgs)
 	}
@@ -104,6 +107,12 @@ func outputJson(w io.Writer, pkgs []*project.Package) {
 	}
 }
 
+func outputMermaid(w io.Writer, pkgs []*project.Package) {
+
+	// TODO: Implement
+	fmt.Fprintln(w, `not implemented`)
+}
+
 func outputDefault(w io.Writer, pkgs []*project.Package) {
 	paths := make([]string, len(pkgs))
 	for i, pkg := range pkgs {
@@ -115,6 +124,9 @@ func outputDefault(w io.Writer, pkgs []*project.Package) {
 	}
 }
 
+// packageData is very similar to a subset of the "Package" definition shown in
+// https://pkg.go.dev/cmd/go/internal/list#pkg-variables
+// This does not have to
 type packageData struct {
 	Dir        string `json:",omitempty"` // directory containing package sources
 	ImportPath string `json:",omitempty"` // import path of package in dir
@@ -134,6 +146,10 @@ type packageData struct {
 	EmbedFiles    []string `json:",omitempty"` // files matched by EmbedPatterns
 	Imports       []string `json:",omitempty"` // import paths used by this package
 	Deps          []string `json:",omitempty"` // all (recursively) imported dependencies
+
+	// Depth is the depth of the package in the dependency tree where zero has
+	// no dependencies and the roots have the highest depth value.
+	Depth int
 }
 
 func getData(pkg *project.Package) *packageData {
@@ -151,6 +167,8 @@ func getData(pkg *project.Package) *packageData {
 		OtherFiles:    pkg.Ast.OtherFiles,
 		EmbedPatterns: pkg.Ast.EmbedPatterns,
 		EmbedFiles:    pkg.Ast.EmbedFiles,
+
+		Depth: pkg.Depth,
 	}
 
 	imports := slices.Collect(maps.Keys(pkg.Ast.Imports))

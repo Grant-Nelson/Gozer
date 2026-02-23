@@ -28,6 +28,28 @@ func (group Group) StartPackage(pkg *project.Package) (bool, Modifier, error) {
 	return true, mg, nil
 }
 
+func (group Group) StartProject(f *project.Project) error {
+	for _, factory := range group {
+		if m, ok := factory.(StartProjectExt); ok {
+			if err := m.StartProject(f); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (group Group) ProjectDone(f *project.Project) error {
+	for _, factory := range group {
+		if m, ok := factory.(ProjectDoneExt); ok {
+			if err := m.ProjectDone(f); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (mg ModGroup) PackageDone() (bool, error) {
 	for _, mod := range mg {
 		if con, err := mod.PackageDone(); err != nil || !con {

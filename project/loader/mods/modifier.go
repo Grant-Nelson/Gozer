@@ -24,6 +24,22 @@ type ModFactory interface {
 	StartPackage(pkg *project.Package) (bool, Modifier, error)
 }
 
+// StartProjectExt extends a [ModFactory] to perform changes to the project
+// before any package is modified.
+type StartProjectExt interface {
+
+	// StartProject is called before any package is modified.
+	StartProject(f *project.Project) error
+}
+
+// ProjectDoneExt extends a [ModFactory] to perform changes to the project
+// after all packages are modified.
+type ProjectDoneExt interface {
+
+	// ProjectDone is called after all packages are modified.
+	ProjectDone(f *project.Project) error
+}
+
 // Modifier will perform a modification on a package.
 type Modifier interface {
 

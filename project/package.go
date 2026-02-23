@@ -40,6 +40,13 @@ type Package struct {
 	TempTypeFile string
 }
 
+func newPackage(basePkg *packages.Package) *Package {
+	return &Package{
+		State: buildState.Listed,
+		Ast:   basePkg,
+	}
+}
+
 // PkgPath is the package path as used by the go/types package.
 func (p *Package) PkgPath() string {
 	return p.Ast.PkgPath

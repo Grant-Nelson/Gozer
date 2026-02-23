@@ -57,10 +57,7 @@ func New(fSet *token.FileSet, roots []*packages.Package) *Project {
 func (proj *Project) insertPackage(basePkg *packages.Package) {
 	basePkg.Fset = proj.FileSet
 
-	pkg := &Package{
-		State: buildState.Listed,
-		Ast:   basePkg,
-	}
+	pkg := newPackage(basePkg)
 	proj.AllPackages = append(proj.AllPackages, pkg)
 	proj.PackageMap[basePkg.PkgPath] = pkg
 
