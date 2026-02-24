@@ -46,13 +46,9 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 
 	mods := mods.Group{
 		pkgDropper.New(&pkgDropper.Config{
+			Logger:   cfg.Logger,
 			ErrGroup: cfg.ErrGroup,
 			PkgPathPatterns: []string{
-				`internal/abi`,
-				`internal/cpu`,
-				`internal/goarch`,
-				`internal/runtime`,
-				`internal/runtime/*`,
 				`runtime`,
 			},
 		}),

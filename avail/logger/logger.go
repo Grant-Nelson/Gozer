@@ -2,36 +2,102 @@ package logger
 
 import (
 	"fmt"
-	"log"
+	"io"
+	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
+const indentSpacer = "┆ "
+
 type Logger struct {
-	indentDepth int
-	log         *log.Logger
+	indent int
+	prefix string
+	out    io.Writer
+	lock   *sync.Mutex
 }
 
-func New(verbose bool) *Logger {
-	if verbose {
-		return &Logger{
-			indentDepth: 0,
-			log:         log.Default(),
-		}
-	}
+func Nop() *Logger {
 	return (*Logger)(nil)
 }
 
-func (imp *Logger) indent() string {
-	return strings.Repeat("\n", imp.indentDepth)
+func New(verbose bool, out io.Writer) *Logger {
+	if !verbose {
+		return Nop()
+	}
+	if out == nil {
+		out = os.Stderr
+	}
+	return &Logger{
+		indent: 0,
+		prefix: ``,
+		out:    out,
+		lock:   &sync.Mutex{},
+	}
 }
 
-// LogF logs verbose messages.
-func (imp *Logger) LogF(format string, args ...any) {
-	if imp == nil {
+func (imp *Logger) gainLock() func() {
+	imp.lock.Lock()
+	return imp.lock.Unlock
+}
+
+func (imp *Logger) setIndent(delta int) {
+	imp.indent = max(imp.indent+delta, 0)
+	imp.prefix = strings.Repeat(indentSpacer, imp.indent)
+}
+
+func (imp *Logger) output(text string) {
+	count := len(text)
+	if count <= 0 {
+		fmt.Fprint(imp.out, imp.prefix, "\n")
 		return
 	}
-	imp.log.Printf(imp.indent()+format, args...)
+	for ln := range strings.Lines(text) {
+		fmt.Fprint(imp.out, imp.prefix, ln)
+	}
+	if text[count-1] != '\n' {
+		fmt.Fprint(imp.out, "\n")
+	}
+}
+
+func (imp *Logger) Print(v ...any) {
+	if imp != nil {
+		defer imp.gainLock()()
+		imp.output(fmt.Sprint(v...))
+	}
+}
+
+func (imp *Logger) Printf(format string, v ...any) {
+	if imp != nil {
+		defer imp.gainLock()()
+		imp.output(fmt.Sprintf(format, v...))
+	}
+}
+
+func (imp *Logger) Println(v ...any) {
+	if imp != nil {
+		defer imp.gainLock()()
+		imp.output(fmt.Sprintln(v...))
+	}
+}
+
+// Indent will indent all the following logs.
+// This returns the Dedent method to allow, `defer log.Indent()()`.
+func (imp *Logger) Indent() func() {
+	if imp != nil {
+		defer imp.gainLock()()
+		imp.setIndent(1)
+	}
+	return imp.Dedent
+}
+
+// Dedent will reduce the indent for all the following logs.
+func (imp *Logger) Dedent() {
+	if imp != nil {
+		defer imp.gainLock()()
+		imp.setIndent(-1)
+	}
 }
 
 // LogGroup logs the start of a group and indicate the end of the
@@ -42,14 +108,16 @@ func (imp *Logger) LogGroup(format string, args ...any) func() {
 		return func() {}
 	}
 
+	defer imp.gainLock()()
 	text := fmt.Sprintf(format, args...)
-	imp.LogF(text + "...")
-	imp.indentDepth++
+	imp.output(fmt.Sprint(text, "...\n"))
+	imp.setIndent(1)
 	start := time.Now()
 
 	return func() {
+		defer imp.gainLock()()
 		since := time.Since(start)
-		imp.indentDepth--
-		imp.LogF(text+"... Done (%v)", since)
+		imp.setIndent(-1)
+		imp.output(fmt.Sprint(text, `... Done (`, since, ")\n"))
 	}
 }

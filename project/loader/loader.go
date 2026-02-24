@@ -235,12 +235,12 @@ func (ld *loader) parsePackage(pkg *project.Package) (err error) {
 }
 
 func (ld *loader) parsePackageStart(pkg *project.Package) (mods.Modifier, error) {
-	defer ld.logger.LogGroup(`Parsing Package Start`)()
+	ld.logger.Printf(`Parsing Package Start`)
 	con, mg, err := ld.group.StartPackage(pkg)
 	if err != nil || !con {
 		return nil, ld.errGroup.Add(err)
 	}
-	return mg, nil
+	return mg, ld.errGroup.FullOrNil()
 }
 
 func (ld *loader) parsePackageGoFile(pkg *project.Package, mg mods.Modifier) error {
@@ -248,7 +248,7 @@ func (ld *loader) parsePackageGoFile(pkg *project.Package, mg mods.Modifier) err
 		return nil
 	}
 
-	defer ld.logger.LogGroup(`Parsing Package Files`)()
+	ld.logger.Printf(`Parsing Package Files`)
 	for _, filename := range pkg.Ast.GoFiles {
 		f, err := ld.parseFile(mg, filename)
 		if err != nil {
@@ -258,7 +258,7 @@ func (ld *loader) parsePackageGoFile(pkg *project.Package, mg mods.Modifier) err
 			pkg.Ast.Syntax = append(pkg.Ast.Syntax, f)
 		}
 	}
-	return nil
+	return ld.errGroup.FullOrNil()
 }
 
 func (ld *loader) parsePackageDone(pkg *project.Package, mg mods.Modifier) error {
@@ -266,11 +266,11 @@ func (ld *loader) parsePackageDone(pkg *project.Package, mg mods.Modifier) error
 		return nil
 	}
 
-	defer ld.logger.LogGroup(`Parsing Package Done`)()
+	ld.logger.Printf(`Parsing Package Done`)
 	if _, err := mg.PackageDone(); err != nil {
 		return ld.errGroup.Add(err)
 	}
-	return nil
+	return ld.errGroup.FullOrNil()
 }
 
 func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error) {
@@ -283,12 +283,14 @@ func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error
 
 	f, err := ld.parser(ld.fSet, filename, src)
 	if err != nil {
+		ld.logger.Printf(`Error Parsing File`)
 		return nil, ld.errGroup.Add(err)
 	}
 
 	if mg != nil {
 		if m, ok := mg.(mods.ModifyAstFileExt); ok {
 			if _, err := m.ModifyAstFile(f); err != nil {
+				ld.logger.Printf(`Error Modifying File`)
 				return nil, ld.errGroup.Add(err)
 			}
 		}

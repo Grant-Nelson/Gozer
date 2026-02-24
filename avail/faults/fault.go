@@ -3,6 +3,7 @@ package faults
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -13,18 +14,22 @@ import (
 const disableRecovers = false
 
 type Fault struct {
-	msg   string
-	inner []error
-	data  map[string]any
+	msg    string
+	inner  []error
+	data   map[string]any
+	file   string
+	lineNo int
 }
 
 var _ error = (*Fault)(nil)
 
 func New(msg string, inner ...error) *Fault {
-	return &Fault{
+	f := &Fault{
 		msg:   msg,
 		inner: inner,
 	}
+	f.SetCurrentLoc()
+	return f
 }
 
 func From(r any) *Fault {
@@ -51,6 +56,41 @@ func Recover(pe *error) {
 			*pe = From(r)
 		}
 	}
+}
+
+func (f *Fault) HasLoc() bool {
+	return f != nil && len(f.file) > 0
+}
+
+func (f *Fault) Loc() (file string, lineNo int) {
+	if f == nil {
+		return ``, 0
+	}
+	return f.file, f.lineNo
+}
+
+func (f *Fault) SetLoc(file string, lineNo int) *Fault {
+	if f != nil {
+		f.file = file
+		f.lineNo = lineNo
+	}
+	return f
+}
+
+func (f *Fault) SetCurrentLoc() *Fault {
+	if f == nil {
+		return nil
+	}
+	f.file = ``
+	f.lineNo = 0
+	for i := range 10 {
+		if _, file, line, ok := runtime.Caller(i); ok {
+			f.file = file
+			f.lineNo = line
+			break
+		}
+	}
+	return f
 }
 
 func (f *Fault) Unwrap() []error {
@@ -90,7 +130,7 @@ func (f *Fault) With(key string, value any) *Fault {
 }
 
 func (f *Fault) WithNonZero(key string, value any) *Fault {
-	if !reflect.ValueOf(value).IsZero() {
+	if f != nil && !reflect.ValueOf(value).IsZero() {
 		return f.With(key, value)
 	}
 	return f
@@ -104,8 +144,15 @@ func (f *Fault) Error() string {
 	if f == nil {
 		return `nil`
 	}
+	msg := f.msg
+	if len(f.file) > 0 {
+		msg = fmt.Sprintf(`%s@%s`, msg, f.file)
+		if f.lineNo >= 0 {
+			msg = fmt.Sprintf(`%s:%d`, msg, f.lineNo)
+		}
+	}
 	parts := make([]string, 0, len(f.data)+1)
-	parts = append(parts, f.msg)
+	parts = append(parts, msg)
 	for k, v := range f.data {
 		parts = append(parts, fmt.Sprintf("\t%s: %v", k, v))
 	}

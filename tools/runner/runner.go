@@ -36,7 +36,7 @@ func Run(cfg *Config) bool {
 	buildCfg := &targets.BuildConfig{
 		Lang:     cfg.Lang,
 		Patterns: cfg.Patterns,
-		Logger:   logger.New(cfg.Verbose),
+		Logger:   logger.New(cfg.Verbose, nil),
 		Tests:    false,
 	}
 	if err := targets.Build(buildCfg); err != nil {

@@ -38,7 +38,7 @@ func Build(cfg *Config) {
 
 	buildCfg := &targets.BuildConfig{
 		Lang:     cfg.Lang,
-		Logger:   logger.New(cfg.Verbose),
+		Logger:   logger.New(cfg.Verbose, nil),
 		Output:   cfg.Output,
 		Patterns: cfg.Patterns,
 		Tests:    cfg.Tests,
