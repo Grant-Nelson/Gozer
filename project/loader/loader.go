@@ -235,7 +235,9 @@ func (ld *loader) parsePackage(pkg *project.Package) (err error) {
 }
 
 func (ld *loader) parsePackageStart(pkg *project.Package) (mods.Modifier, error) {
-	ld.logger.Printf(`Parsing Package Start`)
+	ld.logger.Printf(`Package Starting`)
+	defer ld.logger.Indent()()
+
 	con, mg, err := ld.group.StartPackage(pkg)
 	if err != nil || !con {
 		return nil, ld.errGroup.Add(err)
@@ -248,7 +250,9 @@ func (ld *loader) parsePackageGoFile(pkg *project.Package, mg mods.Modifier) err
 		return nil
 	}
 
-	ld.logger.Printf(`Parsing Package Files`)
+	ld.logger.Printf(`Parsing Files`)
+	defer ld.logger.Indent()()
+
 	for _, filename := range pkg.Ast.GoFiles {
 		f, err := ld.parseFile(mg, filename)
 		if err != nil {
@@ -266,7 +270,9 @@ func (ld *loader) parsePackageDone(pkg *project.Package, mg mods.Modifier) error
 		return nil
 	}
 
-	ld.logger.Printf(`Parsing Package Done`)
+	ld.logger.Printf(`Package Finishing`)
+	defer ld.logger.Indent()()
+
 	if _, err := mg.PackageDone(); err != nil {
 		return ld.errGroup.Add(err)
 	}
@@ -274,8 +280,11 @@ func (ld *loader) parsePackageDone(pkg *project.Package, mg mods.Modifier) error
 }
 
 func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error) {
-	defer ld.logger.LogGroup(`Parse File %q`, filename)()
+	ld.logger.Printf(`Parse File: %q`, filename)
+	defer ld.logger.Indent()()
 
+	// TODO: Distribute overlay information to the packages based on the package part of the file name paths.
+	// By attaching the overlay to the package, the modifiers can throw out or add overlay information if needed.
 	var src any = nil
 	if over, ok := ld.overlay[filename]; ok {
 		src = over

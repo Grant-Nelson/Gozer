@@ -108,9 +108,25 @@ func outputJson(w io.Writer, pkgs []*project.Package) {
 }
 
 func outputMermaid(w io.Writer, pkgs []*project.Package) {
-
-	// TODO: Implement
-	fmt.Fprintln(w, `not implemented`)
+	fmt.Fprintln(w, `stateDiagram-v2`)
+	fmt.Fprintln(w, "  direction LR")
+	states := map[string]int{}
+	getIndex := func(path string) int {
+		if index, found := states[path]; found {
+			return index
+		}
+		index := len(states)
+		states[path] = index
+		fmt.Fprintf(w, "  s%d : %s\n", index, path)
+		return index
+	}
+	for _, pkg := range pkgs {
+		pkgIndex := getIndex(pkg.PkgPath())
+		for depPath := range pkg.Ast.Imports {
+			depIndex := getIndex(depPath)
+			fmt.Fprintf(w, "  s%d --> s%d\n", pkgIndex, depIndex)
+		}
+	}
 }
 
 func outputDefault(w io.Writer, pkgs []*project.Package) {

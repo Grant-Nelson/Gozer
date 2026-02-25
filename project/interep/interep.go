@@ -1,11 +1,10 @@
 package interep
 
 import (
-	"fmt"
-
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/project/interep/blocks"
 )
 
 type Config struct {
@@ -17,14 +16,13 @@ type Config struct {
 	ErrGroup *faults.ErrGroup
 }
 
-func Remodel(pkg *project.Package, cfg *Config) (err error) {
+type Interep struct {
+	Funcs []*blocks.Func
+}
+
+func Remodel(pkg *project.Package, cfg *Config) (ir *Interep, err error) {
 	defer faults.Recover(&err)
+	cfg.Logger.LogGroup(`Remodelling %q`, pkg.PkgPath())
 
-	fmt.Printf("=================================================\n")
-	fmt.Printf("Package:   %q\n", pkg.Ast.Name)
-	fmt.Printf("Path:      %q\n", pkg.PkgPath())
-	fmt.Printf("AST Files: %d\n", len(pkg.Ast.Syntax))
-	fmt.Printf("AST Types: %v\n", pkg.Ast.Types)
-
-	return nil
+	return nil, nil
 }

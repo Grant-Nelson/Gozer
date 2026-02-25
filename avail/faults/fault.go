@@ -77,20 +77,25 @@ func (f *Fault) SetLoc(file string, lineNo int) *Fault {
 	return f
 }
 
-func (f *Fault) SetCurrentLoc() *Fault {
+func (f *Fault) SetCurrentLoc() bool {
 	if f == nil {
-		return nil
+		return false
 	}
 	f.file = ``
 	f.lineNo = 0
 	for i := range 10 {
 		if _, file, line, ok := runtime.Caller(i); ok {
+			if strings.HasSuffix(file, `/avail/faults/fault.go`) ||
+				strings.HasSuffix(file, `/avail/faults/errGroup.go`) {
+				continue
+			}
+
 			f.file = file
 			f.lineNo = line
-			break
+			return true
 		}
 	}
-	return f
+	return false
 }
 
 func (f *Fault) Unwrap() []error {

@@ -259,6 +259,7 @@ func (a *augAdd) addDecls(f *ast.File) {
 			f.Decls = append(f.Decls, d)
 			f.Comments = append(f.Comments, a.newDeclsComments[i]...)
 		}
+		f.FileEnd = f.Decls[len(f.Decls)-1].End()
 		a.newDecls = []ast.Decl{}
 	}
 }

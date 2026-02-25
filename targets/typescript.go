@@ -53,12 +53,12 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 			},
 		}),
 		//cache.New(&cache.Config{
-		//	Build: build,
+		//	Build: cfg.Build,
 		//	ErrGroup: cfg.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
 		//augmenter.New(&augmenter.Config{
-		//	Build: build,
+		//	Build:    cfg.Build,
 		//	ErrGroup: cfg.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
@@ -102,9 +102,14 @@ func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
 	}
 	for pkg := range proj.UnfinishedPackages() {
 		// TODO: Use work group to run several of these in parallel when [cfg.Parallel] is `true`.
-		if err := interep.Remodel(pkg, remodelCfg); err != nil {
+		ir, err := interep.Remodel(pkg, remodelCfg)
+		if err != nil {
 			return err
 		}
+
+		// TODO: Finish
+		cfg.Logger.Printf("ir = %v\n", ir)
+
 	}
 
 	// Compile of packages that need to be compiled.

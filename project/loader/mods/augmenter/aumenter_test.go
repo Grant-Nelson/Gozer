@@ -68,6 +68,9 @@ func Test_Add_Import_Specs(t *testing.T) {
 }
 
 func Test_Add_WholeType(t *testing.T) {
+	// Note: Comments are being added correctly, but the way the formatter
+	// tries to handle floating comments, it can't handle outputting comments
+	// in the correct location after decls have been added.
 	runAugTest(t, augTest{
 		origSrc: lines(
 			`package foo`,

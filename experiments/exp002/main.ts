@@ -1,4 +1,5 @@
-// The following blocks are trying to represent the following code:
+// The following blocks are trying to represent the following code.
+// The same go code is found in tests/fib/main.go
 //--[main.go]-------------------------------
 //  package main
 //  
