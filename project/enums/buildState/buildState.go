@@ -25,3 +25,26 @@ const (
 	// Finished indicates the package has finished building.
 	Finished
 )
+
+func (b BuildState) Valid() bool {
+	switch b {
+	case Listed, Loading, Loaded, Finished:
+		return true
+	}
+	return false
+}
+
+func (b BuildState) String() string {
+	switch b {
+	case Listed:
+		return `Listed`
+	case Loading:
+		return `Loading`
+	case Loaded:
+		return `Loaded`
+	case Finished:
+		return `Finished`
+	default:
+		return `UnknownState`
+	}
+}

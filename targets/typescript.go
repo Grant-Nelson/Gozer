@@ -5,7 +5,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/interep"
+	"github.com/Grant-Nelson/Gozer/project/interRep"
 	"github.com/Grant-Nelson/Gozer/project/loader"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/pkgDropper"
@@ -41,6 +41,31 @@ func (ts typeScriptTarget) List(cfg *ListConfig) (*project.Project, error) {
 	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
+func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
+	defer cfg.Logger.LogGroup("Building %s", ts.Language())()
+
+	// Load project into AST form and type check.
+	proj, err := ts.load(cfg)
+	if err != nil {
+		return nil
+	}
+
+	// Remodel any packages that need to be compiled into the intermediate form.
+	if cfg.Parallel {
+		err = ts.asyncFinishPackages(proj, cfg)
+	} else {
+		err = ts.syncFinishPackages(proj, cfg)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Compile of packages that need to be compiled.
+	// TODO: Finish
+
+	return cfg.ErrGroup.AnyOrNil()
+}
+
 func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 	defer cfg.Logger.LogGroup("Loading %s", ts.Language())()
 
@@ -53,13 +78,13 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 			},
 		}),
 		//cache.New(&cache.Config{
-		//	Build: cfg.Build,
-		//	ErrGroup: cfg.ErrGroup,
+		//	Build: config.Build,
+		//	ErrGroup: config.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
 		//augmenter.New(&augmenter.Config{
-		//	Build:    cfg.Build,
-		//	ErrGroup: cfg.ErrGroup,
+		//	Build:    config.Build,
+		//	ErrGroup: config.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
 		typeChecker.New(&typeChecker.Config{
@@ -87,33 +112,36 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
-	defer cfg.Logger.LogGroup("Building %s", ts.Language())()
-
-	proj, err := ts.load(cfg)
-	if err != nil {
-		return nil
-	}
-
-	// Remodel any packages that need to be compiled into the intermediate form.
-	remodelCfg := &interep.Config{
-		Logger:   cfg.Logger,
-		ErrGroup: cfg.ErrGroup,
-	}
+func (ts typeScriptTarget) asyncFinishPackages(proj *project.Project, cfg *BuildConfig) error {
+	// TODO: Use work group to run several of these in parallel.
 	for pkg := range proj.UnfinishedPackages() {
-		// TODO: Use work group to run several of these in parallel when [cfg.Parallel] is `true`.
-		ir, err := interep.Remodel(pkg, remodelCfg)
-		if err != nil {
+		if err := ts.finishPackage(pkg, cfg); err != nil {
 			return err
 		}
+	}
+	return nil
+}
 
-		// TODO: Finish
-		cfg.Logger.Printf("ir = %v\n", ir)
+func (ts typeScriptTarget) syncFinishPackages(proj *project.Project, cfg *BuildConfig) error {
+	for pkg := range proj.UnfinishedPackages() {
+		if err := ts.finishPackage(pkg, cfg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+func (ts typeScriptTarget) finishPackage(pkg *project.Package, cfg *BuildConfig) error {
+	ircCfg := &interRep.Config{
+		Logger:   cfg.Logger,
+		ErrGroup: cfg.ErrGroup,
+		Package:  pkg,
+	}
+	if err := interRep.Remodel(ircCfg); err != nil {
+		return err
 	}
 
-	// Compile of packages that need to be compiled.
 	// TODO: Finish
 
-	return cfg.ErrGroup.AnyOrNil()
+	return nil
 }

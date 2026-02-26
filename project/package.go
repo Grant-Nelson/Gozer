@@ -6,6 +6,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
+	"github.com/Grant-Nelson/Gozer/project/interRep/irc"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -18,13 +19,19 @@ type Package struct {
 	// Root indicates this package is a root package.
 	Root bool
 
-	// Ast is the package in the Go AST form.
+	// Ast is the package in the Go abstract syntax tree (AST) form.
 	//
 	// This is either parsed from Go files and [Syntax] and [Types] is populated,
 	// or this was loaded from the cache so only [Types] is populated.
 	// This package is for the project's build, go version,
 	// and augmented for the target languages.
 	Ast *packages.Package
+
+	// Irc is the package's intermediate representation code (IRC) form.
+	//
+	// This is used to describe the code in a control flow graph (CFG) that
+	// is used for optimization and translation to target language.
+	Irc *irc.Package
 
 	// Depth is the depth of this node in the dependency tree where 0
 	// means the package is a leave package with no dependencies and

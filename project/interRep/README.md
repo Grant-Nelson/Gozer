@@ -16,3 +16,7 @@ converted into the target language. Depending on the target language,
 different modifications can be made to the code. Regardless of the modifications
 the original functionality of the code should be maintained as much as possible
 so that result executes as similarly to if the Go was run by itself.
+
+## Block Representation
+
+See [Blocks](../../docs/Blocks.md) documentation

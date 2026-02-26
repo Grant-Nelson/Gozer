@@ -8,6 +8,7 @@ The blocks can be easily optimized and translated into TypeScript in a way to
 allow pseudo multithreaded execution. The blocks perform similar analysis
 as [SSA](https://en.wikipedia.org/wiki/Static_single-assignment_form) to
 determine which data is passed in and out of blocks.
+This is a form of a [CFG](https://en.wikipedia.org/wiki/Control-flow_graph).
 
 - [Block Representation](#block-representation)
   - [Scheduler](#scheduler)
