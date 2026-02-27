@@ -1,7 +1,9 @@
 package irc
 
 import (
+	"fmt"
 	"go/ast"
+	"strings"
 )
 
 type Package struct {
@@ -29,9 +31,6 @@ type Block struct {
 	// for a package. 0 or less if not assigned an index yet.
 	Index int
 
-	// Ast are the original statements for the block.
-	Ast []ast.Stmt
-
 	// Prior blocks are blocks that can transition to this block.
 	Prior []*Block
 
@@ -40,4 +39,12 @@ type Block struct {
 
 	// ExitsFunc indicates if this block can exit the function.
 	ExitsFunc bool
+}
+
+func sliceString[E any, S []E](s S) string {
+	elems := make([]string, len(s))
+	for i, elem := range s {
+		elems[i] = fmt.Sprintf(`%v`, elem)
+	}
+	return strings.Join(elems, `, `)
 }
