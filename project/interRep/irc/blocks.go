@@ -32,6 +32,9 @@ type (
 		// for a package. 0 or less if not assigned an index yet.
 		Index int
 
+		// Body is the list of statements for this block.
+		Body []*Stmt
+
 		// Prior blocks are blocks that can transition to this block.
 		Prior []*Block
 
@@ -50,12 +53,19 @@ type (
 	}
 )
 
+// NewBlock creates a new empty block and adds it to this function.
+func (fn *Func) NewBlock() *Block {
+	b := &Block{}
+	fn.Blocks = append(fn.Blocks, b)
+	return b
+}
+
 func (b *Block) String() string {
 	// TODO: Finish
 	return `BLOCK`
 }
 
-func (s *BlockRef) String() string { return fmt.Sprintf(`%s, [%s]`, s.Block, csvString(s.Args)) }
+func (r *BlockRef) String() string { return fmt.Sprintf(`%s, [%s]`, r.Block, csvString(r.Args)) }
 
 func csvString[E any, S []E](s S) string {
 	elems := make([]string, len(s))

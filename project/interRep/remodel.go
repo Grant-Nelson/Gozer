@@ -44,7 +44,7 @@ func Remodel(cfg *Config) (err error) {
 
 	// TODO: run any additional processing
 
-	return nil
+	return rm.errGroup.AnyOrNil()
 }
 
 type modeler struct {
@@ -91,6 +91,24 @@ func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
 		Ast: astFunc,
 	}
 	rm.pkg.Irc.Funcs = append(rm.pkg.Irc.Funcs, fn)
+	cv := &converter{
+		logger:   rm.logger,
+		errGroup: rm.errGroup,
+		pkg:      rm.pkg,
+		fn:       fn,
+	}
+
+	// Create entry block for this function.
+	first := fn.NewBlock()
+	last, err := cv.blockStmt(first, astFunc.Body)
+	if err != nil {
+		return err
+	}
+
+	// If last doesn't have an breaking block control, add the implicit function return.
+
+	// TODO: Finish
+	_ = last
 
 	return nil
 }

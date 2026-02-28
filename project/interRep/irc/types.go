@@ -13,7 +13,7 @@ type (
 		String() string
 
 		// type is an empty method used to compile time type check that
-		// only types are used for this interface.
+		// only types duck-type to this interface.
 		typ()
 	}
 

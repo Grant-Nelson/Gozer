@@ -27,7 +27,7 @@ type (
 		ResultType() Type
 
 		// expr is an empty method used to compile time type check that
-		// only expressions are used for this interface.
+		// only expressions duck-type to this interface.
 		expr()
 	}
 

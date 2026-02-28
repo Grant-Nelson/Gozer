@@ -17,8 +17,16 @@ type (
 		Pos() token.Pos
 
 		// stmt is an empty method used to compile time type check that
-		// only statements are used for this interface.
+		// only statements duck-type to this interface.
 		stmt()
+	}
+
+	BreakingBlockControl interface {
+		Stmt
+
+		// breakingBlockControl is an empty method used to compile time type
+		// check that only breaking block controls duck-type to this interface.
+		breakingBlockControl()
 	}
 
 	// ExprStmt is a statement for an expression.
@@ -125,3 +133,9 @@ func (*PanicStmt) stmt()   {}
 func (*SendStmt) stmt()    {}
 func (*ReceiveStmt) stmt() {}
 func (*IfStmt) stmt()      {}
+
+func (*GotoStmt) breakingBlockControl()    {}
+func (*CallStmt) breakingBlockControl()    {}
+func (*PanicStmt) breakingBlockControl()   {}
+func (*SendStmt) breakingBlockControl()    {}
+func (*ReceiveStmt) breakingBlockControl() {}
