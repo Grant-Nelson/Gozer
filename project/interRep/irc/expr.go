@@ -43,6 +43,7 @@ type (
 		Type     *BasicType // the basic type of this value
 	}
 
+	// CallExpr is a method call that is non-breaking.
 	CallExpr struct {
 		Func      Expr      // expression for the function being called
 		LeftParen token.Pos // position of the left parenthesis of this call
@@ -66,8 +67,19 @@ type (
 		Result Type              // the result type of the binary operator
 	}
 
-	// TODO: TernaryExpr
-	// TODO: TupleExpr
+	TernaryExpr struct {
+		OpPos  token.Pos // the location of the `?` or the original if-statement
+		Cond   Expr      // the conditional expression, must be a bool type
+		Left   Expr      // the value to use when the conditional is true
+		Right  Expr      // the value to use when the conditional is false
+		Result Type      // the result type, should match the left and right types
+	}
+
+	TupleExpr struct {
+		OpenPos token.Pos  // the location of the `(` for the group
+		Type    *TupleType // the result type of this tuple
+		Values  []Expr     // the values in the tuple
+	}
 )
 
 var (
@@ -76,6 +88,8 @@ var (
 	_ Expr = (*CallExpr)(nil)
 	_ Expr = (*UnaryExpr)(nil)
 	_ Expr = (*BinaryExpr)(nil)
+	_ Expr = (*TernaryExpr)(nil)
+	_ Expr = (*TupleExpr)(nil)
 )
 
 // IsExported reports whether id starts with an upper-case letter.
@@ -87,25 +101,33 @@ func (id *Ident) String() string {
 	}
 	return `<nil>`
 }
-func (e *BasicLit) String() string   { return fmt.Sprintf(`%s(%s)`, e.Type, e.Value) }
-func (e *CallExpr) String() string   { return fmt.Sprintf(`%s(%s)`, e.Func, sliceString(e.Args)) }
-func (e *UnaryExpr) String() string  { return fmt.Sprintf(e.Op.Format(), e.Expr) }
-func (e *BinaryExpr) String() string { return fmt.Sprintf(e.Op.Format(), e.Left, e.Right) }
+func (e *BasicLit) String() string    { return fmt.Sprintf(`%s(%s)`, e.Type, e.Value) }
+func (e *CallExpr) String() string    { return fmt.Sprintf(`%s(%s)`, e.Func, csvString(e.Args)) }
+func (e *UnaryExpr) String() string   { return fmt.Sprintf(e.Op.Format(), e.Expr) }
+func (e *BinaryExpr) String() string  { return fmt.Sprintf(e.Op.Format(), e.Left, e.Right) }
+func (e *TernaryExpr) String() string { return fmt.Sprintf(`(%s?%s:%s)`, e.Cond, e.Left, e.Right) }
+func (e *TupleExpr) String() string   { return fmt.Sprintf(`(%s)`, csvString(e.Values)) }
 
-func (e *Ident) Pos() token.Pos      { return e.NamePos }
-func (e *BasicLit) Pos() token.Pos   { return e.ValuePos }
-func (e *CallExpr) Pos() token.Pos   { return e.LeftParen }
-func (e *UnaryExpr) Pos() token.Pos  { return e.OpPos }
-func (e *BinaryExpr) Pos() token.Pos { return e.OpPos }
+func (e *Ident) Pos() token.Pos       { return e.NamePos }
+func (e *BasicLit) Pos() token.Pos    { return e.ValuePos }
+func (e *CallExpr) Pos() token.Pos    { return e.LeftParen }
+func (e *UnaryExpr) Pos() token.Pos   { return e.OpPos }
+func (e *BinaryExpr) Pos() token.Pos  { return e.OpPos }
+func (e *TernaryExpr) Pos() token.Pos { return e.OpPos }
+func (e *TupleExpr) Pos() token.Pos   { return e.OpenPos }
 
-func (e *Ident) ResultType() Type      { return e.Type }
-func (e *BasicLit) ResultType() Type   { return e.Type }
-func (e *CallExpr) ResultType() Type   { return e.Result }
-func (e *UnaryExpr) ResultType() Type  { return e.Result }
-func (e *BinaryExpr) ResultType() Type { return e.Result }
+func (e *Ident) ResultType() Type       { return e.Type }
+func (e *BasicLit) ResultType() Type    { return e.Type }
+func (e *CallExpr) ResultType() Type    { return e.Result }
+func (e *UnaryExpr) ResultType() Type   { return e.Result }
+func (e *BinaryExpr) ResultType() Type  { return e.Result }
+func (e *TernaryExpr) ResultType() Type { return e.Result }
+func (e *TupleExpr) ResultType() Type   { return e.Type }
 
-func (*Ident) expr()      {}
-func (*BasicLit) expr()   {}
-func (*CallExpr) expr()   {}
-func (*UnaryExpr) expr()  {}
-func (*BinaryExpr) expr() {}
+func (*Ident) expr()       {}
+func (*BasicLit) expr()    {}
+func (*CallExpr) expr()    {}
+func (*UnaryExpr) expr()   {}
+func (*BinaryExpr) expr()  {}
+func (*TernaryExpr) expr() {}
+func (*TupleExpr) expr()   {}

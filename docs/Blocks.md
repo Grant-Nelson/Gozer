@@ -18,6 +18,8 @@ This is a form of a [CFG](https://en.wikipedia.org/wiki/Control-flow_graph).
   - [Statement Block](#statement-block)
     - [Statement Block Examples](#statement-block-examples)
     - [Block Control Methods](#block-control-methods)
+      - [Breaking Block Controls](#breaking-block-controls)
+      - [Non-breaking Block Controls](#non-breaking-block-controls)
 
 ## Scheduler
 
@@ -307,10 +309,16 @@ graph LR;
 
 ### Block Control Methods
 
-The block control methods typically created the value that is returned
+The block control methods typically create a value that is returned
 from a block about the next block that should be called.
 These values are created with methods from the scheduler package.
+These block control methods are known as breaking because they stop
+the current block from running via the return.
+
 Some block control methods only change the state of the running thread.
+These are non-breaking block controls.
+
+#### Breaking Block Controls
 
 - **goto**: Creates a block return value.
   It is called like `return goto(block index, [args])`.
@@ -326,13 +334,6 @@ Some block control methods only change the state of the running thread.
   along with any return values from the "call" block.
   The scheduler will call the next block with the "call" block information.
 
-- **defer**: Does not create a block return value.
-  It is called like `defer(block index, [args])`.
-  This adds the deferred block into the current functions state such that
-  as the function is exited, this will be called before the "follow" is called.
-  If the thread is panicking, the defer will be called but the "follow" will
-  be skipped.
-
 - **panic**: Creates a block return value.
   It is called like `return panic(panicked value)`.
   This causes the function to end and the defers are called. The panic
@@ -343,23 +344,13 @@ Some block control methods only change the state of the running thread.
   The application will exit, all threads are stopped, and the panic is printed
   to Stderr, the same as happens in Go.
 
-- **recover**: Does not create a block return value.
-  It is called like `value := recover()` and will return any panic from the
-  thread and clear out that panic.
-
-- **go**: Does not create a block return value.
-  It is called like `go(block index, [block args])`.
-  This will create a new thread that will start by calling the given block
-  index with the given arguments. The current thread will continue
-  running until the end of the block then maybe swapped out.
-
 - **send**: Creates a block return value.
   It is called like `return send(channel, value, follow index, [follow args])`.
   This will suspend the current block if needed to handle the send.
   Once the value is sent, the "follow" block is called.
 
 - **receive**: Creates a block return value.
-  It is called like `return receive(channel, follow index, [follow args])`.
+  It is called like `return receive(channel, needOk bool, follow index, [follow args])`.
   This will suspend the current block if needed to handle the receive.
   Once a value is received, the "follow" block is called and the received
   value is added into the follow arguments the same way a returned value
@@ -372,16 +363,6 @@ Some block control methods only change the state of the running thread.
   to receive the value is random, the same as Go.
   Otherwise, if no threads are waiting to receive, the value is added into
   the channel's queue.
-
-- **trySend**: Does not create a block return value.
-  It is called like `sent := trySend(channel, value)`.
-  This will try to send a value on a channel but will not suspend if the
-  channel is not ready.
-
-- **tryReceive**: Does not create a block return value.
-  It is called like `value, received := tryReceive(channel)`.
-  This will try to receive a value from a channel but will not suspend if
-  the channel is not ready.
 
 - **select**: Creates a block return value.
   It is called like `return select([send/receive block return values],`
@@ -404,6 +385,66 @@ Some block control methods only change the state of the running thread.
   A matrix (may be stored as a graph or not kept in memory) will be
   used to determine if several threads in a ring are deadlocked.
 
+- **sleep**: Creates a block return value.
+  It is called like `return sleep(duration, follow index, [follow args])`.
+  This will suspend the current thread for the given amount of time.
+
+- **suspend**: Creates a block return value.
+  It is called like `return suspend(follow index, [follow args])`.
+  This will suspend the current thread until another thread calls `resume`.
+
+- **exitThread**: Creates a block return value.
+  It is called like `return exitThread()`.
+  This will suspend and then kill the current thread.
+
+- **exitApp**: Creates a block return value.
+  It is called like `return exitApp()`.
+  This will shutdown all running threads and stop the application
+  even if the application was started with a "keep alive" option.
+
+- **mainSuspend**: Creates a block return value.
+  It is called like `return mainSuspend(follow index, [follow args])`.
+  It can only be called by the main method to suspend the main method
+  until all other threads have exited, then the "follow" will be called.
+  This is useful for kicking off a bunch of processing that must be done
+  asynchronously and the application will be kept alive until the other
+  threads have finished. Otherwise, when main exists, all other threads
+  will exit.
+
+  The application can also be started with a "keep alive" option that
+  will make the application not exit when the main method exits. It
+  will also make a panic reaching an empty thread will not kill all other
+  threads.
+
+#### Non-breaking Block Controls
+
+- **defer**: Does not create a block return value.
+  It is called like `defer(block index, [args])`.
+  This adds the deferred block into the current functions state such that
+  as the function is exited, this will be called before the "follow" is called.
+  If the thread is panicking, the defer will be called but the "follow" will
+  be skipped.
+
+- **recover**: Does not create a block return value.
+  It is called like `value := recover()` and will return any panic from the
+  thread and clear out that panic.
+
+- **go**: Does not create a block return value.
+  It is called like `go(block index, [block args])`.
+  This will create a new thread that will start by calling the given block
+  index with the given arguments. The current thread will continue
+  running until the end of the block then maybe swapped out.
+
+- **trySend**: Does not create a block return value.
+  It is called like `sent := trySend(channel, value)`.
+  This will try to send a value on a channel but will not suspend if the
+  channel is not ready.
+
+- **tryReceive**: Does not create a block return value.
+  It is called like `value, received := tryReceive(channel)`.
+  This will try to receive a value from a channel but will not suspend if
+  the channel is not ready.
+
 - **tryLock**: Does not create a block return value.
   It is called like `locked := tryLock(lock id)`.
   This will try to gain the lock with the lock id, otherwise it will
@@ -413,14 +454,6 @@ Some block control methods only change the state of the running thread.
   It is called like `unlocked := unlock(lock id)`.
   This will try to unlock the lock with the lock id. If the lock was not
   locked by this thread or wasn't locked at all, this will return false.
-
-- **sleep**: Creates a block return value.
-  It is called like `return sleep(duration, follow index, [follow args])`.
-  This will suspend the current thread for the given amount of time.
-
-- **suspend**: Creates a block return value.
-  It is called like `return suspend(follow index, [follow args])`.
-  This will suspend the current thread until another thread calls `resume`.
 
 - **resume**: Does not create a block return value.
   It is called like `resumed := resume(thread id)`.
@@ -444,15 +477,6 @@ Some block control methods only change the state of the running thread.
   If a "keep alive" option was used when starting an application,
   then killing the main thread is the same as killing any other thread.
 
-- **exitThread**: Creates a block return value.
-  It is called like `return exitThread()`.
-  This will suspend and then kill the current thread.
-
-- **exitApp**: Creates a block return value.
-  It is called like `return exitApp()`.
-  This will shutdown all running threads and stop the application
-  even if the application was started with a "keep alive" option.
-
 - **threadId**: Does not create a block return value.
   It is called like `num := threadId()`.
   This will return the current threads id.
@@ -465,17 +489,3 @@ Some block control methods only change the state of the running thread.
 - **status**: Does not create a block return value.
   It is called like `s := status(thread id)`.
   This will return the current status of the thread as an enumerator.
-
-- **mainSuspend**: Creates a block return value.
-  It is called like `return mainSuspend(follow index, [follow args])`.
-  It can only be called by the main method to suspend the main method
-  until all other threads have exited, then the "follow" will be called.
-  This is useful for kicking off a bunch of processing that must be done
-  asynchronously and the application will be kept alive until the other
-  threads have finished. Otherwise, when main exists, all other threads
-  will exit.
-
-  The application can also be started with a "keep alive" option that
-  will make the application not exit when the main method exits. It
-  will also make a panic reaching an empty thread will not kill all other
-  threads.

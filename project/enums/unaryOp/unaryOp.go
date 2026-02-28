@@ -13,10 +13,9 @@ const (
 	Addr   // &X
 	Deref  // *X
 	BitNot // ^X
-	Recv   // <-X
 )
 
-const max = Recv
+const max = BitNot
 
 var (
 	names   []string
@@ -34,7 +33,6 @@ func init() {
 		Addr:      `Address`,
 		Deref:     `Dereference`,
 		BitNot:    `BitwiseNot`,
-		Recv:      `Receive`,
 	}
 	formatMap := map[UnaryOp]string{
 		undefined: `Undefined(%s)`,
@@ -46,7 +44,6 @@ func init() {
 		Addr:      `(&%s)`,
 		Deref:     `(*%s)`,
 		BitNot:    `(^%s)`,
-		Recv:      `(<-%s)`,
 	}
 	names = make([]string, max+1)
 	formats = make([]string, max+1)

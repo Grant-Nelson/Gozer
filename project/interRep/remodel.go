@@ -91,6 +91,7 @@ func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
 		Ast: astFunc,
 	}
 	rm.pkg.Irc.Funcs = append(rm.pkg.Irc.Funcs, fn)
+
 	return nil
 }
 

@@ -43,7 +43,6 @@ const (
 	LsEq  // X <= Y
 	GtEq  // X >= Y
 
-	Send     // X <- Y
 	Selector // X.Y
 	Indexer  // X[Y]
 )
@@ -97,7 +96,6 @@ func init() {
 		LsEq:  `LessThanOrEqual`,
 		GtEq:  `GreaterThanOrEqual`,
 
-		Send:     `Send`,
 		Selector: `Selector`,
 		Indexer:  `Indexer`,
 	}
@@ -142,7 +140,6 @@ func init() {
 		LsEq:  `(%s <= %s)`,
 		GtEq:  `(%s >= %s)`,
 
-		Send:     `(%s <- %s)`,
 		Selector: `(%s.%s)`,
 		Indexer:  `(%s[%s])`,
 	}
