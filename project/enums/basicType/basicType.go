@@ -1,11 +1,14 @@
 package basicType
 
+import "go/types"
+
 // BasicType is a basic type, not a composite type.
 //
 // Aliased types, i.e. `rune` and `byte`, are not defined.
 // Simply use the type they alias to.
 // Untyped constants are treated like the largest sized equivalent
 // and casts should be added as needed.
+// Uintptr, unsafe pointers, and untyped nil are just a pointer.
 //
 // https://go.dev/ref/spec#Types
 type BasicType int
@@ -33,12 +36,15 @@ const (
 
 	Bool    // a boolean value, i.e. true or false
 	String  // a string value, UTF-8, with underlying `[]byte`
-	Uintptr // an unsigned integer large enough to store a pointer value
+	Pointer // an unsigned integer large enough to store a pointer value
 )
 
-const max = Uintptr
+const max = Pointer
 
-var names []string
+var (
+	names []string
+	kinds map[types.BasicKind]BasicType
+)
 
 func init() {
 	nameMap := map[BasicType]string{
@@ -64,7 +70,37 @@ func init() {
 
 		Bool:    `bool`,
 		String:  `string`,
-		Uintptr: `uintptr`,
+		Pointer: `pointer`,
+	}
+	kinds = map[types.BasicKind]BasicType{
+		types.Invalid: undefined,
+
+		types.Bool:          Bool,
+		types.Int:           Int,
+		types.Int8:          Int8,
+		types.Int16:         Int16,
+		types.Int32:         Int32,
+		types.Int64:         Int64,
+		types.Uint:          Uint,
+		types.Uint8:         Uint8,
+		types.Uint16:        Uint16,
+		types.Uint32:        Uint32,
+		types.Uint64:        Uint64,
+		types.Uintptr:       Pointer,
+		types.Float32:       Float32,
+		types.Float64:       Float64,
+		types.Complex64:     Complex64,
+		types.Complex128:    Complex128,
+		types.String:        String,
+		types.UnsafePointer: Pointer,
+
+		types.UntypedBool:    Bool,
+		types.UntypedInt:     Uint64,
+		types.UntypedRune:    Uint32,
+		types.UntypedFloat:   Float64,
+		types.UntypedComplex: Complex128,
+		types.UntypedString:  String,
+		types.UntypedNil:     Pointer,
 	}
 	names = make([]string, max+1)
 	for i := undefined; i <= max; i++ {
@@ -82,4 +118,11 @@ func (bt BasicType) String() string {
 		return names[bt]
 	}
 	return `UnknownBasicType`
+}
+
+func FromKind(bk types.BasicKind) BasicType {
+	if b, ok := kinds[bk]; ok {
+		return b
+	}
+	return undefined
 }

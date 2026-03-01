@@ -18,8 +18,8 @@ This is a form of a [CFG](https://en.wikipedia.org/wiki/Control-flow_graph).
   - [Statement Block](#statement-block)
     - [Statement Block Examples](#statement-block-examples)
     - [Block Control Methods](#block-control-methods)
-      - [Breaking Block Controls](#breaking-block-controls)
-      - [Non-breaking Block Controls](#non-breaking-block-controls)
+      - [Flow Controls](#flow-controls)
+      - [Non-breaking Flow Controls](#non-breaking-flow-controls)
 
 ## Scheduler
 
@@ -309,16 +309,16 @@ graph LR;
 
 ### Block Control Methods
 
-The block control methods typically create a value that is returned
+The block flow control methods typically create a value that is returned
 from a block about the next block that should be called.
 These values are created with methods from the scheduler package.
 These block control methods are known as breaking because they stop
 the current block from running via the return.
 
 Some block control methods only change the state of the running thread.
-These are non-breaking block controls.
+These are non-breaking flow controls.
 
-#### Breaking Block Controls
+#### Flow Controls
 
 - **goto**: Creates a block return value.
   It is called like `return goto(block index, [args])`.
@@ -333,6 +333,11 @@ These are non-breaking block controls.
   The "follow args" are the arguments that are passed into the "follow" block
   along with any return values from the "call" block.
   The scheduler will call the next block with the "call" block information.
+
+- **ret**: Creates a block return value.
+  It is called like `return ret([returned values])`.
+  This causes the function to end and the defers are called.
+  This returns to the follow of the call with the given return values.
 
 - **panic**: Creates a block return value.
   It is called like `return panic(panicked value)`.
@@ -416,7 +421,7 @@ These are non-breaking block controls.
   will also make a panic reaching an empty thread will not kill all other
   threads.
 
-#### Non-breaking Block Controls
+#### Non-breaking Flow Controls
 
 - **defer**: Does not create a block return value.
   It is called like `defer(block index, [args])`.

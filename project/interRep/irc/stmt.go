@@ -21,12 +21,12 @@ type (
 		stmt()
 	}
 
-	BreakingBlockControl interface {
+	FlowControl interface {
 		Stmt
 
-		// breakingBlockControl is an empty method used to compile time type
-		// check that only breaking block controls duck-type to this interface.
-		breakingBlockControl()
+		// flowControl is an empty method used to compile time type
+		// check that only flow controls duck-type to this interface.
+		flowControl()
 	}
 
 	// ExprStmt is a statement for an expression.
@@ -34,27 +34,33 @@ type (
 		Expr Expr
 	}
 
-	// GotoStmt is a breaking block control that jumps to another block.
+	// GotoStmt is a flow control that jumps to another block.
 	GotoStmt struct {
 		KeyPos token.Pos // the position of the keyword, e.g. `goto`, `return`
 		Goto   *BlockRef // block to goto
 	}
 
-	// CallStmt is a breaking block control that call a function.
+	// CallStmt is a flow control that calls a function.
 	CallStmt struct {
-		KeyPos   token.Pos // the position of the keyword, e.g. `goto`, `return`
+		KeyPos   token.Pos // the position of the keyword, e.g. `goto`
 		Call     Expr      // the expression for the function to call, e.g. `fmt.Println`
 		CallArgs []Expr    // the arguments to pass onto the call
 		Follow   *BlockRef // block to goto when this call returns
 	}
 
-	// PanicStmt is a breaking block control that emits a panic.
+	// RetStmt is a flow control that returns from a function.
+	RetStmt struct {
+		KeyPos token.Pos // the position of the keyword, e.g. `return`
+		Result Expr      // the resulting value(s) being returned.
+	}
+
+	// PanicStmt is a flow control that emits a panic.
 	PanicStmt struct {
 		PanicPos token.Pos // the position of the keyword, e.g. `panic`
 		Value    Expr      // the value to panic
 	}
 
-	// SendStmt is a breaking block control that sends a value to a channel.
+	// SendStmt is a flow control that sends a value to a channel.
 	SendStmt struct {
 		ArrowPos token.Pos // the position of the channel arrow
 		Channel  Expr      // the channel to send a value to
@@ -62,7 +68,7 @@ type (
 		Follow   *BlockRef // block to goto when this call returns
 	}
 
-	// ReceiveStmt is a breaking block control that receives a value from a channel.
+	// ReceiveStmt is a flow control that receives a value from a channel.
 	ReceiveStmt struct {
 		ArrowPos token.Pos // the position of the channel arrow
 		Channel  Expr      // the channel to receive a value from
@@ -94,24 +100,26 @@ var (
 	_ Stmt = (*ExprStmt)(nil)
 	_ Stmt = (*GotoStmt)(nil)
 	_ Stmt = (*CallStmt)(nil)
+	_ Stmt = (*RetStmt)(nil)
 	_ Stmt = (*PanicStmt)(nil)
 	_ Stmt = (*SendStmt)(nil)
 	_ Stmt = (*ReceiveStmt)(nil)
 	_ Stmt = (*IfStmt)(nil)
 )
 
-func (s *ExprStmt) String() string { return fmt.Sprintf(`%s`, s.Expr) }
-func (s *GotoStmt) String() string { return fmt.Sprintf(`goto(%s)`, s.Goto) }
+func (s *ExprStmt) String() string { return fmt.Sprintf(`%v`, s.Expr) }
+func (s *GotoStmt) String() string { return fmt.Sprintf(`goto(%v)`, s.Goto) }
 func (s *CallStmt) String() string {
 	return fmt.Sprintf(`%s(%s)->%s`, s.Call, csvString(s.CallArgs), s.Follow)
 }
-func (s *PanicStmt) String() string { return fmt.Sprintf(`panic(%s)`, s.Value) }
-func (s *SendStmt) String() string  { return fmt.Sprintf(`(%s<-%s)->%s`, s.Channel, s.Value, s.Follow) }
+func (s *RetStmt) String() string   { return fmt.Sprintf(`ret(%v)`, s.Result) }
+func (s *PanicStmt) String() string { return fmt.Sprintf(`panic(%v)`, s.Value) }
+func (s *SendStmt) String() string  { return fmt.Sprintf(`(%v<-%v)->%v`, s.Channel, s.Value, s.Follow) }
 func (s *ReceiveStmt) String() string {
-	return fmt.Sprintf(`(%t<-%s)->%s`, s.NeedOk, s.Channel, s.Follow)
+	return fmt.Sprintf(`(%t<-%v)->%v`, s.NeedOk, s.Channel, s.Follow)
 }
 func (s *IfStmt) String() string {
-	str := fmt.Sprintf("if %s {\n%s\n}", s.Cond, linesString(s.Then, `  `))
+	str := fmt.Sprintf("if %v {\n%s\n}", s.Cond, linesString(s.Then, `  `))
 	if len(s.Else) > 0 {
 		str += fmt.Sprintf(" else {\n%s\n}", linesString(s.Else, `  `))
 	}
@@ -121,6 +129,7 @@ func (s *IfStmt) String() string {
 func (s *ExprStmt) Pos() token.Pos    { return s.Expr.Pos() }
 func (s *GotoStmt) Pos() token.Pos    { return s.KeyPos }
 func (s *CallStmt) Pos() token.Pos    { return s.KeyPos }
+func (s *RetStmt) Pos() token.Pos     { return s.KeyPos }
 func (s *PanicStmt) Pos() token.Pos   { return s.PanicPos }
 func (s *SendStmt) Pos() token.Pos    { return s.ArrowPos }
 func (s *ReceiveStmt) Pos() token.Pos { return s.ArrowPos }
@@ -129,13 +138,24 @@ func (s *IfStmt) Pos() token.Pos      { return s.IfPos }
 func (*ExprStmt) stmt()    {}
 func (*GotoStmt) stmt()    {}
 func (*CallStmt) stmt()    {}
+func (*RetStmt) stmt()     {}
 func (*PanicStmt) stmt()   {}
 func (*SendStmt) stmt()    {}
 func (*ReceiveStmt) stmt() {}
 func (*IfStmt) stmt()      {}
 
-func (*GotoStmt) breakingBlockControl()    {}
-func (*CallStmt) breakingBlockControl()    {}
-func (*PanicStmt) breakingBlockControl()   {}
-func (*SendStmt) breakingBlockControl()    {}
-func (*ReceiveStmt) breakingBlockControl() {}
+func (*GotoStmt) flowControl()    {}
+func (*CallStmt) flowControl()    {}
+func (*RetStmt) flowControl()     {}
+func (*PanicStmt) flowControl()   {}
+func (*SendStmt) flowControl()    {}
+func (*ReceiveStmt) flowControl() {}
+
+func NewGotoBlock(block *Block) *GotoStmt {
+	return &GotoStmt{Goto: &BlockRef{Block: block}}
+}
+
+func IsFlowControl(stmt Stmt) bool {
+	_, ok := stmt.(FlowControl)
+	return ok
+}

@@ -1,5 +1,7 @@
 package unaryOp
 
+import "go/token"
+
 type UnaryOp int
 
 const (
@@ -20,6 +22,7 @@ const max = BitNot
 var (
 	names   []string
 	formats []string
+	tokens  map[token.Token]UnaryOp
 )
 
 func init() {
@@ -35,21 +38,34 @@ func init() {
 		BitNot:    `BitwiseNot`,
 	}
 	formatMap := map[UnaryOp]string{
-		undefined: `Undefined(%s)`,
-		Neg:       `(-%s)`,
-		Not:       `(!%s)`,
-		Inc:       `(%s++)`,
-		Dec:       `(%s--)`,
-		Expand:    `(%s...)`,
-		Addr:      `(&%s)`,
-		Deref:     `(*%s)`,
-		BitNot:    `(^%s)`,
+		undefined: `Undefined(%v)`,
+		Neg:       `(-%v)`,
+		Not:       `(!%v)`,
+		Inc:       `(%v++)`,
+		Dec:       `(%v--)`,
+		Expand:    `(%v...)`,
+		Addr:      `(&%v)`,
+		Deref:     `(*%v)`,
+		BitNot:    `(^%v)`,
+	}
+	tokenMap := map[UnaryOp]token.Token{
+		undefined: token.ILLEGAL,
+		Neg:       token.SUB,
+		Not:       token.NOT,
+		Inc:       token.INC,
+		Dec:       token.DEC,
+		Expand:    token.ELLIPSIS,
+		Addr:      token.AND,
+		Deref:     token.MUL,
+		BitNot:    token.XOR,
 	}
 	names = make([]string, max+1)
 	formats = make([]string, max+1)
+	tokens = make(map[token.Token]UnaryOp, max+1)
 	for i := undefined; i <= max; i++ {
 		names[i] = nameMap[i]
 		formats[i] = formatMap[i]
+		tokens[tokenMap[i]] = i
 	}
 }
 
@@ -69,5 +85,5 @@ func (op UnaryOp) Format() string {
 	if op >= undefined && op <= max {
 		return formats[op]
 	}
-	return `Unknown(%s)`
+	return `Unknown(%v)`
 }

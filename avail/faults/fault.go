@@ -2,6 +2,7 @@ package faults
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
@@ -85,8 +86,9 @@ func (f *Fault) SetCurrentLoc() bool {
 	f.lineNo = 0
 	for i := range 10 {
 		if _, file, line, ok := runtime.Caller(i); ok {
-			if strings.HasSuffix(file, `/avail/faults/fault.go`) ||
-				strings.HasSuffix(file, `/avail/faults/errGroup.go`) {
+			dir := filepath.ToSlash(filepath.Dir(file))
+			if strings.HasSuffix(dir, `/avail/faults`) ||
+				strings.HasSuffix(dir, `/runtime`) {
 				continue
 			}
 
@@ -151,7 +153,7 @@ func (f *Fault) Error() string {
 	}
 	msg := f.msg
 	if len(f.file) > 0 {
-		msg = fmt.Sprintf(`%s@%s`, msg, f.file)
+		msg = fmt.Sprintf(`%s @ %s`, msg, f.file)
 		if f.lineNo >= 0 {
 			msg = fmt.Sprintf(`%s:%d`, msg, f.lineNo)
 		}

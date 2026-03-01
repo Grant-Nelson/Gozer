@@ -76,9 +76,8 @@ type (
 	}
 
 	TupleExpr struct {
-		OpenPos token.Pos  // the location of the `(` for the group
-		Type    *TupleType // the result type of this tuple
-		Values  []Expr     // the values in the tuple
+		OpenPos token.Pos // the location of the `(` for the group
+		Values  []Expr    // the values in the tuple
 	}
 )
 
@@ -92,20 +91,17 @@ var (
 	_ Expr = (*TupleExpr)(nil)
 )
 
-// IsExported reports whether id starts with an upper-case letter.
-func (id *Ident) IsExported() bool { return token.IsExported(id.Name) }
-
 func (id *Ident) String() string {
 	if id != nil {
 		return id.Name
 	}
 	return `<nil>`
 }
-func (e *BasicLit) String() string    { return fmt.Sprintf(`%s(%s)`, e.Type, e.Value) }
-func (e *CallExpr) String() string    { return fmt.Sprintf(`%s(%s)`, e.Func, csvString(e.Args)) }
+func (e *BasicLit) String() string    { return fmt.Sprintf(`%v(%v)`, e.Type, e.Value) }
+func (e *CallExpr) String() string    { return fmt.Sprintf(`%v(%s)`, e.Func, csvString(e.Args)) }
 func (e *UnaryExpr) String() string   { return fmt.Sprintf(e.Op.Format(), e.Expr) }
 func (e *BinaryExpr) String() string  { return fmt.Sprintf(e.Op.Format(), e.Left, e.Right) }
-func (e *TernaryExpr) String() string { return fmt.Sprintf(`(%s?%s:%s)`, e.Cond, e.Left, e.Right) }
+func (e *TernaryExpr) String() string { return fmt.Sprintf(`(%v?%v:%v)`, e.Cond, e.Left, e.Right) }
 func (e *TupleExpr) String() string   { return fmt.Sprintf(`(%s)`, csvString(e.Values)) }
 
 func (e *Ident) Pos() token.Pos       { return e.NamePos }
@@ -122,7 +118,13 @@ func (e *CallExpr) ResultType() Type    { return e.Result }
 func (e *UnaryExpr) ResultType() Type   { return e.Result }
 func (e *BinaryExpr) ResultType() Type  { return e.Result }
 func (e *TernaryExpr) ResultType() Type { return e.Result }
-func (e *TupleExpr) ResultType() Type   { return e.Type }
+func (e *TupleExpr) ResultType() Type {
+	elems := make([]Type, len(e.Values))
+	for i, expr := range e.Values {
+		elems[i] = expr.ResultType()
+	}
+	return &TupleType{Elems: elems}
+}
 
 func (*Ident) expr()       {}
 func (*BasicLit) expr()    {}
@@ -131,3 +133,6 @@ func (*UnaryExpr) expr()   {}
 func (*BinaryExpr) expr()  {}
 func (*TernaryExpr) expr() {}
 func (*TupleExpr) expr()   {}
+
+// IsExported reports whether id starts with an upper-case letter.
+func (id *Ident) IsExported() bool { return token.IsExported(id.Name) }

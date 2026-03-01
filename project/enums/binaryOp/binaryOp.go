@@ -1,5 +1,7 @@
 package binaryOp
 
+import "go/token"
+
 type BinaryOp int
 
 const (
@@ -11,8 +13,8 @@ const (
 	Div // X / Y
 	Rem // X % Y
 
-	BitOr      // X | Y
 	BitAnd     // X & Y
+	BitOr      // X | Y
 	BitXor     // X ^ Y
 	BitAndNot  // X &^ Y
 	ShiftLeft  // X << Y
@@ -52,6 +54,7 @@ const max = Indexer
 var (
 	names   []string
 	formats []string
+	tokens  map[token.Token]BinaryOp
 )
 
 func init() {
@@ -64,8 +67,8 @@ func init() {
 		Div: `Divide`,
 		Rem: `Remainder`,
 
-		BitOr:      `BitwiseOr`,
 		BitAnd:     `BitwiseAnd`,
+		BitOr:      `BitwiseOr`,
 		BitXor:     `BitwiseXor`,
 		BitAndNot:  `BitwiseAndNot`,
 		ShiftLeft:  `ShiftLeft`,
@@ -100,55 +103,100 @@ func init() {
 		Indexer:  `Indexer`,
 	}
 	formatMap := map[BinaryOp]string{
-		undefined: `Undefined(%s, %s)`,
+		undefined: `Undefined(%v, %v)`,
 
-		Add: `(%s + %s)`,
-		Sub: `(%s - %s)`,
-		Mul: `(%s * %s)`,
-		Div: `(%s / %s)`,
-		Rem: `(%s %% %s)`,
+		Add: `(%v + %v)`,
+		Sub: `(%v - %v)`,
+		Mul: `(%v * %v)`,
+		Div: `(%v / %v)`,
+		Rem: `(%v %% %v)`,
 
-		BitOr:      `(%s | %s)`,
-		BitAnd:     `(%s & %s)`,
-		BitXor:     `(%s ^ %s)`,
-		BitAndNot:  `(%s &^ %s)`,
-		ShiftLeft:  `(%s << %s)`,
-		ShiftRight: `(%s >> %s)`,
-		LogicalAnd: `(%s && %s)`,
-		LogicalOr:  `(%s || %s)`,
+		BitAnd:     `(%v & %v)`,
+		BitOr:      `(%v | %v)`,
+		BitXor:     `(%v ^ %v)`,
+		BitAndNot:  `(%v &^ %v)`,
+		ShiftLeft:  `(%v << %v)`,
+		ShiftRight: `(%v >> %v)`,
+		LogicalAnd: `(%v && %v)`,
+		LogicalOr:  `(%v || %v)`,
 
-		Define:           `(%s := %s)`,
-		Assign:           `(%s = %s)`,
-		AddAssign:        `(%s += %s)`,
-		SubAssign:        `(%s -= %s)`,
-		MulAssign:        `(%s *= %s)`,
-		DivAssign:        `(%s /= %s)`,
-		RemAssign:        `(%s %= %s)`,
-		BitAndAssign:     `(%s &= %s)`,
-		BitOrAssign:      `(%s |= %s)`,
-		BitXorAssign:     `(%s ^= %s)`,
-		LogicalAndAssign: `(%s &&= %s)`,
-		LogicalOrAssign:  `(%s ||= %s)`,
-		ShiftLeftAssign:  `(%s <<= %s)`,
-		ShiftRightAssign: `(%s >>= %s)`,
-		AndNotAssign:     `(%s &^= %s)`,
+		Define:           `(%v := %v)`,
+		Assign:           `(%v = %v)`,
+		AddAssign:        `(%v += %v)`,
+		SubAssign:        `(%v -= %v)`,
+		MulAssign:        `(%v *= %v)`,
+		DivAssign:        `(%v /= %v)`,
+		RemAssign:        `(%v %= %v)`,
+		BitAndAssign:     `(%v &= %v)`,
+		BitOrAssign:      `(%v |= %v)`,
+		BitXorAssign:     `(%v ^= %v)`,
+		LogicalAndAssign: `(%v &&= %v)`,
+		LogicalOrAssign:  `(%v ||= %v)`,
+		ShiftLeftAssign:  `(%v <<= %v)`,
+		ShiftRightAssign: `(%v >>= %v)`,
+		AndNotAssign:     `(%v &^= %v)`,
 
-		Eq:    `(%s == %s)`,
-		Ls:    `(%s < %s)`,
-		Gt:    `(%s > %s)`,
-		NotEq: `(%s != %s)`,
-		LsEq:  `(%s <= %s)`,
-		GtEq:  `(%s >= %s)`,
+		Eq:    `(%v == %v)`,
+		Ls:    `(%v < %v)`,
+		Gt:    `(%v > %v)`,
+		NotEq: `(%v != %v)`,
+		LsEq:  `(%v <= %v)`,
+		GtEq:  `(%v >= %v)`,
 
-		Selector: `(%s.%s)`,
-		Indexer:  `(%s[%s])`,
+		Selector: `(%v.%v)`,
+		Indexer:  `(%v[%v])`,
 	}
+	tokenMap := map[BinaryOp]token.Token{
+		undefined: token.ILLEGAL,
 
+		Add: token.ADD,
+		Sub: token.SUB,
+		Mul: token.MUL,
+		Div: token.QUO,
+		Rem: token.REM,
+
+		BitAnd:     token.ADD,
+		BitOr:      token.OR,
+		BitXor:     token.XOR,
+		BitAndNot:  token.AND_NOT,
+		ShiftLeft:  token.SHL,
+		ShiftRight: token.SHR,
+		LogicalAnd: token.LAND,
+		LogicalOr:  token.LOR,
+
+		Define:       token.DEFINE,
+		Assign:       token.ASSIGN,
+		AddAssign:    token.ADD_ASSIGN,
+		SubAssign:    token.SUB_ASSIGN,
+		MulAssign:    token.MUL_ASSIGN,
+		DivAssign:    token.QUO_ASSIGN,
+		RemAssign:    token.REM_ASSIGN,
+		BitAndAssign: token.AND_ASSIGN,
+		BitOrAssign:  token.OR_ASSIGN,
+		BitXorAssign: token.XOR_ASSIGN,
+		// LogicalAndAssign: No go equivalent token,
+		// LogicalOrAssign:  No go equivalent token,
+		ShiftLeftAssign:  token.SHL_ASSIGN,
+		ShiftRightAssign: token.SHR_ASSIGN,
+		AndNotAssign:     token.AND_NOT_ASSIGN,
+
+		Eq:    token.EQL,
+		Ls:    token.LSS,
+		Gt:    token.GTR,
+		NotEq: token.NEQ,
+		LsEq:  token.LEQ,
+		GtEq:  token.GEQ,
+
+		// Selector: No go equivalent token,
+		// Indexer:  No go equivalent token,
+	}
 	names = make([]string, max+1)
 	formats = make([]string, max+1)
+	tokens = make(map[token.Token]BinaryOp, max+1)
 	for i := undefined; i <= max; i++ {
 		names[i] = nameMap[i]
 		formats[i] = formatMap[i]
+		tokens[tokenMap[i]] = i
 	}
 }
 
@@ -168,5 +216,12 @@ func (op BinaryOp) Format() string {
 	if op >= undefined && op < max {
 		return formats[op]
 	}
-	return `Unknown(%s, %s)`
+	return `Unknown(%v, %v)`
+}
+
+func FromToken(t token.Token) BinaryOp {
+	if b, ok := tokens[t]; ok {
+		return b
+	}
+	return undefined
 }

@@ -18,6 +18,9 @@ type (
 		// Ast is the original AST for this function.
 		Ast *ast.FuncDecl
 
+		// Name of the function.
+		Name string
+
 		// Blocks is the collection of statement blocks for this function.
 		// The first block in this slice is the entry point for this function.
 		Blocks []*Block
@@ -33,7 +36,7 @@ type (
 		Index int
 
 		// Body is the list of statements for this block.
-		Body []*Stmt
+		Body []Stmt
 
 		// Prior blocks are blocks that can transition to this block.
 		Prior []*Block
@@ -55,17 +58,31 @@ type (
 
 // NewBlock creates a new empty block and adds it to this function.
 func (fn *Func) NewBlock() *Block {
-	b := &Block{}
+	b := &Block{Index: len(fn.Blocks)}
 	fn.Blocks = append(fn.Blocks, b)
 	return b
 }
 
-func (b *Block) String() string {
-	// TODO: Finish
-	return `BLOCK`
+func (fn *Func) String() string {
+	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks, `  `))
 }
 
-func (r *BlockRef) String() string { return fmt.Sprintf(`%s, [%s]`, r.Block, csvString(r.Args)) }
+func (b *Block) String() string {
+	return fmt.Sprintf("block %d {\n%s\n}", b.Index, linesString(b.Body, `  `))
+}
+
+// LastStmt gets the last statement in the block or nil if empty.
+func (b *Block) LastStmt() Stmt {
+	max := len(b.Body) - 1
+	if max >= 0 {
+		return b.Body[max]
+	}
+	return nil
+}
+
+func (r *BlockRef) String() string {
+	return fmt.Sprintf(`block %d, [%s]`, r.Block.Index, csvString(r.Args))
+}
 
 func csvString[E any, S []E](s S) string {
 	elems := make([]string, len(s))

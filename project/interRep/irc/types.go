@@ -69,10 +69,10 @@ var (
 )
 
 func (t *BasicType) String() string   { return t.Kind.String() }
-func (t *SliceType) String() string   { return fmt.Sprintf(`[]%s`, t.Elem) }
-func (t *ArrayType) String() string   { return fmt.Sprintf(`[%d]%s`, t.Size, t.Elem) }
-func (t *PointerType) String() string { return fmt.Sprintf(`*%s`, t.Elem) }
-func (t *MapType) String() string     { return fmt.Sprintf(`map[%s]%s`, t.Key, t.Value) }
+func (t *SliceType) String() string   { return fmt.Sprintf(`[]%v`, t.Elem) }
+func (t *ArrayType) String() string   { return fmt.Sprintf(`[%d]%v`, t.Size, t.Elem) }
+func (t *PointerType) String() string { return fmt.Sprintf(`*%v`, t.Elem) }
+func (t *MapType) String() string     { return fmt.Sprintf(`map[%v]%v`, t.Key, t.Value) }
 func (t *TupleType) String() string   { return fmt.Sprintf(`(%s)`, csvString(t.Elems)) }
 func (t *PackageType) String() string { return fmt.Sprintf(`pkg(%s)`, t.Path) }
 

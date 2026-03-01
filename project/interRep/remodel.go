@@ -1,6 +1,7 @@
 package interRep
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 
@@ -88,7 +89,8 @@ func (rm *modeler) addFile(f *ast.File) error {
 
 func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
 	fn := &irc.Func{
-		Ast: astFunc,
+		Ast:  astFunc,
+		Name: astFunc.Name.Name,
 	}
 	rm.pkg.Irc.Funcs = append(rm.pkg.Irc.Funcs, fn)
 	cv := &converter{
@@ -109,6 +111,7 @@ func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
 
 	// TODO: Finish
 	_ = last
+	fmt.Println(fn.String())
 
 	return nil
 }
