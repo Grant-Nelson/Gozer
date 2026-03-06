@@ -155,7 +155,7 @@ func init() {
 		Div: token.QUO,
 		Rem: token.REM,
 
-		BitAnd:     token.ADD,
+		BitAnd:     token.AND,
 		BitOr:      token.OR,
 		BitXor:     token.XOR,
 		BitAndNot:  token.AND_NOT,

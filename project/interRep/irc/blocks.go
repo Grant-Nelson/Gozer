@@ -3,7 +3,7 @@ package irc
 import (
 	"fmt"
 	"go/ast"
-	"strings"
+	"go/token"
 )
 
 type (
@@ -24,6 +24,19 @@ type (
 		// Blocks is the collection of statement blocks for this function.
 		// The first block in this slice is the entry point for this function.
 		Blocks []*Block
+	}
+
+	// Node is the interface for all expr and statement types.
+	Node interface {
+
+		// Pos is the position of first character belonging to the node.
+		Pos() token.Pos
+
+		// End is the position of first character immediately after the node.
+		End() token.Pos
+
+		// String gets a simple representation for this node.
+		String() string
 	}
 
 	// Block represents a statement block defining a set of statements.
@@ -51,7 +64,7 @@ type (
 	// BlockRef is a reference for a block invocation.
 	// See [docs/Blocks.md] for more information.
 	BlockRef struct {
-		Block *Block // block being referenced for invocation
+		Block *Block // the block being referenced for invocation
 		Args  []Expr // the arguments to pass onto the block when invoked
 	}
 )
@@ -82,21 +95,4 @@ func (b *Block) LastStmt() Stmt {
 
 func (r *BlockRef) String() string {
 	return fmt.Sprintf(`block %d, [%s]`, r.Block.Index, csvString(r.Args))
-}
-
-func csvString[E any, S []E](s S) string {
-	elems := make([]string, len(s))
-	for i, elem := range s {
-		elems[i] = fmt.Sprintf(`%v`, elem)
-	}
-	return strings.Join(elems, `, `)
-}
-
-func linesString[E any, S []E](s S, indent string) string {
-	elems := make([]string, len(s))
-	for i, elem := range s {
-		eStr := fmt.Sprintf(`%s%v`, indent, elem)
-		elems[i] = strings.ReplaceAll(eStr, "\n", "\n"+indent)
-	}
-	return strings.Join(elems, "\n")
 }

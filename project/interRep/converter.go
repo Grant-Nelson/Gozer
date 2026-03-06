@@ -8,8 +8,8 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/enums/basicType"
 	"github.com/Grant-Nelson/Gozer/project/enums/binaryOp"
+	"github.com/Grant-Nelson/Gozer/project/enums/unaryOp"
 	"github.com/Grant-Nelson/Gozer/project/interRep/irc"
 )
 
@@ -27,7 +27,7 @@ func (cv *converter) pos(n interface{ Pos() token.Pos }) token.Position {
 	return cv.pkg.Ast.Fset.Position(n.Pos())
 }
 
-func (cv *converter) Info() *types.Info {
+func (cv *converter) info() *types.Info {
 	return cv.pkg.Ast.TypesInfo
 }
 
@@ -73,6 +73,20 @@ func (cv *converter) exprStmt(block *irc.Block, stmt *ast.ExprStmt) (*irc.Block,
 }
 
 func (cv *converter) ifStmt(block *irc.Block, stmt *ast.IfStmt) (*irc.Block, error) {
+	// Add if-statement initialization to current block since the scoping was already handled by Go.
+	var err error
+	if stmt.Init != nil {
+		if block, err = cv.statement(block, stmt.Init); err != nil {
+			return block, err
+		}
+	}
+
+	// TODO: Do simple conversion
+}
+
+/*
+TODO: Move to a post conversion step
+func (cv *converter) ifStmt(block *irc.Block, stmt *ast.IfStmt) (*irc.Block, error) {
 	var err error
 
 	// Add if-statement initialization to current block since the scoping was already handled by Go.
@@ -81,6 +95,11 @@ func (cv *converter) ifStmt(block *irc.Block, stmt *ast.IfStmt) (*irc.Block, err
 			return block, err
 		}
 	}
+
+	// TODO: If cond contains a blocking call it has to be pulled out of if-statement
+	// cond so it can be breaking and then pass the result into the cond. Make sure
+	// that, if the breaking occurs after a logical-And or logical-Or that the breaking
+	// is done for those logical breaks too.
 
 	cond, err := cv.expression(stmt.Cond)
 	if err != nil {
@@ -121,30 +140,20 @@ func (cv *converter) ifStmt(block *irc.Block, stmt *ast.IfStmt) (*irc.Block, err
 
 	return afterIf, nil
 }
+*/
 
 func (cv *converter) returnStmt(block *irc.Block, stmt *ast.ReturnStmt) (*irc.Block, error) {
-	results := make([]irc.Expr, 0, len(stmt.Results))
-	for _, e := range stmt.Results {
+	results := make([]irc.Expr, len(stmt.Results))
+	for i, e := range stmt.Results {
 		exp, err := cv.expression(e)
 		if err != nil {
 			return block, err
 		}
-		results = append(results, exp)
+		results[i] = exp
 	}
-
-	var result irc.Expr
-	if len(results) == 1 {
-		result = results[0]
-	} else if len(results) > 1 {
-		result = &irc.TupleExpr{
-			OpenPos: stmt.Return,
-			Values:  results,
-		}
-	}
-
 	ret := &irc.RetStmt{
-		KeyPos: stmt.Return,
-		Result: result,
+		KeyPos:  stmt.Return,
+		Results: results,
 	}
 	block.Body = append(block.Body, ret)
 	return block, nil
@@ -166,9 +175,8 @@ func (cv *converter) expression(expr ast.Expr) (irc.Expr, error) {
 		return cv.callExpr(expr)
 	case *ast.Ident:
 		return cv.ident(expr)
-
 	case *ast.UnaryExpr:
-
+		return cv.unaryExpr(expr)
 	default:
 		err := faults.New(`unexpected expression node type`).
 			With(`pos`, cv.pos(expr)).
@@ -186,7 +194,7 @@ func (cv *converter) basicLit(expr *ast.BasicLit) (irc.Expr, error) {
 	return &irc.BasicLit{
 		ValuePos: expr.ValuePos,
 		Value:    expr.Value,
-		Type:     typ.(*irc.BasicType),
+		Type:     typ.(*types.Basic),
 	}, nil
 }
 
@@ -257,36 +265,32 @@ func (cv *converter) ident(id *ast.Ident) (irc.Expr, error) {
 	}, nil
 }
 
-func (cv *converter) unaryExpr(expr *ast.CallExpr) (irc.Expr, error) {
+func (cv *converter) unaryExpr(expr *ast.UnaryExpr) (irc.Expr, error) {
+	e, err := cv.expression(expr.X)
+	if err != nil {
+		return nil, err
+	}
 
-	// TODO: Implement
+	typ, err := cv.typeForExpr(expr)
+	if err != nil {
+		return nil, err
+	}
 
+	return &irc.UnaryExpr{
+		OpPos:  expr.OpPos,
+		Op:     unaryOp.FromToken(expr.Op),
+		Expr:   e,
+		Result: typ,
+	}, nil
 }
 
-func (cv *converter) typeForExpr(expr ast.Expr) (irc.Type, error) {
-	tv, ok := cv.Info().Types[expr]
+func (cv *converter) typeForExpr(expr ast.Expr) (types.Type, error) {
+	tv, ok := cv.info().Types[expr]
 	if !ok {
 		err := faults.New(`unable to find type for expression`).
 			With(`pos`, cv.pos(expr)).
 			WithF(`type`, `%T`, expr)
 		return nil, cv.errGroup.Add(err)
 	}
-	return cv.convType(tv.Type)
-}
-
-func (cv *converter) convType(t types.Type) (irc.Type, error) {
-	switch t := t.(type) {
-	case *types.Basic:
-		return cv.basic(t)
-	default:
-		err := faults.New(`unexpected type node type`).
-			WithF(`type`, `%T`, t)
-		return nil, cv.errGroup.Add(err)
-	}
-}
-
-func (cv *converter) basic(b *types.Basic) (irc.Type, error) {
-	return &irc.BasicType{
-		Kind: basicType.FromKind(b.Kind()),
-	}, nil
+	return tv.Type, nil
 }

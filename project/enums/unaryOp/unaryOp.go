@@ -87,3 +87,10 @@ func (op UnaryOp) Format() string {
 	}
 	return `Unknown(%v)`
 }
+
+func FromToken(t token.Token) UnaryOp {
+	if b, ok := tokens[t]; ok {
+		return b
+	}
+	return undefined
+}
