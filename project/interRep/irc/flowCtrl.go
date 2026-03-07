@@ -30,8 +30,8 @@ type (
 
 	// RetFlowCtrl is a flow control that returns from a function.
 	RetFlowCtrl struct {
-		KeyPos  token.Pos // the position of the keyword, e.g. `return`
-		Results []Expr    // the resulting value(s) being returned.
+		KeyPos token.Pos // the position of the keyword, e.g. `return`
+		Follow *BlockRef // block to goto when this receive returns
 	}
 
 	// PanicFlowCtrl is a flow control that emits a panic.
@@ -74,6 +74,8 @@ var (
 	_ Stmt = (*ReceiveFlowCtrl)(nil)
 )
 
+//====[String]==================================================================
+
 func (s *GotoFlowCtrl) String() string { return fmt.Sprintf(`goto(%v)`, s.Goto) }
 func (s *CallFlowCtrl) String() string {
 	return fmt.Sprintf(`%s(%s)->%s`, s.Call, csvString(s.CallArgs), s.Follow)
@@ -87,12 +89,25 @@ func (s *ReceiveFlowCtrl) String() string {
 	return fmt.Sprintf(`(%t<-%v)->%v`, s.NeedOk, s.Channel, s.Follow)
 }
 
+//====[Pos]=====================================================================
+
 func (s *GotoFlowCtrl) Pos() token.Pos    { return s.KeyPos }
 func (s *CallFlowCtrl) Pos() token.Pos    { return s.KeyPos }
 func (s *RetFlowCtrl) Pos() token.Pos     { return s.KeyPos }
 func (s *PanicFlowCtrl) Pos() token.Pos   { return s.PanicPos }
 func (s *SendFlowCtrl) Pos() token.Pos    { return s.ArrowPos }
 func (s *ReceiveFlowCtrl) Pos() token.Pos { return s.ArrowPos }
+
+//====[End]=====================================================================
+
+func (s *GotoFlowCtrl) End() token.Pos    { return }
+func (s *CallFlowCtrl) End() token.Pos    { return }
+func (s *RetFlowCtrl) End() token.Pos     { return }
+func (s *PanicFlowCtrl) End() token.Pos   { return }
+func (s *SendFlowCtrl) End() token.Pos    { return }
+func (s *ReceiveFlowCtrl) End() token.Pos { return }
+
+//====[stmt]====================================================================
 
 func (*GotoFlowCtrl) stmt()    {}
 func (*CallFlowCtrl) stmt()    {}
@@ -101,12 +116,16 @@ func (*PanicFlowCtrl) stmt()   {}
 func (*SendFlowCtrl) stmt()    {}
 func (*ReceiveFlowCtrl) stmt() {}
 
+//====[flowCtrl]================================================================
+
 func (*GotoFlowCtrl) flowCtrl()    {}
 func (*CallFlowCtrl) flowCtrl()    {}
 func (*RetFlowCtrl) flowCtrl()     {}
 func (*PanicFlowCtrl) flowCtrl()   {}
 func (*SendFlowCtrl) flowCtrl()    {}
 func (*ReceiveFlowCtrl) flowCtrl() {}
+
+//==============================================================================
 
 func NewGotoBlock(block *Block) *GotoFlowCtrl {
 	return &GotoFlowCtrl{Goto: &BlockRef{Block: block}}

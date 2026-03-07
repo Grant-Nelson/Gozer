@@ -34,6 +34,7 @@ type (
 		LeftParen token.Pos  // position of the left parenthesis of this call
 		Args      []Expr     // function arguments in the call or empty
 		Result    types.Type // the result type from this call
+		Rparen    token.Pos  // position of the right parenthesis of this call
 	}
 
 	// UnaryExpr is a unary operation applied to an expression.
@@ -88,10 +89,10 @@ func (e *TernaryExpr) Pos() token.Pos { return e.OpPos }
 //====[End]=====================================================================
 
 func (e *BasicLit) End() token.Pos    { return e.ValueEnd }
-func (e *CallExpr) End() token.Pos    { return }
-func (e *UnaryExpr) End() token.Pos   { return }
-func (e *BinaryExpr) End() token.Pos  { return }
-func (e *TernaryExpr) End() token.Pos { return }
+func (e *CallExpr) End() token.Pos    { return e.Rparen + 1 }
+func (e *UnaryExpr) End() token.Pos   { return e.Expr.End() }
+func (e *BinaryExpr) End() token.Pos  { return e.Right.End() }
+func (e *TernaryExpr) End() token.Pos { return e.Right.End() }
 
 //====[ResultType]==============================================================
 
