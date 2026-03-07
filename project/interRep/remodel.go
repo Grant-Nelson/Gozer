@@ -1,7 +1,6 @@
 package interRep
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 
@@ -89,29 +88,22 @@ func (rm *modeler) addFile(f *ast.File) error {
 
 func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
 	fn := &irc.Func{
+		Pos:  astFunc.Pos(),
+		End:  astFunc.End(),
 		Ast:  astFunc,
 		Name: astFunc.Name.Name,
 	}
 	rm.pkg.Irc.Funcs = append(rm.pkg.Irc.Funcs, fn)
-	cv := &converter{
-		logger:   rm.logger,
-		errGroup: rm.errGroup,
-		pkg:      rm.pkg,
-		fn:       fn,
+
+	// Create initial block and populate it with current statements.
+	block := fn.NewBlock()
+	if astFunc.Body != nil {
+		for _, s := range astFunc.Body.List {
+			block.Body = append(block.Body, &irc.BaseStmt{Stmt: s})
+		}
 	}
 
-	// Create entry block for this function.
-	first := fn.NewBlock()
-	last, err := cv.blockStmt(first, astFunc.Body)
-	if err != nil {
-		return err
-	}
-
-	// If last doesn't have an breaking block control, add the implicit function return.
-
-	// TODO: Finish
-	_ = last
-	fmt.Println(fn.String())
+	println(`>>`, fn.String())
 
 	return nil
 }

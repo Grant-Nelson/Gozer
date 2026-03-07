@@ -3,42 +3,9 @@ package irc
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
 )
 
 type (
-	Package struct {
-		Funcs []*Func
-	}
-
-	// Func represents a function block defining a function as
-	// a collection of statement blocks.
-	// See [README.md]
-	Func struct {
-		// Ast is the original AST for this function.
-		Ast *ast.FuncDecl
-
-		// Name of the function.
-		Name string
-
-		// Blocks is the collection of statement blocks for this function.
-		// The first block in this slice is the entry point for this function.
-		Blocks []*Block
-	}
-
-	// Node is the interface for all expr and statement types.
-	Node interface {
-
-		// Pos is the position of first character belonging to the node.
-		Pos() token.Pos
-
-		// End is the position of first character immediately after the node.
-		End() token.Pos
-
-		// String gets a simple representation for this node.
-		String() string
-	}
-
 	// Block represents a statement block defining a set of statements.
 	// Typically a statement block should have no flow control (mainly loops)
 	// except for exiting the block or for inlined flow (like a small if-statement).
@@ -64,21 +31,10 @@ type (
 	// BlockRef is a reference for a block invocation.
 	// See [docs/Blocks.md] for more information.
 	BlockRef struct {
-		Block *Block // the block being referenced for invocation
-		Args  []Expr // the arguments to pass onto the block when invoked
+		Block *Block     // the block being referenced for invocation
+		Args  []ast.Expr // the arguments to pass onto the block when invoked
 	}
 )
-
-// NewBlock creates a new empty block and adds it to this function.
-func (fn *Func) NewBlock() *Block {
-	b := &Block{Index: len(fn.Blocks)}
-	fn.Blocks = append(fn.Blocks, b)
-	return b
-}
-
-func (fn *Func) String() string {
-	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks, `  `))
-}
 
 func (b *Block) String() string {
 	return fmt.Sprintf("block %d {\n%s\n}", b.Index, linesString(b.Body, `  `))
