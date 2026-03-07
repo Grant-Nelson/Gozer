@@ -3,7 +3,6 @@ package irc
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
 	"strings"
 )
 
@@ -17,9 +16,6 @@ type (
 	// a collection of statement blocks.
 	// See [README.md]
 	Func struct {
-		Pos token.Pos
-		End token.Pos
-
 		// Ast is the original AST for this function.
 		Ast *ast.FuncDecl
 

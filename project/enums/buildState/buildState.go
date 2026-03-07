@@ -22,6 +22,14 @@ const (
 	// for other packages to finish loading before moving to the next state.
 	Loaded
 
+	// Remodelling indicates that the package is being converted
+	// and analyzed such to create the intermediated representation.
+	Remodelling
+
+	// Remodelled indicates that the package has finished [Remodelling]
+	// and has the intermediate representation ready.
+	Remodelled
+
 	// Finished indicates the package has finished building.
 	Finished
 )
@@ -42,6 +50,10 @@ func (b BuildState) String() string {
 		return `Loading`
 	case Loaded:
 		return `Loaded`
+	case Remodelling:
+		return `Remodelling`
+	case Remodelled:
+		return `Remodelled`
 	case Finished:
 		return `Finished`
 	default:
