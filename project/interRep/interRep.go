@@ -115,20 +115,7 @@ func (rm *modeler) addFile(f *ast.File) error {
 }
 
 func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
-	fn := &irc.Func{
-		Ast:  astFunc,
-		Name: astFunc.Name.Name,
-	}
-	rm.pkg.Irc.Funcs = append(rm.pkg.Irc.Funcs, fn)
-
-	// Create initial block and populate it with current statements.
-	block := fn.NewBlock()
-	if astFunc.Body != nil {
-		for _, s := range astFunc.Body.List {
-			block.Body = append(block.Body, &irc.BaseStmt{Stmt: s})
-		}
-	}
-
+	fn := rm.pkg.Irc.NewFunc(astFunc)
 	if rm.group != nil {
 		if m, ok := rm.group.(remodel.RemodelFuncExt); ok {
 			if _, err := m.RemodelFunc(fn); err != nil {

@@ -29,7 +29,7 @@ func New(msg string, inner ...error) *Fault {
 		msg:   msg,
 		inner: inner,
 	}
-	f.SetCurrentLoc()
+	f.SetCurLoc()
 	return f
 }
 
@@ -78,7 +78,7 @@ func (f *Fault) SetLoc(file string, lineNo int) *Fault {
 	return f
 }
 
-func (f *Fault) SetCurrentLoc() bool {
+func (f *Fault) SetCurLoc() bool {
 	if f == nil {
 		return false
 	}
@@ -88,7 +88,8 @@ func (f *Fault) SetCurrentLoc() bool {
 		if _, file, line, ok := runtime.Caller(i); ok {
 			dir := filepath.ToSlash(filepath.Dir(file))
 			if strings.HasSuffix(dir, `/avail/faults`) ||
-				strings.HasSuffix(dir, `/runtime`) {
+				strings.HasSuffix(dir, `/runtime`) ||
+				strings.HasSuffix(dir, `/assert`) {
 				continue
 			}
 
