@@ -2,7 +2,7 @@ package remodel
 
 import (
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/interRep/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
 )
 
 type RemodelFactory interface {

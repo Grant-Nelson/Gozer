@@ -6,13 +6,14 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/interRep"
-	remodel "github.com/Grant-Nelson/Gozer/project/interRep/remods"
-	"github.com/Grant-Nelson/Gozer/project/interRep/remods/trimmer"
+	"github.com/Grant-Nelson/Gozer/project/analyzer"
 	"github.com/Grant-Nelson/Gozer/project/loader"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/pkgDropper"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/typeChecker"
+	"github.com/Grant-Nelson/Gozer/project/modeler"
+	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/project/modeler/remodel/trimmer"
 )
 
 type typeScriptTarget struct{}
@@ -53,13 +54,13 @@ func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
 		return nil
 	}
 
-	// Remodel any packages that need to be compiled into the intermediate form.
-	if cfg.Parallel {
-		err = ts.asyncFinishPackages(proj, cfg)
-	} else {
-		err = ts.syncFinishPackages(proj, cfg)
+	// Analysis of the project to gather more information before modelling.
+	if err := ts.analysis(proj, cfg); err != nil {
+		return err
 	}
-	if err != nil {
+
+	// Model any packages that need to be compiled into the intermediate form.
+	if err := ts.model(proj, cfg); err != nil {
 		return err
 	}
 
@@ -115,37 +116,59 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts typeScriptTarget) asyncFinishPackages(proj *project.Project, cfg *BuildConfig) error {
+func (ts typeScriptTarget) analysis(proj *project.Project, cfg *BuildConfig) error {
+	defer cfg.Logger.LogGroup("Analyzing %s", ts.Language())()
+
+	analyzeCfg := &analyzer.Config{
+		Logger:   cfg.Logger,
+		ErrGroup: cfg.ErrGroup,
+		Project:  proj,
+	}
+	if err := analyzer.Analyze(analyzeCfg); err != nil {
+		cfg.ErrGroup.Add(faults.New(`analyzing failed: %w`, err))
+	}
+	return cfg.ErrGroup.AnyOrNil()
+}
+
+func (ts typeScriptTarget) model(proj *project.Project, cfg *BuildConfig) error {
+	defer cfg.Logger.LogGroup("Modelling %s", ts.Language())()
+	if cfg.Parallel {
+		return ts.asyncModelPackages(proj, cfg)
+	}
+	return ts.syncModelPackages(proj, cfg)
+}
+
+func (ts typeScriptTarget) asyncModelPackages(proj *project.Project, cfg *BuildConfig) error {
 	// TODO: Use work group to run several of these in parallel.
 	for pkg := range proj.UnfinishedPackages() {
-		if err := ts.finishPackage(pkg, cfg); err != nil {
+		if err := ts.modelPackage(pkg, cfg); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (ts typeScriptTarget) syncFinishPackages(proj *project.Project, cfg *BuildConfig) error {
+func (ts typeScriptTarget) syncModelPackages(proj *project.Project, cfg *BuildConfig) error {
 	for pkg := range proj.UnfinishedPackages() {
-		if err := ts.finishPackage(pkg, cfg); err != nil {
+		if err := ts.modelPackage(pkg, cfg); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (ts typeScriptTarget) finishPackage(pkg *project.Package, cfg *BuildConfig) error {
+func (ts typeScriptTarget) modelPackage(pkg *project.Package, cfg *BuildConfig) error {
 	remodelers := remodel.Group{
 		&trimmer.Trimmer{},
 	}
 
-	ircCfg := &interRep.Config{
+	ircCfg := &modeler.Config{
 		Logger:     cfg.Logger,
 		ErrGroup:   cfg.ErrGroup,
 		Package:    pkg,
 		Remodelers: remodelers,
 	}
-	if err := interRep.Remodel(ircCfg); err != nil {
+	if err := modeler.Model(ircCfg); err != nil {
 		return err
 	}
 

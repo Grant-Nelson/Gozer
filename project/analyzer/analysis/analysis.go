@@ -1,10 +1,9 @@
-package irc
+package analysis
+
+type Analysis interface {
+}
 
 type (
-	Analysis struct {
-		Funcs map[string]FuncAnalysis
-	}
-
 	FuncAnalysis struct {
 
 		// IsBlocking indicates that the function contains blocking calls

@@ -22,6 +22,14 @@ const (
 	// for other packages to finish loading before moving to the next state.
 	Loaded
 
+	// Analyzing indicates that the package is being analyzed.
+	Analyzing
+
+	// Analyzed indicates that the package has finished [Analyzing] and is
+	// waiting for other packages to finish analyzing before moving to the
+	// next state.
+	Analyzed
+
 	// Remodelling indicates that the package is being converted
 	// and analyzed such to create the intermediated representation.
 	Remodelling
@@ -50,6 +58,10 @@ func (b BuildState) String() string {
 		return `Loading`
 	case Loaded:
 		return `Loaded`
+	case Analyzing:
+		return `Analyzing`
+	case Analyzed:
+		return `Analyzed`
 	case Remodelling:
 		return `Remodelling`
 	case Remodelled:

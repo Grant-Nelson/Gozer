@@ -1,4 +1,4 @@
-package interRep
+package modeler
 
 import (
 	"go/ast"
@@ -9,8 +9,8 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
-	"github.com/Grant-Nelson/Gozer/project/interRep/irc"
-	remodel "github.com/Grant-Nelson/Gozer/project/interRep/remods"
+	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
 )
 
 type Config struct {
@@ -28,9 +28,9 @@ type Config struct {
 	Remodelers remodel.Group
 }
 
-// Remodel converts the AST in the packages in the given configs
+// Model converts the AST in the packages in the given configs
 // into the IRC form and sets that to the package.
-func Remodel(cfg *Config) (err error) {
+func Model(cfg *Config) (err error) {
 	defer faults.Recover(&err)
 	cfg.Logger.LogGroup(`Remodelling %q`, cfg.Package.PkgPath())
 

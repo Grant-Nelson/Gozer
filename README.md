@@ -11,3 +11,9 @@ The Transpiler
 ## Developer Documents
 
 [Developer Documents](./docs/README.md)
+
+## Example Running a Test
+
+```Bash
+go build .\main.go ; .\main.exe build -v ./tests/fib/main.go
+```

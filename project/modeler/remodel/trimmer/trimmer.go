@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/interRep/irc"
-	remodel "github.com/Grant-Nelson/Gozer/project/interRep/remods"
+	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
 	"golang.org/x/tools/go/ast/astutil"
 )
 
