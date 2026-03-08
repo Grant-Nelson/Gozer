@@ -1,11 +1,14 @@
 package targets
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/interRep"
+	remodel "github.com/Grant-Nelson/Gozer/project/interRep/remods"
+	"github.com/Grant-Nelson/Gozer/project/interRep/remods/trimmer"
 	"github.com/Grant-Nelson/Gozer/project/loader"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/pkgDropper"
@@ -132,16 +135,22 @@ func (ts typeScriptTarget) syncFinishPackages(proj *project.Project, cfg *BuildC
 }
 
 func (ts typeScriptTarget) finishPackage(pkg *project.Package, cfg *BuildConfig) error {
+	remodelers := remodel.Group{
+		&trimmer.Trimmer{},
+	}
+
 	ircCfg := &interRep.Config{
-		Logger:   cfg.Logger,
-		ErrGroup: cfg.ErrGroup,
-		Package:  pkg,
+		Logger:     cfg.Logger,
+		ErrGroup:   cfg.ErrGroup,
+		Package:    pkg,
+		Remodelers: remodelers,
 	}
 	if err := interRep.Remodel(ircCfg); err != nil {
 		return err
 	}
 
 	// TODO: Finish
+	fmt.Println(pkg.Irc.String()) // TODO: REMOVE
 
 	return nil
 }

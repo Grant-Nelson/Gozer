@@ -16,7 +16,10 @@ type (
 	// a collection of statement blocks.
 	// See [README.md]
 	Func struct {
-		// Ast is the original AST for this function.
+		// Ast is the AST for this function.
+		//
+		// Remodelers that modify the AST inside of a [BaseStmt] or similar
+		// may cause changes to this data as well.
 		Ast *ast.FuncDecl
 
 		// Name of the function.
@@ -27,6 +30,10 @@ type (
 		Blocks []*Block
 	}
 )
+
+func (p *Package) String() string {
+	return fmt.Sprintf("package{\n%s\n}", linesString(p.Funcs, `  `))
+}
 
 // NewBlock creates a new empty block and adds it to this function.
 func (fn *Func) NewBlock() *Block {
