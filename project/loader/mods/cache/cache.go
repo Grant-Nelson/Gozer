@@ -9,6 +9,7 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/avail/source"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
@@ -18,6 +19,7 @@ import (
 type Config struct {
 	Build        []string
 	Converter    source.Converter
+	Logger       *logger.Logger
 	ErrGroup     *faults.ErrGroup
 	DisableRead  bool
 	DisableWrite bool
@@ -26,6 +28,7 @@ type Config struct {
 type Cache struct {
 	build        []string
 	conv         source.Converter
+	logger       *logger.Logger
 	errGroup     *faults.ErrGroup
 	disableRead  bool
 	disableWrite bool
@@ -33,6 +36,7 @@ type Cache struct {
 
 type cacheMod struct {
 	pkg      *project.Package
+	logger   *logger.Logger
 	errGroup *faults.ErrGroup
 }
 
@@ -45,6 +49,7 @@ func New(cfg *Config) *Cache {
 	return &Cache{
 		build:        cfg.Build,
 		conv:         cfg.Converter,
+		logger:       cfg.Logger,
 		errGroup:     cfg.ErrGroup,
 		disableRead:  cfg.DisableRead,
 		disableWrite: cfg.DisableWrite,
@@ -57,6 +62,7 @@ func (c *Cache) StartPackage(pkg *project.Package) (con bool, mod mods.Modifier,
 	if !c.disableWrite {
 		mod = &cacheMod{
 			pkg:      pkg,
+			logger:   c.logger,
 			errGroup: c.errGroup,
 		}
 	}
@@ -76,6 +82,7 @@ func (c *Cache) StartPackage(pkg *project.Package) (con bool, mod mods.Modifier,
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// Cache miss
+			c.logger.Printf("Cache miss for %s\n", pkg.PkgPath())
 			return true, mod, nil
 		}
 		return true, mod, c.errGroup.Add(err)
@@ -86,6 +93,7 @@ func (c *Cache) StartPackage(pkg *project.Package) (con bool, mod mods.Modifier,
 	}
 
 	// Cache hit so skip rest of loading.
+	c.logger.Printf("Cache hit for %s\n", pkg.PkgPath())
 	pkg.State = buildState.Finished
 	return false, nil, nil
 }
@@ -107,6 +115,7 @@ func (c *cacheMod) PackageDone() (con bool, err error) {
 		return true, c.errGroup.Add(err)
 	}
 
+	c.logger.Printf("Cache written for %s\n", c.pkg.PkgPath())
 	c.pkg.TempTypeFile = f.Name()
 	return true, nil
 }

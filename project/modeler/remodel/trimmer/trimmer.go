@@ -1,23 +1,28 @@
+// This package is for the trimmer remodeler will remove empty statements,
+// code block statements, and parentheses in expressions.
+//
+// The code block statements are used for scoping in a function but since the
+// [types.Info] has already been determined, the scoping will still work.
+// The target language just needs to ensure the correct variables reference
+// each other and renamed if needed to preserve the code.
 package trimmer
 
 import (
 	"go/ast"
 	"slices"
 
+	"golang.org/x/tools/go/ast/astutil"
+
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
 	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
-	"golang.org/x/tools/go/ast/astutil"
 )
 
-// Trimmer will remove empty statements, code block statements, and
-// parentheses in expressions.
-//
-// The code block statements are used for scoping in a function but since the
-// [types.Info] has already been determined, the scoping will still work.
-// The target language just needs to ensure the correct variables reference
-// each other and renamed if needed to preserve the code.
-type Trimmer struct {
+type Config struct {
+
+	// ErrGroup is used to collect multiple errors.
+	ErrGroup *faults.ErrGroup
 
 	// KeepCodeBlocks will make the trimmer not remove code blocks, [ast.BlockStmt].
 	KeepCodeBlocks bool
@@ -29,20 +34,38 @@ type Trimmer struct {
 	KeepEmpty bool
 }
 
-func (t *Trimmer) StartPackage(pkg *project.Package) (bool, remodel.Remodeler, error) {
-	if t.KeepCodeBlocks && t.KeepParens && t.KeepEmpty {
+type trimmer struct {
+	errGroup   *faults.ErrGroup
+	keepBlocks bool
+	keepParens bool
+	keepEmpty  bool
+}
+
+func New(cfg *Config) remodel.RemodelFactory {
+	return &trimmer{
+		errGroup:   cfg.ErrGroup,
+		keepBlocks: cfg.KeepCodeBlocks,
+		keepParens: cfg.KeepParens,
+		keepEmpty:  cfg.KeepEmpty,
+	}
+}
+
+func (t *trimmer) StartPackage(pkg *project.Package) (bool, remodel.Remodeler, error) {
+	if t.keepBlocks && t.keepParens && t.keepEmpty {
 		return true, nil, nil
 	}
 	tr := &trimmerRemodel{
+		errGroup:   t.errGroup,
 		pkg:        pkg,
-		keepBlocks: t.KeepCodeBlocks,
-		keepParens: t.KeepParens,
-		keepEmpty:  t.KeepEmpty,
+		keepBlocks: t.keepBlocks,
+		keepParens: t.keepParens,
+		keepEmpty:  t.keepEmpty,
 	}
 	return true, tr, nil
 }
 
 type trimmerRemodel struct {
+	errGroup   *faults.ErrGroup
 	pkg        *project.Package
 	keepBlocks bool
 	keepParens bool
@@ -51,12 +74,13 @@ type trimmerRemodel struct {
 
 func (t *trimmerRemodel) PackageDone() (bool, error) { return true, nil }
 
-func (t *trimmerRemodel) RemodelFunc(f *irc.Func) (bool, error) {
+func (t *trimmerRemodel) RemodelFunc(f *irc.Func) (con bool, err error) {
+	t.errGroup.Recover(&err)
 	for _, b := range f.Blocks {
 		t.trimAstBlocksFromIrcBlock(b)
 		t.trimInAstStmtFromIrcBlock(b)
 	}
-	return true, nil
+	return true, t.errGroup.FullOrNil()
 }
 
 func (t *trimmerRemodel) trimAstBlocksFromIrcBlock(b *irc.Block) {

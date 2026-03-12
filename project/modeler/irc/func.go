@@ -48,14 +48,25 @@ func (fn *Func) NewBlock() *Block {
 	return b
 }
 
-// Atomic indicates that this function should not be broken up into
+// Atomic indicates that this function should NOT be broken up into
 // flow control blocks, meaning that the scheduler running in one real
 // thread environment should not swap goroutines.
 //
 // Atomic is based on the directive `//gozer:atomic`.
 // However, the function may still not be atomic if it contains blocking
-// calls such as a send, receive, function call, sleep, or lock.
+// calls such as a send, receive, sleep, or lock. Calling a function
+// on an interface that is not pinned to a package could be blocking so
+// is treated as always blocking. That goes for calling a function on
+// a generic type as well.
+//
+// For a target language like typescript, calling a non-atomic function
+// from an atomic function will have a signature mismatch since the parameters
+// and returns from a non-atomic function will have parameters and returns
+// specifically designed for the schedular to call.
 func (fn *Func) Atomic() bool {
+	if fn.Ast.Doc == nil {
+		return false
+	}
 	dv := astTools.Directives(fn.Ast.Doc.List, directiveGroup)
 	if s, ok := dv[directiveAtomicFunc]; ok {
 		// The atomic directive should have no fields.

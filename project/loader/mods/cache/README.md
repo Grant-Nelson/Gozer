@@ -28,6 +28,9 @@ on dependency tree.
   things that may invalidate the cache, or add to the developer notes
   that when modifying the augmenter files, the cache has to be disabled.
 
+- Add additional information (e.g. analysis?) information to
+  the cache serialization.
+
 - Check that the transpiled code exists, otherwise we should skip the
   cache so that the files are loaded and the code can be transpiled.
 

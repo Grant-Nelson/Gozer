@@ -7,7 +7,6 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/analyzer/analysis"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
 	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
 )
@@ -28,9 +27,6 @@ type Package struct {
 	// This package is for the project's build, go version,
 	// and augmented for the target languages.
 	Ast *packages.Package
-
-	// Analysis is additional information collected about the AST packages.
-	Analysis analysis.Analysis
 
 	// Irc is the package's intermediate representation code (IRC) form.
 	//

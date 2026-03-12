@@ -20,6 +20,11 @@ type (
 	BaseStmt struct {
 		Stmt ast.Stmt
 	}
+
+	// GotoStmt is a statement for a goto jump to another block.
+	GotoStmt struct {
+		Block *BlockRef
+	}
 )
 
 func (s *BaseStmt) String() string {
@@ -31,4 +36,9 @@ func (s *BaseStmt) String() string {
 	return buf.String()
 }
 
+func (s *GotoStmt) String() string {
+	return `goto(` + s.Block.String() + `)`
+}
+
 func (s *BaseStmt) stmtNode() {}
+func (s *GotoStmt) stmtNode() {}

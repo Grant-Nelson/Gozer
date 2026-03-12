@@ -15,6 +15,9 @@ type (
 		// for a package. 0 or less if not assigned an index yet.
 		Index int
 
+		// Hint is a string to help debug block creation.
+		Hint string
+
 		// Body is the list of statements for this block.
 		Body []Stmt
 
@@ -37,18 +40,25 @@ type (
 )
 
 func (b *Block) String() string {
-	return fmt.Sprintf("block %d {\n%s\n}", b.Index, linesString(b.Body, `  `))
+	var hint string
+	if len(b.Hint) > 0 {
+		hint = `<` + b.Hint + `> `
+	}
+	return fmt.Sprintf("block %d %s{\n%s\n}", b.Index, hint, linesString(b.Body, `  `))
 }
 
 // LastStmt gets the last statement in the block or nil if empty.
 func (b *Block) LastStmt() Stmt {
-	max := len(b.Body) - 1
-	if max >= 0 {
+	if max := len(b.Body) - 1; max >= 0 {
 		return b.Body[max]
 	}
 	return nil
 }
 
 func (r *BlockRef) String() string {
-	return fmt.Sprintf(`block %d, [%s]`, r.Block.Index, csvString(r.Args))
+	var tail string
+	if len(r.Args) > 0 {
+		tail = fmt.Sprintf(`, [%s]`, csvString(r.Args))
+	}
+	return fmt.Sprintf(`block %d%s`, r.Block.Index, tail)
 }

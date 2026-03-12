@@ -6,7 +6,6 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/analyzer"
 	"github.com/Grant-Nelson/Gozer/project/loader"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods"
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/pkgDropper"
@@ -54,17 +53,12 @@ func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
 		return nil
 	}
 
-	// Analysis of the project to gather more information before modelling.
-	if err := ts.analysis(proj, cfg); err != nil {
-		return err
-	}
-
 	// Model any packages that need to be compiled into the intermediate form.
 	if err := ts.model(proj, cfg); err != nil {
 		return err
 	}
 
-	// Compile of packages that need to be compiled.
+	// Compile the packages that need to be compiled.
 	// TODO: Finish
 
 	return cfg.ErrGroup.AnyOrNil()
@@ -116,20 +110,6 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts typeScriptTarget) analysis(proj *project.Project, cfg *BuildConfig) error {
-	defer cfg.Logger.LogGroup("Analyzing %s", ts.Language())()
-
-	analyzeCfg := &analyzer.Config{
-		Logger:   cfg.Logger,
-		ErrGroup: cfg.ErrGroup,
-		Project:  proj,
-	}
-	if err := analyzer.Analyze(analyzeCfg); err != nil {
-		cfg.ErrGroup.Add(faults.New(`analyzing failed: %w`, err))
-	}
-	return cfg.ErrGroup.AnyOrNil()
-}
-
 func (ts typeScriptTarget) model(proj *project.Project, cfg *BuildConfig) error {
 	defer cfg.Logger.LogGroup("Modelling %s", ts.Language())()
 	if cfg.Parallel {
@@ -159,7 +139,9 @@ func (ts typeScriptTarget) syncModelPackages(proj *project.Project, cfg *BuildCo
 
 func (ts typeScriptTarget) modelPackage(pkg *project.Package, cfg *BuildConfig) error {
 	remodelers := remodel.Group{
-		&trimmer.Trimmer{},
+		trimmer.New(&trimmer.Config{
+			ErrGroup: cfg.ErrGroup,
+		}),
 	}
 
 	ircCfg := &modeler.Config{

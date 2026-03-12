@@ -32,6 +32,7 @@ func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
 
 	// Create initial block and populate it with current statements.
 	block := fn.NewBlock()
+	block.Hint = `initial`
 	if astFunc.Body != nil {
 		for _, s := range astFunc.Body.List {
 			block.Body = append(block.Body, &BaseStmt{Stmt: s})
