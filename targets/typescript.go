@@ -12,7 +12,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/loader/mods/typeChecker"
 	"github.com/Grant-Nelson/Gozer/project/modeler"
 	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
-	"github.com/Grant-Nelson/Gozer/project/modeler/remodel/trimmer"
 )
 
 type typeScriptTarget struct{}
@@ -139,9 +138,9 @@ func (ts typeScriptTarget) syncModelPackages(proj *project.Project, cfg *BuildCo
 
 func (ts typeScriptTarget) modelPackage(pkg *project.Package, cfg *BuildConfig) error {
 	remodelers := remodel.Group{
-		trimmer.New(&trimmer.Config{
-			ErrGroup: cfg.ErrGroup,
-		}),
+		//trimmer.New(&trimmer.Config{
+		//	ErrGroup: cfg.ErrGroup,
+		//}),
 	}
 
 	modelerCfg := &modeler.Config{

@@ -33,7 +33,9 @@ func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
 	// Create initial block and populate it with current statements.
 	block := fn.NewBlock()
 	block.Hint = `initial`
-	block.Body = []Stmt{fromBlockStmt(astFunc.Body)}
+	if astFunc.Body != nil {
+		block.Body = expandStmt(fromBlockStmt(astFunc.Body))
+	}
 	return fn
 }
 

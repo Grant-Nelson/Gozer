@@ -1,8 +1,10 @@
 package ir
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
+	"reflect"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 )
@@ -100,8 +102,8 @@ type (
 		Label *ast.Ident  // label name; or nil
 	}
 
-	// A BlockStmt node represents a braced statement list.
-	BlockStmt struct {
+	// A StmtListStmt node represents a braced statement list.
+	StmtListStmt struct {
 		Ast  *ast.BlockStmt
 		List []Stmt
 	}
@@ -185,7 +187,7 @@ var (
 	_ Stmt = (*DeferStmt)(nil)
 	_ Stmt = (*ReturnStmt)(nil)
 	_ Stmt = (*BranchStmt)(nil)
-	_ Stmt = (*BlockStmt)(nil)
+	_ Stmt = (*StmtListStmt)(nil)
 	_ Stmt = (*IfStmt)(nil)
 	_ Stmt = (*SwitchStmt)(nil)
 	_ Stmt = (*TypeSwitchStmt)(nil)
@@ -198,25 +200,59 @@ func (s *GotoBlockStmt) String() string {
 	return `goto(` + s.Block.String() + `)`
 }
 
-func (s *DeclStmt) String() string       { return `DeclStmt` }       // TODO: Implement
-func (s *LabeledStmt) String() string    { return `LabeledStmt` }    // TODO: Implement
-func (s *ExprStmt) String() string       { return `ExprStmt` }       // TODO: Implement
-func (s *SendStmt) String() string       { return `SendStmt` }       // TODO: Implement
-func (s *IncDecStmt) String() string     { return `IncDecStmt` }     // TODO: Implement
-func (s *AssignStmt) String() string     { return `AssignStmt` }     // TODO: Implement
-func (s *GoStmt) String() string         { return `GoStmt` }         // TODO: Implement
-func (s *DeferStmt) String() string      { return `DeferStmt` }      // TODO: Implement
-func (s *ReturnStmt) String() string     { return `ReturnStmt` }     // TODO: Implement
-func (s *BranchStmt) String() string     { return `BranchStmt` }     // TODO: Implement
-func (s *BlockStmt) String() string      { return `BlockStmt` }      // TODO: Implement
-func (s *IfStmt) String() string         { return `IfStmt` }         // TODO: Implement
-func (s *SwitchStmt) String() string     { return `SwitchStmt` }     // TODO: Implement
-func (s *TypeSwitchStmt) String() string { return `TypeSwitchStmt` } // TODO: Implement
-func (s *SelectStmt) String() string     { return `SelectStmt` }     // TODO: Implement
-func (s *ForStmt) String() string        { return `ForStmt` }        // TODO: Implement
-func (s *RangeStmt) String() string      { return `RangeStmt` }      // TODO: Implement
-func (c *CaseClause) String() string     { return `CaseClause` }     // TODO: Implement
-func (c *CommClause) String() string     { return `CommClause` }     // TODO: Implement
+func (s *DeclStmt) String() string     { return fmt.Sprintf(`%v`, s.Decl) }
+func (s *LabeledStmt) String() string  { return fmt.Sprintf("%s:\n%v", s.Label, s.Stmt) }
+func (s *ExprStmt) String() string     { return fmt.Sprintf(`%v`, s.X) }
+func (s *SendStmt) String() string     { return fmt.Sprintf(`%v<-%v`, s.Chan, s.Value) }
+func (s *IncDecStmt) String() string   { return `IncDecStmt` } // TODO: Implement
+func (s *AssignStmt) String() string   { return `AssignStmt` } // TODO: Implement
+func (s *GoStmt) String() string       { return fmt.Sprintf(`go %v`, s.Call) }
+func (s *DeferStmt) String() string    { return fmt.Sprintf(`defer %v`, s.Call) }
+func (s *ReturnStmt) String() string   { return fmt.Sprintf(`return %s`, csvString(s.Results)) }
+func (s *BranchStmt) String() string   { return fmt.Sprintf(`%s %v`, s.Tok.String(), s.Label) }
+func (s *StmtListStmt) String() string { return `StmtListStmt` } // TODO: Implement
+func (s *IfStmt) String() string {
+	str := fmt.Sprintf("if %v {\n%s\n}", s.Cond, linesString(s.Body, `  `))
+	if len(s.Else) > 0 {
+		str += fmt.Sprintf(" else {\n%s\n}", linesString(s.Else, `  `))
+	}
+	return str
+}
+func (s *SwitchStmt) String() string {
+	return fmt.Sprintf(`switch %v {\n%s\n}`, s.Tag, linesString(s.Body, `  `))
+}
+func (s *TypeSwitchStmt) String() string {
+	return fmt.Sprintf(`switch %v {\n%s\n}`, s.Assign, linesString(s.Body, `  `))
+}
+func (s *SelectStmt) String() string {
+	return fmt.Sprintf(`select {\n%s\n}`, linesString(s.Body, `  `))
+}
+func (s *ForStmt) String() string {
+	return fmt.Sprintf(`for %v; %v; %v {\n%v\n}`, s.Init, s.Cond, s.Post, linesString(s.Body, `  `))
+}
+func (s *RangeStmt) String() string {
+	return fmt.Sprintf(`for %v, %v %v range %v {\n%v\n}`, s.Key, s.Value, s.Tok.String(), s.X, linesString(s.Body, `  `))
+}
+func (s *CaseClause) String() string {
+	str := `default:`
+	if len(s.List) > 0 {
+		str = fmt.Sprintf(`case %v:`, csvString(s.List))
+	}
+	if len(s.Body) > 0 {
+		str += "\n" + linesString(s.Body, `  `)
+	}
+	return str
+}
+func (s *CommClause) String() string {
+	str := `default:`
+	if s.Comm != nil {
+		str = fmt.Sprintf(`case %v:`, s.Comm)
+	}
+	if len(s.Body) > 0 {
+		str += "\n" + linesString(s.Body, `  `)
+	}
+	return str
+}
 
 func (*GotoBlockStmt) StmtNode()  {}
 func (*DeclStmt) StmtNode()       {}
@@ -229,7 +265,7 @@ func (*GoStmt) StmtNode()         {}
 func (*DeferStmt) StmtNode()      {}
 func (*ReturnStmt) StmtNode()     {}
 func (*BranchStmt) StmtNode()     {}
-func (*BlockStmt) StmtNode()      {}
+func (*StmtListStmt) StmtNode()   {}
 func (*IfStmt) StmtNode()         {}
 func (*SwitchStmt) StmtNode()     {}
 func (*TypeSwitchStmt) StmtNode() {}
@@ -237,12 +273,26 @@ func (*SelectStmt) StmtNode()     {}
 func (*ForStmt) StmtNode()        {}
 func (*RangeStmt) StmtNode()      {}
 
-//===[from AST]=================================================================
+//===[from AST converters]======================================================
+
+func isNotNil[T any](t T) bool {
+	v := reflect.ValueOf(t)
+	return v.IsValid() && !v.IsZero()
+}
+
+func fromNilSafeStmt[TIn ast.Stmt, TOut Stmt](s TIn, fn func(TIn) TOut) Stmt {
+	if isNotNil(s) {
+		if t := fn(s); isNotNil(t) {
+			return t
+		}
+	}
+	return nil
+}
 
 func fromStmtSlice(ss []ast.Stmt) []Stmt {
-	result := make([]Stmt, len(ss))
-	for i, s := range ss {
-		result[i] = fromStmt(s)
+	result := make([]Stmt, 0, len(ss))
+	for _, s := range ss {
+		result = append(result, expandStmt(fromStmt(s))...)
 	}
 	return result
 }
@@ -252,39 +302,39 @@ func fromStmt(s ast.Stmt) Stmt {
 	case nil, *ast.BadStmt, *ast.EmptyStmt:
 		return nil
 	case *ast.DeclStmt:
-		return fromDeclStmt(s)
+		return fromNilSafeStmt(s, fromDeclStmt)
 	case *ast.LabeledStmt:
-		return fromLabeledStmt(s)
+		return fromNilSafeStmt(s, fromLabeledStmt)
 	case *ast.ExprStmt:
-		return fromExprStmt(s)
+		return fromNilSafeStmt(s, fromExprStmt)
 	case *ast.SendStmt:
-		return fromSendStmt(s)
+		return fromNilSafeStmt(s, fromSendStmt)
 	case *ast.IncDecStmt:
-		return fromIncDecStmt(s)
+		return fromNilSafeStmt(s, fromIncDecStmt)
 	case *ast.AssignStmt:
-		return fromAssignStmt(s)
+		return fromNilSafeStmt(s, fromAssignStmt)
 	case *ast.GoStmt:
-		return fromGoStmt(s)
+		return fromNilSafeStmt(s, fromGoStmt)
 	case *ast.DeferStmt:
-		return fromDeferStmt(s)
+		return fromNilSafeStmt(s, fromDeferStmt)
 	case *ast.ReturnStmt:
-		return fromReturnStmt(s)
+		return fromNilSafeStmt(s, fromReturnStmt)
 	case *ast.BranchStmt:
-		return fromBranchStmt(s)
+		return fromNilSafeStmt(s, fromBranchStmt)
 	case *ast.BlockStmt:
-		return fromBlockStmt(s)
+		return fromNilSafeStmt(s, fromBlockStmt)
 	case *ast.IfStmt:
-		return fromIfStmt(s)
+		return fromNilSafeStmt(s, fromIfStmt)
 	case *ast.SwitchStmt:
-		return fromSwitchStmt(s)
+		return fromNilSafeStmt(s, fromSwitchStmt)
 	case *ast.TypeSwitchStmt:
-		return fromTypeSwitchStmt(s)
+		return fromNilSafeStmt(s, fromTypeSwitchStmt)
 	case *ast.SelectStmt:
-		return fromSelectStmt(s)
+		return fromNilSafeStmt(s, fromSelectStmt)
 	case *ast.ForStmt:
-		return fromForStmt(s)
+		return fromNilSafeStmt(s, fromForStmt)
 	case *ast.RangeStmt:
-		return fromRangeStmt(s)
+		return fromNilSafeStmt(s, fromRangeStmt)
 	default:
 		panic(faults.New(`unexpected AST statement type`).
 			WithF(`type`, `%T`, s))
@@ -331,14 +381,32 @@ func fromBranchStmt(s *ast.BranchStmt) *BranchStmt {
 	return &BranchStmt{Ast: s, Label: s.Label}
 }
 
-func fromBlockStmt(s *ast.BlockStmt) *BlockStmt {
-	return &BlockStmt{Ast: s, List: fromStmtSlice(s.List)}
+func fromBlockStmt(s *ast.BlockStmt) *StmtListStmt {
+	return &StmtListStmt{Ast: s, List: fromStmtSlice(s.List)}
+}
+
+func expandStmtSlice(ss []Stmt) []Stmt {
+	st := make([]Stmt, 0, len(ss))
+	for _, s := range ss {
+		st = append(st, expandStmt(s)...)
+	}
+	return st
+}
+
+func expandStmt(s Stmt) []Stmt {
+	if s == nil {
+		return []Stmt{}
+	}
+	if b, ok := s.(*StmtListStmt); ok {
+		return expandStmtSlice(b.List)
+	}
+	return []Stmt{s}
 }
 
 func fromIfStmt(s *ast.IfStmt) *IfStmt {
 	return &IfStmt{Ast: s, Init: fromStmt(s.Init), Cond: s.Cond,
-		Body: []Stmt{fromBlockStmt(s.Body)},
-		Else: []Stmt{fromStmt(s.Else)}}
+		Body: expandStmt(fromBlockStmt(s.Body)),
+		Else: expandStmt(fromStmt(s.Else))}
 }
 
 func fromCaseClause(s *ast.CaseClause) *CaseClause {
@@ -346,15 +414,21 @@ func fromCaseClause(s *ast.CaseClause) *CaseClause {
 }
 
 func fromCaseClauseSlice(s *ast.BlockStmt) []*CaseClause {
-	ccs := make([]*CaseClause, len(s.List))
+	if s == nil {
+		return []*CaseClause{}
+	}
+	ccs := make([]*CaseClause, 0, len(s.List))
 	for i, c := range s.List {
+		if c == nil {
+			continue
+		}
 		cc, ok := c.(*ast.CaseClause)
 		if !ok {
 			panic(faults.New(`expected case clause`).
 				WithF(`type`, `%T`, c).
 				With(`index`, i))
 		}
-		ccs[i] = fromCaseClause(cc)
+		ccs = append(ccs, fromCaseClause(cc))
 	}
 	return ccs
 }
@@ -376,15 +450,21 @@ func fromCommClause(s *ast.CommClause) *CommClause {
 }
 
 func fromCommClauseSlice(s *ast.BlockStmt) []*CommClause {
-	ccs := make([]*CommClause, len(s.List))
+	if s == nil {
+		return []*CommClause{}
+	}
+	ccs := make([]*CommClause, 0, len(s.List))
 	for i, c := range s.List {
+		if c == nil {
+			continue
+		}
 		cc, ok := c.(*ast.CommClause)
 		if !ok {
 			panic(faults.New(`expected comm clause`).
 				WithF(`type`, `%T`, c).
 				With(`index`, i))
 		}
-		ccs[i] = fromCommClause(cc)
+		ccs = append(ccs, fromCommClause(cc))
 	}
 	return ccs
 }
@@ -395,10 +475,10 @@ func fromSelectStmt(s *ast.SelectStmt) *SelectStmt {
 
 func fromForStmt(s *ast.ForStmt) *ForStmt {
 	return &ForStmt{Ast: s, Init: fromStmt(s.Init), Cond: s.Cond,
-		Post: fromStmt(s.Post), Body: []Stmt{fromBlockStmt(s.Body)}}
+		Post: fromStmt(s.Post), Body: expandStmt(fromBlockStmt(s.Body))}
 }
 
 func fromRangeStmt(s *ast.RangeStmt) *RangeStmt {
 	return &RangeStmt{Ast: s, Key: s.Key, Value: s.Value, X: s.X,
-		Body: []Stmt{fromBlockStmt(s.Body)}}
+		Body: expandStmt(fromBlockStmt(s.Body))}
 }

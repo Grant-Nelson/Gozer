@@ -19,9 +19,7 @@ type Config struct {
 }
 
 func New(cfg *Config) remodel.RemodelFactory {
-	return &blocker{
-		errGroup: cfg.ErrGroup,
-	}
+	return &blocker{errGroup: cfg.ErrGroup}
 }
 
 type blocker struct {
@@ -65,61 +63,57 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 }
 
 type funcBlockBuilder struct {
-	errGroup  *faults.ErrGroup
-	pkg       *project.Package
-	fn        *ir.Func
-	curBlock  *ir.Block
-	stmtIndex int
+	errGroup *faults.ErrGroup
+	pkg      *project.Package
+	fn       *ir.Func
+	curBlock *ir.Block
+
+	stmtIndex   int
+	curStmtList []ir.Stmt
 
 	labelBlock map[token.Pos]*ir.Block
 }
 
 func (fbb *funcBlockBuilder) remodelBlock(b *ir.Block) {
 	for fbb.stmtIndex = 0; fbb.stmtIndex < len(b.Body); fbb.stmtIndex++ {
-		fbb.remodelIrcStmt(b.Body[fbb.stmtIndex])
+		fbb.remodelStmt(b.Body[fbb.stmtIndex])
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelIrcStmt(s ir.Stmt) {
-	switch s := s.(type) {
-	case *ir.BaseStmt:
-		fbb.remodelAstStmt(s.Stmt)
+func (fbb *funcBlockBuilder) remodelStmtSlice(ss []ir.Stmt) {
+	priorStmtIndex := fbb.stmtIndex
+	priorStmtList := fbb.curStmtList
+	defer func() {
+		fbb.stmtIndex = priorStmtIndex
+		fbb.curStmtList = priorStmtList
+	}()
+	fbb.curStmtList = ss
+	for fbb.stmtIndex = 0; fbb.stmtIndex < len(fbb.curStmtList); fbb.stmtIndex++ {
+		fbb.remodelStmt(fbb.curStmtList[fbb.stmtIndex])
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelAstStmt(s ast.Stmt) {
+func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 	switch s := s.(type) {
-	case *ast.DeclStmt, *ast.EmptyStmt:
+	case *ir.DeclStmt, *ir.GotoBlockStmt:
 		// Do Nothing
-	case *ast.LabeledStmt:
+	case *ir.LabeledStmt:
 		fbb.remodelLabeledStmt(s)
-	//case *ast.ExprStmt:   // TODO: Implement
-	//case *ast.SendStmt:   // TODO: Implement
-	//case *ast.IncDecStmt: // TODO: Implement
-	case *ast.AssignStmt:
+	case *ir.AssignStmt:
 		fbb.remodelAssignStmt(s)
-	//case *ast.GoStmt:    // TODO: Implement
-	//case *ast.DeferStmt: // TODO: Implement
-	case *ast.ReturnStmt:
+	case *ir.ReturnStmt:
 		fbb.remodelReturnStmt(s)
-	case *ast.BranchStmt:
+	case *ir.BranchStmt:
 		fbb.remodelBranchStmt(s)
-	case *ast.BlockStmt:
-		fbb.remodelBlockStmt(s)
-	case *ast.IfStmt:
+	case *ir.IfStmt:
 		fbb.remodelIfStmt(s)
-	//case *ast.SwitchStmt:     // TODO: Implement
-	//case *ast.TypeSwitchStmt: // TODO: Implement
-	//case *ast.SelectStmt:     // TODO: Implement
-	//case *ast.ForStmt:        // TODO: Implement
-	//case *ast.RangeStmt:      // TODO: Implement
 	default:
 		panic(faults.New(`unhandled statement node in blocker`).
 			WithF(`type`, `%T`, s))
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelAssignStmt(s *ast.AssignStmt) {
+func (fbb *funcBlockBuilder) remodelAssignStmt(s *ir.AssignStmt) {
 	fbb.remodelExpSlice(s, s.Lhs)
 	fbb.remodelExpSlice(s, s.Rhs)
 }
@@ -127,7 +121,7 @@ func (fbb *funcBlockBuilder) remodelAssignStmt(s *ast.AssignStmt) {
 // remodelLabeledStmt processes a label statement.
 // A label can be jumped to so the code reachable from the label
 // needs to be put into it's own block.
-func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ast.LabeledStmt) {
+func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 	// Check if a block was preemptively created by prior code
 	// that is jumping forward to this block.
 	blk, ok := fbb.labelBlock[s.Label.Pos()]
@@ -158,13 +152,13 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ast.LabeledStmt) {
 	// Put the statement that the label is attached to as the first statement
 	// in the block, then move all following statements from the current block
 	// into the new block.
-	blk.Body = []ir.Stmt{&ir.BaseStmt{Stmt: s.Stmt}}
+	blk.Body = []ir.Stmt{s.Stmt}
 	blk.Body = append(blk.Body, fbb.curBlock.Body[fbb.stmtIndex+1:]...)
 	fbb.curBlock.Body = fbb.curBlock.Body[:fbb.stmtIndex]
 
 	// Add a goto in the current block to jump to the label block since the
 	// code flow goes from the current block into the label unconditionally.
-	jump := &ir.GotoStmt{Block: &ir.BlockRef{Block: blk}}
+	jump := &ir.GotoBlockStmt{Block: &ir.BlockRef{Block: blk}}
 	fbb.curBlock.Body = append(fbb.curBlock.Body, jump)
 
 	// Step back th statement index so that the new goto statement that
@@ -172,42 +166,33 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ast.LabeledStmt) {
 	fbb.stmtIndex--
 }
 
-func (fbb *funcBlockBuilder) remodelReturnStmt(s *ast.ReturnStmt) {
+func (fbb *funcBlockBuilder) remodelReturnStmt(s *ir.ReturnStmt) {
 	fbb.remodelExpSlice(s, s.Results)
 }
 
-func (fbb *funcBlockBuilder) remodelBranchStmt(s *ast.BranchStmt) {
+func (fbb *funcBlockBuilder) remodelBranchStmt(s *ir.BranchStmt) {
 	//TODO: Implement
 	crumb.DropMsg(`Unimplemented`)
 }
 
-func (fbb *funcBlockBuilder) remodelBlockStmt(s *ast.BlockStmt) {
-
-	//TODO: Implement
-	crumb.Drop()
-}
-
-func (fbb *funcBlockBuilder) remodelIfStmt(s *ast.IfStmt) {
+func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 	if s.Init != nil {
-		init := &ir.BaseStmt{Stmt: s.Init}
-		fbb.curBlock.Body = slices.Insert(fbb.curBlock.Body, fbb.stmtIndex, ir.Stmt(init))
+		fbb.curBlock.Body = slices.Insert(fbb.curBlock.Body, fbb.stmtIndex, s.Init)
 		s.Init = nil
 		fbb.stmtIndex--
 	}
 	fbb.remodelExp(s, s.Cond)
-	fbb.remodelBlockStmt(s.Body)
-	if s.Else != nil {
-		fbb.remodelAstStmt(s.Else)
-	}
+	fbb.remodelStmtSlice(s.Body)
+	fbb.remodelStmtSlice(s.Else)
 }
 
-func (fbb *funcBlockBuilder) remodelExpSlice(s ast.Stmt, es []ast.Expr) {
+func (fbb *funcBlockBuilder) remodelExpSlice(s ir.Stmt, es []ast.Expr) {
 	for _, e := range es {
 		fbb.remodelExp(s, e)
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelExp(s ast.Stmt, e ast.Expr) {
+func (fbb *funcBlockBuilder) remodelExp(s ir.Stmt, e ast.Expr) {
 	//TODO: Implement
 	crumb.DropMsg(`Unimplemented`)
 }
