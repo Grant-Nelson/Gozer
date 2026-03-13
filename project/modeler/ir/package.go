@@ -1,4 +1,4 @@
-package irc
+package ir
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/assert"
 )
 
-// Package is the IRC for a whole package.
+// Package is the IR for a whole package.
 type Package struct {
 
 	// Funcs is the collection of functions for this package.
@@ -33,11 +33,7 @@ func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
 	// Create initial block and populate it with current statements.
 	block := fn.NewBlock()
 	block.Hint = `initial`
-	if astFunc.Body != nil {
-		for _, s := range astFunc.Body.List {
-			block.Body = append(block.Body, &BaseStmt{Stmt: s})
-		}
-	}
+	block.Body = []Stmt{fromBlockStmt(astFunc.Body)}
 	return fn
 }
 

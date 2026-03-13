@@ -1,6 +1,6 @@
 # Patterns
 
-This is a collection of ideas for handling patterns in the IRC for optimization.
+This is a collection of ideas for handling patterns in the IR for optimization.
 
 ## Ternary Ops
 

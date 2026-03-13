@@ -8,7 +8,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
-	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
 )
 
 // Package describes a single package in a project.
@@ -28,11 +28,11 @@ type Package struct {
 	// and augmented for the target languages.
 	Ast *packages.Package
 
-	// Irc is the package's intermediate representation code (IRC) form.
+	// Ir is the package's intermediate representation (IR) form.
 	//
 	// This is used to describe the code in a control flow graph (CFG) that
 	// is used for optimization and translation to target language.
-	Irc *irc.Package
+	Ir *ir.Package
 
 	// Depth is the depth of this node in the dependency tree where 0
 	// means the package is a leave package with no dependencies and

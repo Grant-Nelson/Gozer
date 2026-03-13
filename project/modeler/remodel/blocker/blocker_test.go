@@ -12,11 +12,11 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
 	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
 )
 
-func Test_Blocker_Label(t *testing.T) {
+func Test_Blocker_Label_ForwardJump(t *testing.T) {
 	pkg := blockIrcFunc(t,
 		`package main`,
 		``,
@@ -33,6 +33,64 @@ func Test_Blocker_Label(t *testing.T) {
 	diffString(t, got, exp)
 }
 
+func Test_Blocker_Label_BackwardJump(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`Loop:`,
+		`   i++`,
+		`	if i < 10 {`,
+		`		goto Loop`,
+		`	}`,
+		`	return i`,
+		`}`)
+	exp := lines(`xyz`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, exp)
+}
+
+func Test_Blocker_Label_JumpToIf(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`Loop:`,
+		`	if i < 10 {`,
+		`       i++`,
+		`		goto Loop`,
+		`	}`,
+		`	return i`,
+		`}`)
+	exp := lines(`xyz`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, exp)
+}
+
+func Test_Blocker_Label_BreakFor(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`ForLoop:`,
+		`   for j := 0; j < 10; j++ {`,
+		`       i++`,
+		`		if i > 10 {`,
+		`			break ForLoop`,
+		`       }`,
+		`	}`,
+		`	return i`,
+		`}`)
+	exp := lines(`xyz`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, exp)
+}
+
+// TODO: Check forward jump to for-loop, does it initialize?
+// TODO: Check nested for-loops jump.
+// TODO: Check adding an unused label.
+// TODO: Check if-statement init movement.
+
 func diffString(t *testing.T, got, exp string) {
 	gotLines := slices.Collect(strings.Lines(got))
 	expLines := slices.Collect(strings.Lines(exp))
@@ -46,7 +104,7 @@ func lines(lines ...string) string {
 }
 
 func stringForFunc(t *testing.T, pkg *project.Package, funcName string) string {
-	fn := pkg.Irc.FindFunc(funcName)
+	fn := pkg.Ir.FindFunc(funcName)
 	if fn == nil {
 		t.Fatalf(`failed to find function`)
 	}
@@ -82,7 +140,7 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 		t.Fatalf(`expected only one root package but got %d`, len(proj.Roots))
 	}
 	pkg := proj.Roots[0]
-	pkg.Irc = &irc.Package{}
+	pkg.Ir = &ir.Package{}
 	blocker := New(&Config{
 		ErrGroup: errGroup,
 	})
@@ -95,7 +153,7 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 	for _, file := range pkg.Ast.Syntax {
 		ast.Inspect(file, func(n ast.Node) bool {
 			if fnDecl, ok := n.(*ast.FuncDecl); ok {
-				fn := pkg.Irc.NewFunc(fnDecl)
+				fn := pkg.Ir.NewFunc(fnDecl)
 				if _, err := brm.RemodelFunc(fn); err != nil {
 					t.Errorf(`error updating function: %v`, err)
 				}

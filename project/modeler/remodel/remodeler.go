@@ -2,7 +2,7 @@ package remodel
 
 import (
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
 )
 
 type RemodelFactory interface {
@@ -14,5 +14,5 @@ type Remodeler interface {
 }
 
 type RemodelFuncExt interface {
-	RemodelFunc(f *irc.Func) (bool, error)
+	RemodelFunc(f *ir.Func) (bool, error)
 }

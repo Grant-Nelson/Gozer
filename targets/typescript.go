@@ -144,18 +144,18 @@ func (ts typeScriptTarget) modelPackage(pkg *project.Package, cfg *BuildConfig) 
 		}),
 	}
 
-	ircCfg := &modeler.Config{
+	modelerCfg := &modeler.Config{
 		Logger:     cfg.Logger,
 		ErrGroup:   cfg.ErrGroup,
 		Package:    pkg,
 		Remodelers: remodelers,
 	}
-	if err := modeler.Model(ircCfg); err != nil {
+	if err := modeler.Model(modelerCfg); err != nil {
 		return err
 	}
 
 	// TODO: Finish
-	fmt.Println(pkg.Irc.String()) // TODO: REMOVE
+	fmt.Println(pkg.Ir.String()) // TODO: REMOVE
 
 	return nil
 }

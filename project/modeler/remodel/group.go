@@ -2,7 +2,7 @@ package remodel
 
 import (
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
 )
 
 type (
@@ -37,7 +37,7 @@ func (rg RemodelGroup) PackageDone() (bool, error) {
 	return true, nil
 }
 
-func (rg RemodelGroup) RemodelFunc(f *irc.Func) (bool, error) {
+func (rg RemodelGroup) RemodelFunc(f *ir.Func) (bool, error) {
 	for _, factory := range rg {
 		if m, ok := factory.(RemodelFuncExt); ok {
 			if con, err := m.RemodelFunc(f); err != nil || !con {

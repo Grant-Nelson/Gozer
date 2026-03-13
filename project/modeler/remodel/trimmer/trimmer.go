@@ -15,66 +15,42 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
 	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
 )
+
+// TODO: REMOVE and replace with a more complete IR
 
 type Config struct {
 
 	// ErrGroup is used to collect multiple errors.
 	ErrGroup *faults.ErrGroup
-
-	// KeepCodeBlocks will make the trimmer not remove code blocks, [ast.BlockStmt].
-	KeepCodeBlocks bool
-
-	// KeepParens will make the trimmer not remove parens, [ast.ParenExpr].
-	KeepParens bool
-
-	// KeepEmpty will make the trimmer not remove empty statements, [ast.EmptyStmt].
-	KeepEmpty bool
 }
 
 type trimmer struct {
-	errGroup   *faults.ErrGroup
-	keepBlocks bool
-	keepParens bool
-	keepEmpty  bool
+	errGroup *faults.ErrGroup
 }
 
 func New(cfg *Config) remodel.RemodelFactory {
-	return &trimmer{
-		errGroup:   cfg.ErrGroup,
-		keepBlocks: cfg.KeepCodeBlocks,
-		keepParens: cfg.KeepParens,
-		keepEmpty:  cfg.KeepEmpty,
-	}
+	return &trimmer{errGroup: cfg.ErrGroup}
 }
 
 func (t *trimmer) StartPackage(pkg *project.Package) (bool, remodel.Remodeler, error) {
-	if t.keepBlocks && t.keepParens && t.keepEmpty {
-		return true, nil, nil
-	}
 	tr := &trimmerRemodel{
-		errGroup:   t.errGroup,
-		pkg:        pkg,
-		keepBlocks: t.keepBlocks,
-		keepParens: t.keepParens,
-		keepEmpty:  t.keepEmpty,
+		errGroup: t.errGroup,
+		pkg:      pkg,
 	}
 	return true, tr, nil
 }
 
 type trimmerRemodel struct {
-	errGroup   *faults.ErrGroup
-	pkg        *project.Package
-	keepBlocks bool
-	keepParens bool
-	keepEmpty  bool
+	errGroup *faults.ErrGroup
+	pkg      *project.Package
 }
 
 func (t *trimmerRemodel) PackageDone() (bool, error) { return true, nil }
 
-func (t *trimmerRemodel) RemodelFunc(f *irc.Func) (con bool, err error) {
+func (t *trimmerRemodel) RemodelFunc(f *ir.Func) (con bool, err error) {
 	t.errGroup.Recover(&err)
 	for _, b := range f.Blocks {
 		t.trimAstBlocksFromIrcBlock(b)
@@ -83,7 +59,7 @@ func (t *trimmerRemodel) RemodelFunc(f *irc.Func) (con bool, err error) {
 	return true, t.errGroup.FullOrNil()
 }
 
-func (t *trimmerRemodel) trimAstBlocksFromIrcBlock(b *irc.Block) {
+func (t *trimmerRemodel) trimAstBlocksFromIrcBlock(b *ir.Block) {
 	s := b.Body
 	for i := 0; i < len(s); i++ {
 		if replace, ok := t.unwrapAstBlockFromIrcStmt(s[i]); ok {
@@ -95,29 +71,25 @@ func (t *trimmerRemodel) trimAstBlocksFromIrcBlock(b *irc.Block) {
 	b.Body = s
 }
 
-func (t *trimmerRemodel) unwrapAstBlockFromIrcStmt(s irc.Stmt) ([]irc.Stmt, bool) {
-	if sg, ok := s.(*irc.BaseStmt); ok {
+func (t *trimmerRemodel) unwrapAstBlockFromIrcStmt(s ir.Stmt) ([]ir.Stmt, bool) {
+	if sg, ok := s.(*ir.BaseStmt); ok {
 		switch st := sg.Stmt.(type) {
 		case *ast.BlockStmt:
-			if !t.keepBlocks {
-				replacement := make([]irc.Stmt, len(st.List))
-				for i, inner := range st.List {
-					replacement[i] = &irc.BaseStmt{Stmt: inner}
-				}
-				return replacement, true
+			replacement := make([]ir.Stmt, len(st.List))
+			for i, inner := range st.List {
+				replacement[i] = &ir.BaseStmt{Stmt: inner}
 			}
+			return replacement, true
 		case *ast.EmptyStmt:
-			if !t.keepEmpty {
-				return []irc.Stmt{}, true
-			}
+			return []ir.Stmt{}, true
 		}
 	}
 	return nil, false
 }
 
-func (t *trimmerRemodel) trimInAstStmtFromIrcBlock(s *irc.Block) {
+func (t *trimmerRemodel) trimInAstStmtFromIrcBlock(s *ir.Block) {
 	for _, s := range s.Body {
-		if sb, ok := s.(*irc.BaseStmt); ok {
+		if sb, ok := s.(*ir.BaseStmt); ok {
 			sb.Stmt = t.trimNode(sb.Stmt).(ast.Stmt)
 		}
 	}
@@ -127,19 +99,12 @@ func (t *trimmerRemodel) trimNode(n ast.Node) ast.Node {
 	return astutil.Apply(n, func(c *astutil.Cursor) bool {
 		switch p := c.Node().(type) {
 		case *ast.ParenExpr:
-			if !t.keepParens {
-				c.Replace(p.X)
-			}
+			c.Replace(p.X)
 
 		case *ast.EmptyStmt:
-			if !t.keepEmpty {
-				c.Delete()
-			}
+			c.Delete()
 
 		case *ast.BlockStmt:
-			if t.keepBlocks {
-				return true
-			}
 			if c.Name() == `Body` {
 				switch c.Parent().(type) {
 				case *ast.IfStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt,

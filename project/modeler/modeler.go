@@ -9,7 +9,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/project"
 	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
-	"github.com/Grant-Nelson/Gozer/project/modeler/irc"
+	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
 	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
 )
 
@@ -20,23 +20,23 @@ type Config struct {
 	// ErrGroup is the collector to handle multiple errors.
 	ErrGroup *faults.ErrGroup
 
-	// Package is the package to create a IRC for.
+	// Package is the package to create a IR for.
 	Package *project.Package
 
-	// Remodelers are the tools to apply to the IRC to transform from
+	// Remodelers are the tools to apply to the IR to transform from
 	// very similar to AST over to a form needed by the target.
 	Remodelers remodel.Group
 }
 
 // Model converts the AST in the packages in the given configs
-// into the IRC form and sets that to the package.
+// into the IR form and sets that to the package.
 func Model(cfg *Config) (err error) {
 	defer faults.Recover(&err)
 	cfg.Logger.LogGroup(`Remodelling %q`, cfg.Package.PkgPath())
 
 	pkg := cfg.Package
 	pkg.State = buildState.Remodelling
-	pkg.Irc = &irc.Package{}
+	pkg.Ir = &ir.Package{}
 
 	rm := &modeler{
 		logger:   cfg.Logger,
@@ -115,7 +115,7 @@ func (rm *modeler) addFile(f *ast.File) error {
 }
 
 func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
-	fn := rm.pkg.Irc.NewFunc(astFunc)
+	fn := rm.pkg.Ir.NewFunc(astFunc)
 	if rm.group != nil {
 		if m, ok := rm.group.(remodel.RemodelFuncExt); ok {
 			if _, err := m.RemodelFunc(fn); err != nil {

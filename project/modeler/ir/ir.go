@@ -1,7 +1,11 @@
-package irc
+package ir
 
 import (
+	"bytes"
 	"fmt"
+	"go/ast"
+	"go/format"
+	"go/token"
 	"strings"
 )
 
@@ -25,4 +29,13 @@ func linesString[E any, S []E](s S, indent string) string {
 		elems[i] = strings.ReplaceAll(eStr, "\n", "\n"+indent)
 	}
 	return strings.Join(elems, "\n")
+}
+
+func astString(n ast.Node) string {
+	buf := &bytes.Buffer{}
+	fSet := token.NewFileSet()
+	if err := format.Node(buf, fSet, n); err != nil {
+		panic(err)
+	}
+	return buf.String()
 }
