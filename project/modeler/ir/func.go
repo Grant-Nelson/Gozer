@@ -38,7 +38,7 @@ type Func struct {
 }
 
 func (fn *Func) String() string {
-	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks, `  `))
+	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks))
 }
 
 // NewBlock creates a new empty block and adds it to this function.

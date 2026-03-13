@@ -199,39 +199,42 @@ var (
 func (s *GotoBlockStmt) String() string {
 	return `goto(` + s.Block.String() + `)`
 }
-
-func (s *DeclStmt) String() string     { return fmt.Sprintf(`%v`, s.Decl) }
-func (s *LabeledStmt) String() string  { return fmt.Sprintf("%s:\n%v", s.Label, s.Stmt) }
-func (s *ExprStmt) String() string     { return fmt.Sprintf(`%v`, s.X) }
-func (s *SendStmt) String() string     { return fmt.Sprintf(`%v<-%v`, s.Chan, s.Value) }
-func (s *IncDecStmt) String() string   { return `IncDecStmt` } // TODO: Implement
-func (s *AssignStmt) String() string   { return `AssignStmt` } // TODO: Implement
-func (s *GoStmt) String() string       { return fmt.Sprintf(`go %v`, s.Call) }
-func (s *DeferStmt) String() string    { return fmt.Sprintf(`defer %v`, s.Call) }
+func (s *DeclStmt) String() string    { return nodeString(s.Decl) }
+func (s *LabeledStmt) String() string { return fmt.Sprintf("%s:\n%v", s.Label, s.Stmt) }
+func (s *ExprStmt) String() string    { return nodeString(s.X) }
+func (s *SendStmt) String() string {
+	return fmt.Sprintf(`%s<-%s`, nodeString(s.Chan), nodeString(s.Value))
+}
+func (s *IncDecStmt) String() string { return fmt.Sprintf(`%s%s`, nodeString(s.X), s.Tok.String()) }
+func (s *AssignStmt) String() string {
+	return fmt.Sprintf(`%s%s%s`, csvString(s.Lhs), s.Tok.String(), csvString(s.Rhs))
+}
+func (s *GoStmt) String() string       { return fmt.Sprintf(`go %s`, nodeString(s.Call)) }
+func (s *DeferStmt) String() string    { return fmt.Sprintf(`defer %s`, nodeString(s.Call)) }
 func (s *ReturnStmt) String() string   { return fmt.Sprintf(`return %s`, csvString(s.Results)) }
 func (s *BranchStmt) String() string   { return fmt.Sprintf(`%s %v`, s.Tok.String(), s.Label) }
-func (s *StmtListStmt) String() string { return `StmtListStmt` } // TODO: Implement
+func (s *StmtListStmt) String() string { return fmt.Sprintf("{\n%s\n}", linesString(s.List)) }
 func (s *IfStmt) String() string {
-	str := fmt.Sprintf("if %v {\n%s\n}", s.Cond, linesString(s.Body, `  `))
+	str := fmt.Sprintf("if %s {\n%s\n}", nodeString(s.Cond), linesString(s.Body))
 	if len(s.Else) > 0 {
-		str += fmt.Sprintf(" else {\n%s\n}", linesString(s.Else, `  `))
+		str += fmt.Sprintf(" else {\n%s\n}", linesString(s.Else))
 	}
 	return str
 }
 func (s *SwitchStmt) String() string {
-	return fmt.Sprintf(`switch %v {\n%s\n}`, s.Tag, linesString(s.Body, `  `))
+	return fmt.Sprintf(`switch %s {\n%s\n}`, nodeString(s.Tag), linesString(s.Body))
 }
 func (s *TypeSwitchStmt) String() string {
-	return fmt.Sprintf(`switch %v {\n%s\n}`, s.Assign, linesString(s.Body, `  `))
+	return fmt.Sprintf(`switch %v {\n%s\n}`, s.Assign, linesString(s.Body))
 }
 func (s *SelectStmt) String() string {
-	return fmt.Sprintf(`select {\n%s\n}`, linesString(s.Body, `  `))
+	return fmt.Sprintf(`select {\n%s\n}`, linesString(s.Body))
 }
 func (s *ForStmt) String() string {
-	return fmt.Sprintf(`for %v; %v; %v {\n%v\n}`, s.Init, s.Cond, s.Post, linesString(s.Body, `  `))
+	return fmt.Sprintf(`for %v; %s; %v {\n%v\n}`, s.Init, nodeString(s.Cond), s.Post, linesString(s.Body))
 }
 func (s *RangeStmt) String() string {
-	return fmt.Sprintf(`for %v, %v %v range %v {\n%v\n}`, s.Key, s.Value, s.Tok.String(), s.X, linesString(s.Body, `  `))
+	return fmt.Sprintf(`for %v, %v %v range %v {\n%v\n}`, s.Key, s.Value, s.Tok.String(), s.X, linesString(s.Body))
 }
 func (s *CaseClause) String() string {
 	str := `default:`
@@ -239,7 +242,7 @@ func (s *CaseClause) String() string {
 		str = fmt.Sprintf(`case %v:`, csvString(s.List))
 	}
 	if len(s.Body) > 0 {
-		str += "\n" + linesString(s.Body, `  `)
+		str += "\n" + linesString(s.Body)
 	}
 	return str
 }
@@ -249,7 +252,7 @@ func (s *CommClause) String() string {
 		str = fmt.Sprintf(`case %v:`, s.Comm)
 	}
 	if len(s.Body) > 0 {
-		str += "\n" + linesString(s.Body, `  `)
+		str += "\n" + linesString(s.Body)
 	}
 	return str
 }
@@ -378,7 +381,7 @@ func fromReturnStmt(s *ast.ReturnStmt) *ReturnStmt {
 }
 
 func fromBranchStmt(s *ast.BranchStmt) *BranchStmt {
-	return &BranchStmt{Ast: s, Label: s.Label}
+	return &BranchStmt{Ast: s, Tok: s.Tok, Label: s.Label}
 }
 
 func fromBlockStmt(s *ast.BlockStmt) *StmtListStmt {

@@ -17,21 +17,35 @@ const (
 func csvString[E any, S []E](s S) string {
 	elems := make([]string, len(s))
 	for i, elem := range s {
-		elems[i] = fmt.Sprintf(`%v`, elem)
+		elems[i] = toString(elem)
 	}
 	return strings.Join(elems, `, `)
 }
 
-func linesString[E any, S []E](s S, indent string) string {
+func linesString[E any, S []E](s S) string {
+	const indent = `  `
 	elems := make([]string, len(s))
 	for i, elem := range s {
-		eStr := fmt.Sprintf(`%s%v`, indent, elem)
+		eStr := indent + toString(elem)
 		elems[i] = strings.ReplaceAll(eStr, "\n", "\n"+indent)
 	}
 	return strings.Join(elems, "\n")
 }
 
-func astString(n ast.Node) string {
+func toString(t any) string {
+	switch t := t.(type) {
+	case nil:
+		return `<nil>`
+	case ast.Node:
+		return nodeString(t)
+	case interface{ String() string }:
+		return t.String()
+	default:
+		return fmt.Sprintf(`%v`, t)
+	}
+}
+
+func nodeString(n ast.Node) string {
 	buf := &bytes.Buffer{}
 	fSet := token.NewFileSet()
 	if err := format.Node(buf, fSet, n); err != nil {

@@ -17,7 +17,7 @@ type Package struct {
 }
 
 func (p *Package) String() string {
-	return fmt.Sprintf("package{\n%s\n}", linesString(p.Funcs, `  `))
+	return fmt.Sprintf("package{\n%s\n}", linesString(p.Funcs))
 }
 
 func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
