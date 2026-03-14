@@ -3,6 +3,7 @@ package blocker
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"slices"
 
 	"github.com/Grant-Nelson/Gozer/avail/crumb"
@@ -48,16 +49,16 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 	}
 
 	fbb := &funcBlockBuilder{
-		errGroup:   bb.errGroup,
-		pkg:        bb.pkg,
-		fn:         fn,
-		labelBlock: map[token.Pos]*ir.Block{},
+		errGroup: bb.errGroup,
+		pkg:      bb.pkg,
+		fn:       fn,
+
+		jumpBlock:  map[token.Pos]*ir.Block{},
+		afterBlock: map[token.Pos]*ir.Block{},
 	}
 
 	for blockIndex := 0; blockIndex < len(fn.Blocks); blockIndex++ {
-		b := fn.Blocks[blockIndex]
-		fbb.curBlock = b
-		fbb.remodelBlock(b)
+		fbb.remodelBlock(fn.Blocks[blockIndex])
 	}
 	return true, bb.errGroup.FullOrNil()
 }
@@ -71,12 +72,28 @@ type funcBlockBuilder struct {
 	stmtIndex   int
 	curStmtList []ir.Stmt
 
-	labelBlock map[token.Pos]*ir.Block
+	jumpBlock  map[token.Pos]*ir.Block
+	afterBlock map[token.Pos]*ir.Block
+}
+
+func (fbb *funcBlockBuilder) pos(p token.Pos) token.Position {
+	return fbb.pkg.Position(p)
+}
+
+func (fbb *funcBlockBuilder) info() *types.Info {
+	return fbb.pkg.Ast.TypesInfo
 }
 
 func (fbb *funcBlockBuilder) remodelBlock(b *ir.Block) {
-	for fbb.stmtIndex = 0; fbb.stmtIndex < len(b.Body); fbb.stmtIndex++ {
-		fbb.remodelStmt(b.Body[fbb.stmtIndex])
+	fbb.curBlock = b
+	fbb.curStmtList = fbb.curBlock.Body
+	defer func() {
+		fbb.curBlock.Body = fbb.curStmtList
+		fbb.curStmtList = nil
+		fbb.curBlock = nil
+	}()
+	for fbb.stmtIndex = 0; fbb.stmtIndex < len(fbb.curStmtList); fbb.stmtIndex++ {
+		fbb.remodelStmt(fbb.curStmtList[fbb.stmtIndex])
 	}
 }
 
@@ -108,8 +125,10 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 	case *ir.IfStmt:
 		fbb.remodelIfStmt(s)
 	default:
-		panic(faults.New(`unhandled statement node in blocker`).
+		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
+			With(`pos`, fbb.pos(s.Pos())).
 			WithF(`type`, `%T`, s))
+		return
 	}
 }
 
@@ -124,10 +143,11 @@ func (fbb *funcBlockBuilder) remodelAssignStmt(s *ir.AssignStmt) {
 func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 	// Check if a block was preemptively created by prior code
 	// that is jumping forward to this block.
-	blk, ok := fbb.labelBlock[s.Label.Pos()]
+	blk, ok := fbb.jumpBlock[s.Label.Pos()]
 	if ok {
 		if len(blk.Body) > 0 {
 			fbb.errGroup.Add(faults.New(`preemptive label block is already populated`).
+				With(`pos`, fbb.pos(s.Pos())).
 				With(`statements`, len(blk.Body)).
 				With(`label block`, blk).
 				With(`current block`, fbb.curBlock).
@@ -141,7 +161,7 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 
 		// Store this block with the label location so that any jumps to
 		// this label can look up the block for this label.
-		fbb.labelBlock[s.Label.Pos()] = blk
+		fbb.jumpBlock[s.Label.Pos()] = blk
 	}
 
 	// TODO: Need to handle for-loop or special targeted statement for the label
@@ -153,16 +173,16 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 	// in the block, then move all following statements from the current block
 	// into the new block.
 	blk.Body = []ir.Stmt{s.Stmt}
-	blk.Body = append(blk.Body, fbb.curBlock.Body[fbb.stmtIndex+1:]...)
-	fbb.curBlock.Body = fbb.curBlock.Body[:fbb.stmtIndex]
+	blk.Body = append(blk.Body, fbb.curStmtList[fbb.stmtIndex+1:]...)
+	fbb.curStmtList = fbb.curStmtList[:fbb.stmtIndex]
 
 	// Add a goto in the current block to jump to the label block since the
 	// code flow goes from the current block into the label unconditionally.
-	jump := &ir.GotoBlockStmt{Block: &ir.BlockRef{Block: blk}}
-	fbb.curBlock.Body = append(fbb.curBlock.Body, jump)
+	jump := &ir.GotoBlockStmt{SrcPos: s.Stmt.Pos(), Block: &ir.BlockRef{Block: blk}}
+	fbb.curStmtList = append(fbb.curStmtList, jump)
 
-	// Step back th statement index so that the new goto statement that
-	// took the index space of the current statement is processed.
+	// Step back the statement index so that the new goto statement,
+	// that took the index space of the current statement, is processed.
 	fbb.stmtIndex--
 }
 
@@ -171,13 +191,57 @@ func (fbb *funcBlockBuilder) remodelReturnStmt(s *ir.ReturnStmt) {
 }
 
 func (fbb *funcBlockBuilder) remodelBranchStmt(s *ir.BranchStmt) {
-	//TODO: Implement
-	crumb.DropMsg(`Unimplemented`)
+	switch s.Tok {
+	case token.GOTO:
+		fbb.remodelGotoBranchStmt(s)
+	default:
+		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
+			With(`pos`, fbb.pos(s.Pos())).
+			WithF(`type`, `%T`, s))
+		return
+	}
+}
+
+func (fbb *funcBlockBuilder) remodelGotoBranchStmt(s *ir.BranchStmt) {
+	if s.Label == nil {
+		fbb.errGroup.Add(faults.New(`goto branch statement does not have a label`).
+			With(`pos`, fbb.pos(s.Pos())))
+		return
+	}
+
+	obj, ok := fbb.info().Uses[s.Label]
+	if !ok {
+		fbb.errGroup.Add(faults.New(`goto branch statement does not have object for usage`).
+			With(`label`, s.Label.Name).
+			With(`pos`, fbb.pos(s.Pos())))
+		return
+	}
+
+	blk, ok := fbb.jumpBlock[obj.Pos()]
+	if !ok {
+		// Create a preliminary block for the label this goes to.
+		blk = fbb.fn.NewBlock()
+		blk.Hint = `Label ` + s.Label.String()
+
+		// Store this block with the label location so that any jumps to
+		// this label can look up the block for this label and the actual
+		// label can fill it out.
+		fbb.jumpBlock[obj.Pos()] = blk
+	}
+
+	// Replace the branch statement with a goto block flow control
+	// to jump to the label's block.
+	jump := &ir.GotoBlockStmt{SrcPos: s.Pos(), Block: &ir.BlockRef{Block: blk}}
+	fbb.curStmtList[fbb.stmtIndex] = jump
+
+	// Step back the statement index so that the new goto statement,
+	// that took the index space of the current statement, is processed.
+	fbb.stmtIndex--
 }
 
 func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 	if s.Init != nil {
-		fbb.curBlock.Body = slices.Insert(fbb.curBlock.Body, fbb.stmtIndex, s.Init)
+		fbb.curStmtList = slices.Insert(fbb.curStmtList, fbb.stmtIndex, s.Init)
 		s.Init = nil
 		fbb.stmtIndex--
 	}

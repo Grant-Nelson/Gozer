@@ -28,8 +28,20 @@ func Test_Blocker_Label_ForwardJump(t *testing.T) {
 		`Finished:`,
 		`	return i`,
 		`}`)
-	exp := lines(`xyz`)
 	got := stringForFunc(t, pkg, `doThing`)
+	exp := lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    if i > 10 {`,
+		`      goto(block 1)`,
+		`    }`,
+		`    i+=10`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <Label Finished> {`,
+		`    return i`,
+		`  }`,
+		`}`)
 	diffString(t, got, exp)
 }
 
@@ -45,8 +57,20 @@ func Test_Blocker_Label_BackwardJump(t *testing.T) {
 		`	}`,
 		`	return i`,
 		`}`)
-	exp := lines(`xyz`)
 	got := stringForFunc(t, pkg, `doThing`)
+	exp := lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <Label Loop> {`,
+		`    i++`,
+		`    if i < 10 {`,
+		`      goto(block 1)`,
+		`    }`,
+		`    return i`,
+		`  }`,
+		`}`)
 	diffString(t, got, exp)
 }
 
@@ -62,7 +86,19 @@ func Test_Blocker_Label_JumpToIf(t *testing.T) {
 		`	}`,
 		`	return i`,
 		`}`)
-	exp := lines(`xyz`)
+	exp := lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <Label Loop> {`,
+		`    if i < 10 {`,
+		`      i++`,
+		`      goto(block 1)`,
+		`    }`,
+		`    return i`,
+		`  }`,
+		`}`)
 	got := stringForFunc(t, pkg, `doThing`)
 	diffString(t, got, exp)
 }
@@ -81,7 +117,8 @@ func Test_Blocker_Label_BreakFor(t *testing.T) {
 		`	}`,
 		`	return i`,
 		`}`)
-	exp := lines(`xyz`)
+	exp := lines(
+		`func doThing {`)
 	got := stringForFunc(t, pkg, `doThing`)
 	diffString(t, got, exp)
 }
@@ -90,6 +127,7 @@ func Test_Blocker_Label_BreakFor(t *testing.T) {
 // TODO: Check nested for-loops jump.
 // TODO: Check adding an unused label.
 // TODO: Check if-statement init movement.
+// TODO: Check break, continue, and fallthrough with and without labels
 
 func diffString(t *testing.T, got, exp string) {
 	gotLines := slices.Collect(strings.Lines(got))
@@ -112,6 +150,8 @@ func stringForFunc(t *testing.T, pkg *project.Package, funcName string) string {
 }
 
 func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
+	t.Helper()
+
 	fileName := `blockTestFunc.go`
 	dirPath := `c:\`
 	fileSrc := strings.Join(lines, "\n")
@@ -163,6 +203,10 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 	}
 	if _, err := rm.PackageDone(); err != nil {
 		t.Errorf(`error ending blocker: %v`, err)
+	}
+
+	if err := errGroup.AnyOrNil(); err != nil {
+		t.Errorf(`errors blocker: %v`, err)
 	}
 	return pkg
 }

@@ -13,6 +13,7 @@ type (
 	// Stmt is a code statement that can be put inside of a function
 	// but has no type value like an expression.
 	Stmt interface {
+		Node
 
 		// String returns a human-readable text representing the statement
 		// for debugging and testing. The output must be consistent.
@@ -28,7 +29,8 @@ type (
 	// GotoBlockStmt is a statement for a goto jump to another block.
 	// This is unique to IR and not a mirror of an AST node.
 	GotoBlockStmt struct {
-		Block *BlockRef
+		SrcPos token.Pos
+		Block  *BlockRef
 	}
 
 	//===[AST Mirrors]==========================================================
@@ -256,6 +258,25 @@ func (s *CommClause) String() string {
 	}
 	return str
 }
+
+func (s *GotoBlockStmt) Pos() token.Pos  { return s.SrcPos }
+func (s *DeclStmt) Pos() token.Pos       { return astPos(s.Ast) }
+func (s *LabeledStmt) Pos() token.Pos    { return astPos(s.Ast) }
+func (s *ExprStmt) Pos() token.Pos       { return astPos(s.Ast) }
+func (s *SendStmt) Pos() token.Pos       { return astPos(s.Ast) }
+func (s *IncDecStmt) Pos() token.Pos     { return astPos(s.Ast) }
+func (s *AssignStmt) Pos() token.Pos     { return astPos(s.Ast) }
+func (s *GoStmt) Pos() token.Pos         { return astPos(s.Ast) }
+func (s *DeferStmt) Pos() token.Pos      { return astPos(s.Ast) }
+func (s *ReturnStmt) Pos() token.Pos     { return astPos(s.Ast) }
+func (s *BranchStmt) Pos() token.Pos     { return astPos(s.Ast) }
+func (s *StmtListStmt) Pos() token.Pos   { return astPos(s.Ast) }
+func (s *IfStmt) Pos() token.Pos         { return astPos(s.Ast) }
+func (s *SwitchStmt) Pos() token.Pos     { return astPos(s.Ast) }
+func (s *TypeSwitchStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (s *SelectStmt) Pos() token.Pos     { return astPos(s.Ast) }
+func (s *ForStmt) Pos() token.Pos        { return astPos(s.Ast) }
+func (s *RangeStmt) Pos() token.Pos      { return astPos(s.Ast) }
 
 func (*GotoBlockStmt) StmtNode()  {}
 func (*DeclStmt) StmtNode()       {}

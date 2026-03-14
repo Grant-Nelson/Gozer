@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 
 	"github.com/Grant-Nelson/Gozer/avail/assert"
 	"github.com/Grant-Nelson/Gozer/avail/astTools"
@@ -36,6 +37,10 @@ type Func struct {
 	// The first block in this slice is the entry point for this function.
 	Blocks []*Block
 }
+
+var _ Node = (*Func)(nil)
+
+func (fn *Func) Pos() token.Pos { return astPos(fn.Ast) }
 
 func (fn *Func) String() string {
 	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks))
