@@ -172,8 +172,7 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 	// the code flow goes from the current block into the label unconditionally.
 	follow := fbb.curStmtList[fbb.stmtIndex+1:]
 	fbb.curStmtList = slices.Clone(fbb.curStmtList[:fbb.stmtIndex])
-	jump := ir.NewGotoBlockStmt(s.Stmt.Pos(), nextBlk)
-	fbb.curStmtList = append(fbb.curStmtList, jump)
+	fbb.curStmtList = append(fbb.curStmtList, ir.NewGotoBlockStmt(s.Stmt.Pos(), nextBlk))
 	fbb.stmtIndex--
 
 	// Handle for-loop or special targeted statement for the label so
@@ -192,8 +191,7 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 			initBlk := nextBlk
 			initBlk.Hint = `For-loop Init for ` + s.Label.String()
 			nextBlk = fbb.fn.NewBlock()
-			jump := ir.NewGotoBlockStmt(sf.Init.Pos(), nextBlk)
-			initBlk.Body = append(initBlk.Body, sf.Init, jump)
+			initBlk.Body = append(initBlk.Body, sf.Init, ir.NewGotoBlockStmt(sf.Init.Pos(), nextBlk))
 			sf.Init = nil
 		}
 
@@ -214,10 +212,13 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 			bodyBlk.Body = append(bodyBlk.Body, ifCond)
 		}
 		bodyBlk.Body = append(bodyBlk.Body, sf.Body...)
-		if sf.Post != nil {
-			bodyBlk.Body = append(bodyBlk.Body, sf.Post)
+		if !ir.IsFlowControlStatement(bodyBlk.LastStmt()) {
+			// TODO: Move Post to it's own block for end of loop and continues.
+			if sf.Post != nil {
+				bodyBlk.Body = append(bodyBlk.Body, sf.Post)
+			}
+			bodyBlk.Body = append(bodyBlk.Body, ir.NewGotoBlockStmt(sf.Pos(), bodyBlk))
 		}
-		bodyBlk.Body = append(bodyBlk.Body, ir.NewGotoBlockStmt(sf.Pos(), bodyBlk))
 
 		// Put all following statements into the block after the for-loop.
 		nextBlk.Body = append(nextBlk.Body, follow...)

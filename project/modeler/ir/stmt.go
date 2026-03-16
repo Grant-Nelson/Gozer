@@ -305,6 +305,14 @@ func NewGotoBlockStmt(pos token.Pos, nextBlk *Block) *GotoBlockStmt {
 	return &GotoBlockStmt{SrcPos: pos, Block: &BlockRef{Block: nextBlk}}
 }
 
+func IsFlowControlStatement(s Stmt) bool {
+	switch s.(type) {
+	case *GotoBlockStmt, *ReturnStmt, *BranchStmt:
+		return true
+	}
+	return false
+}
+
 //===[from AST converters]======================================================
 
 func isNotNil[T any](t T) bool {
