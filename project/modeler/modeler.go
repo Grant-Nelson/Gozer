@@ -36,7 +36,10 @@ func Model(cfg *Config) (err error) {
 
 	pkg := cfg.Package
 	pkg.State = buildState.Remodelling
-	pkg.Ir = &ir.Package{}
+	pkg.Ir = &ir.Package{
+		Info:    pkg.Ast.TypesInfo,
+		FileSet: pkg.Ast.Fset,
+	}
 
 	rm := &modeler{
 		logger:   cfg.Logger,

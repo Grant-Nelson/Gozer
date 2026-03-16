@@ -128,8 +128,6 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 		fbb.remodelBranchStmt(s)
 	case *ir.IfStmt:
 		fbb.remodelIfStmt(s)
-	case *ir.IncDecStmt:
-		fbb.remodelIncDecStmt(s)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
 			With(`pos`, fbb.pos(s.Pos())).
@@ -367,10 +365,6 @@ func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 	fbb.remodelExp(s, s.Cond)
 	fbb.remodelStmtSlice(s.Body)
 	fbb.remodelStmtSlice(s.Else)
-}
-
-func (fbb *funcBlockBuilder) remodelIncDecStmt(s *ir.IncDecStmt) {
-	fbb.remodelExp(s, s.X)
 }
 
 func (fbb *funcBlockBuilder) remodelExpSlice(s ir.Stmt, es []ast.Expr) {

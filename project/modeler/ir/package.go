@@ -3,12 +3,20 @@ package ir
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
+	"go/types"
 
 	"github.com/Grant-Nelson/Gozer/avail/assert"
 )
 
 // Package is the IR for a whole package.
 type Package struct {
+
+	// Info is the type information from the AST.
+	Info *types.Info
+
+	// FileSet is the information about the source files from the AST.
+	FileSet *token.FileSet
 
 	// Funcs is the collection of functions for this package.
 	Funcs []*Func
@@ -34,7 +42,8 @@ func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
 	block := fn.NewBlock()
 	block.Hint = `initial`
 	if astFunc.Body != nil {
-		block.Body = expandStmt(fromBlockStmt(astFunc.Body))
+		c := &Converter{Info: p.Info}
+		block.Body = c.ExpandStmt(c.FromBlockStmt(astFunc.Body))
 	}
 	return fn
 }

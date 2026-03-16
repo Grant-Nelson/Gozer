@@ -317,7 +317,10 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 		t.Fatalf(`expected only one root package but got %d`, len(proj.Roots))
 	}
 	pkg := proj.Roots[0]
-	pkg.Ir = &ir.Package{}
+	pkg.Ir = &ir.Package{
+		Info:    pkg.Ast.TypesInfo,
+		FileSet: pkg.Ast.Fset,
+	}
 	blocker := New(&Config{
 		ErrGroup: errGroup,
 	})

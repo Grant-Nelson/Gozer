@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"reflect"
-
-	"github.com/Grant-Nelson/Gozer/avail/faults"
 )
 
 type (
@@ -51,7 +48,7 @@ type (
 	// An ExprStmt node represents a (stand-alone) expression
 	// in a statement list.
 	ExprStmt struct {
-		Ast *ast.ExprStmt
+		Ast ast.Stmt
 		X   ast.Expr
 	}
 
@@ -60,13 +57,6 @@ type (
 		Ast   *ast.SendStmt
 		Chan  ast.Expr
 		Value ast.Expr
-	}
-
-	// An IncDecStmt node represents an increment or decrement statement.
-	IncDecStmt struct {
-		Ast *ast.IncDecStmt
-		X   ast.Expr
-		Tok token.Token // INC or DEC
 	}
 
 	// An AssignStmt node represents an assignment or
@@ -183,7 +173,6 @@ var (
 	_ Stmt = (*LabeledStmt)(nil)
 	_ Stmt = (*ExprStmt)(nil)
 	_ Stmt = (*SendStmt)(nil)
-	_ Stmt = (*IncDecStmt)(nil)
 	_ Stmt = (*AssignStmt)(nil)
 	_ Stmt = (*GoStmt)(nil)
 	_ Stmt = (*DeferStmt)(nil)
@@ -207,7 +196,6 @@ func (s *ExprStmt) String() string    { return nodeString(s.X) }
 func (s *SendStmt) String() string {
 	return fmt.Sprintf(`%s<-%s`, nodeString(s.Chan), nodeString(s.Value))
 }
-func (s *IncDecStmt) String() string { return fmt.Sprintf(`%s%s`, nodeString(s.X), s.Tok.String()) }
 func (s *AssignStmt) String() string {
 	return fmt.Sprintf(`%s%s%s`, csvString(s.Lhs), s.Tok.String(), csvString(s.Rhs))
 }
@@ -266,7 +254,6 @@ func (s *DeclStmt) Pos() token.Pos       { return astPos(s.Ast) }
 func (s *LabeledStmt) Pos() token.Pos    { return astPos(s.Ast) }
 func (s *ExprStmt) Pos() token.Pos       { return astPos(s.Ast) }
 func (s *SendStmt) Pos() token.Pos       { return astPos(s.Ast) }
-func (s *IncDecStmt) Pos() token.Pos     { return astPos(s.Ast) }
 func (s *AssignStmt) Pos() token.Pos     { return astPos(s.Ast) }
 func (s *GoStmt) Pos() token.Pos         { return astPos(s.Ast) }
 func (s *DeferStmt) Pos() token.Pos      { return astPos(s.Ast) }
@@ -285,7 +272,6 @@ func (*DeclStmt) StmtNode()       {}
 func (*LabeledStmt) StmtNode()    {}
 func (*ExprStmt) StmtNode()       {}
 func (*SendStmt) StmtNode()       {}
-func (*IncDecStmt) StmtNode()     {}
 func (*AssignStmt) StmtNode()     {}
 func (*GoStmt) StmtNode()         {}
 func (*DeferStmt) StmtNode()      {}
@@ -311,214 +297,4 @@ func IsFlowControlStatement(s Stmt) bool {
 		return true
 	}
 	return false
-}
-
-//===[from AST converters]======================================================
-
-func isNotNil[T any](t T) bool {
-	v := reflect.ValueOf(t)
-	return v.IsValid() && !v.IsZero()
-}
-
-func fromNilSafeStmt[TIn ast.Stmt, TOut Stmt](s TIn, fn func(TIn) TOut) Stmt {
-	if isNotNil(s) {
-		if t := fn(s); isNotNil(t) {
-			return t
-		}
-	}
-	return nil
-}
-
-func fromStmtSlice(ss []ast.Stmt) []Stmt {
-	result := make([]Stmt, 0, len(ss))
-	for _, s := range ss {
-		result = append(result, expandStmt(fromStmt(s))...)
-	}
-	return result
-}
-
-func fromStmt(s ast.Stmt) Stmt {
-	switch s := s.(type) {
-	case nil, *ast.BadStmt, *ast.EmptyStmt:
-		return nil
-	case *ast.DeclStmt:
-		return fromNilSafeStmt(s, fromDeclStmt)
-	case *ast.LabeledStmt:
-		return fromNilSafeStmt(s, fromLabeledStmt)
-	case *ast.ExprStmt:
-		return fromNilSafeStmt(s, fromExprStmt)
-	case *ast.SendStmt:
-		return fromNilSafeStmt(s, fromSendStmt)
-	case *ast.IncDecStmt:
-		return fromNilSafeStmt(s, fromIncDecStmt)
-	case *ast.AssignStmt:
-		return fromNilSafeStmt(s, fromAssignStmt)
-	case *ast.GoStmt:
-		return fromNilSafeStmt(s, fromGoStmt)
-	case *ast.DeferStmt:
-		return fromNilSafeStmt(s, fromDeferStmt)
-	case *ast.ReturnStmt:
-		return fromNilSafeStmt(s, fromReturnStmt)
-	case *ast.BranchStmt:
-		return fromNilSafeStmt(s, fromBranchStmt)
-	case *ast.BlockStmt:
-		return fromNilSafeStmt(s, fromBlockStmt)
-	case *ast.IfStmt:
-		return fromNilSafeStmt(s, fromIfStmt)
-	case *ast.SwitchStmt:
-		return fromNilSafeStmt(s, fromSwitchStmt)
-	case *ast.TypeSwitchStmt:
-		return fromNilSafeStmt(s, fromTypeSwitchStmt)
-	case *ast.SelectStmt:
-		return fromNilSafeStmt(s, fromSelectStmt)
-	case *ast.ForStmt:
-		return fromNilSafeStmt(s, fromForStmt)
-	case *ast.RangeStmt:
-		return fromNilSafeStmt(s, fromRangeStmt)
-	default:
-		panic(faults.New(`unexpected AST statement type`).
-			WithF(`type`, `%T`, s))
-	}
-}
-
-func fromDeclStmt(s *ast.DeclStmt) *DeclStmt {
-	return &DeclStmt{Ast: s, Decl: s.Decl}
-}
-
-func fromLabeledStmt(s *ast.LabeledStmt) *LabeledStmt {
-	return &LabeledStmt{Ast: s, Label: s.Label, Stmt: fromStmt(s.Stmt)}
-}
-
-func fromExprStmt(s *ast.ExprStmt) *ExprStmt {
-	return &ExprStmt{Ast: s, X: s.X}
-}
-
-func fromSendStmt(s *ast.SendStmt) *SendStmt {
-	return &SendStmt{Ast: s, Chan: s.Chan, Value: s.Value}
-}
-
-func fromIncDecStmt(s *ast.IncDecStmt) *IncDecStmt {
-	return &IncDecStmt{Ast: s, X: s.X, Tok: s.Tok}
-}
-
-func fromAssignStmt(s *ast.AssignStmt) *AssignStmt {
-	return &AssignStmt{Ast: s, Lhs: s.Lhs, Tok: s.Tok, Rhs: s.Rhs}
-}
-
-func fromGoStmt(s *ast.GoStmt) *GoStmt {
-	return &GoStmt{Ast: s, Call: s.Call}
-}
-
-func fromDeferStmt(s *ast.DeferStmt) *DeferStmt {
-	return &DeferStmt{Ast: s, Call: s.Call}
-}
-
-func fromReturnStmt(s *ast.ReturnStmt) *ReturnStmt {
-	return &ReturnStmt{Ast: s, Results: s.Results}
-}
-
-func fromBranchStmt(s *ast.BranchStmt) *BranchStmt {
-	return &BranchStmt{Ast: s, Tok: s.Tok, Label: s.Label}
-}
-
-func fromBlockStmt(s *ast.BlockStmt) *StmtListStmt {
-	return &StmtListStmt{Ast: s, List: fromStmtSlice(s.List)}
-}
-
-func expandStmtSlice(ss []Stmt) []Stmt {
-	st := make([]Stmt, 0, len(ss))
-	for _, s := range ss {
-		st = append(st, expandStmt(s)...)
-	}
-	return st
-}
-
-func expandStmt(s Stmt) []Stmt {
-	if s == nil {
-		return []Stmt{}
-	}
-	if b, ok := s.(*StmtListStmt); ok {
-		return expandStmtSlice(b.List)
-	}
-	return []Stmt{s}
-}
-
-func fromIfStmt(s *ast.IfStmt) *IfStmt {
-	return &IfStmt{Ast: s, Init: fromStmt(s.Init), Cond: s.Cond,
-		Body: expandStmt(fromBlockStmt(s.Body)),
-		Else: expandStmt(fromStmt(s.Else))}
-}
-
-func fromCaseClause(s *ast.CaseClause) *CaseClause {
-	return &CaseClause{Ast: s, List: s.List, Body: fromStmtSlice(s.Body)}
-}
-
-func fromCaseClauseSlice(s *ast.BlockStmt) []*CaseClause {
-	if s == nil {
-		return []*CaseClause{}
-	}
-	ccs := make([]*CaseClause, 0, len(s.List))
-	for i, c := range s.List {
-		if c == nil {
-			continue
-		}
-		cc, ok := c.(*ast.CaseClause)
-		if !ok {
-			panic(faults.New(`expected case clause`).
-				WithF(`type`, `%T`, c).
-				With(`index`, i))
-		}
-		ccs = append(ccs, fromCaseClause(cc))
-	}
-	return ccs
-}
-
-func fromSwitchStmt(s *ast.SwitchStmt) *SwitchStmt {
-	return &SwitchStmt{Ast: s, Init: fromStmt(s.Init), Tag: s.Tag,
-		Body: fromCaseClauseSlice(s.Body)}
-}
-
-func fromTypeSwitchStmt(s *ast.TypeSwitchStmt) *TypeSwitchStmt {
-	return &TypeSwitchStmt{Ast: s, Init: fromStmt(s.Init),
-		Assign: fromStmt(s.Assign),
-		Body:   fromCaseClauseSlice(s.Body)}
-}
-
-func fromCommClause(s *ast.CommClause) *CommClause {
-	return &CommClause{Ast: s, Comm: fromStmt(s.Comm),
-		Body: fromStmtSlice(s.Body)}
-}
-
-func fromCommClauseSlice(s *ast.BlockStmt) []*CommClause {
-	if s == nil {
-		return []*CommClause{}
-	}
-	ccs := make([]*CommClause, 0, len(s.List))
-	for i, c := range s.List {
-		if c == nil {
-			continue
-		}
-		cc, ok := c.(*ast.CommClause)
-		if !ok {
-			panic(faults.New(`expected comm clause`).
-				WithF(`type`, `%T`, c).
-				With(`index`, i))
-		}
-		ccs = append(ccs, fromCommClause(cc))
-	}
-	return ccs
-}
-
-func fromSelectStmt(s *ast.SelectStmt) *SelectStmt {
-	return &SelectStmt{Ast: s, Body: fromCommClauseSlice(s.Body)}
-}
-
-func fromForStmt(s *ast.ForStmt) *ForStmt {
-	return &ForStmt{Ast: s, Init: fromStmt(s.Init), Cond: s.Cond,
-		Post: fromStmt(s.Post), Body: expandStmt(fromBlockStmt(s.Body))}
-}
-
-func fromRangeStmt(s *ast.RangeStmt) *RangeStmt {
-	return &RangeStmt{Ast: s, Key: s.Key, Value: s.Value, X: s.X,
-		Body: expandStmt(fromBlockStmt(s.Body))}
 }
