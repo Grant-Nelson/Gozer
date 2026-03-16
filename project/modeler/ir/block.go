@@ -60,5 +60,8 @@ func (r *BlockRef) String() string {
 	if len(r.Args) > 0 {
 		tail = fmt.Sprintf(`, [%s]`, csvString(r.Args))
 	}
+	if r.Block == nil {
+		return fmt.Sprintf(`block <nil>%s`, tail)
+	}
 	return fmt.Sprintf(`block %d%s`, r.Block.Index, tail)
 }

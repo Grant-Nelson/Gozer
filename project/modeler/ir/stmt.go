@@ -224,19 +224,21 @@ func (s *IfStmt) String() string {
 	return str
 }
 func (s *SwitchStmt) String() string {
-	return fmt.Sprintf(`switch %s {\n%s\n}`, nodeString(s.Tag), linesString(s.Body))
+	return fmt.Sprintf("switch %s {\n%s\n}", nodeString(s.Tag), linesString(s.Body))
 }
 func (s *TypeSwitchStmt) String() string {
-	return fmt.Sprintf(`switch %v {\n%s\n}`, s.Assign, linesString(s.Body))
+	return fmt.Sprintf("switch %v {\n%s\n}", s.Assign, linesString(s.Body))
 }
 func (s *SelectStmt) String() string {
-	return fmt.Sprintf(`select {\n%s\n}`, linesString(s.Body))
+	return fmt.Sprintf("select {\n%s\n}", linesString(s.Body))
 }
 func (s *ForStmt) String() string {
-	return fmt.Sprintf(`for %v; %s; %v {\n%v\n}`, s.Init, nodeString(s.Cond), s.Post, linesString(s.Body))
+	return fmt.Sprintf("for %v; %s; %v {\n%v\n}",
+		s.Init, nodeString(s.Cond), s.Post, linesString(s.Body))
 }
 func (s *RangeStmt) String() string {
-	return fmt.Sprintf(`for %v, %v %v range %v {\n%v\n}`, s.Key, s.Value, s.Tok.String(), s.X, linesString(s.Body))
+	return fmt.Sprintf("for %v, %v %v range %v {\n%v\n}",
+		s.Key, s.Value, s.Tok.String(), s.X, linesString(s.Body))
 }
 func (s *CaseClause) String() string {
 	str := `default:`
@@ -296,6 +298,12 @@ func (*TypeSwitchStmt) StmtNode() {}
 func (*SelectStmt) StmtNode()     {}
 func (*ForStmt) StmtNode()        {}
 func (*RangeStmt) StmtNode()      {}
+
+//===[IR helper methods]========================================================
+
+func NewGotoBlockStmt(pos token.Pos, nextBlk *Block) *GotoBlockStmt {
+	return &GotoBlockStmt{SrcPos: pos, Block: &BlockRef{Block: nextBlk}}
+}
 
 //===[from AST converters]======================================================
 

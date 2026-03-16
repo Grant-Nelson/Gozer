@@ -29,7 +29,7 @@ func Test_Blocker_Label_ForwardJump(t *testing.T) {
 		`	return i`,
 		`}`)
 	got := stringForFunc(t, pkg, `doThing`)
-	exp := lines(
+	diffString(t, got, lines(
 		`func doThing {`,
 		`  block 0 <initial> {`,
 		`    if i > 10 {`,
@@ -41,8 +41,7 @@ func Test_Blocker_Label_ForwardJump(t *testing.T) {
 		`  block 1 <Label Finished> {`,
 		`    return i`,
 		`  }`,
-		`}`)
-	diffString(t, got, exp)
+		`}`))
 }
 
 func Test_Blocker_Label_BackwardJump(t *testing.T) {
@@ -58,7 +57,7 @@ func Test_Blocker_Label_BackwardJump(t *testing.T) {
 		`	return i`,
 		`}`)
 	got := stringForFunc(t, pkg, `doThing`)
-	exp := lines(
+	diffString(t, got, lines(
 		`func doThing {`,
 		`  block 0 <initial> {`,
 		`    goto(block 1)`,
@@ -70,8 +69,7 @@ func Test_Blocker_Label_BackwardJump(t *testing.T) {
 		`    }`,
 		`    return i`,
 		`  }`,
-		`}`)
-	diffString(t, got, exp)
+		`}`))
 }
 
 func Test_Blocker_Label_JumpToIf(t *testing.T) {
@@ -86,7 +84,8 @@ func Test_Blocker_Label_JumpToIf(t *testing.T) {
 		`	}`,
 		`	return i`,
 		`}`)
-	exp := lines(
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
 		`func doThing {`,
 		`  block 0 <initial> {`,
 		`    goto(block 1)`,
@@ -98,9 +97,7 @@ func Test_Blocker_Label_JumpToIf(t *testing.T) {
 		`    }`,
 		`    return i`,
 		`  }`,
-		`}`)
-	got := stringForFunc(t, pkg, `doThing`)
-	diffString(t, got, exp)
+		`}`))
 }
 
 func Test_Blocker_Label_BreakFor(t *testing.T) {
@@ -117,17 +114,95 @@ func Test_Blocker_Label_BreakFor(t *testing.T) {
 		`	}`,
 		`	return i`,
 		`}`)
-	exp := lines(
-		`func doThing {`)
 	got := stringForFunc(t, pkg, `doThing`)
-	diffString(t, got, exp)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <For-loop Init for ForLoop> {`,
+		`    j:=0`,
+		`    goto(block 2)`,
+		`  }`,
+		`  block 2 <For-loop Body for ForLoop> {`,
+		`    if !(j < 10) {`,
+		`      goto(block 3)`,
+		`    }`,
+		`    i++`,
+		`    if i > 10 {`,
+		`      goto(block 3)`,
+		`    }`,
+		`    j++`,
+		`    goto(block 2)`,
+		`  }`,
+		`  block 3 <After For-loop for ForLoop> {`,
+		`    return i`,
+		`  }`,
+		`}`))
 }
 
+func Test_Blocker_Label_JumpForwardMiddleAndBack(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	if i < 3 {`,
+		`		goto ForLoop`,
+		`	}`,
+		`	i *= 2`,
+		`ForLoop:`,
+		`	for j := 0; j < 5; j++ {`,
+		`		if i > 10 {`,
+		`			break ForLoop`,
+		`		}`,
+		`		i++`,
+		`	}`,
+		`	if i < 3 {`,
+		`		goto ForLoop`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    if i < 3 {`,
+		`      goto(block 1)`,
+		`    }`,
+		`    i*=2`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <For-loop Init for ForLoop> {`,
+		`    j:=0`,
+		`    goto(block 2)`,
+		`  }`,
+		`  block 2 <For-loop Body for ForLoop> {`,
+		`    if !(j < 5) {`,
+		`      goto(block 3)`,
+		`    }`,
+		`    if i > 10 {`,
+		`      goto(block 3)`,
+		`    }`,
+		`    i++`,
+		`    j++`,
+		`    goto(block 2)`,
+		`  }`,
+		`  block 3 <After For-loop for ForLoop> {`,
+		`    if i < 3 {`,
+		`      goto(block 1)`,
+		`    }`,
+		`    return i`,
+		`  }`,
+		`}`))
+}
+
+// TODO: Check a branch statement at the end of a loop doesn't add the default goto.
 // TODO: Check forward jump to for-loop, does it initialize?
 // TODO: Check nested for-loops jump.
 // TODO: Check adding an unused label.
 // TODO: Check if-statement init movement.
 // TODO: Check break, continue, and fallthrough with and without labels
+// TODO: Check returns being added where implicit returns occur.
 
 func diffString(t *testing.T, got, exp string) {
 	gotLines := slices.Collect(strings.Lines(got))

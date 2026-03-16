@@ -53,8 +53,10 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 		pkg:      bb.pkg,
 		fn:       fn,
 
-		jumpBlock:  map[token.Pos]*ir.Block{},
-		afterBlock: map[token.Pos]*ir.Block{},
+		beforeBlock: map[token.Pos]*ir.Block{},
+		innerBlock:  map[token.Pos]*ir.Block{},
+		afterBlock:  map[token.Pos]*ir.Block{},
+		forBlock:    map[*ir.Block]token.Pos{},
 	}
 
 	for blockIndex := 0; blockIndex < len(fn.Blocks); blockIndex++ {
@@ -72,8 +74,10 @@ type funcBlockBuilder struct {
 	stmtIndex   int
 	curStmtList []ir.Stmt
 
-	jumpBlock  map[token.Pos]*ir.Block
-	afterBlock map[token.Pos]*ir.Block
+	beforeBlock map[token.Pos]*ir.Block
+	innerBlock  map[token.Pos]*ir.Block
+	afterBlock  map[token.Pos]*ir.Block
+	forBlock    map[*ir.Block]token.Pos
 }
 
 func (fbb *funcBlockBuilder) pos(p token.Pos) token.Position {
@@ -124,6 +128,8 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 		fbb.remodelBranchStmt(s)
 	case *ir.IfStmt:
 		fbb.remodelIfStmt(s)
+	case *ir.IncDecStmt:
+		fbb.remodelIncDecStmt(s)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
 			With(`pos`, fbb.pos(s.Pos())).
@@ -143,47 +149,86 @@ func (fbb *funcBlockBuilder) remodelAssignStmt(s *ir.AssignStmt) {
 func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 	// Check if a block was preemptively created by prior code
 	// that is jumping forward to this block.
-	blk, ok := fbb.jumpBlock[s.Label.Pos()]
+	nextBlk, ok := fbb.beforeBlock[s.Label.Pos()]
 	if ok {
-		if len(blk.Body) > 0 {
+		if len(nextBlk.Body) > 0 {
 			fbb.errGroup.Add(faults.New(`preemptive label block is already populated`).
 				With(`pos`, fbb.pos(s.Pos())).
-				With(`statements`, len(blk.Body)).
-				With(`label block`, blk).
+				With(`statements`, len(nextBlk.Body)).
+				With(`label block`, nextBlk).
 				With(`current block`, fbb.curBlock).
 				With(`label`, s.Label.String()))
 			return
 		}
 	} else {
 		// Create a new block for the code reachable from the label.
-		blk = fbb.fn.NewBlock()
-		blk.Hint = `Label ` + s.Label.String()
-
-		// Store this block with the label location so that any jumps to
-		// this label can look up the block for this label.
-		fbb.jumpBlock[s.Label.Pos()] = blk
+		nextBlk = fbb.fn.NewBlock()
+		nextBlk.Hint = `Label ` + s.Label.String()
+		fbb.beforeBlock[s.Label.Pos()] = nextBlk
 	}
 
-	// TODO: Need to handle for-loop or special targeted statement for the label
-	// so that things like the initialization of the for-loop is in cur block
+	// Remove all the following statements from the current block for a later
+	// block. Add a goto in the current block to jump to the label block since
+	// the code flow goes from the current block into the label unconditionally.
+	follow := fbb.curStmtList[fbb.stmtIndex+1:]
+	fbb.curStmtList = slices.Clone(fbb.curStmtList[:fbb.stmtIndex])
+	jump := ir.NewGotoBlockStmt(s.Stmt.Pos(), nextBlk)
+	fbb.curStmtList = append(fbb.curStmtList, jump)
+	fbb.stmtIndex--
+
+	// Handle for-loop or special targeted statement for the label so
+	// that things like the initialization of the for-loop is in cur block
 	// and the comparator and body get put into another block, that is the
 	// labelled block.
+	if sf, ok := s.Stmt.(*ir.ForStmt); ok {
+		if sf.Init == nil {
+			// Without a for-loop initialization, the loop on the body of the
+			// for-loop is the same as the jump for the label and body of the loop.
+			fbb.innerBlock[s.Label.Pos()] = nextBlk
+		} else {
+			// Change the next block into the for-loop initialization (init block),
+			// create a new block for the body of the for-loop, then add the
+			// for-loop init statement and a goto to the init block.
+			initBlk := nextBlk
+			initBlk.Hint = `For-loop Init for ` + s.Label.String()
+			nextBlk = fbb.fn.NewBlock()
+			jump := ir.NewGotoBlockStmt(sf.Init.Pos(), nextBlk)
+			initBlk.Body = append(initBlk.Body, sf.Init, jump)
+			sf.Init = nil
+		}
+
+		// Create a new block for after the for-loop, fill out the body of the
+		// for-loop, and add the basic for-loop goto's to loop correctly.
+		bodyBlk := nextBlk
+		bodyBlk.Hint = `For-loop Body for ` + s.Label.String()
+		fbb.innerBlock[s.Label.Pos()] = bodyBlk
+		fbb.forBlock[bodyBlk] = s.Label.Pos()
+		nextBlk = fbb.fn.NewBlock()
+		nextBlk.Hint = `After For-loop for ` + s.Label.String()
+		fbb.afterBlock[s.Label.Pos()] = nextBlk
+
+		// Fill out the body for the for-loop including the conditional exit.
+		if sf.Cond != nil {
+			ifCond := &ir.IfStmt{Cond: &ast.UnaryExpr{OpPos: sf.Cond.Pos(), Op: token.NOT, X: sf.Cond}}
+			ifCond.Body = append(ifCond.Body, ir.NewGotoBlockStmt(sf.Cond.Pos(), nextBlk))
+			bodyBlk.Body = append(bodyBlk.Body, ifCond)
+		}
+		bodyBlk.Body = append(bodyBlk.Body, sf.Body...)
+		if sf.Post != nil {
+			bodyBlk.Body = append(bodyBlk.Body, sf.Post)
+		}
+		bodyBlk.Body = append(bodyBlk.Body, ir.NewGotoBlockStmt(sf.Pos(), bodyBlk))
+
+		// Put all following statements into the block after the for-loop.
+		nextBlk.Body = append(nextBlk.Body, follow...)
+		return
+	}
 
 	// Put the statement that the label is attached to as the first statement
 	// in the block, then move all following statements from the current block
 	// into the new block.
-	blk.Body = []ir.Stmt{s.Stmt}
-	blk.Body = append(blk.Body, fbb.curStmtList[fbb.stmtIndex+1:]...)
-	fbb.curStmtList = fbb.curStmtList[:fbb.stmtIndex]
-
-	// Add a goto in the current block to jump to the label block since the
-	// code flow goes from the current block into the label unconditionally.
-	jump := &ir.GotoBlockStmt{SrcPos: s.Stmt.Pos(), Block: &ir.BlockRef{Block: blk}}
-	fbb.curStmtList = append(fbb.curStmtList, jump)
-
-	// Step back the statement index so that the new goto statement,
-	// that took the index space of the current statement, is processed.
-	fbb.stmtIndex--
+	nextBlk.Body = []ir.Stmt{s.Stmt}
+	nextBlk.Body = append(nextBlk.Body, follow...)
 }
 
 func (fbb *funcBlockBuilder) remodelReturnStmt(s *ir.ReturnStmt) {
@@ -194,9 +239,16 @@ func (fbb *funcBlockBuilder) remodelBranchStmt(s *ir.BranchStmt) {
 	switch s.Tok {
 	case token.GOTO:
 		fbb.remodelGotoBranchStmt(s)
+	case token.BREAK:
+		fbb.remodelBreakBranchStmt(s)
+	case token.CONTINUE:
+		fbb.remodelContinueBranchStmt(s)
+	case token.FALLTHROUGH:
+		fbb.remodelFallThroughBranchStmt(s)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
 			With(`pos`, fbb.pos(s.Pos())).
+			With(`branch`, s.Tok.String()).
 			WithF(`type`, `%T`, s))
 		return
 	}
@@ -217,7 +269,7 @@ func (fbb *funcBlockBuilder) remodelGotoBranchStmt(s *ir.BranchStmt) {
 		return
 	}
 
-	blk, ok := fbb.jumpBlock[obj.Pos()]
+	blk, ok := fbb.beforeBlock[obj.Pos()]
 	if !ok {
 		// Create a preliminary block for the label this goes to.
 		blk = fbb.fn.NewBlock()
@@ -226,17 +278,83 @@ func (fbb *funcBlockBuilder) remodelGotoBranchStmt(s *ir.BranchStmt) {
 		// Store this block with the label location so that any jumps to
 		// this label can look up the block for this label and the actual
 		// label can fill it out.
-		fbb.jumpBlock[obj.Pos()] = blk
+		fbb.beforeBlock[obj.Pos()] = blk
 	}
 
 	// Replace the branch statement with a goto block flow control
 	// to jump to the label's block.
-	jump := &ir.GotoBlockStmt{SrcPos: s.Pos(), Block: &ir.BlockRef{Block: blk}}
-	fbb.curStmtList[fbb.stmtIndex] = jump
-
-	// Step back the statement index so that the new goto statement,
-	// that took the index space of the current statement, is processed.
+	fbb.curStmtList[fbb.stmtIndex] = ir.NewGotoBlockStmt(s.Pos(), blk)
 	fbb.stmtIndex--
+}
+
+func (fbb *funcBlockBuilder) findBlockPos(s *ir.BranchStmt) token.Pos {
+	if s.Label != nil {
+		obj, ok := fbb.info().Uses[s.Label]
+		if !ok {
+			fbb.errGroup.Add(faults.New(`failed to find for-loop position for labelled block`).
+				With(`label`, s.Label.String()).
+				With(`pos`, fbb.pos(s.Pos())).
+				With(`branch`, s.Tok.String()))
+			return token.NoPos
+		}
+		return obj.Pos()
+	}
+	if pos, ok := fbb.forBlock[fbb.curBlock]; ok {
+		return pos
+	}
+	fbb.errGroup.Add(faults.New(`failed to find for-loop position for block`).
+		With(`pos`, fbb.pos(s.Pos())).
+		With(`branch`, s.Tok.String()).
+		WithF(`type`, `%T`, s))
+	return token.NoPos
+}
+
+func (fbb *funcBlockBuilder) remodelBreakBranchStmt(s *ir.BranchStmt) {
+	pos := fbb.findBlockPos(s)
+	blk, ok := fbb.afterBlock[pos]
+	if !ok || blk == nil {
+		fbb.errGroup.Add(faults.New(`failed to find after block for a pos`).
+			With(`block pos`, fbb.pos(pos)).
+			With(`branch`, s.Tok.String()).
+			WithF(`type`, `%T`, s).
+			With(`pos`, fbb.pos(s.Pos())))
+		return
+	}
+
+	// Replace the branch statement with a goto block flow control
+	// to jump to after the for-loop.
+	fbb.curStmtList[fbb.stmtIndex] = ir.NewGotoBlockStmt(s.Pos(), blk)
+	fbb.stmtIndex--
+}
+
+func (fbb *funcBlockBuilder) remodelContinueBranchStmt(s *ir.BranchStmt) {
+	pos := fbb.findBlockPos(s)
+	blk, ok := fbb.innerBlock[pos]
+	if !ok || blk == nil {
+		fbb.errGroup.Add(faults.New(`failed to find after block for a pos`).
+			With(`block pos`, fbb.pos(pos)).
+			With(`branch`, s.Tok.String()).
+			WithF(`type`, `%T`, s).
+			With(`pos`, fbb.pos(s.Pos())))
+		return
+	}
+
+	// Replace the branch statement with a goto block flow control
+	// to jump to after the for-loop.
+	fbb.curStmtList[fbb.stmtIndex] = ir.NewGotoBlockStmt(s.Pos(), blk)
+	fbb.stmtIndex--
+}
+
+func (fbb *funcBlockBuilder) remodelFallThroughBranchStmt(s *ir.BranchStmt) {
+	if s.Label != nil {
+		fbb.errGroup.Add(faults.New(`unexpected label on a fall through branch statement`).
+			With(`pos`, fbb.pos(s.Pos())).
+			With(`branch`, s.Tok.String()).
+			WithF(`type`, `%T`, s))
+	}
+
+	//TODO: Implement
+	crumb.DropMsg(`Unimplemented`)
 }
 
 func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
@@ -248,6 +366,10 @@ func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 	fbb.remodelExp(s, s.Cond)
 	fbb.remodelStmtSlice(s.Body)
 	fbb.remodelStmtSlice(s.Else)
+}
+
+func (fbb *funcBlockBuilder) remodelIncDecStmt(s *ir.IncDecStmt) {
+	fbb.remodelExp(s, s.X)
 }
 
 func (fbb *funcBlockBuilder) remodelExpSlice(s ir.Stmt, es []ast.Expr) {
