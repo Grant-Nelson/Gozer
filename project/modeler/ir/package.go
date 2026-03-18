@@ -39,8 +39,7 @@ func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
 	p.Funcs = append(p.Funcs, fn)
 
 	// Create initial block and populate it with current statements.
-	block := fn.NewBlock()
-	block.Hint = `initial`
+	block := fn.NewBlock(`initial`)
 	if astFunc.Body != nil {
 		c := &Converter{Info: p.Info}
 		block.Body = c.ExpandStmt(c.FromBlockStmt(astFunc.Body))

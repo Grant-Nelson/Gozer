@@ -36,6 +36,9 @@ type Func struct {
 	// Blocks is the collection of statement blocks for this function.
 	// The first block in this slice is the entry point for this function.
 	Blocks []*Block
+
+	// ReturnBlocks are blocks that exit this function.
+	ReturnBlocks []*Block
 }
 
 var _ Node = (*Func)(nil)
@@ -47,8 +50,12 @@ func (fn *Func) String() string {
 }
 
 // NewBlock creates a new empty block and adds it to this function.
-func (fn *Func) NewBlock() *Block {
-	b := &Block{Index: len(fn.Blocks)}
+func (fn *Func) NewBlock(hint string, body ...Stmt) *Block {
+	b := &Block{
+		Index: len(fn.Blocks),
+		Hint:  hint,
+		Body:  body,
+	}
 	fn.Blocks = append(fn.Blocks, b)
 	return b
 }
