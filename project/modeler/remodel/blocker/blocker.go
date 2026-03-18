@@ -235,9 +235,21 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 //	                       | ...            |
 //	                       +----------------+
 func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
+	// Create a block for the body of the for-loop.
+	bodyBlk := fbb.fn.NewBlock(`For-loop Body`)
+	fbb.blockPos[bodyBlk] = s.Pos()
+
+	// Create a block to run post or jump to on continue.
+	postBlk := bodyBlk
+	if s.Post != nil {
+		postBlk = fbb.fn.NewBlock(`For-loop Post`, s.Post)
+	}
+	fbb.continueBlock[s.Pos()] = postBlk
+
 	// Split current block to make room for for-loop.
 	afterBlk := fbb.fn.NewBlock(`After For-loop`)
 	_, curJump := fbb.splitCurBlock(afterBlk)
+	curJump.Block.Block = bodyBlk
 	fbb.breakBlock[s.Pos()] = afterBlk
 
 	// Insert the for-loop initialization into the current block before the jump.
@@ -247,26 +259,15 @@ func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
 		s.Init = nil
 	}
 
-	// Create a block for the body of the for-loop.
 	// Fill out the body for the for-loop including the conditional exit.
-	bodyBlk := fbb.fn.NewBlock(`For-loop Body`)
-	curJump.Block.Block = bodyBlk
-	fbb.blockPos[bodyBlk] = s.Pos()
 	if s.Cond != nil {
 		ifCond := &ir.IfStmt{Cond: &ast.UnaryExpr{OpPos: s.Cond.Pos(), Op: token.NOT, X: s.Cond}}
 		ifCond.Body = append(ifCond.Body, ir.NewGotoBlockStmt(s.Cond.Pos(), afterBlk))
 		bodyBlk.Body = append(bodyBlk.Body, ifCond)
 	}
 	bodyBlk.Body = append(bodyBlk.Body, s.Body...)
-
-	// Create a block to run post or jump to on continue.
-	postBlk := bodyBlk
-	if s.Post != nil {
-		postBlk = fbb.fn.NewBlock(`For-loop Post`, s.Post)
-	}
-	fbb.continueBlock[s.Pos()] = postBlk
 	if !ir.IsFlowControlStatement(bodyBlk.LastStmt()) {
-		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Cond.Pos(), bodyBlk))
+		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
 	}
 }
 
