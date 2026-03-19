@@ -132,6 +132,7 @@ func Test_Blocker_Label_BreakFor(t *testing.T) {
 		`    if i > 10 {`,
 		`      goto(block 4)`,
 		`    }`,
+		`    goto(block 3)`,
 		`  }`,
 		`  block 3 <ForLoop: For-loop Post> {`,
 		`    ++j`,
@@ -186,6 +187,7 @@ func Test_Blocker_Label_JumpForwardMiddleAndBack(t *testing.T) {
 		`      goto(block 4)`,
 		`    }`,
 		`    ++i`,
+		`    goto(block 3)`,
 		`  }`,
 		`  block 3 <ForLoop: For-loop Post> {`,
 		`    ++j`,
@@ -300,9 +302,10 @@ func Test_Blocker_Label_NestedFor(t *testing.T) {
 		`  }`,
 		`  block 7 <InnerLoop: For-loop Post> {`,
 		`    --j`,
+		`    goto(block 6)`,
 		`  }`,
 		`  block 8 <InnerLoop: After For-loop> {`,
-		// TODO: Fix
+		`    goto(block 3)`,
 		`  }`,
 		`}`))
 }
@@ -321,16 +324,96 @@ func Test_Blocker_ForLoop_While(t *testing.T) {
 	diffString(t, got, lines(
 		`func doThing {`,
 		`  block 0 <initial> {`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <For-loop Body> {`,
+		`    if !(i < 10) {`,
+		`      goto(block 2)`,
+		`    }`,
+		`    ++i`,
+		`    goto(block 1)`, // No post so jump to top of loop.
+		`  }`,
+		`  block 2 <After For-loop> {`,
+		`    return i`,
 		`  }`,
 		`}`))
 }
 
-// TODO: Check that continue hits post expression of the for-loop.
-// TODO: Check nested for-loops jump.
-// TODO: Check adding an unused label.
-// TODO: Check break, continue, and fallthrough with and without labels
-// TODO: Check returns being added where implicit returns occur.
+func Test_Blocker_ForLoop_Nested(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(k int) int {`,
+		`	for i := 0; i < 10; i++ {`,
+		`		for j := 0; j < 12; j++ {`,
+		`			k += j`,
+		`			if k < 100 {`,
+		`				continue`,
+		`			}`,
+		`       }`,
+		`	}`,
+		`   return k`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    i:=0`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <For-loop Body> {`,
+		`    if !(i < 10) {`,
+		`      goto(block 3)`,
+		`    }`,
+		`    j:=0`,
+		`    goto(block 4)`,
+		`  }`,
+		`  block 2 <For-loop Post> {`,
+		`    ++i`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 3 <After For-loop> {`,
+		`    return k`,
+		`  }`,
+		`  block 4 <For-loop Body> {`,
+		`    if !(j < 12) {`,
+		`      goto(block 6)`,
+		`    }`,
+		`    k+=j`,
+		`    if k < 100 {`,
+		`      goto(block 5)`,
+		`    }`,
+		`    goto(block 5)`,
+		`  }`,
+		`  block 5 <For-loop Post> {`,
+		`    ++j`,
+		`    goto(block 4)`,
+		`  }`,
+		`  block 6 <After For-loop> {`,
+		`    goto(block 2)`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ImplicitReturns(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i *int) {`,
+		`	*i += 10`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    *i+=10`,
+		`    return`,
+		`  }`,
+		`}`))
+}
+
 // TODO: Check for-ranges.
+// TODO: Check switches with fallthrough and break.
 
 func diffString(t *testing.T, got, exp string) {
 	gotLines := slices.Collect(strings.Lines(got))

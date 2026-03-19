@@ -78,6 +78,20 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 		blockPos:      map[*ir.Block]token.Pos{},
 	}
 
+	if len(fn.Blocks) <= 0 {
+		return true, bb.errGroup.Add(faults.New(`function has no blocks`).
+			With(`function`, fn.Name))
+	}
+	if len(fn.Blocks) > 1 {
+		return true, bb.errGroup.Add(faults.New(`function already has multiple blocks`).
+			With(`count`, len(fn.Blocks)).
+			With(`function`, fn.Name))
+	}
+
+	if !ir.IsFlowControlStatement(fn.Blocks[0].LastStmt()) {
+		fn.Blocks[0].Body = append(fn.Blocks[0].Body, &ir.ReturnStmt{})
+	}
+
 	for blockIndex := 0; blockIndex < len(fn.Blocks); blockIndex++ {
 		fbb.remodelBlock(fn.Blocks[blockIndex])
 	}
@@ -452,6 +466,8 @@ func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, e ast.Expr) {
 	case nil, *ast.BadExpr, *ast.Ident, *ast.BasicLit:
 		// Do Nothing
 		return
+	case *ast.StarExpr:
+		fbb.remodelExpr(s, e.X)
 	case *ast.UnaryExpr:
 		fbb.remodelUnaryExpr(s, e)
 	case *ast.BinaryExpr:

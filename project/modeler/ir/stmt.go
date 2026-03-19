@@ -199,9 +199,14 @@ func (s *SendStmt) String() string {
 func (s *AssignStmt) String() string {
 	return fmt.Sprintf(`%s%s%s`, csvString(s.Lhs), s.Tok.String(), csvString(s.Rhs))
 }
-func (s *GoStmt) String() string       { return fmt.Sprintf(`go %s`, nodeString(s.Call)) }
-func (s *DeferStmt) String() string    { return fmt.Sprintf(`defer %s`, nodeString(s.Call)) }
-func (s *ReturnStmt) String() string   { return fmt.Sprintf(`return %s`, csvString(s.Results)) }
+func (s *GoStmt) String() string    { return fmt.Sprintf(`go %s`, nodeString(s.Call)) }
+func (s *DeferStmt) String() string { return fmt.Sprintf(`defer %s`, nodeString(s.Call)) }
+func (s *ReturnStmt) String() string {
+	if len(s.Results) <= 0 {
+		return `return`
+	}
+	return fmt.Sprintf(`return %s`, csvString(s.Results))
+}
 func (s *BranchStmt) String() string   { return fmt.Sprintf(`%s %v`, s.Tok.String(), s.Label) }
 func (s *StmtListStmt) String() string { return fmt.Sprintf("{\n%s\n}", linesString(s.List)) }
 func (s *IfStmt) String() string {
