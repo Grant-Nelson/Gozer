@@ -40,11 +40,14 @@ type (
 )
 
 func (b *Block) String() string {
-	var hint string
+	var hint, tail string
 	if len(b.Hint) > 0 {
 		hint = `<` + b.Hint + `> `
 	}
-	return fmt.Sprintf("block %d %s{\n%s\n}", b.Index, hint, linesString(b.Body))
+	if len(b.Body) > 0 {
+		tail = fmt.Sprintf("\n%s\n", linesString(b.Body))
+	}
+	return fmt.Sprintf("block %d %s{%s}", b.Index, hint, tail)
 }
 
 // LastStmt gets the last statement in the block or nil if empty.

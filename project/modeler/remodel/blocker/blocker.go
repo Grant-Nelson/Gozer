@@ -53,6 +53,7 @@ type funcBlockBuilder struct {
 
 	labelBlock    map[token.Pos]*ir.Block
 	labelToStmt   map[token.Pos]token.Pos
+	stmtLabelName map[token.Pos]string
 	continueBlock map[token.Pos]*ir.Block
 	breakBlock    map[token.Pos]*ir.Block
 	blockPos      map[*ir.Block]token.Pos
@@ -71,6 +72,7 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 
 		labelBlock:    map[token.Pos]*ir.Block{},
 		labelToStmt:   map[token.Pos]token.Pos{},
+		stmtLabelName: map[token.Pos]string{},
 		continueBlock: map[token.Pos]*ir.Block{},
 		breakBlock:    map[token.Pos]*ir.Block{},
 		blockPos:      map[*ir.Block]token.Pos{},
@@ -209,6 +211,7 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 	if s.Stmt != nil {
 		nextBlk.Body = append(nextBlk.Body, s.Stmt)
 		fbb.labelToStmt[s.Label.Pos()] = s.Stmt.Pos()
+		fbb.stmtLabelName[s.Stmt.Pos()] = s.Label.String()
 	}
 	fbb.splitCurBlock(nextBlk)
 }
@@ -235,19 +238,26 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 //	                       | ...            |
 //	                       +----------------+
 func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
+	var labelName string
+	if name, ok := fbb.stmtLabelName[s.Pos()]; ok {
+		labelName = name + `: `
+	}
+
 	// Create a block for the body of the for-loop.
-	bodyBlk := fbb.fn.NewBlock(`For-loop Body`)
+	bodyBlk := fbb.fn.NewBlock(labelName + `For-loop Body`)
 	fbb.blockPos[bodyBlk] = s.Pos()
 
 	// Create a block to run post or jump to on continue.
+	// If there is no post then just use the body block as the post block.
 	postBlk := bodyBlk
 	if s.Post != nil {
-		postBlk = fbb.fn.NewBlock(`For-loop Post`, s.Post)
+		postBlk = fbb.fn.NewBlock(labelName+`For-loop Post`, s.Post)
+		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
 	}
 	fbb.continueBlock[s.Pos()] = postBlk
 
 	// Split current block to make room for for-loop.
-	afterBlk := fbb.fn.NewBlock(`After For-loop`)
+	afterBlk := fbb.fn.NewBlock(labelName + `After For-loop`)
 	_, curJump := fbb.splitCurBlock(afterBlk)
 	curJump.Block.Block = bodyBlk
 	fbb.breakBlock[s.Pos()] = afterBlk
@@ -267,6 +277,9 @@ func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
 	}
 	bodyBlk.Body = append(bodyBlk.Body, s.Body...)
 	if !ir.IsFlowControlStatement(bodyBlk.LastStmt()) {
+		bodyBlk.Body = append(bodyBlk.Body, ir.NewGotoBlockStmt(s.Pos(), postBlk))
+	}
+	if !ir.IsFlowControlStatement(postBlk.LastStmt()) {
 		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
 	}
 }
