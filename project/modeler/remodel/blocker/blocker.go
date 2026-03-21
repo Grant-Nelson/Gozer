@@ -48,6 +48,8 @@ type funcBlockBuilder struct {
 	fn       *ir.Func
 	curBlock *ir.Block
 
+	forRangeItType types.Type
+
 	stmtIndex   int
 	curStmtList []ir.Stmt
 
@@ -88,9 +90,10 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 			With(`function`, fn.Name))
 	}
 
-	if !ir.IsFlowControlStatement(fn.Blocks[0].LastStmt()) {
-		fn.Blocks[0].Body = append(fn.Blocks[0].Body, &ir.ReturnStmt{})
-	}
+	// TODO: FIX by moving to end after blocks have been broken out.
+	//if !ir.IsFlowControlStatement(fn.Blocks[0].LastStmt()) {
+	//	fn.Blocks[0].Body = append(fn.Blocks[0].Body, &ir.ReturnStmt{})
+	//}
 
 	for blockIndex := 0; blockIndex < len(fn.Blocks); blockIndex++ {
 		fbb.remodelBlock(fn.Blocks[blockIndex])
@@ -143,6 +146,8 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 		fbb.remodelLabeledStmt(s)
 	case *ir.ForStmt:
 		fbb.remodelForStmt(s)
+	case *ir.RangeStmt:
+		fbb.remodelRangeStmt(s)
 	case *ir.AssignStmt:
 		fbb.remodelAssignStmt(s)
 	case *ir.ReturnStmt:
@@ -296,6 +301,29 @@ func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
 	if !ir.IsFlowControlStatement(postBlk.LastStmt()) {
 		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
 	}
+}
+
+func (fbb *funcBlockBuilder) remodelRangeStmt(s *ir.RangeStmt) {
+	/*
+		var labelName string
+		if name, ok := fbb.stmtLabelName[s.Pos()]; ok {
+			labelName = name + `: `
+		}
+
+		// Create a block for the body of the for-range.
+		bodyBlk := fbb.fn.NewBlock(labelName + `For-range Body`)
+		fbb.blockPos[bodyBlk] = s.Pos()
+		fbb.continueBlock[s.Pos()] = bodyBlk
+
+		// Split current block to make room for for-range.
+		afterBlk := fbb.fn.NewBlock(labelName + `After For-range`)
+		_, curJump := fbb.splitCurBlock(afterBlk)
+		curJump.Block.Block = bodyBlk
+		fbb.breakBlock[s.Pos()] = afterBlk
+	*/
+
+	// TODO: Finish
+	panic(faults.New(`unimplemented`))
 }
 
 func (fbb *funcBlockBuilder) remodelReturnStmt(s *ir.ReturnStmt) {
@@ -472,6 +500,8 @@ func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, e ast.Expr) {
 		fbb.remodelUnaryExpr(s, e)
 	case *ast.BinaryExpr:
 		fbb.remodelBinaryExpr(s, e)
+	case *ast.CallExpr:
+		fbb.remodelCallExpr(s, e)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled expression node in blocker`).
 			With(`pos`, fbb.pos(e.Pos())).
@@ -529,5 +559,9 @@ func (fbb *funcBlockBuilder) remodelLogicalAndExpr(s ir.Stmt, e *ast.BinaryExpr)
 }
 
 func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, e *ast.BinaryExpr) {
+	crumb.DropMsg(`Unimplemented`) //TODO: Implement
+}
+
+func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, e *ast.CallExpr) {
 	crumb.DropMsg(`Unimplemented`) //TODO: Implement
 }

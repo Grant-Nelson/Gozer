@@ -412,10 +412,137 @@ func Test_Blocker_ImplicitReturns(t *testing.T) {
 		`}`))
 }
 
-// TODO: Check for-ranges.
+func Test_Blocker_ImplicitReturns_TerminatingIf(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	if i > 10 {`,
+		`		return 1`,
+		`	} else {`,
+		`		return -1`,
+		`	}`, // No implicit return added
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    if i > 10 {`,
+		`      return 1`,
+		`    } else {`,
+		`      return -1`,
+		`    }`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ImplicitReturns_TerminatingFor(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	for {`,
+		`		if i > 10 {`,
+		`			return 1`,
+		`		}`,
+		`		i++`,
+		`	}`, // No implicit return added
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		// TODO: FINISH
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ImplicitReturns_TerminatingSwitch(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	switch i {`,
+		`	case 1:`,
+		`		return 101`,
+		`	default:`,
+		`		return 202`,
+		`	}`, // No implicit return added
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		// TODO: FINISH (also check Cup-o-Go's terminator talk)
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ForRange(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`ForLoop:`,
+		`   for j := range 3 {`,
+		`       i *= j`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_AB(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fnB(a, b int) int {`,
+		`	return a+b`,
+		`}`,
+		`func fnA(n int) int {`,
+		`	return fnB(n, 1) + 1`,
+		`}`)
+	got := stringForFunc(t, pkg, `fnA`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_Recursive(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fib(n int) int {`,
+		`	if n <= 1 {`,
+		`		return n;`,
+		`	}`,
+		`	return fib(n - 1) + fib(n - 2);`,
+		`}`)
+	got := stringForFunc(t, pkg, `fib`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+// TODO: Method calls
+// TODO: Handle Panics
 // TODO: Check switches with fallthrough and break.
+// TODO: Check that expressions in for-loops, for-ranges, etc are being remodelled.
 
 func diffString(t *testing.T, got, exp string) {
+	t.Helper()
 	gotLines := slices.Collect(strings.Lines(got))
 	expLines := slices.Collect(strings.Lines(exp))
 	if diff := cmp.Diff(gotLines, expLines); len(diff) > 0 {

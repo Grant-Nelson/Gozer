@@ -296,6 +296,8 @@ func NewGotoBlockStmt(pos token.Pos, nextBlk *Block) *GotoBlockStmt {
 	return &GotoBlockStmt{SrcPos: pos, Block: &BlockRef{Block: nextBlk}}
 }
 
+// IsFlowControlStatement determines if the given statement
+// is a flow control statement such as a return or branch.
 func IsFlowControlStatement(s Stmt) bool {
 	switch s.(type) {
 	case *GotoBlockStmt, *ReturnStmt, *BranchStmt:
