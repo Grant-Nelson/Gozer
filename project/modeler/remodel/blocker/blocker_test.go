@@ -506,7 +506,46 @@ func Test_Blocker_Call_AB(t *testing.T) {
 		`	return a+b`,
 		`}`,
 		`func fnA(n int) int {`,
+		`	return fnB(n, 1)`,
+		`}`)
+	got := stringForFunc(t, pkg, `fnA`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_ABInBinary(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fnB(a, b int) int {`,
+		`	return a+b`,
+		`}`,
+		`func fnA(n int) int {`,
 		`	return fnB(n, 1) + 1`,
+		`}`)
+	got := stringForFunc(t, pkg, `fnA`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_ABWithDefine(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fnB(a, b int) int {`,
+		`	return a+b`,
+		`}`,
+		`func fnA(n int) int {`,
+		`	x := fnB(n, 1)`,
+		`	return x + 1`,
 		`}`)
 	got := stringForFunc(t, pkg, `fnA`)
 	diffString(t, got, lines(
@@ -536,7 +575,7 @@ func Test_Blocker_Call_Recursive(t *testing.T) {
 		`}`))
 }
 
-// TODO: Method calls
+// TODO: Method calls with multiple returns
 // TODO: Handle Panics
 // TODO: Check switches with fallthrough and break.
 // TODO: Check that expressions in for-loops, for-ranges, etc are being remodelled.

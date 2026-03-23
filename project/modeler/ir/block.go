@@ -27,8 +27,11 @@ type (
 		// Follow blocks are blocks that this block can transition to.
 		Follow []*Block
 
-		// ExitsFunc indicates if this block can exit the function.
-		ExitsFunc bool
+		// Params are the parameters that are passed into this block
+		// when it is called and are available inside the block.
+		//
+		// This identifier needs to have a types.Info entry to get the object.
+		Params []*ast.Ident
 	}
 
 	// BlockRef is a reference for a block invocation.

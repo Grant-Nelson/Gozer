@@ -1,6 +1,7 @@
 package project
 
 import (
+	"go/ast"
 	"go/token"
 	"strings"
 
@@ -49,10 +50,25 @@ type Package struct {
 }
 
 func newPackage(basePkg *packages.Package) *Package {
-	return &Package{
+	pkg := &Package{
 		State: buildState.Listed,
 		Ast:   basePkg,
 	}
+	for _, file := range pkg.Ast.Syntax {
+		cleanFile(file)
+	}
+	return pkg
+}
+
+func cleanFile(f *ast.File) {
+	// Remove all the deprecated Object/Scope values.
+	ast.Inspect(f, func(n ast.Node) bool {
+		if id, ok := n.(*ast.Ident); ok {
+			id.Obj = nil
+		}
+		return true
+	})
+	f.Scope = nil
 }
 
 // PkgPath is the package path as used by the go/types package.

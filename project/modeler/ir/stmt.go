@@ -30,6 +30,15 @@ type (
 		Block  *BlockRef
 	}
 
+	// FuncCallStmt is a statement for jumping to another block or named function.
+	// This is unique to IR and not a mirror of an AST node.
+	FuncCallStmt struct {
+		Ast    *ast.CallExpr
+		Fun    ast.Expr // function expression
+		Args   []ast.Expr
+		Follow *BlockRef
+	}
+
 	//===[AST Mirrors]==========================================================
 
 	// A DeclStmt node represents a declaration in a statement list.
@@ -169,6 +178,7 @@ type (
 
 var (
 	_ Stmt = (*GotoBlockStmt)(nil)
+	_ Stmt = (*FuncCallStmt)(nil)
 	_ Stmt = (*DeclStmt)(nil)
 	_ Stmt = (*LabeledStmt)(nil)
 	_ Stmt = (*ExprStmt)(nil)
@@ -189,6 +199,9 @@ var (
 
 func (s *GotoBlockStmt) String() string {
 	return `goto(` + s.Block.String() + `)`
+}
+func (s *FuncCallStmt) String() string {
+	return `call(` + nodeString(s.Fun) + `, ` + csvString(s.Args) + `|` + s.Follow.String() + `)`
 }
 func (s *DeclStmt) String() string    { return nodeString(s.Decl) }
 func (s *LabeledStmt) String() string { return fmt.Sprintf("%s:\n%v", s.Label, s.Stmt) }
@@ -255,6 +268,7 @@ func (s *CommClause) String() string {
 }
 
 func (s *GotoBlockStmt) Pos() token.Pos  { return s.SrcPos }
+func (s *FuncCallStmt) Pos() token.Pos   { return astPos(s.Ast) }
 func (s *DeclStmt) Pos() token.Pos       { return astPos(s.Ast) }
 func (s *LabeledStmt) Pos() token.Pos    { return astPos(s.Ast) }
 func (s *ExprStmt) Pos() token.Pos       { return astPos(s.Ast) }
@@ -273,6 +287,7 @@ func (s *ForStmt) Pos() token.Pos        { return astPos(s.Ast) }
 func (s *RangeStmt) Pos() token.Pos      { return astPos(s.Ast) }
 
 func (*GotoBlockStmt) StmtNode()  {}
+func (*FuncCallStmt) StmtNode()   {}
 func (*DeclStmt) StmtNode()       {}
 func (*LabeledStmt) StmtNode()    {}
 func (*ExprStmt) StmtNode()       {}

@@ -1,6 +1,7 @@
 package blocker
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -167,8 +168,8 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 }
 
 func (fbb *funcBlockBuilder) remodelAssignStmt(s *ir.AssignStmt) {
-	fbb.remodelExprSlice(s, s.Lhs)
-	fbb.remodelExprSlice(s, s.Rhs)
+	fbb.remodelExprSlice(s, nil, s.Lhs)
+	fbb.remodelExprSlice(s, nil, s.Rhs)
 }
 
 // splitCurBlock will break the current block into two parts.
@@ -327,7 +328,7 @@ func (fbb *funcBlockBuilder) remodelRangeStmt(s *ir.RangeStmt) {
 }
 
 func (fbb *funcBlockBuilder) remodelReturnStmt(s *ir.ReturnStmt) {
-	fbb.remodelExprSlice(s, s.Results)
+	fbb.remodelExprSlice(s, nil, s.Results)
 }
 
 func (fbb *funcBlockBuilder) remodelBranchStmt(s *ir.BranchStmt) {
@@ -474,34 +475,34 @@ func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 		s.Init = nil
 		fbb.stmtIndex--
 	}
-	fbb.remodelExpr(s, s.Cond)
+	fbb.remodelExpr(s, nil, s.Cond)
 	fbb.remodelStmtSlice(s.Body)
 	fbb.remodelStmtSlice(s.Else)
 }
 
 func (fbb *funcBlockBuilder) remodelExprStmt(s *ir.ExprStmt) {
-	fbb.remodelExpr(s, s.X)
+	fbb.remodelExpr(s, nil, s.X)
 }
 
-func (fbb *funcBlockBuilder) remodelExprSlice(s ir.Stmt, es []ast.Expr) {
+func (fbb *funcBlockBuilder) remodelExprSlice(s ir.Stmt, stack []ast.Expr, es []ast.Expr) {
 	for _, e := range es {
-		fbb.remodelExpr(s, e)
+		fbb.remodelExpr(s, stack, e)
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, e ast.Expr) {
+func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, stack []ast.Expr, e ast.Expr) {
 	switch e := e.(type) {
 	case nil, *ast.BadExpr, *ast.Ident, *ast.BasicLit:
 		// Do Nothing
 		return
 	case *ast.StarExpr:
-		fbb.remodelExpr(s, e.X)
+		fbb.remodelExpr(s, append(stack, e), e.X)
 	case *ast.UnaryExpr:
-		fbb.remodelUnaryExpr(s, e)
+		fbb.remodelUnaryExpr(s, stack, e)
 	case *ast.BinaryExpr:
-		fbb.remodelBinaryExpr(s, e)
+		fbb.remodelBinaryExpr(s, stack, e)
 	case *ast.CallExpr:
-		fbb.remodelCallExpr(s, e)
+		fbb.remodelCallExpr(s, stack, e)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled expression node in blocker`).
 			With(`pos`, fbb.pos(e.Pos())).
@@ -510,12 +511,12 @@ func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, e ast.Expr) {
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, e *ast.UnaryExpr) {
+func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, stack []ast.Expr, e *ast.UnaryExpr) {
 	switch e.Op {
 	case token.INC, token.DEC, token.ADD, token.SUB, token.NOT, token.XOR, token.MUL, token.AND:
-		fbb.remodelExpr(s, e.X)
+		fbb.remodelExpr(s, append(stack, e), e.X)
 	case token.ARROW:
-		fbb.remodelReceiveExpr(s, e)
+		fbb.remodelReceiveExpr(s, stack, e)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled unary expression node in blocker`).
 			With(`pos`, fbb.pos(e.Pos())).
@@ -527,11 +528,11 @@ func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, e *ast.UnaryExpr) {
 
 // remodelReceiveExpr handles a unary expression for receiving a value from a channel.
 // See: https://go.dev/ref/spec#Receive_operator
-func (fbb *funcBlockBuilder) remodelReceiveExpr(s ir.Stmt, e *ast.UnaryExpr) {
+func (fbb *funcBlockBuilder) remodelReceiveExpr(s ir.Stmt, stack []ast.Expr, e *ast.UnaryExpr) {
 	crumb.DropMsg(`Unimplemented`) //TODO: Implement
 }
 
-func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, e *ast.BinaryExpr) {
+func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
 	switch e.Op {
 	case token.ADD, token.SUB, token.MUL, token.QUO, token.REM, token.AND, token.OR,
 		token.XOR, token.SHL, token.SHR, token.AND_NOT, token.ADD_ASSIGN,
@@ -539,12 +540,12 @@ func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, e *ast.BinaryExpr) {
 		token.AND_ASSIGN, token.OR_ASSIGN, token.XOR_ASSIGN, token.SHL_ASSIGN,
 		token.SHR_ASSIGN, token.AND_NOT_ASSIGN, token.EQL, token.LSS, token.GTR,
 		token.NEQ, token.LEQ, token.GEQ:
-		fbb.remodelExpr(s, e.X)
-		fbb.remodelExpr(s, e.Y)
+		fbb.remodelExpr(s, append(stack, e), e.X)
+		fbb.remodelExpr(s, append(stack, e), e.Y)
 	case token.LAND:
-		fbb.remodelLogicalAndExpr(s, e)
+		fbb.remodelLogicalAndExpr(s, stack, e)
 	case token.LOR:
-		fbb.remodelLogicalOrExpr(s, e)
+		fbb.remodelLogicalOrExpr(s, stack, e)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled binary expression node in blocker`).
 			With(`pos`, fbb.pos(e.Pos())).
@@ -554,14 +555,35 @@ func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, e *ast.BinaryExpr) {
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelLogicalAndExpr(s ir.Stmt, e *ast.BinaryExpr) {
+func (fbb *funcBlockBuilder) remodelLogicalAndExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
 	crumb.DropMsg(`Unimplemented`) //TODO: Implement
 }
 
-func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, e *ast.BinaryExpr) {
+func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
 	crumb.DropMsg(`Unimplemented`) //TODO: Implement
 }
 
-func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, e *ast.CallExpr) {
+func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ast.Expr, e *ast.CallExpr) {
+	if len(stack) <= 0 {
+		follow := fbb.fn.NewBlock(`follow call`)
+		_, gotoFollow := fbb.splitCurBlock(follow)
+		// Replace the goto with a call
+		fbb.curStmtList[fbb.stmtIndex+1] = &ir.FuncCallStmt{
+			Ast:    e,
+			Fun:    e.Fun,
+			Args:   e.Args,
+			Follow: gotoFollow.Block,
+		}
+
+		// TODO: Add assignment or return to follow
+		return
+	}
+
+	fmt.Printf("(Stmt) %T\n", s) // TODO: Remove
+	for i, sx := range stack {   // TODO: Remove
+		fmt.Printf("(%d) %T\n", i+1, sx) // TODO: Remove
+	} // TODO: Remove
+	ast.Print(token.NewFileSet(), e) // TODO: Remove
+
 	crumb.DropMsg(`Unimplemented`) //TODO: Implement
 }
