@@ -6,14 +6,14 @@ The Transpiler
 
 ## Getting Started
 
-[WIP]
+WIP: Gozer is still being built
+
+### Build Gozer
+
+```Bash
+go build -o gozer main.go
+```
 
 ## Developer Documents
 
 [Developer Documents](./docs/README.md)
-
-## Example Running a Test
-
-```Bash
-go build .\main.go ; .\main.exe build -v ./tests/fib/main.go
-```

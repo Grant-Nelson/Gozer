@@ -8,7 +8,11 @@ import (
 )
 
 // disableAsserts is used to disable the [Assert] methods.
-// This is useful to ensure that an assert doesn't panic
+// This is useful to ensure that asserts doesn't panic while in production
+// or debugging. This will be checked first to remove as much computation
+// as possible when disabled so that the asserts are similar to no-ops.
+//
+// TODO: Should make this able to be switched on and off via an env var.
 const enableAsserts = true
 
 var ErrAssert = errors.New(`assert failed`)
@@ -93,20 +97,24 @@ func NotNil[T any, P ~*T](p P) {
 }
 
 func Zero[T comparable](a T) {
-	var zero T
-	if enableAsserts && a != zero {
-		panic(faults.New(`%w must be nil check`, ErrAssert).
-			WithF(`type`, `%T`, a).
-			With(`value`, a))
+	if enableAsserts {
+		var zero T
+		if a != zero {
+			panic(faults.New(`%w must be nil check`, ErrAssert).
+				WithF(`type`, `%T`, a).
+				With(`value`, a))
+		}
 	}
 }
 
 func Nonzero[T comparable](a T) {
-	var zero T
-	if enableAsserts && a == zero {
-		panic(faults.New(`%w not nil check`, ErrAssert).
-			WithF(`type`, `%T`, a).
-			With(`value`, a))
+	if enableAsserts {
+		var zero T
+		if a == zero {
+			panic(faults.New(`%w not nil check`, ErrAssert).
+				WithF(`type`, `%T`, a).
+				With(`value`, a))
+		}
 	}
 }
 
@@ -129,79 +137,97 @@ func False(a bool) {
 }
 
 func EmptyStr(s string) {
-	if ln := len(s); enableAsserts && ln != 0 {
-		panic(faults.New(`%w empty check`, ErrAssert).
-			WithF(`type`, `%T`, s).
-			With(`length`, ln))
+	if enableAsserts {
+		if ln := len(s); ln != 0 {
+			panic(faults.New(`%w empty check`, ErrAssert).
+				WithF(`type`, `%T`, s).
+				With(`length`, ln))
+		}
 	}
 }
 
 func NotEmptyStr(s string) {
-	if ln := len(s); enableAsserts && ln == 0 {
-		panic(faults.New(`%w not empty check`, ErrAssert).
-			WithF(`type`, `%T`, s).
-			With(`length`, ln))
+	if enableAsserts {
+		if ln := len(s); ln == 0 {
+			panic(faults.New(`%w not empty check`, ErrAssert).
+				WithF(`type`, `%T`, s).
+				With(`length`, ln))
+		}
 	}
 }
 
 func StrRange(s string, low, high int) {
-	if ln := len(s); enableAsserts && (ln < low || ln > high) {
-		panic(faults.New(`%w length range check`, ErrAssert).
-			WithF(`type`, `%T`, s).
-			With(`length`, ln).
-			With(`low`, low).
-			With(`high`, high))
+	if enableAsserts {
+		if ln := len(s); ln < low || ln > high {
+			panic(faults.New(`%w length range check`, ErrAssert).
+				WithF(`type`, `%T`, s).
+				With(`length`, ln).
+				With(`low`, low).
+				With(`high`, high))
+		}
 	}
 }
 
 func EmptySlice[T any, S ~[]T](s S) {
-	if ln := len(s); enableAsserts && ln != 0 {
-		panic(faults.New(`%w empty check`, ErrAssert).
-			WithF(`type`, `%T`, s).
-			With(`length`, ln))
+	if enableAsserts {
+		if ln := len(s); ln != 0 {
+			panic(faults.New(`%w empty check`, ErrAssert).
+				WithF(`type`, `%T`, s).
+				With(`length`, ln))
+		}
 	}
 }
 
 func NotEmptySlice[T any, S ~[]T](s S) {
-	if ln := len(s); enableAsserts && ln == 0 {
-		panic(faults.New(`%w not empty check`, ErrAssert).
-			WithF(`type`, `%T`, s).
-			With(`length`, ln))
+	if enableAsserts {
+		if ln := len(s); ln == 0 {
+			panic(faults.New(`%w not empty check`, ErrAssert).
+				WithF(`type`, `%T`, s).
+				With(`length`, ln))
+		}
 	}
 }
 
 func SliceRange[T any, S ~[]T](s S, low, high int) {
-	if ln := len(s); enableAsserts && (ln < low || ln > high) {
-		panic(faults.New(`%w length range check`, ErrAssert).
-			WithF(`type`, `%T`, s).
-			With(`length`, ln).
-			With(`low`, low).
-			With(`high`, high))
+	if enableAsserts {
+		if ln := len(s); ln < low || ln > high {
+			panic(faults.New(`%w length range check`, ErrAssert).
+				WithF(`type`, `%T`, s).
+				With(`length`, ln).
+				With(`low`, low).
+				With(`high`, high))
+		}
 	}
 }
 
 func EmptyMap[K comparable, V any, M ~map[K]V](m M) {
-	if ln := len(m); enableAsserts && ln != 0 {
-		panic(faults.New(`%w empty check`, ErrAssert).
-			WithF(`type`, `%T`, m).
-			With(`length`, ln))
+	if enableAsserts {
+		if ln := len(m); ln != 0 {
+			panic(faults.New(`%w empty check`, ErrAssert).
+				WithF(`type`, `%T`, m).
+				With(`length`, ln))
+		}
 	}
 }
 
 func NotEmptyMap[K comparable, V any, M ~map[K]V](m M) {
-	if ln := len(m); enableAsserts && ln == 0 {
-		panic(faults.New(`%w not empty check`, ErrAssert).
-			WithF(`type`, `%T`, m).
-			With(`length`, ln))
+	if enableAsserts {
+		if ln := len(m); ln == 0 {
+			panic(faults.New(`%w not empty check`, ErrAssert).
+				WithF(`type`, `%T`, m).
+				With(`length`, ln))
+		}
 	}
 }
 
 func MapRange[K comparable, V any, M ~map[K]V](m M, low, high int) {
-	if ln := len(m); enableAsserts && (ln < low || ln > high) {
-		panic(faults.New(`%w length range check`, ErrAssert).
-			WithF(`type`, `%T`, m).
-			With(`length`, ln).
-			With(`low`, low).
-			With(`high`, high))
+	if enableAsserts {
+		if ln := len(m); ln < low || ln > high {
+			panic(faults.New(`%w length range check`, ErrAssert).
+				WithF(`type`, `%T`, m).
+				With(`length`, ln).
+				With(`low`, low).
+				With(`high`, high))
+		}
 	}
 }
