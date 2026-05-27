@@ -49,7 +49,7 @@ func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
 	// Load project into AST form and type check.
 	proj, err := ts.load(cfg)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	// Model any packages that need to be compiled into the intermediate form.

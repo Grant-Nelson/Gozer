@@ -6,7 +6,8 @@ The Transpiler
 
 ## Getting Started
 
-WIP: Gozer is still being built
+:warning: WIP: Gozer is still being built
+and very likely to drastically change.
 
 ### Build Gozer
 
