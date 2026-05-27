@@ -25,9 +25,14 @@
 - **docs**: A collection of documentation, diagrams, and images
 - **experiments**: A collection of self-contained hand written outputs to quickly
     test different shapes of the output that the transpilation could match
-- **project**: // TODO: Finish
-- **testApps**: // TODO: Finish
-- **tools**: // TODO: Finish
+- **presets**: Preset configurations for different build targets
+- **project**: Core transpilation pipeline
+  - **enums**: Enumeration types (buildState)
+  - **loader**: Package loading and modification
+  - **modeler**: AST to IR conversion
+- **targets**: Target language implementations (TypeScript)
+- **testApps**: Test applications for validation
+- **tools**: CLI tool implementations (build, run, test, list, version, langs)
 
 ## Backend
 
@@ -53,3 +58,14 @@ For more information see [Augmenter](../project/loader/mods/augmenter/README.md)
 The frontend takes a prepared project from the [backend](#backend) and
 converts it into the target language.
 There are different frontends for each target language.
+
+## Design Documents
+
+- [Blocks](./Blocks.md) - Block representation and scheduler design
+- [Variable Passing](./VariablePassing.md) - Tracking variable flow between blocks
+- [Patterns](./Patterns.md) - Code patterns and transformations
+- [Future](./Future.md) - Future feature plans
+
+## Agent Guide
+
+See [AGENTS.md](../AGENTS.md) for AI agent context and development priorities.
