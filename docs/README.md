@@ -62,6 +62,7 @@ There are different frontends for each target language.
 ## Design Documents
 
 - [Blocks](./Blocks.md) - Block representation and scheduler design
+- [Block Costs](./BlockCosts.md) - Cost calculation for scheduler optimization
 - [Variable Passing](./VariablePassing.md) - Tracking variable flow between blocks
 - [Patterns](./Patterns.md) - Code patterns and transformations
 - [Future](./Future.md) - Future feature plans

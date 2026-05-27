@@ -24,7 +24,7 @@ func example(n int) int {
 
 After blocking:
 
-```
+```pseudo
 Block 0 (entry):
   Params: [n]
   Body:
@@ -127,7 +127,7 @@ func (fbb *funcBlockBuilder) computeLiveVars(splitIndex int) []*ast.Ident {
 
 Handle cases where variables flow through multiple blocks:
 
-```
+```pseudo
 Block 0: x := 1
          if cond goto Block1 else goto Block2
 Block 1: y := 2
@@ -279,7 +279,7 @@ return y  // x not needed in follow
 
 For complex control flow, consider SSA-style phi nodes:
 
-```
+```pseudo
 Block 3:
   x = phi(Block1: x1, Block2: x2)
 ```
