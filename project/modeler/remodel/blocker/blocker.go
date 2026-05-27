@@ -194,15 +194,15 @@ func (fbb *funcBlockBuilder) splitCurBlock(nextBlk *ir.Block) (ir.Stmt, *ir.Goto
 // A label can be jumped to so the code reachable from the label
 // needs to be put into it's own block.
 //
-//	+--[Cur]-----------+     +--[Cur]---------+
-//	|    ...           |	 |     ...        |
-//	|   stmt k-1       |	 | > stmt k-1     |
-//	| > stmt k (label) | ==> |   goto Next    |
-//	|   stmt k+1       |     +----------------+
-//	|    ...           |     +--[Next]--------+
-//	+------------------+     | stmt k+1       |
-//	                         | ...            |
-//	                         +----------------+
+//	+--[Cur]-----------+     +--[Cur]-----------+
+//	|    ...           |	 |     ...          |
+//	|   stmt k-1       |	 | > stmt k-1       |
+//	| > stmt k (label) | ==> |   goto Next      |
+//	|   stmt k+1       |     +------------------+
+//	|    ...           |     +--[Next]----------+
+//	+------------------+     |   stmt k+1       |
+//	                         |   ...            |
+//	                         +------------------+
 //
 // See: https://go.dev/ref/spec#Labeled_statements
 func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
@@ -238,25 +238,25 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 
 // remodelForStmt remodels a for-loop (without a range) into blocks.
 //
-//	+--[Cur]---------+     +--[Cur]---------+
-//	|    ...         |	   |     ...        |
-//	|   stmt k-1     |	   | > stmt k-1     |
-//	| > stmt k (for) | ==> |   for-init...  |
-//	|   stmt k+1     |     |   goto Body    |
-//	|    ...         |     +----------------+
-//	+----------------+     +--[Body]--------------+
-//	                       | if !cond: goto After |
-//	                       | for-body...          |
-//	                       | goto Post            |
-//	                       +----------------------+
-//	                       +--[Post]--------+
-//	                       | for-post...    |
-//	                       | goto Body      |
-//	                       +----------------+
-//	                       +--[After]-------+
-//	                       | stmt k+1       |
-//	                       | ...            |
-//	                       +----------------+
+//	+--[Cur]-----------------+     +--[Cur]-----------------+
+//	|    ...                 |     |     ...                |
+//	|   stmt k-1             |     | > stmt k-1             |
+//	| > stmt k (for)         | ==> |   for-init...          |
+//	|   stmt k+1             |     |   goto Body            |
+//	|    ...                 |     +------------------------+
+//	+------------------------+     +--[Body]----------------+
+//	                               |   if !cond: goto After |
+//	                               |   for-body...          |
+//	                               |   goto Post            |
+//	                               +------------------------+
+//	                               +--[Post]----------------+
+//	                               |   for-post...          |
+//	                               |   goto Body            |
+//	                               +------------------------+
+//	                               +--[After]---------------+
+//	                               |   stmt k+1             |
+//	                               |   ...                  |
+//	                               +------------------------+
 func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
 	var labelName string
 	if name, ok := fbb.stmtLabelName[s.Pos()]; ok {
