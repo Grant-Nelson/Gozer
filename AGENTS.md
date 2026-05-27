@@ -2,6 +2,34 @@
 
 This document provides context for AI agents working on the Gozer codebase.
 
+## Git and GitHub Restrictions
+
+**Agents must NOT modify version control or create remote resources.**
+
+All changes must be reviewed by the developer before being committed. Agents are prohibited from running:
+
+- `git add` - Do not stage changes
+- `git commit` - Do not create commits
+- `git push` - Do not push to remote
+- `git stash` - Do not stash changes
+- `git reset` - Do not reset history
+- `git rebase` - Do not rebase
+- `git merge` - Do not merge branches
+- `gh pr create` - Do not create pull requests
+- `gh issue create` - Do not create issues
+
+**Allowed git commands** (read-only operations):
+
+- `git status` - Check working tree status
+- `git diff` - View changes
+- `git log` - View history
+- `git show` - View commits
+- `git fetch` - Fetch from remote (does not modify local)
+- `git branch` - List branches
+- `git remote` - List remotes
+
+All file changes are made locally. The developer will review modifications, make adjustments as needed, and decide how to stage and commit the work.
+
 ## Project Summary
 
 **Gozer** is a Go-to-other-languages transpiler. It enables writing code once in Go and transpiling it to target languages (currently TypeScript). The transpiled code supports pseudo-multithreaded execution in single-threaded environments via a scheduler and block-based execution model.
