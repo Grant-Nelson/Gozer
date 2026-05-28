@@ -31,6 +31,7 @@ through to the output.
     - [Mapper Operations](#mapper-operations)
     - [Make and Zero Values](#make-and-zero-values)
     - [Target Language Type Dictionaries](#target-language-type-dictionaries)
+    - [Casting to Target Language Types](#casting-to-target-language-types)
   - [Integration with Blocks](#integration-with-blocks)
 
 ## Go Interfaces
@@ -204,6 +205,9 @@ singleton. The type information will contain:
    The type information for a method defines the signature such that the method
    can be used as a function pointer. See [VariablePassing.md](./VariablePassing.md)
    for how method receivers become bound variables.
+   For reflect package will use this information instead of using Go's
+   [ABI](https://go.dev/src/cmd/compile/abi-internal) to determine alignment,
+   sizes, names, etc.
 
 3. **String representation** - Information to show what Go would output when
    printing the type (e.g., using `%T` or `%#v`).
@@ -570,6 +574,27 @@ passed in arguments since some methods have no parameters and only a return
 value. However as we implement this, if we determine it is too complicated
 to base it off the type arguments then we can do the look up with parameters
 and make the type dictionaries required for functions with only return values.
+
+### Casting to Target Language Types
+
+The basic type dictionaries should have methods to externalize the type into
+a target language type. For example an `int`, `uint32`, and `uint64` should have
+a `$toNativeInt` function that helps cast from the internal representation to
+an external representation. Obviously for `int` and `uint32` which are stored as
+integers in TS, the `$toNativeInt` is a no-op that just returns the value, however
+for `uint64` that is stored with a high and low 32-bit value the value will be
+truncated by `$toNativeInt` to fit inside a TS integer. If a `$toNativeNum`
+is called on a `uint64`, the closes approximation will be returned dropping an
+LSBs as needed to fit into a `number`.
+
+Internalized strings maybe stored as `utf-8` byte arrays or as the target type
+string, so the `$toNativeString` method will re-encode the string as needed.
+
+Not all type information will have these externalize methods that convert
+to native types or expose the underlying native type if there is no equivalent.
+For example, pointers will not a "to native" function. If someone wants to
+externalize the data for a pointer they will have to use the pointer's
+functions to dereference the value, then externalize that value.
 
 ## Integration with Blocks
 

@@ -409,8 +409,11 @@ These are non-breaking flow controls.
 
 - **mainSuspend**: Creates a block return value.
   It is called like `return mainSuspend(follow index, [follow args])`.
-  It can only be called by the main method to suspend the main method
-  until all other threads have exited, then the "follow" will be called.
+  It can only be called by a [main thread](./Packages.md#main-threads)
+  to suspend that main thread until all other threads have exited,
+  then the "follow" will be called. The follow should typically be the final
+  block returning from the function that started the main thread.
+
   This is useful for kicking off a bunch of processing that must be done
   asynchronously and the application will be kept alive until the other
   threads have finished. Otherwise, when main exists, all other threads
@@ -492,5 +495,26 @@ These are non-breaking flow controls.
   stack of function calls.
 
 - **status**: Does not create a block return value.
-  It is called like `s := status(thread id)`.
-  This will return the current status of the thread as an enumerator.
+  It is called like `s := status([threadId])`.
+  This will return the current status of the thread as an enumerated value.
+  If the `threadId` argument is not given, then the current thread is queried.
+
+- **isMainThread**: Does not create a block return value.
+  It is called like `b := isMainThread([threadId])`
+  It will indicate if the this thread is a [main thread](./Packages.md#main-threads)
+  such that it will kill all threads it created when it exits and it will exit
+  if any of the threads it created doesn't catch a panic.
+  If the `threadId` argument is not given, then the current thread is queried.
+
+- **setMainThread**: Does not create a block return value.
+  It is called like `setMainThread(bool, [threadId])`.
+  If the `threadId` argument is not given, then this applies to the current thread.
+  
+  When setting to false this downgrade the thread so that it is no longer a
+  main thread and will let all the threads it created keep running independently.
+  If not a main thread and setting to false, no effect will occur.
+  
+  When setting to true this upgrades the thread into a main thread. Any
+  threads it creates after being upgraded will use this thread as a main thread.
+  If this thread is in another main thread it will be removed from it.
+  If already a main thread and setting to true, no effect will occur.
