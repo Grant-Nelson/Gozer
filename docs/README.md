@@ -61,6 +61,7 @@ There are different frontends for each target language.
 
 ## Design Documents
 
+- [Packages](./Packages.md) - Package transpilation and module structure
 - [Blocks](./Blocks.md) - Block representation and scheduler design
 - [Block Costs](./BlockCosts.md) - Cost calculation for scheduler optimization
 - [Variable Passing](./VariablePassing.md) - Tracking variable flow between blocks
