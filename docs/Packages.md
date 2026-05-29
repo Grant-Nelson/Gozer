@@ -43,6 +43,9 @@ Any imports into the package will also be imported into the module.
   that package is loaded. All imported packages will be initialized before the
   packages importing them (dependency order).
 
+  *TODO: Check that all `init`s can be called like this and we don't have to*
+  *defer them until linking is finished or something like that.*
+
 - **Main method**: When compiling into an executable with a main method for an
   application or for testing, the main package will be loaded last and have an
   automatically kicked off main method that is run after linking is resolved
@@ -56,8 +59,18 @@ Any imports into the package will also be imported into the module.
   `X_test` packages will be created and a special build of the package being
   tested will be built. Those packages will be named in a way that they do not
   get picked up as "precompiled" packages when performing another build.
+  However, if the same test is being run multiple times, the built test packages
+  could be reused without recompiling to make calls like `gozer test ./...` only
+  have to rebuild tests for packages that have changed.
+
   Additionally a test runner main package is added into the build that will
-  kick off the tests based on the command line arguments.
+  kick off the tests based on the command line arguments. Building tests will
+  be similar to how Go compiles tests where each package and `X_test` package
+  pair will be built and run before moving to another package to build and run.
+  Since a test may change package variables, each test package being run will
+  need to reset and reload the modules. This can be done simply by compiling a
+  test for a package, running it in node.js, shutting down node.js, then
+  continue onto the next test package.
 
 ## Known Issues
 
@@ -87,9 +100,9 @@ dependencies may cause problems:
   would have to know about the different build flags via a difference in the
   module names to get the correct module build.
 
-Most of these are problems with how the code is being used and the developer
+Most of these are problems with how the code is being used. The developer
 attempting to use the packages in an odd way needs to come up with a different
-way to handle these issues such as compiling to a single executable only.
+way to handle these issues, such as compiling to a single executable only.
 These problems are typical problems in any code that allows multiple modules
 to be created and used together. There are existing tools to help deal with
 diamond dependencies on different versions, etc., that can be used to help
@@ -112,6 +125,7 @@ When a package is used, the following sequence occurs:
    └── Import the .ts/.js file for this package
 
 3. Initialize Package
+   ├── Resolve any //go:linkname directives that can be resolved
    ├── Run all init() functions in source order
    └── Package-level variables are initialized
 
@@ -122,11 +136,9 @@ When a package is used, the following sequence occurs:
 For an executable with a `main` function:
 
 ```text
-1. Load all packages (dependency order)
-2. Run all init() functions (dependency order)
-3. Resolve any //go:linkname directives
-4. Start main() as a main thread
-5. Wait for main thread to exit (or keep-alive)
+1. Load package with normal package life cycle
+2. Start main() as a main thread
+3. Wait for main thread to exit (or keep-alive)
 ```
 
 ## Runtime Package
@@ -136,12 +148,12 @@ It provides:
 
 - **Scheduler**: Thread management, block execution, cost tracking
   (see [Blocks.md](./Blocks.md))
-- **Type system support**: Go interface wrappers, type assertions
+- **Type system support**: Go interface wrappers, type assertions,
+  type dictionaries and information for basic and built-in types
+  (e.g. `int`, `uint64`, `float64`,  `map`, `chan`, `slice`), etc.
   (see [TypesAndGenerics.md](./TypesAndGenerics.md))
-- **Memory management**: Slice/array allocation, map implementation
 - **Linkname registry**: Resolution of `//go:linkname` directives
 - **Panic/recover**: Panic propagation and recovery mechanism
-- **Channel implementation**: Channel operations for goroutine communication
 
 ```typescript
 // Example runtime imports in a transpiled package
@@ -158,12 +170,28 @@ them will not collide.
 ```typescript
 // Example: fmt package information
 export const $pkg = {
+    name: "fmt", // package name
+    path: "fmt", // package path
+
     // Type information for exported types
-    Stringer: StringerTypeInfo,
+    Stringer: {
+        $name: "Stringer",
+        $kind: interfaceKind,
+        $signatures: [
+            { name: "String", results: [ stringKind ] },
+        ],
+        $zero: () => { ... },
+    },
     
     // Functions (receiverless, for internal fast calls)
-    Println: Println_blocks,
-    Sprintf: Sprintf_blocks,
+    // and type information for the function.
+    Println: {
+        $name: "Println", // go name
+        $kind: functionKind,
+        $signature: { ... },
+        $invoke: function(args: any[], dicT: TypeDict): BlockReturn { ... },
+    },
+    Sprintf: { ... },
     
     // Linkname support
     $linkname: (name: string, impl: Function) => { ... },
@@ -189,15 +217,10 @@ internal use and to be quickly called.
 
 Any function that is exported from a package will have a function that
 can be called by the target language. Calling this method is not as fast
-as when transpiled methods call each other, so these externalized
-methods should only be called from outside of the transpiled code.
+as when transpiled functions call each other, so these externalized
+functions should only be called from outside of the transpiled code.
 
 ```typescript
-// Internal (fast) function - used by transpiled code
-function Println_block0(args: any[], dicT: TypeDict): BlockReturn {
-    // ... block implementation
-}
-
 // Externalized function - used by target language code
 export async function Println(...args: any[]): Promise<void> {
     // 1. Select type dictionaries based on argument types
