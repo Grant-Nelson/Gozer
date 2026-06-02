@@ -352,6 +352,12 @@ instantiations (e.g. `List_int`, `List_Cat`)
 
 ### Type Dictionaries
 
+Type dictionaries are a special kind of [type information](#type-information).
+The main difference is that the type dictionaries carry operators for basic
+types and since we do not want to or cannot add methods to the basic types,
+the type dictionaries are passed in as a parameter for generics as a helper
+for a basic type and other types that have operators apply to them.
+
 There are a finite number of basic types, such as `int8`, `int`, `uint64`, `bool`,
 `float64`, and `complex64`. When these types are used in type constraints
 on type parameters for generic declarations, they indicate what can possibly
