@@ -11,7 +11,6 @@ import (
 
 // Package is the IR for a whole package.
 type Package struct {
-
 	// Info is the type information from the AST.
 	Info *types.Info
 
@@ -38,12 +37,11 @@ func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
 	}
 	p.Funcs = append(p.Funcs, fn)
 
-	// Create initial block and populate it with current statements.
-	block := fn.NewBlock(`initial`)
-	if astFunc.Body != nil {
-		c := &Converter{Info: p.Info}
-		block.Body = c.ExpandStmt(c.FromBlockStmt(astFunc.Body))
-	}
+	// Create initial block, populate it with current statements, add params.
+	conv := &Converter{Info: p.Info}
+	body := conv.ExpandStmt(conv.FromBlockStmt(astFunc.Body))
+	params := conv.ExpandParams(astFunc.Type)
+	fn.NewBlock(`initial`, body, params)
 	return fn
 }
 

@@ -534,14 +534,15 @@ interface Indexer<K, V> {
 
 ### Make and Zero Values
 
-For `make` calls, the `$zero` will be called for element initialization.
+For `make` and `new` calls, the `$zero` will be called for element initialization.
 However, for slices, arrays, and maps there may be additional methods that
 allow sizes and capacities that the `make` can be transpiled to call.
 
 ```typescript
 interface Makeable<T> {
     $zero(): T;
-    $make(len: number, cap?: number): T;  // for slices
+    $new(): Pointer<T>;
+    $make(len?: number, cap?: number): T;
 }
 ```
 

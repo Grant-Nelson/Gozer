@@ -50,11 +50,12 @@ func (fn *Func) String() string {
 }
 
 // NewBlock creates a new empty block and adds it to this function.
-func (fn *Func) NewBlock(hint string, body ...Stmt) *Block {
+func (fn *Func) NewBlock(hint string, body []Stmt, params []*Param) *Block {
 	b := &Block{
-		Index: len(fn.Blocks),
-		Hint:  hint,
-		Body:  body,
+		Index:  len(fn.Blocks),
+		Hint:   hint,
+		Body:   body,
+		Params: params,
 	}
 	fn.Blocks = append(fn.Blocks, b)
 	return b

@@ -15,7 +15,6 @@ import (
 )
 
 type Config struct {
-
 	// ErrGroup is used to collect multiple errors.
 	ErrGroup *faults.ErrGroup
 }
@@ -92,6 +91,8 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 	}
 
 	// TODO: FIX by moving to end after blocks have been broken out.
+	// At this point we don't know if the blocks will loop forever and never
+	// have a return statement or if the return is handled differently.
 	//if !ir.IsFlowControlStatement(fn.Blocks[0].LastStmt()) {
 	//	fn.Blocks[0].Body = append(fn.Blocks[0].Body, &ir.ReturnStmt{})
 	//}
@@ -183,8 +184,12 @@ func (fbb *funcBlockBuilder) remodelAssignStmt(s *ir.AssignStmt) {
 func (fbb *funcBlockBuilder) splitCurBlock(nextBlk *ir.Block) (ir.Stmt, *ir.GotoBlockStmt) {
 	stmt := fbb.curStmtList[fbb.stmtIndex]
 	nextBlk.Body = append(nextBlk.Body, fbb.curStmtList[fbb.stmtIndex+1:]...)
+
+	// TODO: Determine the args needed to be passed to the nextBlk and add them to nextBlk and to the NewGotoBlockStmt
+
 	fbb.curStmtList = slices.Clone(fbb.curStmtList[:fbb.stmtIndex])
 	gotoLabel := ir.NewGotoBlockStmt(stmt.Pos(), nextBlk)
+
 	fbb.curStmtList = append(fbb.curStmtList, gotoLabel)
 	fbb.stmtIndex--
 	return stmt, gotoLabel
@@ -221,7 +226,7 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 		}
 	} else {
 		// Create a new block for the code reachable from the label.
-		nextBlk = fbb.fn.NewBlock(`Label ` + s.Label.String())
+		nextBlk = fbb.fn.NewBlock(`Label `+s.Label.String(), nil, nil)
 		fbb.labelBlock[s.Label.Pos()] = nextBlk
 	}
 
@@ -264,20 +269,20 @@ func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
 	}
 
 	// Create a block for the body of the for-loop.
-	bodyBlk := fbb.fn.NewBlock(labelName + `For-loop Body`)
+	bodyBlk := fbb.fn.NewBlock(labelName+`For-loop Body`, nil, nil)
 	fbb.blockPos[bodyBlk] = s.Pos()
 
 	// Create a block to run post or jump to on continue.
 	// If there is no post then just use the body block as the post block.
 	postBlk := bodyBlk
 	if s.Post != nil {
-		postBlk = fbb.fn.NewBlock(labelName+`For-loop Post`, s.Post)
+		postBlk = fbb.fn.NewBlock(labelName+`For-loop Post`, []ir.Stmt{s.Post}, nil)
 		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
 	}
 	fbb.continueBlock[s.Pos()] = postBlk
 
 	// Split current block to make room for for-loop.
-	afterBlk := fbb.fn.NewBlock(labelName + `After For-loop`)
+	afterBlk := fbb.fn.NewBlock(labelName+`After For-loop`, nil, nil)
 	_, curJump := fbb.splitCurBlock(afterBlk)
 	curJump.Block.Block = bodyBlk
 	fbb.breakBlock[s.Pos()] = afterBlk
@@ -373,7 +378,7 @@ func (fbb *funcBlockBuilder) remodelGotoBranchStmt(s *ir.BranchStmt) {
 		// Store this block with the label location so that any jumps to
 		// this label can look up the block for this label and the actual
 		// label can fill it out.
-		blk = fbb.fn.NewBlock(`Label ` + s.Label.String())
+		blk = fbb.fn.NewBlock(`Label `+s.Label.String(), nil, nil)
 		fbb.labelBlock[obj.Pos()] = blk
 	}
 
@@ -466,7 +471,7 @@ func (fbb *funcBlockBuilder) remodelFallThroughBranchStmt(s *ir.BranchStmt) {
 			WithF(`type`, `%T`, s))
 	}
 
-	crumb.DropMsg(`Unimplemented`) //TODO: Implement
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
 
 func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
@@ -529,7 +534,7 @@ func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, stack []ast.Expr, e *as
 // remodelReceiveExpr handles a unary expression for receiving a value from a channel.
 // See: https://go.dev/ref/spec#Receive_operator
 func (fbb *funcBlockBuilder) remodelReceiveExpr(s ir.Stmt, stack []ast.Expr, e *ast.UnaryExpr) {
-	crumb.DropMsg(`Unimplemented`) //TODO: Implement
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
 
 func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
@@ -556,16 +561,16 @@ func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ast.Expr, e *a
 }
 
 func (fbb *funcBlockBuilder) remodelLogicalAndExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
-	crumb.DropMsg(`Unimplemented`) //TODO: Implement
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
 
 func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
-	crumb.DropMsg(`Unimplemented`) //TODO: Implement
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
 
 func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ast.Expr, e *ast.CallExpr) {
 	if len(stack) <= 0 {
-		follow := fbb.fn.NewBlock(`follow call`)
+		follow := fbb.fn.NewBlock(`follow call`, nil, nil)
 		_, gotoFollow := fbb.splitCurBlock(follow)
 		// Replace the goto with a call
 		fbb.curStmtList[fbb.stmtIndex+1] = &ir.FuncCallStmt{
@@ -585,5 +590,5 @@ func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ast.Expr, e *ast
 	} // TODO: Remove
 	ast.Print(token.NewFileSet(), e) // TODO: Remove
 
-	crumb.DropMsg(`Unimplemented`) //TODO: Implement
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }

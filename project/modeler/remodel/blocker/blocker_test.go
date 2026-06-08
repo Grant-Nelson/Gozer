@@ -31,14 +31,14 @@ func Test_Blocker_Label_ForwardJump(t *testing.T) {
 	got := stringForFunc(t, pkg, `doThing`)
 	diffString(t, got, lines(
 		`func doThing {`,
-		`  block 0 <initial> {`,
+		`  block 0 (i int)<initial> {`,
 		`    if i > 10 {`,
 		`      goto(block 1)`,
 		`    }`,
 		`    i+=10`,
 		`    goto(block 1)`,
 		`  }`,
-		`  block 1 <Label Finished> {`,
+		`  block 1 (i int)<Label Finished> {`,
 		`    return i`,
 		`  }`,
 		`}`))
@@ -605,7 +605,8 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 	t.Helper()
 
 	fileName := `blockTestFunc.go`
-	dirPath := `c:\`
+	dirPath := `/`
+
 	fileSrc := strings.Join(lines, "\n")
 	fileSet := token.NewFileSet()
 	packageCfg := &packages.Config{

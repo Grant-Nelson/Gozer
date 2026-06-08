@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/ast"
+	"strings"
 )
 
 type (
@@ -30,27 +31,38 @@ type (
 		// Params are the parameters that are passed into this block
 		// when it is called and are available inside the block.
 		//
-		// This identifier needs to have a types.Info entry to get the object.
-		Params []*ast.Ident
+		// This will not contain any parameters needed for the closure
+		// including any receiver and any type dictionaries.
+		Params []*Param
 	}
 
 	// BlockRef is a reference for a block invocation.
 	// See [docs/Blocks.md] for more information.
 	BlockRef struct {
-		Block *Block     // the block being referenced for invocation
-		Args  []ast.Expr // the arguments to pass onto the block when invoked
+		// Block is the block being referenced for invocation.
+		Block *Block
+
+		// Args are the arguments to pass onto the block when invoked.
+		Args []ast.Expr
 	}
 )
 
 func (b *Block) String() string {
-	var hint, tail string
+	var params, hint, tail string
+	if len(b.Params) > 0 {
+		parts := make([]string, len(b.Params))
+		for i, p := range b.Params {
+			parts[i] = p.String()
+		}
+		params = strings.Join(parts, `, `)
+	}
 	if len(b.Hint) > 0 {
 		hint = `<` + b.Hint + `> `
 	}
 	if len(b.Body) > 0 {
 		tail = fmt.Sprintf("\n%s\n", linesString(b.Body))
 	}
-	return fmt.Sprintf("block %d %s{%s}", b.Index, hint, tail)
+	return fmt.Sprintf("block %d (%s)%s{%s}", b.Index, params, hint, tail)
 }
 
 // LastStmt gets the last statement in the block or nil if empty.

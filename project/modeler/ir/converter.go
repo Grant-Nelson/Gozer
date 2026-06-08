@@ -79,49 +79,120 @@ func (c *Converter) FromStmt(s ast.Stmt) Stmt {
 }
 
 func (c *Converter) FromDeclStmt(s *ast.DeclStmt) *DeclStmt {
-	return &DeclStmt{Ast: s, Decl: s.Decl}
+	if s == nil {
+		return nil
+	}
+	return &DeclStmt{
+		Ast:  s,
+		Decl: s.Decl,
+	}
 }
 
 func (c *Converter) FromLabeledStmt(s *ast.LabeledStmt) *LabeledStmt {
-	return &LabeledStmt{Ast: s, Label: s.Label, Stmt: c.FromStmt(s.Stmt)}
+	if s == nil {
+		return nil
+	}
+	return &LabeledStmt{
+		Ast:   s,
+		Label: s.Label,
+		Stmt:  c.FromStmt(s.Stmt),
+	}
 }
 
 func (c *Converter) FromExprStmt(s *ast.ExprStmt) *ExprStmt {
-	return &ExprStmt{Ast: s, X: s.X}
+	if s == nil {
+		return nil
+	}
+	return &ExprStmt{
+		Ast: s,
+		X:   s.X,
+	}
 }
 
 func (c *Converter) FromSendStmt(s *ast.SendStmt) *SendStmt {
-	return &SendStmt{Ast: s, Chan: s.Chan, Value: s.Value}
+	if s == nil {
+		return nil
+	}
+	return &SendStmt{
+		Ast:   s,
+		Chan:  s.Chan,
+		Value: s.Value,
+	}
 }
 
 func (c *Converter) FromIncDecStmt(s *ast.IncDecStmt) *ExprStmt {
+	if s == nil {
+		return nil
+	}
 	exp := &ast.UnaryExpr{OpPos: s.Pos(), Op: s.Tok, X: s.X}
 	c.Info.Types[exp] = c.Info.Types[s.X]
-	return &ExprStmt{Ast: s, X: exp}
+	return &ExprStmt{
+		Ast: s,
+		X:   exp,
+	}
 }
 
 func (c *Converter) FromAssignStmt(s *ast.AssignStmt) *AssignStmt {
-	return &AssignStmt{Ast: s, Lhs: s.Lhs, Tok: s.Tok, Rhs: s.Rhs}
+	if s == nil {
+		return nil
+	}
+	return &AssignStmt{
+		Ast: s,
+		Lhs: s.Lhs,
+		Tok: s.Tok,
+		Rhs: s.Rhs,
+	}
 }
 
 func (c *Converter) FromGoStmt(s *ast.GoStmt) *GoStmt {
-	return &GoStmt{Ast: s, Call: s.Call}
+	if s == nil {
+		return nil
+	}
+	return &GoStmt{
+		Ast:  s,
+		Call: s.Call,
+	}
 }
 
 func (c *Converter) FromDeferStmt(s *ast.DeferStmt) *DeferStmt {
-	return &DeferStmt{Ast: s, Call: s.Call}
+	if s == nil {
+		return nil
+	}
+	return &DeferStmt{
+		Ast:  s,
+		Call: s.Call,
+	}
 }
 
 func (c *Converter) FromReturnStmt(s *ast.ReturnStmt) *ReturnStmt {
-	return &ReturnStmt{Ast: s, Results: s.Results}
+	if s == nil {
+		return nil
+	}
+	return &ReturnStmt{
+		Ast:     s,
+		Results: s.Results,
+	}
 }
 
 func (c *Converter) FromBranchStmt(s *ast.BranchStmt) *BranchStmt {
-	return &BranchStmt{Ast: s, Tok: s.Tok, Label: s.Label}
+	if s == nil {
+		return nil
+	}
+	return &BranchStmt{
+		Ast:   s,
+		Tok:   s.Tok,
+		Label: s.Label,
+	}
 }
 
 func (c *Converter) FromBlockStmt(s *ast.BlockStmt) *StmtListStmt {
-	return &StmtListStmt{Ast: s, List: c.FromStmtSlice(s.List)}
+	if s == nil {
+		return nil
+	}
+	return &StmtListStmt{
+		Ast:  s,
+		List: c.FromStmtSlice(s.List),
+	}
 }
 
 func (c *Converter) ExpandStmtSlice(ss []Stmt) []Stmt {
@@ -143,6 +214,9 @@ func (c *Converter) ExpandStmt(s Stmt) []Stmt {
 }
 
 func (c *Converter) FromIfStmt(s *ast.IfStmt) *IfStmt {
+	if s == nil {
+		return nil
+	}
 	return &IfStmt{
 		Ast:  s,
 		Init: c.FromStmt(s.Init),
@@ -153,6 +227,9 @@ func (c *Converter) FromIfStmt(s *ast.IfStmt) *IfStmt {
 }
 
 func (c *Converter) FromCaseClause(s *ast.CaseClause) *CaseClause {
+	if s == nil {
+		return nil
+	}
 	return &CaseClause{
 		Ast:  s,
 		List: s.List,
@@ -181,6 +258,9 @@ func (c *Converter) FromCaseClauseSlice(s *ast.BlockStmt) []*CaseClause {
 }
 
 func (c *Converter) FromSwitchStmt(s *ast.SwitchStmt) *SwitchStmt {
+	if s == nil {
+		return nil
+	}
 	return &SwitchStmt{
 		Ast:  s,
 		Init: c.FromStmt(s.Init),
@@ -190,6 +270,9 @@ func (c *Converter) FromSwitchStmt(s *ast.SwitchStmt) *SwitchStmt {
 }
 
 func (c *Converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *TypeSwitchStmt {
+	if s == nil {
+		return nil
+	}
 	return &TypeSwitchStmt{
 		Ast:    s,
 		Init:   c.FromStmt(s.Init),
@@ -199,6 +282,9 @@ func (c *Converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *TypeSwitchStmt {
 }
 
 func (c *Converter) FromCommClause(s *ast.CommClause) *CommClause {
+	if s == nil {
+		return nil
+	}
 	return &CommClause{
 		Ast:  s,
 		Comm: c.FromStmt(s.Comm),
@@ -234,6 +320,9 @@ func (c *Converter) FromSelectStmt(s *ast.SelectStmt) *SelectStmt {
 }
 
 func (c *Converter) FromForStmt(s *ast.ForStmt) *ForStmt {
+	if s == nil {
+		return nil
+	}
 	return &ForStmt{
 		Ast:  s,
 		Init: c.FromStmt(s.Init),
@@ -244,6 +333,9 @@ func (c *Converter) FromForStmt(s *ast.ForStmt) *ForStmt {
 }
 
 func (c *Converter) FromRangeStmt(s *ast.RangeStmt) *RangeStmt {
+	if s == nil {
+		return nil
+	}
 	return &RangeStmt{
 		Ast:   s,
 		Key:   s.Key,
@@ -251,4 +343,26 @@ func (c *Converter) FromRangeStmt(s *ast.RangeStmt) *RangeStmt {
 		X:     s.X,
 		Body:  c.ExpandStmt(c.FromBlockStmt(s.Body)),
 	}
+}
+
+func (c *Converter) ExpandParams(ft *ast.FuncType) []*Param {
+	if ft == nil || ft.Params == nil || len(ft.Params.List) <= 0 {
+		return nil
+	}
+	params := make([]*Param, 0, len(ft.Params.List))
+	for _, field := range ft.Params.List {
+		// If field.Names is nil then this is an unnamed parameter
+		// that should be skipped over when defining block params.
+		for _, name := range field.Names {
+			if name == nil {
+				continue
+			}
+			param := &Param{
+				Name: name,
+				Type: field.Type,
+			}
+			params = append(params, param)
+		}
+	}
+	return params
 }
