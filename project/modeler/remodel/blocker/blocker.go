@@ -100,6 +100,7 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 	for blockIndex := 0; blockIndex < len(fn.Blocks); blockIndex++ {
 		fbb.remodelBlock(fn.Blocks[blockIndex])
 	}
+	propagateParams(fn, fbb.info(), bb.errGroup)
 	return true, bb.errGroup.FullOrNil()
 }
 
@@ -185,14 +186,36 @@ func (fbb *funcBlockBuilder) splitCurBlock(nextBlk *ir.Block) (ir.Stmt, *ir.Goto
 	stmt := fbb.curStmtList[fbb.stmtIndex]
 	nextBlk.Body = append(nextBlk.Body, fbb.curStmtList[fbb.stmtIndex+1:]...)
 
-	// TODO: Determine the args needed to be passed to the nextBlk and add them to nextBlk and to the NewGotoBlockStmt
-
 	fbb.curStmtList = slices.Clone(fbb.curStmtList[:fbb.stmtIndex])
 	gotoLabel := ir.NewGotoBlockStmt(stmt.Pos(), nextBlk)
+
+	// Approximate Params/Args for nextBlk by scanning the moved statements.
+	// This is refined to the precise set by propagateParams at the end of
+	// RemodelFunc once the full control-flow graph is known.
+	fbb.approximateSplitParams(nextBlk, gotoLabel)
 
 	fbb.curStmtList = append(fbb.curStmtList, gotoLabel)
 	fbb.stmtIndex--
 	return stmt, gotoLabel
+}
+
+// approximateSplitParams populates nextBlk.Params and gotoLabel.Block.Args
+// from a local scan of nextBlk's body. The propagateParams pass replaces
+// these with the exact live-variable set once the CFG is complete.
+func (fbb *funcBlockBuilder) approximateSplitParams(nextBlk *ir.Block, gotoLabel *ir.GotoBlockStmt) {
+	use, _ := computeUseDef(nextBlk.Body, fbb.info())
+	if len(use) == 0 {
+		return
+	}
+	ordered := orderedObjects(use)
+	params := make([]*ir.Param, 0, len(ordered))
+	args := make([]ast.Expr, 0, len(ordered))
+	for _, o := range ordered {
+		params = append(params, makeParam(o, fbb.info()))
+		args = append(args, makeArg(o, gotoLabel.SrcPos, fbb.info()))
+	}
+	nextBlk.Params = append(nextBlk.Params, params...)
+	gotoLabel.Block.Args = append(gotoLabel.Block.Args, args...)
 }
 
 // remodelLabeledStmt processes a label statement.

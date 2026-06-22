@@ -22,7 +22,10 @@ type Func struct {
 	// may cause changes to this data as well.
 	Ast *ast.FuncDecl
 
-	// TODO: Add a signature with any receivers as the first parameters.
+	// TODO: Add a signature with any receivers, type dictionaries, and variavles
+	// accessable via a closure if function was created in a closure,
+	// as the initial parameters to the function.
+	// e.g. `func (f *Foo) DoThing(x int)` => `func Foo_DoThing(f *Foo) func(x int)`
 
 	// Name of the function initialized to the name from the AST.
 	//

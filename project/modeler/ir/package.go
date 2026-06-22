@@ -38,9 +38,11 @@ func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
 	p.Funcs = append(p.Funcs, fn)
 
 	// Create initial block, populate it with current statements, add params.
+	// Named return values are appended after input params so they are in scope
+	// for the function body just like declared locals.
 	conv := &Converter{Info: p.Info}
 	body := conv.ExpandStmt(conv.FromBlockStmt(astFunc.Body))
-	params := conv.ExpandParams(astFunc.Type)
+	params := append(conv.ExpandParams(astFunc.Type), conv.ExpandResults(astFunc.Type)...)
 	fn.NewBlock(`initial`, body, params)
 	return fn
 }

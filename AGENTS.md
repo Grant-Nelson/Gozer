@@ -6,7 +6,8 @@ This document provides context for AI agents working on the Gozer codebase.
 
 **Agents must NOT modify version control or create remote resources.**
 
-All changes must be reviewed by the developer before being committed. Agents are prohibited from running:
+All changes must be reviewed by the developer before being committed.
+Agents are prohibited from running:
 
 - `git add` - Do not stage changes
 - `git commit` - Do not create commits
@@ -28,11 +29,15 @@ All changes must be reviewed by the developer before being committed. Agents are
 - `git branch` - List branches
 - `git remote` - List remotes
 
-All file changes are made locally. The developer will review modifications, make adjustments as needed, and decide how to stage and commit the work.
+All file changes are made locally. The developer will review modifications,
+make adjustments as needed, and decide how to stage and commit the work.
 
 ## Project Summary
 
-**Gozer** is a Go-to-other-languages transpiler. It enables writing code once in Go and transpiling it to target languages (currently TypeScript). The transpiled code supports pseudo-multithreaded execution in single-threaded environments via a scheduler and block-based execution model.
+**Gozer** is a Go-to-other-languages transpiler. It enables writing code once
+in Go and transpiling it to target languages (currently TypeScript).
+The transpiled code supports pseudo-multithreaded execution in single-threaded
+environments via a scheduler and block-based execution model.
 
 ### Key Concepts
 
@@ -42,9 +47,12 @@ All file changes are made locally. The developer will review modifications, make
 
 ## Architecture: Phased Pipeline
 
-Gozer is designed as a **phased pipeline** where each phase has a well-defined input/output contract. Phases should be worked on with **minimal overlap** - changes primarily occur within a phase, with cross-phase changes limited to shared data structures.
+Gozer is designed as a **phased pipeline** where each phase has a well-defined
+input/output contract. Phases should be worked on with **minimal overlap** -
+changes primarily occur within a phase, with cross-phase changes limited to
+shared data structures.
 
-```
+```plain
 ┌─────────┐    ┌─────────┐    ┌──────────┐    ┌──────────┐
 │ Loader  │───▶│ Modeler │───▶│ Compiler │───▶│  Output  │
 └─────────┘    └─────────┘    └──────────┘    └──────────┘
@@ -107,7 +115,8 @@ Cross-phase communication happens through these structures:
 
 ### Focus: Blocker and Variable Flow
 
-The **immediate priority** is completing the blocker (`project/modeler/remodel/blocker/`) to handle simple applications with:
+The **immediate priority** is completing the blocker (`project/modeler/remodel/blocker/`)
+to handle simple applications with:
 - Function calls (including recursive calls)
 - Basic types (int, bool, string, etc.)
 - Control flow (if, for, goto, labels, break, continue)
@@ -153,11 +162,12 @@ The blocker must:
 
 ## Hierarchical Plan Structure
 
-Plans in this project are organized hierarchically. A plan may have subplans that must be completed in order.
+Plans in this project are organized hierarchically. A plan may have subplans
+that must be completed in order.
 
 ### Example: Complete IR Modeler
 
-```
+```plain
 Plan: Complete IR Modeler
 ├── Subplan: Variable passing for blocks
 │   ├── Task: Track live variables at block boundaries

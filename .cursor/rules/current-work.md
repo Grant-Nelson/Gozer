@@ -23,7 +23,7 @@ Applications that work with:
 ## Current Blockers (pun intended)
 
 The `blocker.go` file has several incomplete implementations marked with:
-- `crumb.DropMsg("Unimplemented")` 
+- `crumb.DropMsg("Unimplemented")`
 - `panic(faults.New("unimplemented"))`
 - `// TODO:` comments
 

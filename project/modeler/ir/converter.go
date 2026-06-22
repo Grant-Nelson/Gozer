@@ -346,12 +346,26 @@ func (c *Converter) FromRangeStmt(s *ast.RangeStmt) *RangeStmt {
 }
 
 func (c *Converter) ExpandParams(ft *ast.FuncType) []*Param {
-	if ft == nil || ft.Params == nil || len(ft.Params.List) <= 0 {
+	if ft == nil {
 		return nil
 	}
-	params := make([]*Param, 0, len(ft.Params.List))
-	for _, field := range ft.Params.List {
-		// If field.Names is nil then this is an unnamed parameter
+	return c.expandFieldList(ft.Params)
+}
+
+func (c *Converter) ExpandResults(ft *ast.FuncType) []*Param {
+	if ft == nil {
+		return nil
+	}
+	return c.expandFieldList(ft.Results)
+}
+
+func (c *Converter) expandFieldList(fl *ast.FieldList) []*Param {
+	if fl == nil || len(fl.List) <= 0 {
+		return nil
+	}
+	params := make([]*Param, 0, len(fl.List))
+	for _, field := range fl.List {
+		// If field.Names is nil then this is an unnamed field
 		// that should be skipped over when defining block params.
 		for _, name := range field.Names {
 			if name == nil {
@@ -359,7 +373,7 @@ func (c *Converter) ExpandParams(ft *ast.FuncType) []*Param {
 			}
 			param := &Param{
 				Name: name,
-				Type: field.Type,
+				Expr: field.Type,
 			}
 			params = append(params, param)
 		}

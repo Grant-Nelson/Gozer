@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/ast"
+	"go/types"
 )
 
 // Parameter represents a single variable that can be passed into a block.
@@ -19,10 +20,24 @@ type Param struct {
 	// it was defined in the AST.
 	Name *ast.Ident
 
-	// Type is the type expression for this parameter. May not be nil.
-	Type ast.Expr
+	// Expr is the source-level type expression for this parameter.
+	//
+	// May be nil for params synthesized by the blocker for variables
+	// that were defined inside the function body (no source type expression
+	// is available). In that case Type must be set.
+	Expr ast.Expr
+
+	// Type is the resolved type for this parameter.
+	//
+	// Used as a fallback when Type is nil. The blocker sets this when
+	// synthesizing block params for variables defined inside the function
+	// body.
+	Type types.Type
 }
 
 func (p *Param) String() string {
+	if p.Expr != nil {
+		return fmt.Sprintf(`%s %s`, p.Name.String(), nodeString(p.Expr))
+	}
 	return fmt.Sprintf(`%s %v`, p.Name.String(), p.Type)
 }

@@ -28,9 +28,11 @@ The blocker does NOT yet handle:
 The **immediate work** is designing how blocks track variable flow:
 
 ### Block.Params
+
 Variables the block receives as inputs. These are identifiers that must have `types.Info` entries.
 
-### BlockRef.Args  
+### BlockRef.Args
+
 Expressions passed when jumping to a block. These become the `Params` of the target block.
 
 ### Design Requirements
@@ -60,6 +62,7 @@ Incomplete tests are marked with `// TODO: Finish` in the expected output.
 ## Code Patterns
 
 ### Splitting a block
+
 ```go
 nextBlk := fbb.fn.NewBlock(`hint`)
 stmt, gotoStmt := fbb.splitCurBlock(nextBlk)
@@ -68,6 +71,7 @@ stmt, gotoStmt := fbb.splitCurBlock(nextBlk)
 ```
 
 ### Creating a function call
+
 ```go
 follow := fbb.fn.NewBlock(`follow call`)
 _, gotoFollow := fbb.splitCurBlock(follow)
@@ -80,6 +84,7 @@ fbb.curStmtList[fbb.stmtIndex+1] = &ir.FuncCallStmt{
 ```
 
 ### Looking up type info
+
 ```go
 obj := fbb.info().Uses[ident]   // for identifier usage
 obj := fbb.info().Defs[ident]   // for identifier definition
