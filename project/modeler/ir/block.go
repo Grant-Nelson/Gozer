@@ -50,7 +50,10 @@ type (
 	}
 )
 
-var _ Node = (*Block)(nil)
+var (
+	_ Node = (*Block)(nil)
+	_ Node = (*BlockRef)(nil)
+)
 
 func (b *Block) String() string {
 	var params, hint, tail string
@@ -94,4 +97,11 @@ func (r *BlockRef) String() string {
 		return fmt.Sprintf(`block <nil>%s`, tail)
 	}
 	return fmt.Sprintf(`block %d%s`, r.Block.Index, tail)
+}
+
+func (b *BlockRef) Pos() token.Pos {
+	if b == nil || len(b.Args) <= 0 || b.Args[0] == nil {
+		return token.NoPos
+	}
+	return b.Args[0].Pos()
 }
