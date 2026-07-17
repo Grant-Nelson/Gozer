@@ -81,129 +81,116 @@ type WalkStep struct {
 	Skip bool
 }
 
-func WalkNodes(root Node) iterator.Iterator[*WalkStep] {
-	if root == nil {
+func WalkNodes(roots ...Node) iterator.Iterator[*WalkStep] {
+	s := stack.New[Node]()
+	pushAll(s, roots)
+	if s.Empty() {
 		return iterator.Empty[*WalkStep]()
 	}
-	stack := stack.New[Node]()
-	stack.Push(root)
 	step := &WalkStep{}
 	return func(yield func(*WalkStep) bool) {
-		for !stack.Empty() {
-			node := stack.Pop()
+		for !s.Empty() {
+			node := s.Pop()
 			step.Node = node
 			step.Skip = false
 			if !yield(step) {
 				return
 			}
 			if !step.Skip {
-				pushChildren(stack, node)
+				pushChildren(s, node)
 			}
 		}
 	}
 }
 
-func pushAll[T Node, S ~[]T](stack stack.Stack[Node], s S) {
-	for i := len(s) - 1; i >= 0; i-- {
-		stack.PushOne(s[i])
+func pushNode(s stack.Stack[Node], node Node) {
+	if node != nil {
+		s.PushOne(node)
 	}
 }
 
-// TODO: Finish
+func pushAll[T Node, S ~[]T](s stack.Stack[Node], nodes S) {
+	for i := len(nodes) - 1; i >= 0; i-- {
+		pushNode(s, nodes[i])
+	}
+}
 
-func pushChildren(stack stack.Stack[Node], node Node) {
+func pushChildren(s stack.Stack[Node], node Node) {
 	switch n := node.(type) {
 	case *Block:
-		pushAll(stack, n.Body)
+		pushAll(s, n.Body)
+	case *BlockRef:
+		pushAll(s, n.Args)
 	case *GotoBlockStmt:
-		//Block  *BlockRef
+		pushNode(s, n.Block)
 	case *FuncCallStmt:
-		//Fun    ast.Expr
-		//Args   []ast.Expr
-		//Follow *BlockRef
+		pushNode(s, n.Follow)
+		pushAll(s, n.Args)
+		pushNode(s, n.Fun)
 	case *DeclStmt:
-		//Decl ast.Decl
+		pushNode(s, n.Decl)
 	case *LabeledStmt:
-		//Label *ast.Ident
-		//Stmt  Stmt
+		pushNode(s, n.Stmt)
+		pushNode(s, n.Label)
 	case *ExprStmt:
-		//X   ast.Expr
+		pushNode(s, n.X)
 	case *SendStmt:
-		//Chan  ast.Expr
-		//Value ast.Expr
+		pushNode(s, n.Value)
+		pushNode(s, n.Chan)
 	case *AssignStmt:
-		//Lhs []ast.Expr
-		//Tok token.Token
-		//Rhs []ast.Expr
+		pushAll(s, n.Rhs)
+		pushAll(s, n.Lhs)
 	case *GoStmt:
-		//Call *ast.CallExpr
+		pushNode(s, n.Call)
 	case *DeferStmt:
-		//Call *ast.CallExpr
+		pushNode(s, n.Call)
 	case *ReturnStmt:
-		//Results []ast.Expr
+		pushAll(s, n.Results)
 	case *BranchStmt:
-		//Tok   token.Token
-		//Label *ast.Ident
+		pushNode(s, n.Label)
 	case *StmtListStmt:
-		//List []Stmt
+		pushAll(s, n.List)
 	case *IfStmt:
-		//Init Stmt
-		//Cond ast.Expr
-		//Body []Stmt
-		//Else []Stmt
+		pushAll(s, n.Else)
+		pushAll(s, n.Body)
+		pushNode(s, n.Cond)
+		pushNode(s, n.Init)
 	case *SwitchStmt:
-		//Init Stmt
-		//Tag  ast.Expr
-		//Body []*CaseClause
+		pushAll(s, n.Body)
+		pushNode(s, n.Tag)
+		pushNode(s, n.Init)
 	case *TypeSwitchStmt:
-		//Init   Stmt
-		//Assign Stmt
-		//Body   []*CaseClause
+		pushAll(s, n.Body)
+		pushNode(s, n.Assign)
+		pushNode(s, n.Init)
 	case *SelectStmt:
-		//Body []*CommClause
+		pushAll(s, n.Body)
 	case *ForStmt:
-		//Init Stmt
-		//Cond ast.Expr
-		//Post Stmt
-		//Body []Stmt
+		pushAll(s, n.Body)
+		pushNode(s, n.Post)
+		pushNode(s, n.Cond)
+		pushNode(s, n.Init)
 	case *RangeStmt:
-		//Key   ast.Expr
-		//Value ast.Expr
-		//Tok   token.Token
-		//X     ast.Expr
-		//Body  []Stmt
+		pushAll(s, n.Body)
+		pushNode(s, n.X)
+		pushNode(s, n.Value)
+		pushNode(s, n.Key)
 	case *CaseClause:
-		//List []ast.Expr
-		//Body []Stmt
+		pushAll(s, n.Body)
+		pushAll(s, n.List)
 	case *CommClause:
-		//Comm Stmt
-		//Body []Stmt
+		pushAll(s, n.Body)
+		pushNode(s, n.Comm)
+	case ast.Node:
+		cs := stack.New[Node]()
+		ast.Inspect(n, func(child ast.Node) bool {
+			if child != nil {
+				cs.Push(child)
+			}
+			return false
+		})
+		s.PushSeq(cs.Iterate(), cs.Count())
+	default:
+		panic(fmt.Errorf(`unexpected node type in walk: %T`, n))
 	}
 }
-
-/*
-// visitExprIdents walks an expression and records identifier reads
-// into use (unless they have already been defined locally).
-func visitExprIdents(e ast.Expr, info *types.Info, use, def objectSet) {
-	if e == nil {
-		return
-	}
-	ast.Inspect(e, func(n ast.Node) bool {
-		id, ok := n.(*ast.Ident)
-		if !ok {
-			return true
-		}
-		obj := info.Uses[id]
-		if obj == nil {
-			return true
-		}
-		if _, isVar := obj.(*types.Var); !isVar {
-			return true
-		}
-		if !def.has(obj) {
-			use.add(obj)
-		}
-		return true
-	})
-}
-*/

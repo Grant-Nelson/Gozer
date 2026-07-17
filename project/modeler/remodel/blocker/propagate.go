@@ -13,9 +13,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
 )
 
-// TODO: Agent created this file, do a full check of the code since there
-// are some things that need to be updated to use newer Go patterns.
-
 // objectSet is a set of types.Objects.
 type objectSet map[types.Object]bool
 
@@ -61,6 +58,7 @@ func computeUseDef(stmts []ir.Stmt, info *types.Info) (use, def objectSet) {
 	use = newObjectSet()
 	def = newObjectSet()
 	for _, s := range stmts {
+		// TODO: SEE IF THIS CAN USE `WalkNodes`
 		visitStmtIdents(s, info, use, def)
 	}
 	return use, def
@@ -200,6 +198,7 @@ func forEachJumpTarget(b *ir.Block, fn func(ref *ir.BlockRef, srcPos token.Pos))
 	walkBlockRefs(b.Body, fn)
 }
 
+// TODO: SEE IF THIS CAN USE `WalkNodes`
 func walkBlockRefs(stmts []ir.Stmt, fn func(ref *ir.BlockRef, srcPos token.Pos)) {
 	for _, s := range stmts {
 		switch s := s.(type) {
