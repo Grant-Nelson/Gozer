@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"strings"
 )
 
@@ -20,6 +21,7 @@ type (
 		Hint string
 
 		// Body is the list of statements for this block.
+		// A block is invalid when there are no statements.
 		Body []Stmt
 
 		// Prior blocks are blocks that can transition to this block.
@@ -40,12 +42,15 @@ type (
 	// See [docs/Blocks.md] for more information.
 	BlockRef struct {
 		// Block is the block being referenced for invocation.
+		// The reference is invalid when the block is null.
 		Block *Block
 
 		// Args are the arguments to pass onto the block when invoked.
 		Args []ast.Expr
 	}
 )
+
+var _ Node = (*Block)(nil)
 
 func (b *Block) String() string {
 	var params, hint, tail string
@@ -63,6 +68,13 @@ func (b *Block) String() string {
 		tail = fmt.Sprintf("\n%s\n", linesString(b.Body))
 	}
 	return fmt.Sprintf("block %d (%s)%s{%s}", b.Index, params, hint, tail)
+}
+
+func (b *Block) Pos() token.Pos {
+	if b == nil || len(b.Body) <= 0 || b.Body[0] == nil {
+		return token.NoPos
+	}
+	return b.Body[0].Pos()
 }
 
 // LastStmt gets the last statement in the block or nil if empty.

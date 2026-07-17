@@ -195,6 +195,10 @@ var (
 	_ Stmt = (*SelectStmt)(nil)
 	_ Stmt = (*ForStmt)(nil)
 	_ Stmt = (*RangeStmt)(nil)
+
+	_ Node = (Stmt)(nil)
+	_ Node = (*CaseClause)(nil)
+	_ Node = (*CommClause)(nil)
 )
 
 func (s *GotoBlockStmt) String() string {
@@ -294,6 +298,8 @@ func (s *TypeSwitchStmt) Pos() token.Pos { return astPos(s.Ast) }
 func (s *SelectStmt) Pos() token.Pos     { return astPos(s.Ast) }
 func (s *ForStmt) Pos() token.Pos        { return astPos(s.Ast) }
 func (s *RangeStmt) Pos() token.Pos      { return astPos(s.Ast) }
+func (c *CaseClause) Pos() token.Pos     { return astPos(c.Ast) }
+func (c *CommClause) Pos() token.Pos     { return astPos(c.Ast) }
 
 func (*GotoBlockStmt) StmtNode()  {}
 func (*FuncCallStmt) StmtNode()   {}

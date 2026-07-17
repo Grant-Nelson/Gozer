@@ -1,10 +1,13 @@
 package blocker
 
 import (
+	"cmp"
 	"go/ast"
 	"go/token"
 	"go/types"
-	"sort"
+	"maps"
+	"slices"
+	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
@@ -14,54 +17,40 @@ import (
 // are some things that need to be updated to use newer Go patterns.
 
 // objectSet is a set of types.Objects.
-type objectSet map[types.Object]struct{}
+type objectSet map[types.Object]bool
 
 func newObjectSet() objectSet { return objectSet{} }
 
 func (s objectSet) add(o types.Object) {
 	if o != nil {
-		s[o] = struct{}{}
+		s[o] = true
 	}
 }
 
 func (s objectSet) has(o types.Object) bool {
-	_, ok := s[o]
-	return ok
+	return s[o]
 }
 
 func (s objectSet) clone() objectSet {
-	c := make(objectSet, len(s))
-	for k := range s {
-		c[k] = struct{}{}
-	}
-	return c
+	return maps.Clone(s)
 }
 
 func (s objectSet) equal(o objectSet) bool {
-	if len(s) != len(o) {
-		return false
-	}
-	for k := range s {
-		if _, ok := o[k]; !ok {
-			return false
-		}
-	}
-	return true
+	return maps.Equal(s, o)
+}
+
+func compareObject(a, b types.Object) int {
+	return cmp.Or(
+		int(a.Pos())-int(b.Pos()),
+		strings.Compare(a.Name(), b.Name()),
+	)
 }
 
 // orderedObjects returns a deterministically ordered slice of the objects.
 // Ordered by declaration position then by name.
 func orderedObjects(s objectSet) []types.Object {
-	out := make([]types.Object, 0, len(s))
-	for o := range s {
-		out = append(out, o)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Pos() != out[j].Pos() {
-			return out[i].Pos() < out[j].Pos()
-		}
-		return out[i].Name() < out[j].Name()
-	})
+	out := slices.Collect(maps.Keys(s))
+	slices.SortFunc(out, compareObject)
 	return out
 }
 
