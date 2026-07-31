@@ -54,10 +54,10 @@ shared data structures.
 
 ```plain
 ┌─────────┐    ┌─────────┐    ┌──────────┐    ┌──────────┐
-│ Loader  │───▶│ Modeler │───▶│ Compiler │───▶│  Output  │
+│ Loader  │───>│ Modeler │───>│ Compiler │───>│  Output  │
 └─────────┘    └─────────┘    └──────────┘    └──────────┘
      │              │               │
-     ▼              ▼               ▼
+     V              V               V
   AST + Types    IR Blocks      Target Code
 ```
 
@@ -67,6 +67,7 @@ shared data structures.
 **Output**: `*project.Project` with parsed AST and type information
 
 Responsibilities:
+
 - Load packages via `golang.org/x/tools/go/packages`
 - Apply modifiers (augmenter, type checker, cache, package dropper)
 - Parse files into Go AST with full type information
@@ -79,6 +80,7 @@ Responsibilities:
 **Output**: `*project.Package` with IR (`pkg.Ir`)
 
 Responsibilities:
+
 - Convert Go AST to intermediate representation (IR)
 - Break functions into schedulable blocks (blocker)
 - Apply remodelers for target-specific transformations
@@ -92,6 +94,7 @@ Responsibilities:
 **Output**: Target language source code
 
 Responsibilities:
+
 - Emit target language code from IR
 - Generate scheduler integration code
 - Handle target-specific idioms
@@ -103,7 +106,7 @@ Responsibilities:
 Cross-phase communication happens through these structures:
 
 | Structure | Location | Purpose |
-|-----------|----------|---------|
+| --------- | -------- | ------- |
 | `Project` | `project/project.go` | Container for all packages |
 | `Package` | `project/package.go` | Single Go package with AST and IR |
 | `ir.Package` | `project/modeler/ir/package.go` | IR for a package |
@@ -117,11 +120,13 @@ Cross-phase communication happens through these structures:
 
 The **immediate priority** is completing the blocker (`project/modeler/remodel/blocker/`)
 to handle simple applications with:
+
 - Function calls (including recursive calls)
 - Basic types (int, bool, string, etc.)
 - Control flow (if, for, goto, labels, break, continue)
 
 **Explicitly deferred** (for now):
+
 - Type declarations (`addTypeSpec`)
 - Value declarations (`addValueSpec`)  
 - Standard library usage
@@ -137,6 +142,7 @@ When a block is split (e.g., at a function call), we must track:
 2. **Block Outputs** (`BlockRef.Args`): Variables passed when jumping to another block
 
 Example transformation:
+
 ```go
 // Original
 func foo(n int) int {
@@ -156,6 +162,7 @@ func foo(n int) int {
 ```
 
 The blocker must:
+
 1. Identify live variables at split points
 2. Determine which variables are needed in the follow block
 3. Populate `Block.Params` and `BlockRef.Args` accordingly
@@ -186,7 +193,7 @@ Plan: Complete IR Modeler
 ## Directory Overview
 
 | Directory | Purpose |
-|-----------|---------|
+| --------- | ------- |
 | `avail/` | Utility libraries (args, AST tools, errors, logging) |
 | `cmd/` | Development utilities (esb, serve) |
 | `docs/` | Design documentation |
