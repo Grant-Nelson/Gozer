@@ -17,10 +17,6 @@ const (
 	directiveAtomicFunc = `atomic`
 )
 
-type Node interface {
-	Pos() token.Pos
-}
-
 func csvString[E any, S []E](s S) string {
 	const sep = `, `
 	elems := make([]string, len(s))
