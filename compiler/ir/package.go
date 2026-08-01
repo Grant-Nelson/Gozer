@@ -12,7 +12,7 @@ import (
 // Package is the IR for a whole package.
 type Package struct {
 	// Info is the type information from the AST.
-	Info *types.Info
+	Info *types.Info // TODO: REMOVE
 
 	// FileSet is the information about the source files from the AST.
 	FileSet *token.FileSet

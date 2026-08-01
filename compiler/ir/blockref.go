@@ -14,7 +14,7 @@ type BlockRef struct {
 	Block *Block
 
 	// Args are the arguments to pass onto the block when invoked.
-	Args []ast.Expr
+	Args []ast.Expr // TODO: REPLACE
 }
 
 var _ Node = (*BlockRef)(nil)

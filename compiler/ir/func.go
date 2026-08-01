@@ -20,10 +20,10 @@ type Func struct {
 	//
 	// Remodelers that modify the AST inside of a [BaseStmt] or similar
 	// may cause changes to this data as well.
-	Ast *ast.FuncDecl
+	Ast *ast.FuncDecl // TODO: REMOVE
 
-	// TODO: Add a signature with any receivers, type dictionaries, and variavles
-	// accessable via a closure if function was created in a closure,
+	// TODO: Add a signature with any receivers, type dictionaries, and variables
+	// accessible via a closure if function was created in a closure,
 	// as the initial parameters to the function.
 	// e.g. `func (f *Foo) DoThing(x int)` => `func Foo_DoThing(f *Foo) func(x int)`
 
