@@ -16,13 +16,17 @@ type SwitchStmt struct {
 
 var _ Stmt = (*SwitchStmt)(nil)
 
-func (s *SwitchStmt) String() string {
-	return fmt.Sprintf("switch %s {\n%s\n}", nodeString(s.Tag), linesString(s.Body))
+func (n *SwitchStmt) String() string {
+	return fmt.Sprintf("switch %s {\n%s\n}", nodeString(n.Tag), linesString(n.Body))
 }
 
-func (s *SwitchStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *SwitchStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*SwitchStmt) StmtNode() {}
+
+func (n *SwitchStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Init) && yield(n.Tag) && YieldSlice(n.Body, yield)
+}
 
 func FromSwitchStmt(s *ast.SwitchStmt, c *Converter) *SwitchStmt {
 	if s == nil {

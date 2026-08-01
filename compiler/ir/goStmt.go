@@ -12,13 +12,20 @@ type GoStmt struct {
 	Call *ast.CallExpr // TODO: REPLACE
 }
 
-var _ Stmt = (*GoStmt)(nil)
+var (
+	_ Stmt   = (*GoStmt)(nil)
+	_ Parent = (*GoStmt)(nil)
+)
 
-func (s *GoStmt) String() string { return fmt.Sprintf(`go %s`, nodeString(s.Call)) }
+func (n *GoStmt) String() string { return fmt.Sprintf(`go %s`, nodeString(n.Call)) }
 
-func (s *GoStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *GoStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*GoStmt) StmtNode() {}
+
+func (n *GoStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Call)
+}
 
 func FromGoStmt(s *ast.GoStmt) *GoStmt {
 	if s == nil {

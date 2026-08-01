@@ -15,7 +15,7 @@ type Package struct {
 	Info *types.Info // TODO: REMOVE
 
 	// FileSet is the information about the source files from the AST.
-	FileSet *token.FileSet
+	FileSet *token.FileSet // TODO: REMOVE
 
 	// Funcs is the collection of functions for this package.
 	Funcs []*Func

@@ -13,13 +13,20 @@ type LabeledStmt struct {
 	Stmt  Stmt             // TODO: INVERT RELATIONSHIP
 }
 
-var _ Stmt = (*LabeledStmt)(nil)
+var (
+	_ Stmt   = (*LabeledStmt)(nil)
+	_ Parent = (*LabeledStmt)(nil)
+)
 
-func (s *LabeledStmt) String() string { return fmt.Sprintf("%s:\n%v", s.Label, s.Stmt) }
+func (n *LabeledStmt) String() string { return fmt.Sprintf("%s:\n%v", n.Label, n.Stmt) }
 
-func (s *LabeledStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *LabeledStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*LabeledStmt) StmtNode() {}
+
+func (n *LabeledStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Label) && yield(n.Stmt)
+}
 
 func FromLabeledStmt(s *ast.LabeledStmt, c *Converter) *LabeledStmt {
 	if s == nil {

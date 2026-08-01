@@ -15,19 +15,27 @@ type IfStmt struct {
 	Else []Stmt
 }
 
-var _ Stmt = (*IfStmt)(nil)
+var (
+	_ Stmt   = (*IfStmt)(nil)
+	_ Parent = (*IfStmt)(nil)
+)
 
-func (s *IfStmt) String() string {
-	str := fmt.Sprintf("if %s {\n%s\n}", nodeString(s.Cond), linesString(s.Body))
-	if len(s.Else) > 0 {
-		str += fmt.Sprintf(" else {\n%s\n}", linesString(s.Else))
+func (n *IfStmt) String() string {
+	str := fmt.Sprintf("if %s {\n%s\n}", nodeString(n.Cond), linesString(n.Body))
+	if len(n.Else) > 0 {
+		str += fmt.Sprintf(" else {\n%s\n}", linesString(n.Else))
 	}
 	return str
 }
 
-func (s *IfStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *IfStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*IfStmt) StmtNode() {}
+
+func (n *IfStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Init) && yield(n.Cond) &&
+		YieldSlice(n.Body, yield) && YieldSlice(n.Else, yield)
+}
 
 func FromIfStmt(s *ast.IfStmt, c *Converter) *IfStmt {
 	if s == nil {

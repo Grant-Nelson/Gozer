@@ -16,16 +16,23 @@ type RangeStmt struct {
 	Body  []Stmt
 }
 
-var _ Stmt = (*RangeStmt)(nil)
+var (
+	_ Stmt   = (*RangeStmt)(nil)
+	_ Parent = (*RangeStmt)(nil)
+)
 
-func (s *RangeStmt) String() string {
+func (n *RangeStmt) String() string {
 	return fmt.Sprintf("for %v, %v %v range %v {\n%v\n}",
-		s.Key, s.Value, s.Tok.String(), s.X, linesString(s.Body))
+		n.Key, n.Value, n.Tok.String(), n.X, linesString(n.Body))
 }
 
-func (s *RangeStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *RangeStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*RangeStmt) StmtNode() {}
+
+func (n *RangeStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Key) && yield(n.Value) && yield(n.X) && YieldSlice(n.Body, yield)
+}
 
 func FromRangeStmt(s *ast.RangeStmt, c *Converter) *RangeStmt {
 	if s == nil {

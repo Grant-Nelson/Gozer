@@ -15,16 +15,21 @@ type GotoBlockStmt struct {
 var (
 	_ Stmt     = (*GotoBlockStmt)(nil)
 	_ FlowCtrl = (*GotoBlockStmt)(nil)
+	_ Parent   = (*GotoBlockStmt)(nil)
 )
 
-func (s *GotoBlockStmt) String() string {
-	return `goto(` + s.Block.String() + `)`
+func (n *GotoBlockStmt) String() string {
+	return `goto(` + n.Block.String() + `)`
 }
 
-func (s *GotoBlockStmt) Pos() token.Pos { return s.SrcPos }
+func (n *GotoBlockStmt) Pos() token.Pos { return n.SrcPos }
 
 func (*GotoBlockStmt) StmtNode()     {}
 func (*GotoBlockStmt) FlowCtrlNode() {}
+
+func (n *GotoBlockStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Block)
+}
 
 func NewGotoBlockStmt(pos token.Pos, nextBlk *Block, args ...ast.Expr) *GotoBlockStmt {
 	return &GotoBlockStmt{

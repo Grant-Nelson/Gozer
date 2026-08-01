@@ -12,13 +12,20 @@ type StmtListStmt struct {
 	List []Stmt
 }
 
-var _ Stmt = (*StmtListStmt)(nil)
+var (
+	_ Stmt   = (*StmtListStmt)(nil)
+	_ Parent = (*StmtListStmt)(nil)
+)
 
-func (s *StmtListStmt) String() string { return fmt.Sprintf("{\n%s\n}", linesString(s.List)) }
+func (n *StmtListStmt) String() string { return fmt.Sprintf("{\n%s\n}", linesString(n.List)) }
 
-func (s *StmtListStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *StmtListStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*StmtListStmt) StmtNode() {}
+
+func (n *StmtListStmt) Children(yield func(Node) bool) bool {
+	return YieldSlice(n.List, yield)
+}
 
 func FromBlockStmt(s *ast.BlockStmt, c *Converter) *StmtListStmt {
 	if s == nil {

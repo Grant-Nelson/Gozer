@@ -12,15 +12,22 @@ type SelectStmt struct {
 	Body []*CommClause
 }
 
-var _ Stmt = (*SelectStmt)(nil)
+var (
+	_ Stmt   = (*SelectStmt)(nil)
+	_ Parent = (*SelectStmt)(nil)
+)
 
-func (s *SelectStmt) String() string {
-	return fmt.Sprintf("select {\n%s\n}", linesString(s.Body))
+func (n *SelectStmt) String() string {
+	return fmt.Sprintf("select {\n%s\n}", linesString(n.Body))
 }
 
-func (s *SelectStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *SelectStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*SelectStmt) StmtNode() {}
+
+func (n *SelectStmt) Children(yield func(Node) bool) bool {
+	return YieldSlice(n.Body, yield)
+}
 
 func FromSelectStmt(s *ast.SelectStmt, c *Converter) *SelectStmt {
 	if s == nil {

@@ -13,15 +13,22 @@ type SendStmt struct {
 	Value ast.Expr      // TODO: REPLACE
 }
 
-var _ Stmt = (*SendStmt)(nil)
+var (
+	_ Stmt   = (*SendStmt)(nil)
+	_ Parent = (*SendStmt)(nil)
+)
 
-func (s *SendStmt) String() string {
-	return fmt.Sprintf(`%s<-%s`, nodeString(s.Chan), nodeString(s.Value))
+func (n *SendStmt) String() string {
+	return fmt.Sprintf(`%s<-%s`, nodeString(n.Chan), nodeString(n.Value))
 }
 
-func (s *SendStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *SendStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*SendStmt) StmtNode() {}
+
+func (n *SendStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Chan) && yield(n.Value)
+}
 
 func FromSendStmt(s *ast.SendStmt) *SendStmt {
 	if s == nil {

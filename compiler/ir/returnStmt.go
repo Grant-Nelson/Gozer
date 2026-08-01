@@ -15,19 +15,24 @@ type ReturnStmt struct {
 var (
 	_ Stmt     = (*ReturnStmt)(nil)
 	_ FlowCtrl = (*ReturnStmt)(nil)
+	_ Parent   = (*ReturnStmt)(nil)
 )
 
-func (s *ReturnStmt) String() string {
-	if len(s.Results) <= 0 {
+func (n *ReturnStmt) String() string {
+	if len(n.Results) <= 0 {
 		return `return`
 	}
-	return fmt.Sprintf(`return %s`, csvString(s.Results))
+	return fmt.Sprintf(`return %s`, csvString(n.Results))
 }
 
-func (s *ReturnStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *ReturnStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*ReturnStmt) StmtNode()     {}
 func (*ReturnStmt) FlowCtrlNode() {}
+
+func (n *ReturnStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Results)
+}
 
 func FromReturnStmt(s *ast.ReturnStmt) *ReturnStmt {
 	if s == nil {
