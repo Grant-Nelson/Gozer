@@ -14,12 +14,19 @@ type FuncCallStmt struct {
 	Follow *BlockRef
 }
 
-var _ Stmt = (*FuncCallStmt)(nil)
+var (
+	_ Stmt   = (*FuncCallStmt)(nil)
+	_ Parent = (*FuncCallStmt)(nil)
+)
 
-func (s *FuncCallStmt) String() string {
-	return `call(` + nodeString(s.Fun) + `, ` + csvString(s.Args) + `|` + s.Follow.String() + `)`
+func (n *FuncCallStmt) String() string {
+	return `call(` + nodeString(n.Fun) + `, ` + csvString(n.Args) + `|` + n.Follow.String() + `)`
 }
 
-func (s *FuncCallStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *FuncCallStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*FuncCallStmt) StmtNode() {}
+
+func (n *FuncCallStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Fun) && YieldSlice(n.Args, yield) && yield(n.Follow)
+}

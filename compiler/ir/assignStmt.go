@@ -15,19 +15,26 @@ type AssignStmt struct {
 	Rhs    []ast.Expr // TODO: REPLACE
 }
 
-var _ Stmt = (*AssignStmt)(nil)
+var (
+	_ Stmt   = (*AssignStmt)(nil)
+	_ Parent = (*AssignStmt)(nil)
+)
 
-func (s *AssignStmt) String() string {
+func (n *AssignStmt) String() string {
 	def := ` = `
-	if s.Define {
+	if n.Define {
 		def = ` := `
 	}
-	return fmt.Sprintf(`%s%s%s`, csvString(s.Lhs), def, csvString(s.Rhs))
+	return fmt.Sprintf(`%s%s%s`, csvString(n.Lhs), def, csvString(n.Rhs))
 }
 
-func (s *AssignStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *AssignStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*AssignStmt) StmtNode() {}
+
+func (n *AssignStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Lhs) && yield(n.Rhs)
+}
 
 func FromAssignStmt(s *ast.AssignStmt) *AssignStmt {
 	if s == nil {

@@ -17,22 +17,29 @@ type BlockRef struct {
 	Args []ast.Expr // TODO: REPLACE
 }
 
-var _ Node = (*BlockRef)(nil)
+var (
+	_ Node   = (*BlockRef)(nil)
+	_ Parent = (*BlockRef)(nil)
+)
 
-func (r *BlockRef) String() string {
+func (n *BlockRef) String() string {
 	var tail string
-	if len(r.Args) > 0 {
-		tail = fmt.Sprintf(`, [%s]`, csvString(r.Args))
+	if len(n.Args) > 0 {
+		tail = fmt.Sprintf(`, [%s]`, csvString(n.Args))
 	}
-	if r.Block == nil {
+	if n.Block == nil {
 		return fmt.Sprintf(`block <nil>%s`, tail)
 	}
-	return fmt.Sprintf(`block %d%s`, r.Block.Index, tail)
+	return fmt.Sprintf(`block %d%s`, n.Block.Index, tail)
 }
 
-func (b *BlockRef) Pos() token.Pos {
-	if b == nil || len(b.Args) <= 0 || b.Args[0] == nil {
+func (n *BlockRef) Pos() token.Pos {
+	if n == nil || len(n.Args) <= 0 || n.Args[0] == nil {
 		return token.NoPos
 	}
-	return b.Args[0].Pos()
+	return n.Args[0].Pos()
+}
+
+func (n *BlockRef) Children(yield func(Node) bool) bool {
+	return YieldSlice(n.Args, yield)
 }

@@ -35,9 +35,9 @@ func FromIfStmt(s *ast.IfStmt, c *Converter) *IfStmt {
 	}
 	return &IfStmt{
 		Ast:  s,
-		Init: c.FromStmt(s.Init),
+		Init: FromStmt(s.Init, c),
 		Cond: s.Cond,
-		Body: c.ExpandStmt(FromBlockStmt(s.Body, c)),
-		Else: c.ExpandStmt(c.FromStmt(s.Else)),
+		Body: ExpandStmt(FromBlockStmt(s.Body, c)),
+		Else: ExpandStmt(FromStmt(s.Else, c)),
 	}
 }

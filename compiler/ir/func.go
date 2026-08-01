@@ -9,6 +9,11 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/astTools"
 )
 
+const (
+	directiveGroup      = `gozer`
+	directiveAtomicFunc = `atomic`
+)
+
 // Func represents a function block defining a function as
 // a collection of statement blocks.
 // See [README.md]
@@ -44,12 +49,19 @@ type Func struct {
 	ReturnBlocks []*Block
 }
 
-var _ Node = (*Func)(nil)
+var (
+	_ Node   = (*Func)(nil)
+	_ Parent = (*Func)(nil)
+)
 
 func (fn *Func) Pos() token.Pos { return astPos(fn.Ast) }
 
 func (fn *Func) String() string {
 	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks))
+}
+
+func (fn *Func) Children(yield func(Node) bool) bool {
+	return YieldSlice(fn.Blocks, yield)
 }
 
 // NewBlock creates a new empty block and adds it to this function.

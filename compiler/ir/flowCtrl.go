@@ -7,5 +7,3 @@ type FlowCtrl interface {
 	// FlowCtrlNode is an empty method used for duck-typing flow control node.
 	FlowCtrlNode()
 }
-
-var _ Node = (FlowCtrl)(nil)

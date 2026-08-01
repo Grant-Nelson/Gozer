@@ -11,13 +11,20 @@ type DeclStmt struct {
 	Decl ast.Decl      // TODO: REPLACE // *GenDecl with CONST, TYPE, or VAR token
 }
 
-var _ Stmt = (*DeclStmt)(nil)
+var (
+	_ Stmt   = (*DeclStmt)(nil)
+	_ Parent = (*DeclStmt)(nil)
+)
 
-func (s *DeclStmt) String() string { return nodeString(s.Decl) }
+func (n *DeclStmt) String() string { return nodeString(n.Decl) }
 
-func (s *DeclStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *DeclStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*DeclStmt) StmtNode() {}
+
+func (n *DeclStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Decl)
+}
 
 func FromDeclStmt(s *ast.DeclStmt) *DeclStmt {
 	if s == nil {

@@ -28,6 +28,6 @@ func FromLabeledStmt(s *ast.LabeledStmt, c *Converter) *LabeledStmt {
 	return &LabeledStmt{
 		Ast:   s,
 		Label: s.Label,
-		Stmt:  c.FromStmt(s.Stmt),
+		Stmt:  FromStmt(s.Stmt, c),
 	}
 }

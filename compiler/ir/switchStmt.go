@@ -30,7 +30,7 @@ func FromSwitchStmt(s *ast.SwitchStmt, c *Converter) *SwitchStmt {
 	}
 	return &SwitchStmt{
 		Ast:  s,
-		Init: c.FromStmt(s.Init),
+		Init: FromStmt(s.Init, c),
 		Tag:  s.Tag,
 		Body: FromCaseClauseSlice(s.Body, c),
 	}

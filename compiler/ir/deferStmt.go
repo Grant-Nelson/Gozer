@@ -12,13 +12,20 @@ type DeferStmt struct {
 	Call *ast.CallExpr
 }
 
-var _ Stmt = (*DeferStmt)(nil)
+var (
+	_ Stmt   = (*DeferStmt)(nil)
+	_ Parent = (*DeferStmt)(nil)
+)
 
-func (s *DeferStmt) String() string { return fmt.Sprintf(`defer %s`, nodeString(s.Call)) }
+func (n *DeferStmt) String() string { return fmt.Sprintf(`defer %s`, nodeString(n.Call)) }
 
-func (s *DeferStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *DeferStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*DeferStmt) StmtNode() {}
+
+func (n *DeferStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Call)
+}
 
 func FromDeferStmt(s *ast.DeferStmt) *DeferStmt {
 	if s == nil {

@@ -36,6 +36,6 @@ func FromRangeStmt(s *ast.RangeStmt, c *Converter) *RangeStmt {
 		Key:   s.Key,
 		Value: s.Value,
 		X:     s.X,
-		Body:  c.ExpandStmt(FromBlockStmt(s.Body, c)),
+		Body:  ExpandStmt(FromBlockStmt(s.Body, c)),
 	}
 }

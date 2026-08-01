@@ -26,6 +26,6 @@ func FromBlockStmt(s *ast.BlockStmt, c *Converter) *StmtListStmt {
 	}
 	return &StmtListStmt{
 		Ast:  s,
-		List: c.FromStmtSlice(s.List),
+		List: FromStmtSlice(s.List, c),
 	}
 }

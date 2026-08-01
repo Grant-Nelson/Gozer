@@ -15,16 +15,23 @@ type ForStmt struct {
 	Body []Stmt
 }
 
-var _ Stmt = (*ForStmt)(nil)
+var (
+	_ Stmt   = (*ForStmt)(nil)
+	_ Parent = (*ForStmt)(nil)
+)
 
-func (s *ForStmt) String() string {
+func (n *ForStmt) String() string {
 	return fmt.Sprintf("for %v; %s; %v {\n%v\n}",
-		s.Init, nodeString(s.Cond), s.Post, linesString(s.Body))
+		n.Init, nodeString(n.Cond), n.Post, linesString(n.Body))
 }
 
-func (s *ForStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *ForStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*ForStmt) StmtNode() {}
+
+func (n *ForStmt) Children(yield func(Node) bool) bool {
+	return yield(n.Init) && yield(n.Cond) && yield(n.Post) && YieldSlice(n.Body, yield)
+}
 
 func FromForStmt(s *ast.ForStmt, c *Converter) *ForStmt {
 	if s == nil {
@@ -32,9 +39,9 @@ func FromForStmt(s *ast.ForStmt, c *Converter) *ForStmt {
 	}
 	return &ForStmt{
 		Ast:  s,
-		Init: c.FromStmt(s.Init),
+		Init: FromStmt(s.Init, c),
 		Cond: s.Cond,
-		Post: c.FromStmt(s.Post),
-		Body: c.ExpandStmt(FromBlockStmt(s.Body, c)),
+		Post: FromStmt(s.Post, c),
+		Body: ExpandStmt(FromBlockStmt(s.Body, c)),
 	}
 }

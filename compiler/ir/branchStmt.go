@@ -14,13 +14,17 @@ type BranchStmt struct {
 	Label *ast.Ident      // TODO: REPLACE // label name; or nil
 }
 
-var _ Stmt = (*BranchStmt)(nil)
+var (
+	_ Stmt     = (*BranchStmt)(nil)
+	_ FlowCtrl = (*BranchStmt)(nil)
+)
 
-func (s *BranchStmt) String() string { return fmt.Sprintf(`%s %v`, s.Tok.String(), s.Label) }
+func (n *BranchStmt) String() string { return fmt.Sprintf(`%s %v`, n.Tok.String(), n.Label) }
 
-func (s *BranchStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *BranchStmt) Pos() token.Pos { return astPos(n.Ast) }
 
-func (*BranchStmt) StmtNode() {}
+func (*BranchStmt) StmtNode()     {}
+func (*BranchStmt) FlowCtrlNode() {}
 
 func FromBranchStmt(s *ast.BranchStmt) *BranchStmt {
 	if s == nil {

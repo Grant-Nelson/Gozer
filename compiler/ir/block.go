@@ -36,37 +36,44 @@ type Block struct {
 	Params []*Param
 }
 
-var _ Node = (*Block)(nil)
+var (
+	_ Node   = (*Block)(nil)
+	_ Parent = (*Block)(nil)
+)
 
-func (b *Block) String() string {
+func (n *Block) String() string {
 	var params, hint, tail string
-	if len(b.Params) > 0 {
-		parts := make([]string, len(b.Params))
-		for i, p := range b.Params {
+	if len(n.Params) > 0 {
+		parts := make([]string, len(n.Params))
+		for i, p := range n.Params {
 			parts[i] = p.String()
 		}
 		params = strings.Join(parts, `, `)
 	}
-	if len(b.Hint) > 0 {
-		hint = `<` + b.Hint + `> `
+	if len(n.Hint) > 0 {
+		hint = `<` + n.Hint + `> `
 	}
-	if len(b.Body) > 0 {
-		tail = fmt.Sprintf("\n%s\n", linesString(b.Body))
+	if len(n.Body) > 0 {
+		tail = fmt.Sprintf("\n%s\n", linesString(n.Body))
 	}
-	return fmt.Sprintf("block %d (%s)%s{%s}", b.Index, params, hint, tail)
+	return fmt.Sprintf("block %d (%s)%s{%s}", n.Index, params, hint, tail)
 }
 
-func (b *Block) Pos() token.Pos {
-	if b == nil || len(b.Body) <= 0 || b.Body[0] == nil {
+func (n *Block) Pos() token.Pos {
+	if n == nil || len(n.Body) <= 0 || n.Body[0] == nil {
 		return token.NoPos
 	}
-	return b.Body[0].Pos()
+	return n.Body[0].Pos()
+}
+
+func (n *Block) Children(yield func(Node) bool) bool {
+	return YieldSlice(n.Body, yield)
 }
 
 // LastStmt gets the last statement in the block or nil if empty.
-func (b *Block) LastStmt() Stmt {
-	if max := len(b.Body) - 1; max >= 0 {
-		return b.Body[max]
+func (n *Block) LastStmt() Stmt {
+	if max := len(n.Body) - 1; max >= 0 {
+		return n.Body[max]
 	}
 	return nil
 }

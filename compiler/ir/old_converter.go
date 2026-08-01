@@ -35,15 +35,7 @@ func fromNilSafeStmt2[TIn1 ast.Stmt, TIn2 any, TOut Stmt](s TIn1, c TIn2, fn fun
 	return nil
 }
 
-func (c *Converter) FromStmtSlice(ss []ast.Stmt) []Stmt {
-	result := make([]Stmt, 0, len(ss))
-	for _, s := range ss {
-		result = append(result, c.ExpandStmt(c.FromStmt(s))...)
-	}
-	return result
-}
-
-func (c *Converter) FromStmt(s ast.Stmt) Stmt {
+func FromStmt(s ast.Stmt, c *Converter) Stmt {
 	switch s := s.(type) {
 	case nil, *ast.BadStmt, *ast.EmptyStmt:
 		return nil
@@ -85,22 +77,4 @@ func (c *Converter) FromStmt(s ast.Stmt) Stmt {
 		panic(faults.New(`unexpected AST statement type`).
 			WithF(`type`, `%T`, s))
 	}
-}
-
-func (c *Converter) ExpandStmtSlice(ss []Stmt) []Stmt {
-	st := make([]Stmt, 0, len(ss))
-	for _, s := range ss {
-		st = append(st, c.ExpandStmt(s)...)
-	}
-	return st
-}
-
-func (c *Converter) ExpandStmt(s Stmt) []Stmt {
-	if s == nil {
-		return []Stmt{}
-	}
-	if b, ok := s.(*StmtListStmt); ok {
-		return c.ExpandStmtSlice(b.List)
-	}
-	return []Stmt{s}
 }

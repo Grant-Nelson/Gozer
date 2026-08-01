@@ -15,20 +15,27 @@ type CaseClause struct {
 	Body []Stmt          // statement list; or nil
 }
 
-var _ Node = (*CaseClause)(nil)
+var (
+	_ Node   = (*CaseClause)(nil)
+	_ Parent = (*CaseClause)(nil)
+)
 
-func (s *CaseClause) String() string {
+func (n *CaseClause) String() string {
 	str := `default:`
-	if len(s.List) > 0 {
-		str = fmt.Sprintf(`case %v:`, csvString(s.List))
+	if len(n.List) > 0 {
+		str = fmt.Sprintf(`case %v:`, csvString(n.List))
 	}
-	if len(s.Body) > 0 {
-		str += "\n" + linesString(s.Body)
+	if len(n.Body) > 0 {
+		str += "\n" + linesString(n.Body)
 	}
 	return str
 }
 
-func (c *CaseClause) Pos() token.Pos { return astPos(c.Ast) }
+func (n *CaseClause) Pos() token.Pos { return astPos(n.Ast) }
+
+func (n *CaseClause) Children(yield func(Node) bool) bool {
+	return YieldSlice(n.List, yield) && YieldSlice(n.Body, yield)
+}
 
 func FromCaseClause(s *ast.CaseClause, c *Converter) *CaseClause {
 	if s == nil {
@@ -37,7 +44,7 @@ func FromCaseClause(s *ast.CaseClause, c *Converter) *CaseClause {
 	return &CaseClause{
 		Ast:  s,
 		List: s.List,
-		Body: c.FromStmtSlice(s.Body),
+		Body: FromStmtSlice(s.Body, c),
 	}
 }
 

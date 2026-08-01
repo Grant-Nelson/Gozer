@@ -30,8 +30,8 @@ func FromTypeSwitchStmt(s *ast.TypeSwitchStmt, c *Converter) *TypeSwitchStmt {
 	}
 	return &TypeSwitchStmt{
 		Ast:    s,
-		Init:   c.FromStmt(s.Init),
-		Assign: c.FromStmt(s.Assign),
+		Init:   FromStmt(s.Init, c),
+		Assign: FromStmt(s.Assign, c),
 		Body:   FromCaseClauseSlice(s.Body, c),
 	}
 }

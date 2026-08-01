@@ -15,20 +15,27 @@ type CommClause struct {
 	Body []Stmt          // statement list; or nil
 }
 
-var _ Node = (*CommClause)(nil)
+var (
+	_ Node   = (*CommClause)(nil)
+	_ Parent = (*CommClause)(nil)
+)
 
-func (s *CommClause) String() string {
+func (n *CommClause) String() string {
 	str := `default:`
-	if s.Comm != nil {
-		str = fmt.Sprintf(`case %v:`, s.Comm)
+	if n.Comm != nil {
+		str = fmt.Sprintf(`case %v:`, n.Comm)
 	}
-	if len(s.Body) > 0 {
-		str += "\n" + linesString(s.Body)
+	if len(n.Body) > 0 {
+		str += "\n" + linesString(n.Body)
 	}
 	return str
 }
 
-func (c *CommClause) Pos() token.Pos { return astPos(c.Ast) }
+func (n *CommClause) Pos() token.Pos { return astPos(n.Ast) }
+
+func (n *CommClause) Children(yield func(Node) bool) bool {
+	return yield(n.Comm) && YieldSlice(n.Body, yield)
+}
 
 func FromCommClause(s *ast.CommClause, c *Converter) *CommClause {
 	if s == nil {
@@ -36,8 +43,8 @@ func FromCommClause(s *ast.CommClause, c *Converter) *CommClause {
 	}
 	return &CommClause{
 		Ast:  s,
-		Comm: c.FromStmt(s.Comm),
-		Body: c.FromStmtSlice(s.Body),
+		Comm: FromStmt(s.Comm, c),
+		Body: FromStmtSlice(s.Body, c),
 	}
 }
 

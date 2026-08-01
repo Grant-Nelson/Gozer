@@ -12,13 +12,20 @@ type ExprStmt struct {
 	X   ast.Expr // TODO: REPLACE
 }
 
-var _ Stmt = (*ExprStmt)(nil)
+var (
+	_ Stmt   = (*ExprStmt)(nil)
+	_ Parent = (*ExprStmt)(nil)
+)
 
-func (s *ExprStmt) String() string { return nodeString(s.X) }
+func (n *ExprStmt) String() string { return nodeString(n.X) }
 
-func (s *ExprStmt) Pos() token.Pos { return astPos(s.Ast) }
+func (n *ExprStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*ExprStmt) StmtNode() {}
+
+func (n *ExprStmt) Children(yield func(Node) bool) bool {
+	return yield(n.X)
+}
 
 func FromExprStmt(s *ast.ExprStmt) *ExprStmt {
 	if s == nil {
