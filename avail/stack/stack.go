@@ -19,10 +19,16 @@ type Stack[T any] interface {
 
 	// Grow will increase the capacity of the stack until
 	// greater than or equal to the give capacity.
+	// Returns this stack so calls can be chained.
 	Grow(capacity int) Stack[T]
 
 	// Trim removes any excess capacity.
+	// Returns this stack so calls can be chained.
 	Trim() Stack[T]
+
+	// Clear will remove all the values from the stack.
+	// Returns this stack so calls can be chained.
+	Clear() Stack[T]
 
 	// Iterate will walk through the stack's values from the top
 	// to the bottom. The iteration may not return all the values
@@ -38,15 +44,18 @@ type Stack[T any] interface {
 	Peek() T
 
 	// PushOne will push a single value onto the top of the stack.
+	// Returns this stack so calls can be chained.
 	PushOne(value T) Stack[T]
 
 	// Push will put these values into the stack in reverse order so that
 	// the next pop will get the top value first.
+	// Returns this stack so calls can be chained.
 	Push(values ...T) Stack[T]
 
 	// PushSeq will put the first count values into the stack in reverse
 	// order so that the next pop will get the top value first.
 	// If the sequence ends before the count, the remaining will be zero values.
+	// Returns this stack so calls can be chained.
 	PushSeq(s iterator.Iterator[T], count int) Stack[T]
 }
 
@@ -71,7 +80,8 @@ func New[T any]() Stack[T] {
 
 func NewWithCap[T any](count int) Stack[T] {
 	return &stackImp[T]{
-		tombs: allocateNodes[T](count, nil),
+		tombs:     allocateNodes[T](count, nil),
+		tombCount: count,
 	}
 }
 
@@ -100,6 +110,25 @@ func (s *stackImp[T]) Trim() Stack[T] {
 	return s
 }
 
+func (s *stackImp[T]) Clear() Stack[T] {
+	if s.count <= 0 {
+		return s
+	}
+	// Assert: count > 0
+	cur := s.top
+	cur.value = s.zero
+	for cur.prev != nil {
+		cur = cur.prev
+		cur.value = s.zero
+	}
+	cur.prev = s.tombs
+	s.tombs = s.top
+	s.tombCount += s.count
+	s.count = 0
+	s.top = nil
+	return s
+}
+
 func (s *stackImp[T]) Iterate() iterator.Iterator[T] {
 	return func(yield func(T) bool) {
 		for n := s.top; n != nil; n = n.prev {
@@ -108,12 +137,6 @@ func (s *stackImp[T]) Iterate() iterator.Iterator[T] {
 			}
 		}
 	}
-}
-
-func set[T any](n *node[T], value T, prev *node[T]) *node[T] {
-	n.value = value
-	n.prev = prev
-	return n
 }
 
 func allocateNodes[T any](count int, prev *node[T]) *node[T] {
@@ -136,7 +159,9 @@ func (s *stackImp[T]) Pop() T {
 	value := n.value
 	s.top = n.prev
 	s.count--
-	s.tombs = set(n, s.zero, s.tombs)
+	n.value = s.zero
+	n.prev = s.tombs
+	s.tombs = n
 	s.tombCount++
 	return value
 }
@@ -156,7 +181,9 @@ func (s *stackImp[T]) PushOne(value T) Stack[T] {
 	n := s.tombs
 	s.tombs = n.prev
 	s.tombCount--
-	s.top = set(n, value, s.top)
+	n.value = value
+	n.prev = s.top
+	s.top = n
 	s.count++
 	return s
 }
@@ -193,15 +220,15 @@ func (s *stackImp[T]) PushSeq(it iterator.Iterator[T], count int) Stack[T] {
 	var last *node[T]
 	actual := 0
 	for v := range it {
-		last = cur
-		cur.value = v
-		actual++
-		cur = cur.prev
 		if cur == nil {
 			cur = allocateNodes[T](allocateSize, nil)
 			s.tombCount += allocateSize
 			last.prev = cur
 		}
+		last = cur
+		cur.value = v
+		actual++
+		cur = cur.prev
 	}
 	last.prev = s.top
 	s.top = s.tombs
