@@ -1,8 +1,6 @@
 package stack
 
-import (
-	"github.com/Grant-Nelson/Gozer/avail/iterator"
-)
+import "github.com/Grant-Nelson/Gozer/avail/iterator"
 
 // Stack using a singular lined list with tombs for dead nodes
 // that can be reused. This stack is designed to work very well
@@ -87,7 +85,10 @@ func (s *stackImp[T]) Grow(capacity int) Stack[T] {
 }
 
 func (s *stackImp[T]) grow(totalTombCount int) {
-	if grow := s.tombCount - totalTombCount; grow > 0 {
+	if grow := totalTombCount - s.tombCount; grow > 0 {
+		if mod := grow % allocateSize; mod > 0 {
+			grow += allocateSize - mod
+		}
 		s.tombs = allocateNodes(grow, s.tombs)
 		s.tombCount += grow
 	}
@@ -184,7 +185,7 @@ func (s *stackImp[T]) Push(values ...T) Stack[T] {
 
 func (s *stackImp[T]) PushSeq(it iterator.Iterator[T], count int) Stack[T] {
 	if count <= 0 {
-		return s
+		count = allocateSize
 	}
 	s.grow(count)
 	// Asserts: count > 0, tomb count >= count
