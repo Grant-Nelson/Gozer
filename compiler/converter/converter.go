@@ -229,8 +229,7 @@ func (c *Converter) FromExprStmt(s *ast.ExprStmt) *ir.ExprStmt {
 		return nil
 	}
 	return &ir.ExprStmt{
-		Ast: s,
-		X:   c.FromExpr(s.X),
+		X: c.FromExpr(s.X),
 	}
 }
 
@@ -241,8 +240,7 @@ func (c *Converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
 	exp := &ast.UnaryExpr{OpPos: s.Pos(), Op: s.Tok, X: s.X}
 	c.Info.Types[exp] = c.Info.Types[s.X]
 	return &ir.ExprStmt{
-		Ast: s,
-		X:   c.FromExpr(exp),
+		X: c.FromExpr(exp),
 	}
 }
 
