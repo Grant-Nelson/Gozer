@@ -41,39 +41,3 @@ func (p *Param) String() string {
 	}
 	return fmt.Sprintf(`%s %v`, p.Name.String(), p.Type)
 }
-
-func ExpandParams(ft *ast.FuncType) []*Param {
-	if ft == nil {
-		return nil
-	}
-	return expandFieldList(ft.Params)
-}
-
-func ExpandResults(ft *ast.FuncType) []*Param {
-	if ft == nil {
-		return nil
-	}
-	return expandFieldList(ft.Results)
-}
-
-func expandFieldList(fl *ast.FieldList) []*Param {
-	if fl == nil || len(fl.List) <= 0 {
-		return nil
-	}
-	params := make([]*Param, 0, len(fl.List))
-	for _, field := range fl.List {
-		// If field.Names is nil then this is an unnamed field
-		// that should be skipped over when defining block params.
-		for _, name := range field.Names {
-			if name == nil {
-				continue
-			}
-			param := &Param{
-				Name: name,
-				Expr: field.Type,
-			}
-			params = append(params, param)
-		}
-	}
-	return params
-}

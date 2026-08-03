@@ -60,8 +60,8 @@ func (fn *Func) String() string {
 	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks))
 }
 
-func (fn *Func) Children(yield func(Node) bool) bool {
-	return YieldSlice(fn.Blocks, yield)
+func (fn *Func) Children(yield func(Node) bool) {
+	_ = YieldSlice(fn.Blocks, yield)
 }
 
 // NewBlock creates a new empty block and adds it to this function.

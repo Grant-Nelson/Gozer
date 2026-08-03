@@ -9,7 +9,7 @@ import (
 // ReturnStmt is a node that represents a return statement.
 type ReturnStmt struct {
 	Ast     *ast.ReturnStmt // TODO: REMOVE
-	Results []ast.Expr      // TODO: REPLACE // result expressions; or nil
+	Results []Expr          // result expressions; or nil
 }
 
 var (
@@ -30,16 +30,6 @@ func (n *ReturnStmt) Pos() token.Pos { return astPos(n.Ast) }
 func (*ReturnStmt) StmtNode()     {}
 func (*ReturnStmt) FlowCtrlNode() {}
 
-func (n *ReturnStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Results)
-}
-
-func FromReturnStmt(s *ast.ReturnStmt) *ReturnStmt {
-	if s == nil {
-		return nil
-	}
-	return &ReturnStmt{
-		Ast:     s,
-		Results: s.Results,
-	}
+func (n *ReturnStmt) Children(yield func(Node) bool) {
+	_ = YieldSlice(n.Results, yield)
 }

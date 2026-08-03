@@ -23,16 +23,6 @@ func (n *GoStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*GoStmt) StmtNode() {}
 
-func (n *GoStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Call)
-}
-
-func FromGoStmt(s *ast.GoStmt) *GoStmt {
-	if s == nil {
-		return nil
-	}
-	return &GoStmt{
-		Ast:  s,
-		Call: s.Call,
-	}
+func (n *GoStmt) Children(yield func(Node) bool) {
+	_ = yield(n.Call)
 }

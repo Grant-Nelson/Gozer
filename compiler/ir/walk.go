@@ -18,20 +18,7 @@ type WalkStep struct {
 
 func WalkNodes(roots ...Node) iterator.Iterator[*WalkStep] {
 	s := stack.New[Node]()
-	t := stack.New[Node]()
-
-	yield := func(n Node) bool {
-		if n != nil {
-			t.Push(n)
-		}
-		return true
-	}
-
-	finish := func() {
-		s.PushSeq(t.Iterate(), t.Count())
-	}
-
-	YieldSlice(s, roots)
+	s.Push(roots...)
 	if s.Empty() {
 		return iterator.Empty[*WalkStep]()
 	}
@@ -46,8 +33,7 @@ func WalkNodes(roots ...Node) iterator.Iterator[*WalkStep] {
 			}
 			if !step.Skip {
 				if p, ok := node.(Parent); ok {
-
-					pushChildren(s, node)
+					s.PushSeq(p.Children, 0)
 				}
 			}
 		}

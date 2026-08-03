@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"go/ast"
-	"go/token"
-)
+import "go/token"
 
 // GotoBlockStmt is a flow control statement for a goto jump to another block.
 // This is unique to IR and not a mirror of an AST node.
@@ -27,11 +24,11 @@ func (n *GotoBlockStmt) Pos() token.Pos { return n.SrcPos }
 func (*GotoBlockStmt) StmtNode()     {}
 func (*GotoBlockStmt) FlowCtrlNode() {}
 
-func (n *GotoBlockStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Block)
+func (n *GotoBlockStmt) Children(yield func(Node) bool) {
+	_ = yield(n.Block)
 }
 
-func NewGotoBlockStmt(pos token.Pos, nextBlk *Block, args ...ast.Expr) *GotoBlockStmt {
+func NewGotoBlockStmt(pos token.Pos, nextBlk *Block, args ...Expr) *GotoBlockStmt {
 	return &GotoBlockStmt{
 		SrcPos: pos,
 		Block: &BlockRef{

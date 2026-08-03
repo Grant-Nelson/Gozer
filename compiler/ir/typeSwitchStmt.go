@@ -24,18 +24,6 @@ func (n *TypeSwitchStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*TypeSwitchStmt) StmtNode() {}
 
-func (n *TypeSwitchStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Init) && yield(n.Assign) && YieldSlice(n.Body, yield)
-}
-
-func FromTypeSwitchStmt(s *ast.TypeSwitchStmt, c *Converter) *TypeSwitchStmt {
-	if s == nil {
-		return nil
-	}
-	return &TypeSwitchStmt{
-		Ast:    s,
-		Init:   FromStmt(s.Init, c),
-		Assign: FromStmt(s.Assign, c),
-		Body:   FromCaseClauseSlice(s.Body, c),
-	}
+func (n *TypeSwitchStmt) Children(yield func(Node) bool) {
+	_ = yield(n.Init) && yield(n.Assign) && YieldSlice(n.Body, yield)
 }

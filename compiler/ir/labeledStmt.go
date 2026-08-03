@@ -24,17 +24,6 @@ func (n *LabeledStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*LabeledStmt) StmtNode() {}
 
-func (n *LabeledStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Label) && yield(n.Stmt)
-}
-
-func FromLabeledStmt(s *ast.LabeledStmt, c *Converter) *LabeledStmt {
-	if s == nil {
-		return nil
-	}
-	return &LabeledStmt{
-		Ast:   s,
-		Label: s.Label,
-		Stmt:  FromStmt(s.Stmt, c),
-	}
+func (n *LabeledStmt) Children(yield func(Node) bool) {
+	_ = yield(n.Label) && yield(n.Stmt)
 }

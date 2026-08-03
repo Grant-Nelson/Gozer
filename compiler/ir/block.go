@@ -66,8 +66,8 @@ func (n *Block) Pos() token.Pos {
 	return n.Body[0].Pos()
 }
 
-func (n *Block) Children(yield func(Node) bool) bool {
-	return YieldSlice(n.Body, yield)
+func (n *Block) Children(yield func(Node) bool) {
+	_ = YieldSlice(n.Body, yield)
 }
 
 // LastStmt gets the last statement in the block or nil if empty.

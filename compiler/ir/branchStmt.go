@@ -27,17 +27,6 @@ func (n *BranchStmt) Pos() token.Pos { return astPos(n.Ast) }
 func (*BranchStmt) StmtNode()     {}
 func (*BranchStmt) FlowCtrlNode() {}
 
-func (n *BranchStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Label)
-}
-
-func FromBranchStmt(s *ast.BranchStmt) *BranchStmt {
-	if s == nil {
-		return nil
-	}
-	return &BranchStmt{
-		Ast:   s,
-		Tok:   s.Tok,
-		Label: s.Label,
-	}
+func (n *BranchStmt) Children(yield func(Node) bool) {
+	_ = yield(n.Label)
 }

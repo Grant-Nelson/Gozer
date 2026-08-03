@@ -25,16 +25,6 @@ func (n *SelectStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*SelectStmt) StmtNode() {}
 
-func (n *SelectStmt) Children(yield func(Node) bool) bool {
-	return YieldSlice(n.Body, yield)
-}
-
-func FromSelectStmt(s *ast.SelectStmt, c *Converter) *SelectStmt {
-	if s == nil {
-		return nil
-	}
-	return &SelectStmt{
-		Ast:  s,
-		Body: FromCommClauseSlice(s.Body, c),
-	}
+func (n *SelectStmt) Children(yield func(Node) bool) {
+	_ = YieldSlice(n.Body, yield)
 }

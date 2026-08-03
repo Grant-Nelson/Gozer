@@ -23,16 +23,6 @@ func (n *StmtListStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*StmtListStmt) StmtNode() {}
 
-func (n *StmtListStmt) Children(yield func(Node) bool) bool {
-	return YieldSlice(n.List, yield)
-}
-
-func FromBlockStmt(s *ast.BlockStmt, c *Converter) *StmtListStmt {
-	if s == nil {
-		return nil
-	}
-	return &StmtListStmt{
-		Ast:  s,
-		List: FromStmtSlice(s.List, c),
-	}
+func (n *StmtListStmt) Children(yield func(Node) bool) {
+	_ = YieldSlice(n.List, yield)
 }

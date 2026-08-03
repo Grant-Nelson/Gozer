@@ -9,10 +9,10 @@ import (
 // RangeStmt is a node that represents a for statement with a range clause.
 type RangeStmt struct {
 	Ast   *ast.RangeStmt // TODO: REMOVE
-	Key   ast.Expr       // TODO: REPLACE // Key may be nil
-	Value ast.Expr       // TODO: REPLACE // Value may be nil
+	Key   Expr           // Key may be nil
+	Value Expr           // Value may be nil
 	Tok   token.Token    // TODO: REPLACE // ILLEGAL if Key == nil, ASSIGN, DEFINE
-	X     ast.Expr       // TODO: REPLACE // value to range over
+	X     Expr           // value to range over
 	Body  []Stmt
 }
 
@@ -30,19 +30,6 @@ func (n *RangeStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*RangeStmt) StmtNode() {}
 
-func (n *RangeStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Key) && yield(n.Value) && yield(n.X) && YieldSlice(n.Body, yield)
-}
-
-func FromRangeStmt(s *ast.RangeStmt, c *Converter) *RangeStmt {
-	if s == nil {
-		return nil
-	}
-	return &RangeStmt{
-		Ast:   s,
-		Key:   s.Key,
-		Value: s.Value,
-		X:     s.X,
-		Body:  ExpandStmt(FromBlockStmt(s.Body, c)),
-	}
+func (n *RangeStmt) Children(yield func(Node) bool) {
+	_ = yield(n.Key) && yield(n.Value) && yield(n.X) && YieldSlice(n.Body, yield)
 }

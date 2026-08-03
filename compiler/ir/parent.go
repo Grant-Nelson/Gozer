@@ -1,5 +1,7 @@
 package ir
 
+import "iter"
+
 // Parent is the interface any parent node should implement.
 type Parent interface {
 
@@ -9,8 +11,10 @@ type Parent interface {
 	//
 	// This returns false if yield returns false to exit the yield
 	// early. If yield never returns false, this will return true.
-	Children(yield func(Node) bool) bool
+	Children(yield func(Node) bool)
 }
+
+var _ iter.Seq[Node] = Parent(nil).Children
 
 // YieldSlice will call the given yield for all nodes in the given slice.
 func YieldSlice[T Node, S ~[]T](s S, yield func(Node) bool) bool {

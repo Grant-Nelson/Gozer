@@ -2,7 +2,6 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
@@ -14,7 +13,7 @@ type BlockRef struct {
 	Block *Block
 
 	// Args are the arguments to pass onto the block when invoked.
-	Args []ast.Expr // TODO: REPLACE
+	Args []Expr
 }
 
 var (
@@ -40,6 +39,6 @@ func (n *BlockRef) Pos() token.Pos {
 	return n.Args[0].Pos()
 }
 
-func (n *BlockRef) Children(yield func(Node) bool) bool {
-	return YieldSlice(n.Args, yield)
+func (n *BlockRef) Children(yield func(Node) bool) {
+	_ = YieldSlice(n.Args, yield)
 }

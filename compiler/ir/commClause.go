@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-
-	"github.com/Grant-Nelson/Gozer/avail/faults"
 )
 
 // CommClause is a node that represents a case of a select statement.
@@ -33,37 +31,6 @@ func (n *CommClause) String() string {
 
 func (n *CommClause) Pos() token.Pos { return astPos(n.Ast) }
 
-func (n *CommClause) Children(yield func(Node) bool) bool {
-	return yield(n.Comm) && YieldSlice(n.Body, yield)
-}
-
-func FromCommClause(s *ast.CommClause, c *Converter) *CommClause {
-	if s == nil {
-		return nil
-	}
-	return &CommClause{
-		Ast:  s,
-		Comm: FromStmt(s.Comm, c),
-		Body: FromStmtSlice(s.Body, c),
-	}
-}
-
-func FromCommClauseSlice(s *ast.BlockStmt, c *Converter) []*CommClause {
-	if s == nil {
-		return []*CommClause{}
-	}
-	ccs := make([]*CommClause, 0, len(s.List))
-	for i, ct := range s.List {
-		if ct == nil {
-			continue
-		}
-		cc, ok := ct.(*ast.CommClause)
-		if !ok {
-			panic(faults.New(`expected comm clause`).
-				WithF(`type`, `%T`, ct).
-				With(`index`, i))
-		}
-		ccs = append(ccs, FromCommClause(cc, c))
-	}
-	return ccs
+func (n *CommClause) Children(yield func(Node) bool) {
+	_ = yield(n.Comm) && YieldSlice(n.Body, yield)
 }

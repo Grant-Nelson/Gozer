@@ -23,16 +23,6 @@ func (n *DeferStmt) Pos() token.Pos { return astPos(n.Ast) }
 
 func (*DeferStmt) StmtNode() {}
 
-func (n *DeferStmt) Children(yield func(Node) bool) bool {
-	return yield(n.Call)
-}
-
-func FromDeferStmt(s *ast.DeferStmt) *DeferStmt {
-	if s == nil {
-		return nil
-	}
-	return &DeferStmt{
-		Ast:  s,
-		Call: s.Call,
-	}
+func (n *DeferStmt) Children(yield func(Node) bool) {
+	_ = yield(n.Call)
 }
