@@ -5,6 +5,8 @@ import (
 	"go/token"
 )
 
+// TODO: REPLACE WITH statements specific for CONST, TYPE, and VAR
+//
 // DeclStmt is a node that represents a declaration in a statement list.
 type DeclStmt struct {
 	Ast  *ast.DeclStmt // TODO: REMOVE

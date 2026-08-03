@@ -8,7 +8,11 @@ import (
 
 // DeferStmt is a node that represents a defer statement.
 type DeferStmt struct {
-	Ast  *ast.DeferStmt
+
+	// Defer is the position of "defer" keyword
+	Defer token.Pos
+
+	// Call is the function call expression that is being deferred.
 	Call *ast.CallExpr
 }
 
@@ -19,7 +23,7 @@ var (
 
 func (n *DeferStmt) String() string { return fmt.Sprintf(`defer %s`, nodeString(n.Call)) }
 
-func (n *DeferStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *DeferStmt) Pos() token.Pos { return n.Defer }
 
 func (*DeferStmt) StmtNode() {}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/branchKind"
 )
 
 type Converter struct {
@@ -67,16 +68,14 @@ func (c *Converter) FromStmt(s ast.Stmt) ir.Stmt {
 		return c.FromBlockStmt(s)
 	case *ast.IfStmt:
 		return c.FromIfStmt(s)
-	// TODO: FIX
-	//case *ast.CaseClause:
-	//	return c.FromCaseClause(s)
+	case *ast.CaseClause:
+		return c.FromCaseClause(s)
 	case *ast.SwitchStmt:
 		return c.FromSwitchStmt(s)
 	case *ast.TypeSwitchStmt:
 		return c.FromTypeSwitchStmt(s)
-	// TODO: FIX
-	//case *ast.CommClause:
-	//	return c.FromCommClause(s)
+	case *ast.CommClause:
+		return c.FromCommClause(s)
 	case *ast.SelectStmt:
 		return c.FromSelectStmt(s)
 	case *ast.ForStmt:
@@ -116,14 +115,30 @@ func (c *Converter) FromAssignStmt(s *ast.AssignStmt) *ir.AssignStmt {
 	}
 }
 
+func (c *Converter) FromBranchToken(t token.Token) branchKind.BranchKind {
+	switch t {
+	case token.BREAK:
+		return branchKind.Break
+	case token.CONTINUE:
+		return branchKind.Continue
+	case token.GOTO:
+		return branchKind.Goto
+	case token.FALLTHROUGH:
+		return branchKind.Fallthrough
+	default:
+		panic(faults.New(`unexpected token for a branch kind`).
+			With(`token`, t.String()))
+	}
+}
+
 func (c *Converter) FromBranchStmt(s *ast.BranchStmt) *ir.BranchStmt {
 	if s == nil {
 		return nil
 	}
 	return &ir.BranchStmt{
-		Ast:   s,
-		Tok:   s.Tok,
-		Label: s.Label,
+		TokPos: s.TokPos,
+		Kind:   c.FromBranchToken(s.Tok),
+		Label:  s.Label,
 	}
 }
 
@@ -132,7 +147,7 @@ func (c *Converter) FromCaseClause(s *ast.CaseClause) *ir.CaseClause {
 		return nil
 	}
 	return &ir.CaseClause{
-		Ast:  s,
+		Case: s.Case,
 		List: c.FromExprSlice(s.List),
 		Body: c.FromStmtSlice(s.Body),
 	}
@@ -163,7 +178,7 @@ func (c *Converter) FromCommClause(s *ast.CommClause) *ir.CommClause {
 		return nil
 	}
 	return &ir.CommClause{
-		Ast:  s,
+		Case: s.Case,
 		Comm: c.FromStmt(s.Comm),
 		Body: c.FromStmtSlice(s.Body),
 	}
@@ -204,8 +219,8 @@ func (c *Converter) FromDeferStmt(s *ast.DeferStmt) *ir.DeferStmt {
 		return nil
 	}
 	return &ir.DeferStmt{
-		Ast:  s,
-		Call: s.Call,
+		Defer: s.Defer,
+		Call:  s.Call,
 	}
 }
 

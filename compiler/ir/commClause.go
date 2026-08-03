@@ -2,19 +2,24 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // CommClause is a node that represents a case of a select statement.
 type CommClause struct {
-	Ast  *ast.CommClause // TODO: REMOVE
-	Comm Stmt            // send or receive statement; nil means default case
-	Body []Stmt          // statement list; or nil
+
+	// Case is the position of "case" or "default" keyword.
+	Case token.Pos
+
+	// Comm is the send or receive statement; nil means default case
+	Comm Stmt
+
+	// Body is the statement list; or nil
+	Body []Stmt
 }
 
 var (
-	_ Node   = (*CommClause)(nil)
+	_ Stmt   = (*CommClause)(nil)
 	_ Parent = (*CommClause)(nil)
 )
 
@@ -29,8 +34,13 @@ func (n *CommClause) String() string {
 	return str
 }
 
-func (n *CommClause) Pos() token.Pos { return astPos(n.Ast) }
+func (*CommClause) StmtNode() {}
+
+func (n *CommClause) Pos() token.Pos { return n.Case }
 
 func (n *CommClause) Children(yield func(Node) bool) {
 	_ = yield(n.Comm) && YieldSlice(n.Body, yield)
 }
+
+// IsDefault indicates if this is the default case for the switch.
+func (n *CommClause) IsDefault() bool { return n.Comm == nil }
