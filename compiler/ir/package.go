@@ -2,11 +2,8 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"go/types"
-
-	"github.com/Grant-Nelson/Gozer/avail/assert"
 )
 
 // Package is the IR for a whole package.
@@ -25,26 +22,6 @@ type Package struct {
 
 func (p *Package) String() string {
 	return fmt.Sprintf("package{\n%s\n}", linesString(p.Funcs))
-}
-
-func (p *Package) NewFunc(astFunc *ast.FuncDecl) *Func {
-	assert.NotNil(p)
-	assert.NotNil(astFunc)
-
-	fn := &Func{
-		Ast:  astFunc,
-		Name: astFunc.Name.Name,
-	}
-	p.Funcs = append(p.Funcs, fn)
-
-	// Create initial block, populate it with current statements, add params.
-	// Named return values are appended after input params so they are in scope
-	// for the function body just like declared locals.
-	conv := &Converter{Info: p.Info}
-	body := ExpandStmt(FromBlockStmt(astFunc.Body, conv))
-	params := append(ExpandParams(astFunc.Type), ExpandResults(astFunc.Type)...)
-	fn.NewBlock(`initial`, body, params)
-	return fn
 }
 
 // FindFunc finds a function with the given name or nil if not found.

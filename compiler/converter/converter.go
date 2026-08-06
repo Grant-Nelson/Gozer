@@ -1,7 +1,9 @@
 package converter
 
 import (
+	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 
@@ -11,7 +13,8 @@ import (
 )
 
 type Converter struct {
-	Info *types.Info
+	Info    *types.Info
+	FileSet *token.FileSet
 }
 
 func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
@@ -97,10 +100,57 @@ func (c *Converter) FromExprSlice(es []ast.Expr) []ir.Expr {
 }
 
 func (c *Converter) FromExpr(e ast.Expr) ir.Expr {
-
-	// TODO: FINISH IMPLEMENTING
-
-	return nil
+	switch e := e.(type) {
+	case nil, *ast.BadExpr:
+		return nil
+	case *ast.Ident:
+		return c.FromIdent(e)
+	case *ast.Ellipsis:
+		return c.FromEllipsis(e)
+	case *ast.BasicLit:
+		return c.FromBasicLit(e)
+	case *ast.FuncLit:
+		return c.FromFuncLit(e)
+	case *ast.CompositeLit:
+		return c.FromCompositeLit(e)
+	case *ast.ParenExpr:
+		return c.FromParenExpr(e)
+	case *ast.SelectorExpr:
+		return c.FromSelectorExpr(e)
+	case *ast.IndexExpr:
+		return c.FromIndexExpr(e)
+	case *ast.IndexListExpr:
+		return c.FromIndexListExpr(e)
+	case *ast.SliceExpr:
+		return c.FromSliceExpr(e)
+	case *ast.TypeAssertExpr:
+		return c.FromTypeAssertExpr(e)
+	case *ast.CallExpr:
+		return c.FromCallExpr(e)
+	case *ast.StarExpr:
+		return c.FromStarExpr(e)
+	case *ast.UnaryExpr:
+		return c.FromUnaryExpr(e)
+	case *ast.BinaryExpr:
+		return c.FromBinaryExpr(e)
+	case *ast.KeyValueExpr:
+		return c.FromKeyValueExpr(e)
+	case *ast.ArrayType:
+		return c.FromArrayType(e)
+	case *ast.StructType:
+		return c.FromStructType(e)
+	case *ast.FuncType:
+		return c.FromFuncType(e)
+	case *ast.InterfaceType:
+		return c.FromInterfaceType(e)
+	case *ast.MapType:
+		return c.FromMapType(e)
+	case *ast.ChanType:
+		return c.FromChanType(e)
+	default:
+		panic(faults.New(`unexpected AST expression type`).
+			WithF(`type`, `%T`, e))
+	}
 }
 
 func (c *Converter) FromAssignStmt(s *ast.AssignStmt) *ir.AssignStmt {
@@ -403,4 +453,236 @@ func (c *Converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *ir.TypeSwitchStmt
 		Assign: c.FromStmt(s.Assign),
 		Body:   c.FromCaseClauseSlice(s.Body),
 	}
+}
+
+func (c *Converter) FromIdent(e *ast.Ident) *ir.Ident {
+	if e == nil {
+		return nil
+	}
+	return &ir.Ident{
+		NamePos: e.NamePos,
+		Name:    e.Name,
+	}
+}
+
+func (c *Converter) FromEllipsis(e *ast.Ellipsis) ir.Expr {
+	if e == nil {
+		return nil
+	}
+	return c.FromExpr(e.Elt)
+}
+
+func (c *Converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
+	if e == nil {
+		return nil
+	}
+	return &ir.BasicLit{
+		ValuePos: e.ValuePos,
+		Value:    constant.MakeFromLiteral(e.Value, e.Kind, 0),
+	}
+}
+
+func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.Func {
+	if astFunc == nil {
+		return nil
+	}
+	fn := &ir.Func{
+		Ast:     astFunc,
+		FuncPos: astFunc.Type.Func,
+		Name:    astFunc.Name.Name,
+	}
+
+	// Create initial block, populate it with current statements, add params.
+	// Named return values are appended after input params so they are in scope
+	// for the function body just like declared locals.
+	body := c.ExpandStmt(c.FromBlockStmt(astFunc.Body))
+	params := append(c.ExpandParams(astFunc.Type), c.ExpandResults(astFunc.Type)...)
+	fn.NewBlock(`initial`, body, params)
+	return fn
+}
+
+func (c *Converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
+	if astFunc == nil {
+		return nil
+	}
+	pos := astFunc.Type.Func
+	fn := &ir.Func{
+		FuncPos: pos,
+		Name:    fmt.Sprintf(`unnamed-lit-%d`, pos),
+	}
+
+	// Create initial block, populate it with current statements, add params.
+	// Named return values are appended after input params so they are in scope
+	// for the function body just like declared locals.
+	body := c.ExpandStmt(c.FromBlockStmt(astFunc.Body))
+	params := append(c.ExpandParams(astFunc.Type), c.ExpandResults(astFunc.Type)...)
+	fn.NewBlock(`initial`, body, params)
+	return fn
+}
+
+func (c *Converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
+	if e == nil {
+		return nil
+	}
+	tv, ok := c.Info.Types[e]
+	if !ok {
+		panic(fmt.Errorf(`failed to get type for CompositeLit at %s`, c.FileSet.Position(e.Pos()).String()))
+	}
+	// TODO: Need to store the initial values
+	return &ir.TypeExpr{
+		TypePos:      e.Pos(),
+		TypeAndValue: tv,
+	}
+}
+
+func (c *Converter) FromParenExpr(e *ast.ParenExpr) ir.Expr {
+	if e == nil {
+		return nil
+	}
+	// Drop the paren since the order of operators is already kept in the tree shape.
+	return c.FromExpr(e.X)
+}
+
+func (c *Converter) FromSelectorExpr(e *ast.SelectorExpr) *ir.SelectorExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.SelectorExpr{
+		X:   c.FromExpr(e.X),
+		Sel: c.FromIdent(e.Sel),
+	}
+}
+
+func (c *Converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
+	if e == nil {
+		return nil
+	}
+	// TODO: Should determine if this is for a string, slice, or map
+	//       but if it is for generics then it should be an index list.
+	return &ir.IndexExpr{
+		X:       c.FromExpr(e.X),
+		LeftPos: e.Lbrack,
+		Index:   c.FromExpr(e.Index),
+	}
+}
+
+func (c *Converter) FromIndexListExpr(e *ast.IndexListExpr) *ir.IndexListExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.IndexListExpr{
+		X:       c.FromExpr(e.X),
+		LeftPos: e.Lbrack,
+		Indices: c.FromExprSlice(e.Indices),
+	}
+}
+
+func (c *Converter) FromSliceExpr(e *ast.SliceExpr) *ir.SliceExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.SliceExpr{
+		X:       c.FromExpr(e.X),
+		LeftPos: e.Lbrack,
+		Low:     c.FromExpr(e.Low),
+		High:    c.FromExpr(e.High),
+		Max:     c.FromExpr(e.Max),
+		Slice3:  e.Slice3,
+	}
+}
+
+func (c *Converter) FromTypeAssertExpr(e *ast.TypeAssertExpr) *ir.TypeAssertExpr {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromStarExpr(e *ast.StarExpr) *ir.StarExpr {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.KeyValueExpr {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromArrayType(e *ast.ArrayType) *ir.ArrayType {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromStructType(e *ast.StructType) *ir.StructType {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromFuncType(e *ast.FuncType) *ir.FuncType {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromInterfaceType(e *ast.InterfaceType) *ir.InterfaceType {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromMapType(e *ast.MapType) *ir.MapType {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
+}
+
+func (c *Converter) FromChanType(e *ast.ChanType) *ir.ChanType {
+	if e == nil {
+		return nil
+	}
+	// TODO: Implement
+	return nil
 }

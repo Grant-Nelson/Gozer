@@ -18,7 +18,10 @@ const (
 // a collection of statement blocks.
 // See [README.md]
 type Func struct {
+
 	// Package is the package this function belongs to.
+	// May be nil if a function hasn't been seated in a package yet which
+	// may happen when loading a function literal.
 	Package *Package
 
 	// Ast is the AST for this function.
@@ -32,6 +35,10 @@ type Func struct {
 	// as the initial parameters to the function.
 	// e.g. `func (f *Foo) DoThing(x int)` => `func Foo_DoThing(f *Foo) func(x int)`
 
+	// FuncPos is the position of `func` keyword for the function, method,
+	// or function literal.
+	FuncPos token.Pos
+
 	// Name of the function initialized to the name from the AST.
 	//
 	// The function name is unique per package. If the function has a receiver,
@@ -40,6 +47,10 @@ type Func struct {
 	// the name maybe modified to be unique, or modified to fit the
 	// target language style better.
 	Name string
+
+	// Anonymous indicates that this function was built for a `*ast.FuncLit`
+	// instead of `*ast.FuncDecl`
+	Anonymous bool
 
 	// Blocks is the collection of statement blocks for this function.
 	// The first block in this slice is the entry point for this function.
