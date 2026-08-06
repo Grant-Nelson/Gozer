@@ -609,10 +609,17 @@ func (c *Converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Based on the useage of Star, either return a TypeExpr (e.g. `*int``)
-	//       or a UnaryExpr (e.g. `*x`). The types.Info should have the inforamtion
-	//       to differentiate the values.
-	return nil
+	if tv, ok := c.Info.Types[e]; ok && tv.IsType() {
+		return &ir.TypeExpr{
+			TypePos:      e.Star,
+			TypeAndValue: tv,
+		}
+	}
+	return &ir.UnaryExpr{
+		OpPos: e.Star,
+		Op:    token.MUL,
+		X:     c.FromExpr(e.X),
+	}
 }
 
 func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
