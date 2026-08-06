@@ -109,8 +109,9 @@ func (c *Converter) FromExpr(e ast.Expr) ir.Expr {
 		return c.FromEllipsis(e)
 	case *ast.BasicLit:
 		return c.FromBasicLit(e)
-	case *ast.FuncLit:
-		return c.FromFuncLit(e)
+	// TODO: FIX by making func lit have an expression reference to the func
+	// case *ast.FuncLit:
+	//	return c.FromFuncLit(e)
 	case *ast.CompositeLit:
 		return c.FromCompositeLit(e)
 	case *ast.ParenExpr:
@@ -313,7 +314,7 @@ func (c *Converter) FromGoStmt(s *ast.GoStmt) *ir.GoStmt {
 	}
 	return &ir.GoStmt{
 		Ast:  s,
-		Call: s.Call,
+		Call: c.FromCallExpr(s.Call),
 	}
 }
 
@@ -597,11 +598,13 @@ func (c *Converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
 	return nil
 }
 
-func (c *Converter) FromStarExpr(e *ast.StarExpr) *ir.StarExpr {
+func (c *Converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Implement
+	// TODO: Based on the useage of Star, either return a TypeExpr (e.g. `*int``)
+	//       or a UnaryExpr (e.g. `*x`). The types.Info should have the inforamtion
+	//       to differentiate the values.
 	return nil
 }
 
