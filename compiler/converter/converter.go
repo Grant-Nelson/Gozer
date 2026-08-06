@@ -521,18 +521,8 @@ func (c *Converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
 }
 
 func (c *Converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	tv, ok := c.Info.Types[e]
-	if !ok {
-		panic(fmt.Errorf(`failed to get type for CompositeLit at %s`, c.FileSet.Position(e.Pos()).String()))
-	}
 	// TODO: Need to store the initial values
-	return &ir.TypeExpr{
-		TypePos:      e.Pos(),
-		TypeAndValue: tv,
-	}
+	return c.FromTypeExpr(e)
 }
 
 func (c *Converter) FromParenExpr(e *ast.ParenExpr) ir.Expr {
@@ -631,61 +621,41 @@ func (c *Converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 	return nil
 }
 
-func (c *Converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.KeyValueExpr {
-	if e == nil {
-		return nil
-	}
-	// TODO: Implement
-	return nil
+func (c *Converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.TypeExpr {
+	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromArrayType(e *ast.ArrayType) *ir.ArrayType {
-	if e == nil {
-		return nil
-	}
-	// TODO: Implement
-	return nil
+func (c *Converter) FromArrayType(e *ast.ArrayType) *ir.TypeExpr {
+	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromStructType(e *ast.StructType) *ir.StructType {
-	if e == nil {
-		return nil
-	}
-	// TODO: Implement
-	return nil
+func (c *Converter) FromStructType(e *ast.StructType) *ir.TypeExpr {
+	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromFuncType(e *ast.FuncType) *ir.FuncType {
-	if e == nil {
-		return nil
-	}
-	// TODO: Implement
-	return nil
+func (c *Converter) FromFuncType(e *ast.FuncType) *ir.TypeExpr {
+	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromInterfaceType(e *ast.InterfaceType) *ir.InterfaceType {
-	if e == nil {
-		return nil
-	}
-	// TODO: Implement
-	return nil
+func (c *Converter) FromInterfaceType(e *ast.InterfaceType) *ir.TypeExpr {
+	return c.FromTypeExpr(e)
 }
 
 func (c *Converter) FromMapType(e *ast.MapType) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	// TODO: Implement
-	return nil
+	return c.FromTypeExpr(e)
 }
 
 func (c *Converter) FromChanType(e *ast.ChanType) *ir.TypeExpr {
+	return c.FromTypeExpr(e)
+}
+
+func (c *Converter) FromTypeExpr(e ast.Expr) *ir.TypeExpr {
 	if e == nil {
 		return nil
 	}
 	tv, ok := c.Info.Types[e]
 	if !ok {
-		panic(fmt.Errorf(`failed to get type for ChanType at %s`, c.FileSet.Position(e.Pos()).String()))
+		panic(fmt.Errorf(`failed to get type for %T at %s`, e, c.FileSet.Position(e.Pos()).String()))
 	}
 	return &ir.TypeExpr{
 		TypePos:      e.Pos(),
