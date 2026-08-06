@@ -1,19 +1,16 @@
 package ir
 
 import (
-	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // DeferStmt is a node that represents a defer statement.
 type DeferStmt struct {
-
 	// Defer is the position of "defer" keyword
 	Defer token.Pos
 
 	// Call is the function call expression that is being deferred.
-	Call *ast.CallExpr
+	Call *CallExpr
 }
 
 var (
@@ -21,7 +18,7 @@ var (
 	_ Parent = (*DeferStmt)(nil)
 )
 
-func (n *DeferStmt) String() string { return fmt.Sprintf(`defer %s`, nodeString(n.Call)) }
+func (n *DeferStmt) String() string { return `defer ` + n.Call.String() }
 
 func (n *DeferStmt) Pos() token.Pos { return n.Defer }
 
