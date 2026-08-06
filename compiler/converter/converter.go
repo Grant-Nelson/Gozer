@@ -671,7 +671,7 @@ func (c *Converter) FromInterfaceType(e *ast.InterfaceType) *ir.InterfaceType {
 	return nil
 }
 
-func (c *Converter) FromMapType(e *ast.MapType) *ir.MapType {
+func (c *Converter) FromMapType(e *ast.MapType) *ir.TypeExpr {
 	if e == nil {
 		return nil
 	}
@@ -679,10 +679,16 @@ func (c *Converter) FromMapType(e *ast.MapType) *ir.MapType {
 	return nil
 }
 
-func (c *Converter) FromChanType(e *ast.ChanType) *ir.ChanType {
+func (c *Converter) FromChanType(e *ast.ChanType) *ir.TypeExpr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Implement
-	return nil
+	tv, ok := c.Info.Types[e]
+	if !ok {
+		panic(fmt.Errorf(`failed to get type for ChanType at %s`, c.FileSet.Position(e.Pos()).String()))
+	}
+	return &ir.TypeExpr{
+		TypePos:      e.Pos(),
+		TypeAndValue: tv,
+	}
 }
