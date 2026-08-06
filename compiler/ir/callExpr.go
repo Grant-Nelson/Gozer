@@ -7,7 +7,6 @@ import (
 
 // CallExpr is a node that represents a function or method call expression.
 type CallExpr struct {
-
 	// Fun is the function or method being called.
 	Fun Expr
 
@@ -17,9 +16,9 @@ type CallExpr struct {
 	// Args are the arguments to the call.
 	Args []Expr
 
-	// Ellipsis is the position of "..." if the last argument is variadic,
-	// or token.NoPos otherwise.
-	Ellipsis token.Pos
+	// Variadic indicates if there is a "..." for the last argument
+	// to allow zero or more values to be used in the last argument.
+	Variadic bool
 }
 
 var (
@@ -33,7 +32,7 @@ func (*CallExpr) ExprNode() {}
 
 func (n *CallExpr) String() string {
 	ellipsis := ``
-	if n.Ellipsis.IsValid() {
+	if n.Variadic {
 		ellipsis = `...`
 	}
 	return fmt.Sprintf(`%s(%s%s)`, n.Fun, csvString(n.Args), ellipsis)

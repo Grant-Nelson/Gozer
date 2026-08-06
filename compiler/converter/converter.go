@@ -586,16 +586,23 @@ func (c *Converter) FromTypeAssertExpr(e *ast.TypeAssertExpr) *ir.TypeAssertExpr
 	if e == nil {
 		return nil
 	}
-	// TODO: Implement
-	return nil
+	return &ir.TypeAssertExpr{
+		X:         c.FromExpr(e.X),
+		LparenPos: e.Lparen,
+		Type:      c.FromExpr(e.Type),
+	}
 }
 
 func (c *Converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Implement
-	return nil
+	return &ir.CallExpr{
+		Fun:       c.FromExpr(e.Fun),
+		LparenPos: e.Lparen,
+		Args:      c.FromExprSlice(e.Args),
+		Variadic:  e.Ellipsis.IsValid(),
+	}
 }
 
 func (c *Converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
@@ -612,16 +619,23 @@ func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Implement
-	return nil
+	return &ir.UnaryExpr{
+		OpPos: e.OpPos,
+		Op:    e.Op,
+		X:     c.FromExpr(e.X),
+	}
 }
 
 func (c *Converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Implement
-	return nil
+	return &ir.BinaryExpr{
+		X:     c.FromExpr(e.X),
+		OpPos: e.OpPos,
+		Op:    e.Op,
+		Y:     c.FromExpr(e.Y),
+	}
 }
 
 func (c *Converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.TypeExpr {
