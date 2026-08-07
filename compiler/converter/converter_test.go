@@ -25,11 +25,11 @@ func checkFile(t *testing.T, input, exp string) {
 		t.Errorf(`Failed to parse input expression: %v`, err)
 	}
 	if len(ps) != 1 {
-		t.Errorf(`Expected there to be one package but there was $d`, len(ps))
+		t.Errorf(`Expected there to be one package but there was %d`, len(ps))
 	}
 	p := ps[0]
 	if len(p.Syntax) != 1 {
-		t.Errorf(`Expected there to be one file in the package but there was $d`, len(p.Syntax))
+		t.Errorf(`Expected there to be one file in the package but there was %d`, len(p.Syntax))
 	}
 	f := p.Syntax[0]
 	c := &Converter{
