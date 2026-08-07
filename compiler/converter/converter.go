@@ -3,7 +3,6 @@ package converter
 import (
 	"fmt"
 	"go/ast"
-	"go/constant"
 	"go/token"
 	"go/types"
 
@@ -15,6 +14,18 @@ import (
 type Converter struct {
 	Info    *types.Info
 	FileSet *token.FileSet
+}
+
+func (c *Converter) pos(p token.Pos) string {
+	return c.FileSet.Position(p).String()
+}
+
+func (c *Converter) exprTypes(e ast.Expr) types.TypeAndValue {
+	tv, ok := c.Info.Types[e]
+	if !ok {
+		panic(fmt.Errorf(`failed to get type for %T at %s`, e, c.pos(e.Pos())))
+	}
+	return tv
 }
 
 func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
@@ -271,7 +282,7 @@ func (c *Converter) FromDeferStmt(s *ast.DeferStmt) *ir.DeferStmt {
 	}
 	return &ir.DeferStmt{
 		Defer: s.Defer,
-		Call:  s.Call,
+		Call:  c.FromCallExpr(s.Call),
 	}
 }
 
@@ -288,10 +299,12 @@ func (c *Converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
 	if s == nil {
 		return nil
 	}
-	exp := &ast.UnaryExpr{OpPos: s.Pos(), Op: s.Tok, X: s.X}
-	c.Info.Types[exp] = c.Info.Types[s.X]
 	return &ir.ExprStmt{
-		X: c.FromExpr(exp),
+		X: &ir.UnaryExpr{
+			OpPos: s.Pos(),
+			Op:    s.Tok,
+			X:     c.FromExpr(s.X),
+		},
 	}
 }
 
@@ -461,8 +474,9 @@ func (c *Converter) FromIdent(e *ast.Ident) *ir.Ident {
 		return nil
 	}
 	return &ir.Ident{
-		NamePos: e.NamePos,
-		Name:    e.Name,
+		NamePos:      e.NamePos,
+		Name:         e.Name,
+		TypeAndValue: c.exprTypes(e),
 	}
 }
 
@@ -478,8 +492,8 @@ func (c *Converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
 		return nil
 	}
 	return &ir.BasicLit{
-		ValuePos: e.ValuePos,
-		Value:    constant.MakeFromLiteral(e.Value, e.Kind, 0),
+		ValuePos:     e.ValuePos,
+		TypeAndValue: c.exprTypes(e),
 	}
 }
 
@@ -551,9 +565,10 @@ func (c *Converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
 	// TODO: Should determine if this is for a string, slice, or map
 	//       but if it is for generics then it should be an index list.
 	return &ir.IndexExpr{
-		X:       c.FromExpr(e.X),
-		LeftPos: e.Lbrack,
-		Index:   c.FromExpr(e.Index),
+		X:         c.FromExpr(e.X),
+		LeftPos:   e.Lbrack,
+		Index:     c.FromExpr(e.Index),
+		IndexExpr: c.exprTypes(e).Type,
 	}
 }
 
@@ -598,10 +613,11 @@ func (c *Converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
 		return nil
 	}
 	return &ir.CallExpr{
-		Fun:       c.FromExpr(e.Fun),
-		LparenPos: e.Lparen,
-		Args:      c.FromExprSlice(e.Args),
-		Variadic:  e.Ellipsis.IsValid(),
+		Fun:        c.FromExpr(e.Fun),
+		LparenPos:  e.Lparen,
+		Args:       c.FromExprSlice(e.Args),
+		Expanded:   e.Ellipsis.IsValid(),
+		ResultType: c.exprTypes(e).Type,
 	}
 }
 
@@ -609,16 +625,18 @@ func (c *Converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	if tv, ok := c.Info.Types[e]; ok && tv.IsType() {
+	tv := c.exprTypes(e)
+	if tv.IsType() {
 		return &ir.TypeExpr{
 			TypePos:      e.Star,
 			TypeAndValue: tv,
 		}
 	}
 	return &ir.UnaryExpr{
-		OpPos: e.Star,
-		Op:    token.MUL,
-		X:     c.FromExpr(e.X),
+		OpPos:      e.Star,
+		Op:         token.MUL,
+		X:          c.FromExpr(e.X),
+		ResultType: tv.Type,
 	}
 }
 
@@ -627,9 +645,10 @@ func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
 		return nil
 	}
 	return &ir.UnaryExpr{
-		OpPos: e.OpPos,
-		Op:    e.Op,
-		X:     c.FromExpr(e.X),
+		OpPos:      e.OpPos,
+		Op:         e.Op,
+		X:          c.FromExpr(e.X),
+		ResultType: c.exprTypes(e).Type,
 	}
 }
 
@@ -638,10 +657,11 @@ func (c *Converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 		return nil
 	}
 	return &ir.BinaryExpr{
-		X:     c.FromExpr(e.X),
-		OpPos: e.OpPos,
-		Op:    e.Op,
-		Y:     c.FromExpr(e.Y),
+		X:          c.FromExpr(e.X),
+		OpPos:      e.OpPos,
+		Op:         e.Op,
+		Y:          c.FromExpr(e.Y),
+		ResultType: c.exprTypes(e).Type,
 	}
 }
 
@@ -677,12 +697,8 @@ func (c *Converter) FromTypeExpr(e ast.Expr) *ir.TypeExpr {
 	if e == nil {
 		return nil
 	}
-	tv, ok := c.Info.Types[e]
-	if !ok {
-		panic(fmt.Errorf(`failed to get type for %T at %s`, e, c.FileSet.Position(e.Pos()).String()))
-	}
 	return &ir.TypeExpr{
 		TypePos:      e.Pos(),
-		TypeAndValue: tv,
+		TypeAndValue: c.exprTypes(e),
 	}
 }

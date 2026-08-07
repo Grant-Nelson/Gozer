@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 )
 
 // CallExpr is a node that represents a function or method call expression.
@@ -16,9 +17,12 @@ type CallExpr struct {
 	// Args are the arguments to the call.
 	Args []Expr
 
-	// Variadic indicates if there is a "..." for the last argument
-	// to allow zero or more values to be used in the last argument.
-	Variadic bool
+	// Expanded indicates if there is a "..." for the last variadic argument
+	// to expand zero or more values.
+	Expanded bool
+
+	// ResultType is the type that is returned from this call.
+	ResultType types.Type
 }
 
 var (
@@ -28,11 +32,13 @@ var (
 
 func (n *CallExpr) Pos() token.Pos { return n.LparenPos }
 
+func (n *CallExpr) Type() types.Type { return n.ResultType }
+
 func (*CallExpr) ExprNode() {}
 
 func (n *CallExpr) String() string {
 	ellipsis := ``
-	if n.Variadic {
+	if n.Expanded {
 		ellipsis = `...`
 	}
 	return fmt.Sprintf(`%s(%s%s)`, n.Fun, csvString(n.Args), ellipsis)

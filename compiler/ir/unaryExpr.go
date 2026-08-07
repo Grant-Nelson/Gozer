@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 )
 
 // UnaryExpr is a node that represents a unary expression.
@@ -16,6 +17,9 @@ type UnaryExpr struct {
 
 	// X is the operand.
 	X Expr
+
+	// ResultType is the type resulting from this unary expression.
+	ResultType types.Type
 }
 
 var (
@@ -24,6 +28,8 @@ var (
 )
 
 func (n *UnaryExpr) Pos() token.Pos { return n.OpPos }
+
+func (n *UnaryExpr) Type() types.Type { return n.ResultType }
 
 func (*UnaryExpr) ExprNode() {}
 

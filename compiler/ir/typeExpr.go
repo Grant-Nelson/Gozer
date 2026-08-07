@@ -14,6 +14,8 @@ var _ Expr = (*TypeExpr)(nil)
 
 func (n *TypeExpr) Pos() token.Pos { return n.TypePos }
 
+func (n *TypeExpr) Type() types.Type { return n.TypeAndValue.Type }
+
 func (n *TypeExpr) ExprNode() {}
 
 func (n *TypeExpr) String() string {

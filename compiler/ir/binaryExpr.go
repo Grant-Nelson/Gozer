@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 )
 
 // BinaryExpr is a node that represents a binary expression.
@@ -19,6 +20,9 @@ type BinaryExpr struct {
 
 	// Y is the right operand.
 	Y Expr
+
+	// ResultType is the type resulting from this binary expression.
+	ResultType types.Type
 }
 
 var (
@@ -27,6 +31,8 @@ var (
 )
 
 func (n *BinaryExpr) Pos() token.Pos { return n.OpPos }
+
+func (n *BinaryExpr) Type() types.Type { return n.ResultType }
 
 func (*BinaryExpr) ExprNode() {}
 
