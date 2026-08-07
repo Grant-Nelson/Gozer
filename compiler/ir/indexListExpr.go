@@ -1,6 +1,9 @@
 package ir
 
-import "go/token"
+import (
+	"go/token"
+	"go/types"
+)
 
 // IndexListExpr is a node that represents an expression followed by a list of indices.
 type IndexListExpr struct {
@@ -13,11 +16,16 @@ type IndexListExpr struct {
 
 	// Indices is the expression for the indices.
 	Indices []Expr
+
+	// ResultType is the resulting type after this assert.
+	ResultType types.Type
 }
 
 var _ Expr = (*IndexListExpr)(nil)
 
 func (n *IndexListExpr) Pos() token.Pos { return n.LeftPos }
+
+func (n *IndexListExpr) Type() types.Type { return n.ResultType }
 
 func (n *IndexListExpr) ExprNode() {}
 

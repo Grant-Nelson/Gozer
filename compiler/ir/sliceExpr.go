@@ -1,6 +1,9 @@
 package ir
 
-import "go/token"
+import (
+	"go/token"
+	"go/types"
+)
 
 // SliceExpr is a node that represents an expression followed by slice indices.
 type SliceExpr struct {
@@ -22,11 +25,16 @@ type SliceExpr struct {
 
 	// Slice3 is true if 3-index slice (2 colons present)
 	Slice3 bool
+
+	// ResultType is the resulting type after this assert.
+	ResultType types.Type
 }
 
 var _ Expr = (*SliceExpr)(nil)
 
 func (n *SliceExpr) Pos() token.Pos { return n.LeftPos }
+
+func (n *SliceExpr) Type() types.Type { return n.ResultType }
 
 func (n *SliceExpr) ExprNode() {}
 

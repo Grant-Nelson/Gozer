@@ -25,5 +25,5 @@ func (n *DeclStmt) Pos() token.Pos { return astPos(n.Ast) }
 func (*DeclStmt) StmtNode() {}
 
 func (n *DeclStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Decl)
+	//_ = yield(n.Decl)
 }

@@ -28,6 +28,27 @@ func (c *Converter) exprTypes(e ast.Expr) types.TypeAndValue {
 	return tv
 }
 
+func (c *Converter) FromNodeSlice(ns []ast.Node) []ir.Node {
+	result := make([]ir.Node, 0, len(ns))
+	for _, n := range ns {
+		result = append(result, c.FromNode(n))
+	}
+	return result
+}
+
+func (c *Converter) FromNode(n ast.Node) ir.Node {
+	switch n := n.(type) {
+	case ast.Stmt:
+		return c.FromStmt(n)
+	case ast.Expr:
+		return c.FromExpr(n)
+	default:
+		panic(faults.New(`unexpected AST node type`).
+			WithF(`type`, `%T`, n).
+			With(`pos`, c.pos(n.Pos())))
+	}
+}
+
 func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
 	result := make([]ir.Stmt, 0, len(ss))
 	for _, s := range ss {
@@ -98,7 +119,8 @@ func (c *Converter) FromStmt(s ast.Stmt) ir.Stmt {
 		return c.FromRangeStmt(s)
 	default:
 		panic(faults.New(`unexpected AST statement type`).
-			WithF(`type`, `%T`, s))
+			WithF(`type`, `%T`, s).
+			With(`pos`, c.pos(s.Pos())))
 	}
 }
 
@@ -161,7 +183,8 @@ func (c *Converter) FromExpr(e ast.Expr) ir.Expr {
 		return c.FromChanType(e)
 	default:
 		panic(faults.New(`unexpected AST expression type`).
-			WithF(`type`, `%T`, e))
+			WithF(`type`, `%T`, e).
+			With(`pos`, c.pos(e.Pos())))
 	}
 }
 
@@ -228,6 +251,7 @@ func (c *Converter) FromCaseClauseSlice(s *ast.BlockStmt) []*ir.CaseClause {
 		if !ok {
 			panic(faults.New(`expected case clause`).
 				WithF(`type`, `%T`, ct).
+				With(`pos`, c.pos(ct.Pos())).
 				With(`index`, i))
 		}
 		ccs = append(ccs, c.FromCaseClause(cc))
@@ -259,6 +283,7 @@ func (c *Converter) FromCommClauseSlice(s *ast.BlockStmt) []*ir.CommClause {
 		if !ok {
 			panic(faults.New(`expected comm clause`).
 				WithF(`type`, `%T`, ct).
+				With(`pos`, c.pos(ct.Pos())).
 				With(`index`, i))
 		}
 		ccs = append(ccs, c.FromCommClause(cc))
@@ -553,8 +578,9 @@ func (c *Converter) FromSelectorExpr(e *ast.SelectorExpr) *ir.SelectorExpr {
 		return nil
 	}
 	return &ir.SelectorExpr{
-		X:   c.FromExpr(e.X),
-		Sel: c.FromIdent(e.Sel),
+		X:       c.FromExpr(e.X),
+		Sel:     c.FromIdent(e.Sel),
+		SelType: c.exprTypes(e).Type,
 	}
 }
 
@@ -565,10 +591,10 @@ func (c *Converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
 	// TODO: Should determine if this is for a string, slice, or map
 	//       but if it is for generics then it should be an index list.
 	return &ir.IndexExpr{
-		X:         c.FromExpr(e.X),
-		LeftPos:   e.Lbrack,
-		Index:     c.FromExpr(e.Index),
-		IndexExpr: c.exprTypes(e).Type,
+		X:          c.FromExpr(e.X),
+		LeftPos:    e.Lbrack,
+		Index:      c.FromExpr(e.Index),
+		ResultType: c.exprTypes(e).Type,
 	}
 }
 
@@ -577,9 +603,10 @@ func (c *Converter) FromIndexListExpr(e *ast.IndexListExpr) *ir.IndexListExpr {
 		return nil
 	}
 	return &ir.IndexListExpr{
-		X:       c.FromExpr(e.X),
-		LeftPos: e.Lbrack,
-		Indices: c.FromExprSlice(e.Indices),
+		X:          c.FromExpr(e.X),
+		LeftPos:    e.Lbrack,
+		Indices:    c.FromExprSlice(e.Indices),
+		ResultType: c.exprTypes(e).Type,
 	}
 }
 
@@ -588,12 +615,13 @@ func (c *Converter) FromSliceExpr(e *ast.SliceExpr) *ir.SliceExpr {
 		return nil
 	}
 	return &ir.SliceExpr{
-		X:       c.FromExpr(e.X),
-		LeftPos: e.Lbrack,
-		Low:     c.FromExpr(e.Low),
-		High:    c.FromExpr(e.High),
-		Max:     c.FromExpr(e.Max),
-		Slice3:  e.Slice3,
+		X:          c.FromExpr(e.X),
+		LeftPos:    e.Lbrack,
+		Low:        c.FromExpr(e.Low),
+		High:       c.FromExpr(e.High),
+		Max:        c.FromExpr(e.Max),
+		Slice3:     e.Slice3,
+		ResultType: c.exprTypes(e).Type,
 	}
 }
 
@@ -602,9 +630,10 @@ func (c *Converter) FromTypeAssertExpr(e *ast.TypeAssertExpr) *ir.TypeAssertExpr
 		return nil
 	}
 	return &ir.TypeAssertExpr{
-		X:         c.FromExpr(e.X),
-		LparenPos: e.Lparen,
-		Type:      c.FromExpr(e.Type),
+		X:          c.FromExpr(e.X),
+		LparenPos:  e.Lparen,
+		AssertType: c.FromExpr(e.Type),
+		ResultType: c.exprTypes(e).Type,
 	}
 }
 

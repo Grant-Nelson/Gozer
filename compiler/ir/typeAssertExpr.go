@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 )
 
 // TypeAssertExpr is a node that represents a type assertion expression.
@@ -14,8 +15,11 @@ type TypeAssertExpr struct {
 	// LparenPos is the position of the "(" following the dot.
 	LparenPos token.Pos
 
-	// Type is the asserted type; nil means type switch `x.(type)`.
-	Type Expr
+	// AssertType is the asserted type; nil means type switch `x.(type)`.
+	AssertType Expr
+
+	// ResultType is the resulting type after this assert.
+	ResultType types.Type
 }
 
 var (
@@ -25,16 +29,18 @@ var (
 
 func (n *TypeAssertExpr) Pos() token.Pos { return n.LparenPos }
 
+func (n *TypeAssertExpr) Type() types.Type { return n.ResultType }
+
 func (*TypeAssertExpr) ExprNode() {}
 
 func (n *TypeAssertExpr) String() string {
 	typeStr := `type`
-	if n.Type != nil {
-		typeStr = n.Type.String()
+	if n.AssertType != nil {
+		typeStr = n.AssertType.String()
 	}
 	return fmt.Sprintf(`%s.(%s)`, n.X, typeStr)
 }
 
 func (n *TypeAssertExpr) Children(yield func(Node) bool) {
-	_ = yield(n.X) && yield(n.Type)
+	_ = yield(n.X) && yield(n.AssertType)
 }
