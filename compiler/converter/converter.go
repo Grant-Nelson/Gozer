@@ -7,6 +7,7 @@ import (
 	"go/types"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/branchKind"
 )
@@ -53,7 +54,7 @@ func (c *Converter) FromNode(n ast.Node) ir.Node {
 	}
 }
 
-func (c *Converter) FromDecl(d ast.Decl) ir.Decl {
+func (c *Converter) FromDecl(d ast.Decl) ir.Stmt {
 	switch d := d.(type) {
 	case nil, *ast.BadDecl:
 		return nil
@@ -68,14 +69,15 @@ func (c *Converter) FromDecl(d ast.Decl) ir.Decl {
 	}
 }
 
-func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Decl {
-	switch d.Tok {
-	case token.CONST:
-		// TODO: FINISH
-	case token.VAR:
-		// TODO: FINISH
+func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
+	constant := d.Tok == token.CONST
+	ss := &ir.StmtListStmt{}
+	for _, s := range d.Specs {
+		if v, ok := s.(*ast.ValueSpec); ok {
+
+		}
 	}
-	return nil
+	return c.SimplifyStmt(ss)
 }
 
 func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
@@ -86,10 +88,27 @@ func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
 	return result
 }
 
+func (c *Converter) SimplifyStmt(s ir.Stmt) ir.Stmt {
+	if b, ok := s.(*ir.StmtListStmt); ok {
+		b.List = iterator.NotZero(iterator.Iterate(b.List...)).ToSlice()
+		switch len(b.List) {
+		case 0:
+			return nil
+		case 1:
+			return b.List[0]
+		default:
+			return b
+		}
+	}
+	return s
+}
+
 func (c *Converter) ExpandStmtSlice(ss []ir.Stmt) []ir.Stmt {
 	st := make([]ir.Stmt, 0, len(ss))
 	for _, s := range ss {
-		st = append(st, c.ExpandStmt(s)...)
+		for x := range iterator.NotZero(iterator.Iterate(c.ExpandStmt(s)...)) {
+			st = append(st, x)
+		}
 	}
 	return st
 }
@@ -172,7 +191,7 @@ func (c *Converter) FromExpr(e ast.Expr) ir.Expr {
 	case *ast.BasicLit:
 		return c.FromBasicLit(e)
 	// TODO: FIX by making func lit have an expression reference to the func
-	// case *ast.FuncLit:
+	//case *ast.FuncLit:
 	//	return c.FromFuncLit(e)
 	case *ast.CompositeLit:
 		return c.FromCompositeLit(e)
