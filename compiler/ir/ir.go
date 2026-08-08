@@ -1,11 +1,7 @@
 package ir
 
 import (
-	"bytes"
 	"fmt"
-	"go/ast"
-	"go/format"
-	"go/token"
 	"strings"
 )
 
@@ -33,27 +29,9 @@ func toString(t any) string {
 	switch t := t.(type) {
 	case nil:
 		return `<nil>`
-	case ast.Node:
-		return nodeString(t)
 	case interface{ String() string }:
 		return t.String()
 	default:
 		return fmt.Sprintf(`%v`, t)
 	}
-}
-
-func nodeString(n ast.Node) string {
-	buf := &bytes.Buffer{}
-	fSet := token.NewFileSet()
-	if err := format.Node(buf, fSet, n); err != nil {
-		panic(err)
-	}
-	return buf.String()
-}
-
-func astPos(n ast.Node) token.Pos {
-	if n == nil {
-		return token.NoPos
-	}
-	return n.Pos()
 }

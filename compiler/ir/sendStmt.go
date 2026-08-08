@@ -2,15 +2,14 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // SendStmt is a node that represents a send statement.
 type SendStmt struct {
-	Ast   *ast.SendStmt // TODO: REMOVE
-	Chan  Expr
-	Value Expr
+	ArrowPos token.Pos // position of "<-"
+	Chan     Expr
+	Value    Expr
 }
 
 var (
@@ -22,7 +21,7 @@ func (n *SendStmt) String() string {
 	return fmt.Sprintf(`%s<-%s`, n.Chan, n.Value)
 }
 
-func (n *SendStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *SendStmt) Pos() token.Pos { return n.ArrowPos }
 
 func (*SendStmt) StmtNode() {}
 

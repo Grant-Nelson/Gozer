@@ -2,14 +2,13 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // ReturnStmt is a node that represents a return statement.
 type ReturnStmt struct {
-	Ast     *ast.ReturnStmt // TODO: REMOVE
-	Results []Expr          // result expressions; or nil
+	ReturnPos token.Pos // position of "return" keyword
+	Results   []Expr    // result expressions; or nil
 }
 
 var (
@@ -25,7 +24,7 @@ func (n *ReturnStmt) String() string {
 	return fmt.Sprintf(`return %s`, csvString(n.Results))
 }
 
-func (n *ReturnStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *ReturnStmt) Pos() token.Pos { return n.ReturnPos }
 
 func (*ReturnStmt) StmtNode()     {}
 func (*ReturnStmt) FlowCtrlNode() {}

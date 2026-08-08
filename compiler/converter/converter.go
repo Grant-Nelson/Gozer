@@ -6,11 +6,20 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/Grant-Nelson/Gozer/avail/assert"
+	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/branchKind"
 )
+
+const (
+	directiveGroup      = `gozer`
+	directiveAtomicFunc = `atomic`
+)
+
+// TODO: Add `//go:linkname` information for declarations
 
 type Converter struct {
 	Info    *types.Info
@@ -74,10 +83,25 @@ func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 	ss := &ir.StmtListStmt{}
 	for _, s := range d.Specs {
 		if v, ok := s.(*ast.ValueSpec); ok {
-
+			ss.List = append(ss.List, c.FromValueSpec(v, constant))
 		}
 	}
 	return c.SimplifyStmt(ss)
+}
+
+func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) *ir.StmtListStmt {
+	ss := &ir.StmtListStmt{}
+	for i, n := range s.Names {
+		v := &ir.ValueDecl{
+			Constant: constant,
+			Name:     c.FromIdent(n),
+		}
+		if len(s.Values) > i {
+			v.Value = c.FromExpr(s.Values[i])
+		}
+		ss.List = append(ss.List, v)
+	}
+	return ss
 }
 
 func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
@@ -90,7 +114,7 @@ func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
 
 func (c *Converter) SimplifyStmt(s ir.Stmt) ir.Stmt {
 	if b, ok := s.(*ir.StmtListStmt); ok {
-		b.List = iterator.NotZero(iterator.Iterate(b.List...)).ToSlice()
+		b.List = iterator.NotZero(iterator.Iterate(c.ExpandStmtSlice(b.List)...)).ToSlice()
 		switch len(b.List) {
 		case 0:
 			return nil
@@ -339,14 +363,11 @@ func (c *Converter) FromCommClauseSlice(s *ast.BlockStmt) []*ir.CommClause {
 	return ccs
 }
 
-func (c *Converter) FromDeclStmt(s *ast.DeclStmt) *ir.DeclStmt {
+func (c *Converter) FromDeclStmt(s *ast.DeclStmt) ir.Stmt {
 	if s == nil {
 		return nil
 	}
-	return &ir.DeclStmt{
-		Ast:  s,
-		Decl: s.Decl,
-	}
+	return c.FromDecl(s.Decl)
 }
 
 func (c *Converter) FromDeferStmt(s *ast.DeferStmt) *ir.DeferStmt {
@@ -386,11 +407,11 @@ func (c *Converter) FromForStmt(s *ast.ForStmt) *ir.ForStmt {
 		return nil
 	}
 	return &ir.ForStmt{
-		Ast:  s,
-		Init: c.FromStmt(s.Init),
-		Cond: c.FromExpr(s.Cond),
-		Post: c.FromStmt(s.Post),
-		Body: c.ExpandStmt(c.FromBlockStmt(s.Body)),
+		ForPos: s.For,
+		Init:   c.FromStmt(s.Init),
+		Cond:   c.FromExpr(s.Cond),
+		Post:   c.FromStmt(s.Post),
+		Body:   c.ExpandStmt(c.FromBlockStmt(s.Body)),
 	}
 }
 
@@ -399,8 +420,8 @@ func (c *Converter) FromGoStmt(s *ast.GoStmt) *ir.GoStmt {
 		return nil
 	}
 	return &ir.GoStmt{
-		Ast:  s,
-		Call: c.FromCallExpr(s.Call),
+		GoPos: s.Go,
+		Call:  c.FromCallExpr(s.Call),
 	}
 }
 
@@ -409,11 +430,11 @@ func (c *Converter) FromIfStmt(s *ast.IfStmt) *ir.IfStmt {
 		return nil
 	}
 	return &ir.IfStmt{
-		Ast:  s,
-		Init: c.FromStmt(s.Init),
-		Cond: c.FromExpr(s.Cond),
-		Body: c.ExpandStmt(c.FromBlockStmt(s.Body)),
-		Else: c.ExpandStmt(c.FromStmt(s.Else)),
+		IfPos: s.If,
+		Init:  c.FromStmt(s.Init),
+		Cond:  c.FromExpr(s.Cond),
+		Body:  c.ExpandStmt(c.FromBlockStmt(s.Body)),
+		Else:  c.ExpandStmt(c.FromStmt(s.Else)),
 	}
 }
 
@@ -422,8 +443,7 @@ func (c *Converter) FromLabeledStmt(s *ast.LabeledStmt) *ir.LabeledStmt {
 		return nil
 	}
 	return &ir.LabeledStmt{
-		Ast:   s,
-		Label: s.Label,
+		Label: c.FromIdent(s.Label),
 		Stmt:  c.FromStmt(s.Stmt),
 	}
 }
@@ -455,8 +475,8 @@ func (c *Converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
 				continue
 			}
 			param := &ir.Param{
-				Name: name,
-				Expr: field.Type,
+				Name: c.FromIdent(name),
+				Expr: c.FromExpr(field.Type),
 			}
 			params = append(params, param)
 		}
@@ -469,11 +489,11 @@ func (c *Converter) FromRangeStmt(s *ast.RangeStmt) *ir.RangeStmt {
 		return nil
 	}
 	return &ir.RangeStmt{
-		Ast:   s,
-		Key:   c.FromExpr(s.Key),
-		Value: c.FromExpr(s.Value),
-		X:     c.FromExpr(s.X),
-		Body:  c.ExpandStmt(c.FromBlockStmt(s.Body)),
+		ForPos: s.For,
+		Key:    c.FromExpr(s.Key),
+		Value:  c.FromExpr(s.Value),
+		X:      c.FromExpr(s.X),
+		Body:   c.ExpandStmt(c.FromBlockStmt(s.Body)),
 	}
 }
 
@@ -482,8 +502,8 @@ func (c *Converter) FromReturnStmt(s *ast.ReturnStmt) *ir.ReturnStmt {
 		return nil
 	}
 	return &ir.ReturnStmt{
-		Ast:     s,
-		Results: c.FromExprSlice(s.Results),
+		ReturnPos: s.Return,
+		Results:   c.FromExprSlice(s.Results),
 	}
 }
 
@@ -492,8 +512,8 @@ func (c *Converter) FromSelectStmt(s *ast.SelectStmt) *ir.SelectStmt {
 		return nil
 	}
 	return &ir.SelectStmt{
-		Ast:  s,
-		Body: c.FromCommClauseSlice(s.Body),
+		SelectPos: s.Select,
+		Body:      c.FromCommClauseSlice(s.Body),
 	}
 }
 
@@ -502,9 +522,9 @@ func (c *Converter) FromSendStmt(s *ast.SendStmt) *ir.SendStmt {
 		return nil
 	}
 	return &ir.SendStmt{
-		Ast:   s,
-		Chan:  c.FromExpr(s.Chan),
-		Value: c.FromExpr(s.Value),
+		ArrowPos: s.Arrow,
+		Chan:     c.FromExpr(s.Chan),
+		Value:    c.FromExpr(s.Value),
 	}
 }
 
@@ -513,7 +533,6 @@ func (c *Converter) FromBlockStmt(s *ast.BlockStmt) *ir.StmtListStmt {
 		return nil
 	}
 	return &ir.StmtListStmt{
-		Ast:  s,
 		List: c.FromStmtSlice(s.List),
 	}
 }
@@ -523,10 +542,10 @@ func (c *Converter) FromSwitchStmt(s *ast.SwitchStmt) *ir.SwitchStmt {
 		return nil
 	}
 	return &ir.SwitchStmt{
-		Ast:  s,
-		Init: c.FromStmt(s.Init),
-		Tag:  c.FromExpr(s.Tag),
-		Body: c.FromCaseClauseSlice(s.Body),
+		SwitchPos: s.Switch,
+		Init:      c.FromStmt(s.Init),
+		Tag:       c.FromExpr(s.Tag),
+		Body:      c.FromCaseClauseSlice(s.Body),
 	}
 }
 
@@ -535,10 +554,10 @@ func (c *Converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *ir.TypeSwitchStmt
 		return nil
 	}
 	return &ir.TypeSwitchStmt{
-		Ast:    s,
-		Init:   c.FromStmt(s.Init),
-		Assign: c.FromStmt(s.Assign),
-		Body:   c.FromCaseClauseSlice(s.Body),
+		SwitchPos: s.Switch,
+		Init:      c.FromStmt(s.Init),
+		Assign:    c.FromStmt(s.Assign),
+		Body:      c.FromCaseClauseSlice(s.Body),
 	}
 }
 
@@ -575,17 +594,21 @@ func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.Func {
 		return nil
 	}
 	fn := &ir.Func{
-		Ast:     astFunc,
 		FuncPos: astFunc.Type.Func,
-		Name:    astFunc.Name.Name,
+		Name:    c.FromIdent(astFunc.Name),
+	}
+	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
+
+	if astFunc.Doc != nil {
+		dv := astTools.Directives(astFunc.Doc.List, directiveGroup)
+		if s, ok := dv[directiveAtomicFunc]; ok {
+			// The atomic directive should have no fields.
+			// Any fields will be ignored (if asserts are off).
+			assert.EmptySlice(s)
+			fn.Atomic = true
+		}
 	}
 
-	// Create initial block, populate it with current statements, add params.
-	// Named return values are appended after input params so they are in scope
-	// for the function body just like declared locals.
-	body := c.ExpandStmt(c.FromBlockStmt(astFunc.Body))
-	params := append(c.ExpandParams(astFunc.Type), c.ExpandResults(astFunc.Type)...)
-	fn.NewBlock(`initial`, body, params)
 	return fn
 }
 
@@ -596,16 +619,18 @@ func (c *Converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
 	pos := astFunc.Type.Func
 	fn := &ir.Func{
 		FuncPos: pos,
-		Name:    fmt.Sprintf(`unnamed-lit-%d`, pos),
 	}
-
-	// Create initial block, populate it with current statements, add params.
-	// Named return values are appended after input params so they are in scope
-	// for the function body just like declared locals.
-	body := c.ExpandStmt(c.FromBlockStmt(astFunc.Body))
-	params := append(c.ExpandParams(astFunc.Type), c.ExpandResults(astFunc.Type)...)
-	fn.NewBlock(`initial`, body, params)
+	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
 	return fn
+}
+
+// setInitialBlock creates an initial block, populate it with current statements, add params.
+// Named return values are appended after input params so they are in scope
+// for the function body just like declared locals.
+func (c *Converter) setInitialBlock(fn *ir.Func, fnBody *ast.BlockStmt, fnType *ast.FuncType) *ir.Block {
+	body := c.ExpandStmt(c.FromBlockStmt(fnBody))
+	params := append(c.ExpandParams(fnType), c.ExpandResults(fnType)...)
+	return fn.NewBlock(`initial`, body, params)
 }
 
 func (c *Converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
@@ -690,11 +715,11 @@ func (c *Converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
 		return nil
 	}
 	return &ir.CallExpr{
-		Fun:        c.FromExpr(e.Fun),
-		LparenPos:  e.Lparen,
-		Args:       c.FromExprSlice(e.Args),
-		Expanded:   e.Ellipsis.IsValid(),
-		ResultType: c.exprTypes(e).Type,
+		Fun:          c.FromExpr(e.Fun),
+		LeftParenPos: e.Lparen,
+		Args:         c.FromExprSlice(e.Args),
+		Expanded:     e.Ellipsis.IsValid(),
+		ResultType:   c.exprTypes(e).Type,
 	}
 }
 

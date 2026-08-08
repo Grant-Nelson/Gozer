@@ -11,8 +11,8 @@ type CallExpr struct {
 	// Fun is the function or method being called.
 	Fun Expr
 
-	// LparenPos is the position of the "(".
-	LparenPos token.Pos
+	// LeftParenPos is the position of the "(".
+	LeftParenPos token.Pos
 
 	// Args are the arguments to the call.
 	Args []Expr
@@ -23,6 +23,8 @@ type CallExpr struct {
 
 	// ResultType is the type that is returned from this call.
 	ResultType types.Type
+
+	Follow *BlockRef
 }
 
 var (
@@ -30,7 +32,7 @@ var (
 	_ Parent = (*CallExpr)(nil)
 )
 
-func (n *CallExpr) Pos() token.Pos { return n.LparenPos }
+func (n *CallExpr) Pos() token.Pos { return n.LeftParenPos }
 
 func (n *CallExpr) Type() types.Type { return n.ResultType }
 
@@ -45,5 +47,5 @@ func (n *CallExpr) String() string {
 }
 
 func (n *CallExpr) Children(yield func(Node) bool) {
-	_ = yield(n.Fun) && YieldSlice(n.Args, yield)
+	_ = yield(n.Fun) && YieldSlice(n.Args, yield) && yield(n.Follow)
 }

@@ -2,18 +2,17 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // RangeStmt is a node that represents a for statement with a range clause.
 type RangeStmt struct {
-	Ast   *ast.RangeStmt // TODO: REMOVE
-	Key   Expr           // Key may be nil
-	Value Expr           // Value may be nil
-	Tok   token.Token    // TODO: REPLACE // ILLEGAL if Key == nil, ASSIGN, DEFINE
-	X     Expr           // value to range over
-	Body  []Stmt
+	ForPos token.Pos   // position of "for" keyword
+	Key    Expr        // Key may be nil
+	Value  Expr        // Value may be nil
+	Tok    token.Token // TODO: REPLACE // ILLEGAL if Key == nil, ASSIGN, DEFINE
+	X      Expr        // value to range over
+	Body   []Stmt
 }
 
 var (
@@ -26,7 +25,7 @@ func (n *RangeStmt) String() string {
 		n.Key, n.Value, n.Tok.String(), n.X, linesString(n.Body))
 }
 
-func (n *RangeStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *RangeStmt) Pos() token.Pos { return n.ForPos }
 
 func (*RangeStmt) StmtNode() {}
 

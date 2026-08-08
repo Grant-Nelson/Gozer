@@ -2,14 +2,13 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // SelectStmt is a node that represents a select statement.
 type SelectStmt struct {
-	Ast  *ast.SelectStmt // TODO: REMOVE
-	Body []*CommClause
+	SelectPos token.Pos // position of "select" keyword
+	Body      []*CommClause
 }
 
 var (
@@ -21,7 +20,7 @@ func (n *SelectStmt) String() string {
 	return fmt.Sprintf("select {\n%s\n}", linesString(n.Body))
 }
 
-func (n *SelectStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *SelectStmt) Pos() token.Pos { return n.SelectPos }
 
 func (*SelectStmt) StmtNode() {}
 

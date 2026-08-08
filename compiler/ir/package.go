@@ -27,7 +27,7 @@ func (p *Package) String() string {
 // FindFunc finds a function with the given name or nil if not found.
 func (p *Package) FindFunc(name string) *Func {
 	for _, fn := range p.Funcs {
-		if fn.Name == name {
+		if fn.Name.Name == name {
 			return fn
 		}
 	}

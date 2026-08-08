@@ -2,16 +2,24 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // ForStmt is a node that represents a for statement.
 type ForStmt struct {
-	Ast  *ast.ForStmt // TODO: REMOVE
-	Init Stmt         // initialization statement; or nil
-	Cond Expr         // condition; or nil
-	Post Stmt         // post iteration statement; or nil
+	// ForPos is the position of the `for` keyword.
+	ForPos token.Pos
+
+	// Init is the initialization statement; or nil.
+	Init Stmt
+
+	// Cond is the condition; or nil.
+	Cond Expr
+
+	// Post is the post iteration statement; or nil.
+	Post Stmt
+
+	// Body is the statements in the body of the loop.
 	Body []Stmt
 }
 
@@ -25,7 +33,7 @@ func (n *ForStmt) String() string {
 		n.Init, n.Cond, n.Post, linesString(n.Body))
 }
 
-func (n *ForStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *ForStmt) Pos() token.Pos { return n.ForPos }
 
 func (*ForStmt) StmtNode() {}
 

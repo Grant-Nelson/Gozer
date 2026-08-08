@@ -2,17 +2,16 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 )
 
 // An IfStmt node represents an if statement.
 type IfStmt struct {
-	Ast  *ast.IfStmt // TODO: REMOVE
-	Init Stmt        // initialization statement; or nil
-	Cond Expr        // condition
-	Body []Stmt
-	Else []Stmt
+	IfPos token.Pos // position of "if" keyword
+	Init  Stmt      // initialization statement; or nil
+	Cond  Expr      // condition
+	Body  []Stmt
+	Else  []Stmt
 }
 
 var (
@@ -28,7 +27,7 @@ func (n *IfStmt) String() string {
 	return str
 }
 
-func (n *IfStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *IfStmt) Pos() token.Pos { return n.IfPos }
 
 func (*IfStmt) StmtNode() {}
 

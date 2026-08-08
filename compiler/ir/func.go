@@ -2,16 +2,7 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
-
-	"github.com/Grant-Nelson/Gozer/avail/assert"
-	"github.com/Grant-Nelson/Gozer/avail/astTools"
-)
-
-const (
-	directiveGroup      = `gozer`
-	directiveAtomicFunc = `atomic`
 )
 
 // Func represents a function block defining a function as
@@ -24,11 +15,22 @@ type Func struct {
 	// may happen when loading a function literal.
 	Package *Package
 
-	// Ast is the AST for this function.
+	// Atomic indicates that this function should NOT be broken up into
+	// flow control blocks, meaning that the scheduler running in one real
+	// thread environment should not swap goroutines.
 	//
-	// Remodelers that modify the AST inside of a [BaseStmt] or similar
-	// may cause changes to this data as well.
-	Ast *ast.FuncDecl // TODO: REMOVE
+	// Atomic is based on the directive `//gozer:atomic`.
+	// However, the function may still not be atomic if it contains blocking
+	// calls such as a send, receive, sleep, or lock. Calling a function
+	// on an interface that is not pinned to a package could be blocking so
+	// is treated as always blocking. That goes for calling a function on
+	// a generic type as well.
+	//
+	// For a target language like typescript, calling a non-atomic function
+	// from an atomic function will have a signature mismatch since the parameters
+	// and returns from a non-atomic function will have parameters and returns
+	// specifically designed for the schedular to call.
+	Atomic bool
 
 	// TODO: Add a signature with any receivers, type dictionaries, and variables
 	// accessible via a closure if function was created in a closure,
@@ -46,7 +48,7 @@ type Func struct {
 	// If this name collides with another top-level object,
 	// the name maybe modified to be unique, or modified to fit the
 	// target language style better.
-	Name string
+	Name *Ident
 
 	// Anonymous indicates that this function was built for a `*ast.FuncLit`
 	// instead of `*ast.FuncDecl`
@@ -65,12 +67,12 @@ var (
 	_ Parent = (*Func)(nil)
 )
 
-func (fn *Func) Pos() token.Pos { return astPos(fn.Ast) }
+func (fn *Func) Pos() token.Pos { return fn.FuncPos }
 
 func (fn *Func) StmtNode() {}
 
 func (fn *Func) String() string {
-	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks))
+	return fmt.Sprintf("func %s {\n%s\n}", fn.Name.String(), linesString(fn.Blocks))
 }
 
 func (fn *Func) Children(yield func(Node) bool) {
@@ -87,33 +89,4 @@ func (fn *Func) NewBlock(hint string, body []Stmt, params []*Param) *Block {
 	}
 	fn.Blocks = append(fn.Blocks, b)
 	return b
-}
-
-// Atomic indicates that this function should NOT be broken up into
-// flow control blocks, meaning that the scheduler running in one real
-// thread environment should not swap goroutines.
-//
-// Atomic is based on the directive `//gozer:atomic`.
-// However, the function may still not be atomic if it contains blocking
-// calls such as a send, receive, sleep, or lock. Calling a function
-// on an interface that is not pinned to a package could be blocking so
-// is treated as always blocking. That goes for calling a function on
-// a generic type as well.
-//
-// For a target language like typescript, calling a non-atomic function
-// from an atomic function will have a signature mismatch since the parameters
-// and returns from a non-atomic function will have parameters and returns
-// specifically designed for the schedular to call.
-func (fn *Func) Atomic() bool {
-	if fn.Ast.Doc == nil {
-		return false
-	}
-	dv := astTools.Directives(fn.Ast.Doc.List, directiveGroup)
-	if s, ok := dv[directiveAtomicFunc]; ok {
-		// The atomic directive should have no fields.
-		// Any fields will be ignored (if asserts are off).
-		assert.EmptySlice(s)
-		return true
-	}
-	return false
 }

@@ -2,7 +2,6 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/types"
 )
 
@@ -18,14 +17,14 @@ type Param struct {
 	// only pass named parameters into the block. The function will keep
 	// the unnamed parameters so that its signature remained the same as
 	// it was defined in the AST.
-	Name *ast.Ident // TODO: REPLACE
+	Name *Ident
 
 	// Expr is the source-level type expression for this parameter.
 	//
 	// May be nil for params synthesized by the blocker for variables
 	// that were defined inside the function body (no source type expression
 	// is available). In that case Type must be set.
-	Expr ast.Expr // TODO: REPLACE
+	Expr Expr
 
 	// Type is the resolved type for this parameter.
 	//
@@ -37,7 +36,7 @@ type Param struct {
 
 func (p *Param) String() string {
 	if p.Expr != nil {
-		return fmt.Sprintf(`%s %s`, p.Name.String(), nodeString(p.Expr))
+		return fmt.Sprintf(`%s %s`, p.Name.String(), p.Expr)
 	}
 	return fmt.Sprintf(`%s %v`, p.Name.String(), p.Type)
 }

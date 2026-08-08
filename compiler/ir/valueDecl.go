@@ -1,6 +1,8 @@
 package ir
 
-import "go/token"
+import (
+	"go/token"
+)
 
 // ValueDecl is the declaration for a single variable or constant.
 type ValueDecl struct {
@@ -11,7 +13,7 @@ type ValueDecl struct {
 	// Name is the name for the value.
 	Name *Ident
 
-	// Value is the type and value assigned the value.
+	// Value is the optional initial assigned of the value.
 	Value Expr
 }
 
@@ -29,7 +31,7 @@ func (n *ValueDecl) String() string {
 	if n.Constant {
 		result = `const `
 	}
-	result += n.Name.String()
+	result += n.Name.String() + ` ` + n.Name.Type().String()
 	if n.Value != nil {
 		result += ` = ` + n.Value.String()
 	}

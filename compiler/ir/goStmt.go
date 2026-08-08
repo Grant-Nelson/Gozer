@@ -1,14 +1,13 @@
 package ir
 
 import (
-	"go/ast"
 	"go/token"
 )
 
 // A GoStmt node represents a go statement.
 type GoStmt struct {
-	Ast  *ast.GoStmt // TODO: REMOVE
-	Call *CallExpr   // TODO: REPLACE
+	GoPos token.Pos // position of "go" keyword
+	Call  *CallExpr
 }
 
 var (
@@ -18,7 +17,7 @@ var (
 
 func (n *GoStmt) String() string { return `go ` + n.Call.String() }
 
-func (n *GoStmt) Pos() token.Pos { return astPos(n.Ast) }
+func (n *GoStmt) Pos() token.Pos { return n.GoPos }
 
 func (*GoStmt) StmtNode() {}
 
