@@ -38,6 +38,10 @@ func (c *Converter) FromNodeSlice(ns []ast.Node) []ir.Node {
 
 func (c *Converter) FromNode(n ast.Node) ir.Node {
 	switch n := n.(type) {
+	case nil:
+		return nil
+	case ast.Decl:
+		return c.FromDecl(n)
 	case ast.Stmt:
 		return c.FromStmt(n)
 	case ast.Expr:
@@ -47,6 +51,31 @@ func (c *Converter) FromNode(n ast.Node) ir.Node {
 			WithF(`type`, `%T`, n).
 			With(`pos`, c.pos(n.Pos())))
 	}
+}
+
+func (c *Converter) FromDecl(d ast.Decl) ir.Decl {
+	switch d := d.(type) {
+	case nil, *ast.BadDecl:
+		return nil
+	case *ast.GenDecl:
+		return c.FromGenDecl(d)
+	case *ast.FuncDecl:
+		return c.FromFuncDecl(d)
+	default:
+		panic(faults.New(`unexpected AST decl node type`).
+			WithF(`type`, `%T`, d).
+			With(`pos`, c.pos(d.Pos())))
+	}
+}
+
+func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Decl {
+	switch d.Tok {
+	case token.CONST:
+		// TODO: FINISH
+	case token.VAR:
+		// TODO: FINISH
+	}
+	return nil
 }
 
 func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {

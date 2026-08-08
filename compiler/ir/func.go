@@ -61,11 +61,13 @@ type Func struct {
 }
 
 var (
-	_ Node   = (*Func)(nil)
+	_ Decl   = (*Func)(nil)
 	_ Parent = (*Func)(nil)
 )
 
 func (fn *Func) Pos() token.Pos { return astPos(fn.Ast) }
+
+func (fn *Func) DeclNode() {}
 
 func (fn *Func) String() string {
 	return fmt.Sprintf("func %s {\n%s\n}", fn.Name, linesString(fn.Blocks))
