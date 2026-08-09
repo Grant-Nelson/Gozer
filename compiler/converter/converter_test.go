@@ -91,7 +91,7 @@ func checkFile(t *testing.T, input, expected string) {
 	result := []string{}
 	for _, d := range f.Decls {
 
-		// TODO: FINISH
+		// TODO: FINISH by making from file and from package
 		n := c.FromNode(d)
 		result = append(result, n.String())
 	}

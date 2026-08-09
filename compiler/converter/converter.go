@@ -49,8 +49,51 @@ func (c *Converter) FromNode(n ast.Node) ir.Node {
 	case ast.Expr:
 		return c.FromExpr(n)
 	default:
-		panic(faults.New(`unexpected AST node type`).
+		c.addFault(faults.New(`unexpected AST node type`).
 			WithF(`type`, `%T`, n).
 			With(`pos`, c.pos(n.Pos())))
+		return nil
 	}
+}
+
+func (c *Converter) FromDecl(d ast.Decl) ir.Stmt {
+	switch d := d.(type) {
+	case nil, *ast.BadDecl:
+		return nil
+	case *ast.GenDecl:
+		return c.FromGenDecl(d)
+	case *ast.FuncDecl:
+		return c.FromFuncDecl(d)
+	default:
+		c.addFault(faults.New(`unexpected AST decl node type`).
+			WithF(`type`, `%T`, d).
+			With(`pos`, c.pos(d.Pos())))
+		return nil
+	}
+}
+
+func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
+	constant := d.Tok == token.CONST
+	ss := &ir.StmtListStmt{}
+	for _, s := range d.Specs {
+		if v, ok := s.(*ast.ValueSpec); ok {
+			ss.List = append(ss.List, c.FromValueSpec(v, constant))
+		}
+	}
+	return c.SimplifyStmt(ss)
+}
+
+func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) *ir.StmtListStmt {
+	ss := &ir.StmtListStmt{}
+	for i, n := range s.Names {
+		v := &ir.ValueDecl{
+			Constant: constant,
+			Name:     c.FromIdent(n),
+		}
+		if len(s.Values) > i {
+			v.Value = c.FromExpr(s.Values[i])
+		}
+		ss.List = append(ss.List, v)
+	}
+	return ss
 }

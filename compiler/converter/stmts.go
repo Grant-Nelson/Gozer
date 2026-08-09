@@ -11,48 +11,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
 
-func (c *Converter) FromDecl(d ast.Decl) ir.Stmt {
-	switch d := d.(type) {
-	case nil, *ast.BadDecl:
-		return nil
-	case *ast.GenDecl:
-		return c.FromGenDecl(d)
-	case *ast.FuncDecl:
-		return c.FromFuncDecl(d)
-	default:
-		c.addFault(faults.New(`unexpected AST decl node type`).
-			WithF(`type`, `%T`, d).
-			With(`pos`, c.pos(d.Pos())))
-		return nil
-	}
-}
-
-func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
-	constant := d.Tok == token.CONST
-	ss := &ir.StmtListStmt{}
-	for _, s := range d.Specs {
-		if v, ok := s.(*ast.ValueSpec); ok {
-			ss.List = append(ss.List, c.FromValueSpec(v, constant))
-		}
-	}
-	return c.SimplifyStmt(ss)
-}
-
-func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) *ir.StmtListStmt {
-	ss := &ir.StmtListStmt{}
-	for i, n := range s.Names {
-		v := &ir.ValueDecl{
-			Constant: constant,
-			Name:     c.FromIdent(n),
-		}
-		if len(s.Values) > i {
-			v.Value = c.FromExpr(s.Values[i])
-		}
-		ss.List = append(ss.List, v)
-	}
-	return ss
-}
-
 func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
 	result := make([]ir.Stmt, 0, len(ss))
 	for _, s := range ss {
@@ -268,7 +226,7 @@ func (c *Converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
 	return &ir.ExprStmt{
 		X: &ir.UnaryExpr{
 			OpPos: s.Pos(),
-			Op:    s.Tok,
+			Op:    c.FromUnaryOp(s.Tok),
 			X:     c.FromExpr(s.X),
 		},
 	}
@@ -328,6 +286,7 @@ func (c *Converter) FromRangeStmt(s *ast.RangeStmt) *ir.RangeStmt {
 		ForPos: s.For,
 		Key:    c.FromExpr(s.Key),
 		Value:  c.FromExpr(s.Value),
+		Define: s.Tok == token.DEFINE,
 		X:      c.FromExpr(s.X),
 		Body:   c.ExpandStmt(c.FromBlockStmt(s.Body)),
 	}

@@ -7,12 +7,26 @@ import (
 
 // RangeStmt is a node that represents a for statement with a range clause.
 type RangeStmt struct {
-	ForPos token.Pos   // position of "for" keyword
-	Key    Expr        // Key may be nil
-	Value  Expr        // Value may be nil
-	Tok    token.Token // TODO: REPLACE // ILLEGAL if Key == nil, ASSIGN, DEFINE
-	X      Expr        // value to range over
-	Body   []Stmt
+
+	// ForPos is a position of "for" keyword
+	ForPos token.Pos
+
+	// Key is the first value from the range. May be nil.
+	Key Expr
+
+	// Value is the second value from the range. May be nil.
+	Value Expr
+
+	// Define is set true if the key and value are being created via this assignment
+	// or set false if the variables exist and are being overwritten.
+	// This has no affect if key and value.
+	Define bool
+
+	// X is the value being ranged over
+	X Expr
+
+	// Body is the statements in the body of the loop.
+	Body []Stmt
 }
 
 var (
@@ -21,8 +35,23 @@ var (
 )
 
 func (n *RangeStmt) String() string {
-	return fmt.Sprintf("for %v, %v %v range %v {\n%v\n}",
-		n.Key, n.Value, n.Tok.String(), n.X, linesString(n.Body))
+	def := `=`
+	if n.Define {
+		def = `:=`
+	}
+
+	head := ``
+	if n.Key != nil {
+		if n.Value != nil {
+			head = fmt.Sprintf(` %s, %s %s`, n.Key, n.Value, def)
+		} else {
+			head = fmt.Sprintf(` %s %s`, n.Key, def)
+		}
+	} else if n.Value != nil {
+		head = fmt.Sprintf(` _, %s %s`, n.Value, def)
+	}
+
+	return fmt.Sprintf("for%s range %s {\n%s\n}", head, n.X, linesString(n.Body))
 }
 
 func (n *RangeStmt) Pos() token.Pos { return n.ForPos }

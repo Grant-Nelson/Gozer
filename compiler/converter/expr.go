@@ -2,11 +2,11 @@ package converter
 
 import (
 	"go/ast"
-	"go/token"
 	"go/types"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
 
 func (c *Converter) exprTypes(e ast.Expr) *types.TypeAndValue {
@@ -230,7 +230,7 @@ func (c *Converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	}
 	return &ir.UnaryExpr{
 		OpPos:      e.Star,
-		Op:         token.MUL,
+		Op:         unaryOp.Dereference,
 		X:          c.FromExpr(e.X),
 		ResultType: tv.Type,
 	}
@@ -242,7 +242,7 @@ func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
 	}
 	return &ir.UnaryExpr{
 		OpPos:      e.OpPos,
-		Op:         e.Op,
+		Op:         c.FromUnaryOp(e.Op),
 		X:          c.FromExpr(e.X),
 		ResultType: c.exprTypes(e).Type,
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/binaryOp"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/branchKind"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
 
 func (c *Converter) FromBranchToken(t token.Token) branchKind.BranchKind {
@@ -22,6 +23,29 @@ func (c *Converter) FromBranchToken(t token.Token) branchKind.BranchKind {
 		c.addFault(faults.New(`unexpected token for a branch kind`).
 			With(`token`, t.String()))
 		return branchKind.Invalid
+	}
+}
+
+func (c *Converter) FromUnaryOp(t token.Token) unaryOp.UnaryOp {
+	switch t {
+	case token.SUB:
+		return unaryOp.Negate
+	case token.MUL:
+		return unaryOp.Dereference
+	case token.AND:
+		return unaryOp.Reference
+	case token.XOR:
+		return unaryOp.BitwiseInvert
+	case token.INC:
+		return unaryOp.Increment
+	case token.DEC:
+		return unaryOp.Decrement
+	case token.NOT:
+		return unaryOp.Not
+	default:
+		c.addFault(faults.New(`unexpected token for a unary op`).
+			With(`token`, t.String()))
+		return unaryOp.Invalid
 	}
 }
 

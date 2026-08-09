@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
+
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
 
 // UnaryExpr is a node that represents a unary expression.
@@ -13,7 +15,7 @@ type UnaryExpr struct {
 	OpPos token.Pos
 
 	// Op is the unary operator token (e.g. +, -, !, ^, &, <-).
-	Op token.Token
+	Op unaryOp.UnaryOp
 
 	// X is the operand.
 	X Expr
