@@ -45,6 +45,7 @@ func parsePackage(inputFiles, extraFiles map[string]string) (*packages.Package, 
 			packages.NeedImports |
 			packages.NeedDeps |
 			packages.NeedTypes |
+			packages.NeedTypesInfo |
 			packages.NeedSyntax,
 		Dir:     wd(),
 		Overlay: overlay,
@@ -102,12 +103,48 @@ func checkFile(t *testing.T, input, expected string) {
 	}
 }
 
-func TestConverter_EmptyMain(t *testing.T) {
+func TestConverter_EmptyFunc(t *testing.T) {
 	checkFile(t, lines(
 		`package t`,
 		``,
-		`func main() {}`),
-		lines(
-			`todo`),
-	)
+		`func foo() {}`,
+	), lines(
+		`func foo {`,
+		`  block 0 ()<initial> {}`,
+		`}`,
+	))
+}
+
+func TestConverter_SimpleFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	return a + b`,
+		`}`,
+	), lines(
+		`func foo {`,
+		`  block 0 (a int, b int)<initial> {`,
+		`    return a + b`,
+		`  }`,
+		`}`,
+	))
+}
+
+func TestConverter_FuncConstant(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a int) int {`,
+		`	const b = 10`,
+		`	return a + b`,
+		`}`,
+	), lines(
+		`func foo {`,
+		`  block 0 (a int)<initial> {`,
+		`    const b (def)untyped int = 10`,
+		`    return a + b`,
+		`  }`,
+		`}`,
+	))
 }

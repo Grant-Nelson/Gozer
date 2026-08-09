@@ -565,11 +565,23 @@ func (c *Converter) FromIdent(e *ast.Ident) *ir.Ident {
 	if e == nil {
 		return nil
 	}
-	return &ir.Ident{
-		NamePos:      e.NamePos,
-		Name:         e.Name,
-		TypeAndValue: c.exprTypes(e),
+	id := &ir.Ident{
+		NamePos: e.NamePos,
+		Name:    e.Name,
 	}
+	if tv, ok := c.Info.Types[e]; ok {
+		id.TypeAndValue = &tv
+	}
+	if in, ok := c.Info.Instances[e]; ok {
+		id.Instance = &in
+	}
+	if ds, ok := c.Info.Defs[e]; ok {
+		id.Def = ds
+	}
+	if us, ok := c.Info.Uses[e]; ok {
+		id.Use = us
+	}
+	return id
 }
 
 func (c *Converter) FromEllipsis(e *ast.Ellipsis) ir.Expr {

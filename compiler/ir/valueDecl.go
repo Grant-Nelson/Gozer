@@ -31,7 +31,7 @@ func (n *ValueDecl) String() string {
 	if n.Constant {
 		result = `const `
 	}
-	result += n.Name.String() + ` ` + n.Name.Type().String()
+	result += n.Name.DetailedString()
 	if n.Value != nil {
 		result += ` = ` + n.Value.String()
 	}
