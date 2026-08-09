@@ -7,7 +7,7 @@ import (
 
 type TypeExpr struct {
 	TypePos      token.Pos
-	TypeAndValue types.TypeAndValue
+	TypeAndValue *types.TypeAndValue
 }
 
 var _ Expr = (*TypeExpr)(nil)

@@ -12,7 +12,7 @@ type BasicLit struct {
 	ValuePos token.Pos
 
 	// TypeAndValue is the type and value of the literal.
-	TypeAndValue types.TypeAndValue
+	TypeAndValue *types.TypeAndValue
 }
 
 var _ Expr = (*BasicLit)(nil)

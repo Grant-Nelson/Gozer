@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/token"
 	"go/types"
+
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/binaryOp"
 )
 
 // BinaryExpr is a node that represents a binary expression.
@@ -16,7 +18,7 @@ type BinaryExpr struct {
 	OpPos token.Pos
 
 	// Op is the binary operator token (e.g. +, -, *, /, ==, <, &&, ||).
-	Op token.Token
+	Op binaryOp.BinaryOp
 
 	// Y is the right operand.
 	Y Expr

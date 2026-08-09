@@ -148,3 +148,27 @@ func TestConverter_FuncConstant(t *testing.T) {
 		`}`,
 	))
 }
+
+func TestConverter_ForLoop(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	var sum = 0`,
+		`	for i := 0; i < b; i++ {`,
+		`		sum += a`,
+		`	}`,
+		`	return sum`,
+		`}`,
+	), lines(
+		`func foo {`,
+		`  block 0 (a int, b int)<initial> {`,
+		`    var sum (def)int = 0`,
+		`    for i := 0; i < b; ++i {`,
+		`      sum += a`,
+		`    }`,
+		`    return sum`,
+		`  }`,
+		`}`,
+	))
+}

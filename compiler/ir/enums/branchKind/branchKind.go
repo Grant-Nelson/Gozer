@@ -3,18 +3,15 @@ package branchKind
 type BranchKind int
 
 const (
-	Break = BranchKind(iota)
+	Invalid = BranchKind(iota)
+	Break
 	Continue
 	Goto
 	Fallthrough
 )
 
 func (b BranchKind) Valid() bool {
-	switch b {
-	case Break, Continue, Goto, Fallthrough:
-		return true
-	}
-	return false
+	return b >= Break && b <= Fallthrough
 }
 
 func (b BranchKind) String() string {
