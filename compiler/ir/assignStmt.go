@@ -5,6 +5,8 @@ import (
 	"go/token"
 )
 
+// TODO: Update to MultiAssign and use BinaryExpr for single expression and definitions
+
 // AssignStmt is a node that represents an assignment or
 // a short variable declaration.
 type AssignStmt struct {
