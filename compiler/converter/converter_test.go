@@ -93,7 +93,7 @@ func checkFile(t *testing.T, input, expected string) {
 
 		// TODO: FINISH by making from file and from package
 
-		//ast.Print(c.FileSet, d) // TODO: REMOVE
+		// ast.Print(c.FileSet, d) // TODO: REMOVE
 		n := c.FromNode(d)
 
 		result = append(result, n.String())
@@ -167,10 +167,62 @@ func TestConverter_ForLoop(t *testing.T) {
 		`func foo {`,
 		`  block 0 (a int, b int)<initial> {`,
 		`    var sum (def)int = 0`,
-		`    for i := 0; i < b; ++i {`,
+		`    for (i := 0; i < b; ++i)`,
+		`      sum += a`,
+		`    return sum`,
+		`  }`,
+		`}`,
+	))
+}
+
+func TestConverter_ForRange(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	var sum = 0`,
+		`	for i := range b {`,
+		`		_ = i`,
+		`		sum += a`,
+		`	}`,
+		`	return sum`,
+		`}`,
+	), lines(
+		`func foo {`,
+		`  block 0 (a int, b int)<initial> {`,
+		`    var sum (def)int = 0`,
+		`    for (i := range b) {`,
+		`      _ = i`,
 		`      sum += a`,
 		`    }`,
 		`    return sum`,
+		`  }`,
+		`}`,
+	))
+}
+
+func TestConverter_IfElse(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	if a > 4 {`,
+		`		return 4`,
+		`	} else if b > 4 {`,
+		`		return -4`,
+		`	} else {`,
+		`		return a + b`,
+		`	}`,
+		`}`,
+	), lines(
+		`func foo {`,
+		`  block 0 (a int, b int)<initial> {`,
+		`    if (a > 4)`,
+		`      return 4`,
+		`    else if (b > 4)`,
+		`      return -4`,
+		`    else`,
+		`      return a + b`,
 		`  }`,
 		`}`,
 	))

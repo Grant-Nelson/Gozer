@@ -7,7 +7,6 @@ import (
 
 // RangeStmt is a node that represents a for statement with a range clause.
 type RangeStmt struct {
-
 	// ForPos is a position of "for" keyword
 	ForPos token.Pos
 
@@ -39,19 +38,17 @@ func (n *RangeStmt) String() string {
 	if n.Define {
 		def = `:=`
 	}
-
 	head := ``
 	if n.Key != nil {
 		if n.Value != nil {
-			head = fmt.Sprintf(` %s, %s %s`, n.Key, n.Value, def)
+			head = fmt.Sprintf(`%s, %s %s `, toString(n.Key), toString(n.Value), def)
 		} else {
-			head = fmt.Sprintf(` %s %s`, n.Key, def)
+			head = fmt.Sprintf(`%s %s `, toString(n.Key), def)
 		}
 	} else if n.Value != nil {
-		head = fmt.Sprintf(` _, %s %s`, n.Value, def)
+		head = fmt.Sprintf(`_, %s %s `, toString(n.Value), def)
 	}
-
-	return fmt.Sprintf("for%s range %s {\n%s\n}", head, n.X, linesString(n.Body))
+	return fmt.Sprintf(`for (%srange %s)%s`, head, toString(n.X), bodyString(n.Body))
 }
 
 func (n *RangeStmt) Pos() token.Pos { return n.ForPos }

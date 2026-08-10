@@ -29,25 +29,16 @@ var (
 )
 
 func (n *ForStmt) String() string {
-	init := ``
-	if n.Init != nil {
-		init = n.Init.String()
+	if n.Init == nil && n.Post == nil {
+		return fmt.Sprintf(`for (%s)%s`,
+			emptyZeroOrString(n.Cond),
+			bodyString(n.Body))
 	}
-	cond := `true`
-	if n.Cond != nil {
-		cond = n.Cond.String()
-	}
-	post := ``
-	if n.Post != nil {
-		post = n.Post.String()
-	}
-	var body string
-	if len(n.Body) == 1 {
-		body = n.Body[0].String()
-	} else {
-		body = "{\n" + linesString(n.Body) + "\n}"
-	}
-	return fmt.Sprintf("for (%s; %s; %s) %s", init, cond, post, body)
+	return fmt.Sprintf(`for (%s; %s; %s)%s`,
+		emptyZeroOrString(n.Init),
+		emptyZeroOrString(n.Cond),
+		emptyZeroOrString(n.Post),
+		bodyString(n.Body))
 }
 
 func (n *ForStmt) Pos() token.Pos { return n.ForPos }

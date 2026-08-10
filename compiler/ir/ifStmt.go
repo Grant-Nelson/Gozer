@@ -1,8 +1,8 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
+	"strings"
 )
 
 // An IfStmt node represents an if statement.
@@ -20,11 +20,21 @@ var (
 )
 
 func (n *IfStmt) String() string {
-	str := fmt.Sprintf("if %s {\n%s\n}", n.Cond, linesString(n.Body))
-	if len(n.Else) > 0 {
-		str += fmt.Sprintf(" else {\n%s\n}", linesString(n.Else))
+	str := `if (` + toString(n.Cond) + `)` + bodyString(n.Body)
+	if len(n.Else) <= 0 {
+		return str
 	}
-	return str
+	if strings.HasSuffix(str, `}`) {
+		str += ` else`
+	} else {
+		str += "\nelse"
+	}
+	if len(n.Else) == 1 {
+		if elseIf, ok := n.Else[0].(*IfStmt); ok {
+			return str + ` ` + toString(elseIf)
+		}
+	}
+	return str + bodyString(n.Else)
 }
 
 func (n *IfStmt) Pos() token.Pos { return n.IfPos }
