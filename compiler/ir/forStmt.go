@@ -29,8 +29,25 @@ var (
 )
 
 func (n *ForStmt) String() string {
-	return fmt.Sprintf("for %v; %s; %v {\n%v\n}",
-		n.Init, n.Cond, n.Post, linesString(n.Body))
+	init := ``
+	if n.Init != nil {
+		init = n.Init.String()
+	}
+	cond := `true`
+	if n.Cond != nil {
+		cond = n.Cond.String()
+	}
+	post := ``
+	if n.Post != nil {
+		post = n.Post.String()
+	}
+	var body string
+	if len(n.Body) == 1 {
+		body = n.Body[0].String()
+	} else {
+		body = "{\n" + linesString(n.Body) + "\n}"
+	}
+	return fmt.Sprintf("for (%s; %s; %s) %s", init, cond, post, body)
 }
 
 func (n *ForStmt) Pos() token.Pos { return n.ForPos }
