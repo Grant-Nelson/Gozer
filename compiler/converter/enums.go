@@ -9,7 +9,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
 
-func (c *Converter) FromBranchToken(t token.Token) branchKind.BranchKind {
+func (c *Converter) FromBranchToken(t token.Token, pos token.Pos) branchKind.BranchKind {
 	switch t {
 	case token.BREAK:
 		return branchKind.Break
@@ -21,12 +21,13 @@ func (c *Converter) FromBranchToken(t token.Token) branchKind.BranchKind {
 		return branchKind.Fallthrough
 	default:
 		c.addFault(faults.New(`unexpected token for a branch kind`).
-			With(`token`, t.String()))
+			With(`token`, t.String()).
+			With(`pos`, c.pos(pos)))
 		return branchKind.Invalid
 	}
 }
 
-func (c *Converter) FromUnaryOp(t token.Token) unaryOp.UnaryOp {
+func (c *Converter) FromUnaryOp(t token.Token, pos token.Pos) unaryOp.UnaryOp {
 	switch t {
 	case token.SUB:
 		return unaryOp.Negate
@@ -44,12 +45,13 @@ func (c *Converter) FromUnaryOp(t token.Token) unaryOp.UnaryOp {
 		return unaryOp.Not
 	default:
 		c.addFault(faults.New(`unexpected token for a unary op`).
-			With(`token`, t.String()))
+			With(`token`, t.String()).
+			With(`pos`, c.pos(pos)))
 		return unaryOp.Invalid
 	}
 }
 
-func (c *Converter) FromBinaryOp(t token.Token) binaryOp.BinaryOp {
+func (c *Converter) FromBinaryOp(t token.Token, pos token.Pos) binaryOp.BinaryOp {
 	switch t {
 	case token.ADD:
 		return binaryOp.Add
@@ -111,9 +113,14 @@ func (c *Converter) FromBinaryOp(t token.Token) binaryOp.BinaryOp {
 		return binaryOp.GreaterThan
 	case token.GEQ:
 		return binaryOp.GreaterThanOrEqual
+	case token.ASSIGN:
+		return binaryOp.Assign
+	case token.DEFINE:
+		return binaryOp.Define
 	default:
 		c.addFault(faults.New(`unexpected token for a binary op`).
-			With(`token`, t.String()))
+			WithF(`token`, `%q`, t.String()).
+			With(`pos`, c.pos(pos)))
 		return binaryOp.Invalid
 	}
 }

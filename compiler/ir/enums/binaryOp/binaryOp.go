@@ -34,10 +34,12 @@ const (
 	GreaterThanOrEqual
 	LogicalAnd
 	LogicalOr
+	Assign
+	Define
 )
 
 func (b BinaryOp) Valid() bool {
-	return b >= Add && b <= LogicalOr
+	return b >= Add && b <= Define
 }
 
 func (b BinaryOp) String() string {
@@ -102,6 +104,10 @@ func (b BinaryOp) String() string {
 		return `&&`
 	case LogicalOr:
 		return `||`
+	case Assign:
+		return `=`
+	case Define:
+		return `:=`
 	default:
 		return `invalid`
 	}

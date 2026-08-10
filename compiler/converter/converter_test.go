@@ -3,7 +3,6 @@ package converter
 import (
 	"errors"
 	"fmt"
-	"go/ast"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -94,7 +93,7 @@ func checkFile(t *testing.T, input, expected string) {
 
 		// TODO: FINISH by making from file and from package
 
-		ast.Print(c.FileSet, d) // TODO: REMOVE
+		//ast.Print(c.FileSet, d) // TODO: REMOVE
 		n := c.FromNode(d)
 
 		result = append(result, n.String())

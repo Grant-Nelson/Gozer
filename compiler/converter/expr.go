@@ -242,7 +242,7 @@ func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
 	}
 	return &ir.UnaryExpr{
 		OpPos:      e.OpPos,
-		Op:         c.FromUnaryOp(e.Op),
+		Op:         c.FromUnaryOp(e.Op, e.OpPos),
 		X:          c.FromExpr(e.X),
 		ResultType: c.exprTypes(e).Type,
 	}
@@ -255,7 +255,7 @@ func (c *Converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 	return &ir.BinaryExpr{
 		X:          c.FromExpr(e.X),
 		OpPos:      e.OpPos,
-		Op:         c.FromBinaryOp(e.Op),
+		Op:         c.FromBinaryOp(e.Op, e.OpPos),
 		Y:          c.FromExpr(e.Y),
 		ResultType: c.exprTypes(e).Type,
 	}

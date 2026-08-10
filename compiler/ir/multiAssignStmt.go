@@ -5,11 +5,9 @@ import (
 	"go/token"
 )
 
-// TODO: Update to MultiAssign and use BinaryExpr for single expression and definitions
-
-// AssignStmt is a node that represents an assignment or
+// MultiAssignStmt is a node that represents an assignment or
 // a short variable declaration.
-type AssignStmt struct {
+type MultiAssignStmt struct {
 
 	// TokPos is the position for the assignment token, `=` or `:=`.
 	TokPos token.Pos
@@ -27,11 +25,11 @@ type AssignStmt struct {
 }
 
 var (
-	_ Stmt   = (*AssignStmt)(nil)
-	_ Parent = (*AssignStmt)(nil)
+	_ Stmt   = (*MultiAssignStmt)(nil)
+	_ Parent = (*MultiAssignStmt)(nil)
 )
 
-func (n *AssignStmt) String() string {
+func (n *MultiAssignStmt) String() string {
 	def := ` = `
 	if n.Define {
 		def = ` := `
@@ -39,10 +37,10 @@ func (n *AssignStmt) String() string {
 	return fmt.Sprintf(`%s%s%s`, csvString(n.Lhs), def, csvString(n.Rhs))
 }
 
-func (n *AssignStmt) Pos() token.Pos { return n.TokPos }
+func (n *MultiAssignStmt) Pos() token.Pos { return n.TokPos }
 
-func (*AssignStmt) StmtNode() {}
+func (*MultiAssignStmt) StmtNode() {}
 
-func (n *AssignStmt) Children(yield func(Node) bool) {
+func (n *MultiAssignStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Lhs, yield) && YieldSlice(n.Rhs, yield)
 }

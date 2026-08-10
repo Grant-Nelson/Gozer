@@ -104,11 +104,30 @@ func (c *Converter) FromStmt(s ast.Stmt) ir.Stmt {
 	}
 }
 
-func (c *Converter) FromAssignStmt(s *ast.AssignStmt) *ir.AssignStmt {
+func (c *Converter) FromAssignStmt(s *ast.AssignStmt) ir.Stmt {
 	if s == nil {
 		return nil
 	}
-	return &ir.AssignStmt{
+	if len(s.Lhs) == 1 && len(s.Rhs) == 1 {
+		lhs := c.FromExpr(s.Lhs[0])
+		b := &ir.BinaryExpr{
+			X:          lhs,
+			OpPos:      s.TokPos,
+			Op:         c.FromBinaryOp(s.Tok, s.TokPos),
+			Y:          c.FromExpr(s.Rhs[0]),
+			ResultType: lhs.Type(),
+		}
+		return &ir.ExprStmt{X: b}
+	}
+
+	switch s.Tok {
+	case token.ASSIGN, token.DEFINE:
+	default:
+		c.addFault(faults.From(`unexpected token for a multi-assignment`).
+			With(`token`, s.Tok).
+			With(`pos`, c.pos(s.Pos())))
+	}
+	return &ir.MultiAssignStmt{
 		TokPos: s.TokPos,
 		Lhs:    c.FromExprSlice(s.Lhs),
 		Define: s.Tok == token.DEFINE,
@@ -122,7 +141,7 @@ func (c *Converter) FromBranchStmt(s *ast.BranchStmt) *ir.BranchStmt {
 	}
 	return &ir.BranchStmt{
 		TokPos: s.TokPos,
-		Kind:   c.FromBranchToken(s.Tok),
+		Kind:   c.FromBranchToken(s.Tok, s.TokPos),
 		Label:  s.Label,
 	}
 }
@@ -226,7 +245,7 @@ func (c *Converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
 	return &ir.ExprStmt{
 		X: &ir.UnaryExpr{
 			OpPos: s.Pos(),
-			Op:    c.FromUnaryOp(s.Tok),
+			Op:    c.FromUnaryOp(s.Tok, s.TokPos),
 			X:     c.FromExpr(s.X),
 		},
 	}
