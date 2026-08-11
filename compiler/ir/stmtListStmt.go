@@ -29,3 +29,7 @@ func (*StmtListStmt) StmtNode() {}
 func (n *StmtListStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.List, yield)
 }
+
+func (n *StmtListStmt) Add(ss ...Stmt) {
+	n.List = append(n.List, ss...)
+}

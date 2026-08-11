@@ -5,6 +5,8 @@ import (
 	"go/token"
 	"go/types"
 
+	"golang.org/x/tools/go/packages"
+
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
@@ -19,6 +21,7 @@ const (
 type Converter struct {
 	Info    *types.Info
 	FileSet *token.FileSet
+	Errors  *faults.ErrGroup
 }
 
 func (c *Converter) pos(p token.Pos) string {
@@ -26,8 +29,12 @@ func (c *Converter) pos(p token.Pos) string {
 }
 
 func (c *Converter) addFault(f *faults.Fault) {
-	// TODO: FINISH
-	panic(f)
+	if c == nil || c.Errors == nil {
+		panic(f)
+	}
+	if err := c.Errors.Add(f); err != nil {
+		panic(err)
+	}
 }
 
 func (c *Converter) FromNodeSlice(ns []ast.Node) []ir.Node {
@@ -42,6 +49,8 @@ func (c *Converter) FromNode(n ast.Node) ir.Node {
 	switch n := n.(type) {
 	case nil:
 		return nil
+	case *ast.File:
+		return c.FromFile(n)
 	case ast.Decl:
 		return c.FromDecl(n)
 	case ast.Stmt:
@@ -54,6 +63,45 @@ func (c *Converter) FromNode(n ast.Node) ir.Node {
 			With(`pos`, c.pos(n.Pos())))
 		return nil
 	}
+}
+
+// TODO: Finish commenting
+//
+// This doesn't convert imports.
+func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
+	p := &ir.Package{
+		Name:    pkg.Name,
+		Path:    pkg.PkgPath,
+		FileSet: c.FileSet,
+	}
+	for _, f := range pkg.Syntax {
+		for _, s := range c.ExpandStmt(c.FromFile(f)) {
+			switch d := s.(type) {
+			case *ir.ValueDecl:
+				if d.Constant {
+					p.Consts = append(p.Consts, d)
+				} else {
+					p.Vars = append(p.Vars, d)
+				}
+			case *ir.Func:
+				p.Funcs = append(p.Funcs, d)
+			default:
+				c.addFault(faults.New(`unexpected AST package-level node type`).
+					With(`package`, pkg.PkgPath).
+					WithF(`type`, `%T`, d).
+					With(`pos`, c.pos(d.Pos())))
+			}
+		}
+	}
+	return p
+}
+
+func (c *Converter) FromFile(f *ast.File) ir.Stmt {
+	ss := &ir.StmtListStmt{}
+	for _, d := range f.Decls {
+		ss.Add(c.FromDecl(d))
+	}
+	return c.SimplifyStmt(ss)
 }
 
 func (c *Converter) FromDecl(d ast.Decl) ir.Stmt {
@@ -77,13 +125,13 @@ func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 	ss := &ir.StmtListStmt{}
 	for _, s := range d.Specs {
 		if v, ok := s.(*ast.ValueSpec); ok {
-			ss.List = append(ss.List, c.FromValueSpec(v, constant))
+			ss.Add(c.FromValueSpec(v, constant))
 		}
 	}
 	return c.SimplifyStmt(ss)
 }
 
-func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) *ir.StmtListStmt {
+func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) ir.Stmt {
 	ss := &ir.StmtListStmt{}
 	for i, n := range s.Names {
 		v := &ir.ValueDecl{
@@ -93,7 +141,7 @@ func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) *ir.StmtListS
 		if len(s.Values) > i {
 			v.Value = c.FromExpr(s.Values[i])
 		}
-		ss.List = append(ss.List, v)
+		ss.Add(v)
 	}
-	return ss
+	return c.SimplifyStmt(ss)
 }

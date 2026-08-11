@@ -5,7 +5,10 @@ import (
 	"strings"
 )
 
-const indent = `  `
+const (
+	indentStr = `  `
+	nlStr     = "\n"
+)
 
 func csvString[E any, S ~[]E](s S) string {
 	const sep = `, `
@@ -17,13 +20,15 @@ func csvString[E any, S ~[]E](s S) string {
 }
 
 func linesString[E any, S ~[]E](s S) string {
-	const nl = "\n"
 	elems := make([]string, len(s))
 	for i, elem := range s {
-		eStr := indent + toString(elem)
-		elems[i] = strings.ReplaceAll(eStr, nl, nl+indent)
+		elems[i] = indentStr + indentInner(toString(elem))
 	}
-	return strings.Join(elems, nl)
+	return strings.Join(elems, nlStr)
+}
+
+func indentInner(s string) string {
+	return strings.ReplaceAll(s, nlStr, nlStr+indentStr)
 }
 
 func bodyString[E any, S ~[]E](body S) string {
@@ -32,9 +37,9 @@ func bodyString[E any, S ~[]E](body S) string {
 		return ` {}`
 	}
 	if count == 1 {
-		return "\n" + indent + toString(body[0])
+		return nlStr + indentStr + indentInner(toString(body[0]))
 	}
-	return " {\n" + linesString(body) + "\n}"
+	return ` {` + nlStr + linesString(body) + nlStr + `}`
 }
 
 func emptyZeroOrString[T comparable](t T) string {

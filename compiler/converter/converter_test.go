@@ -78,29 +78,14 @@ func checkFile(t *testing.T, input, expected string) {
 		t.Errorf(`Failed to parse input expression: %v`, err)
 		return
 	}
-	if len(ps.Syntax) != 1 {
-		t.Errorf(`Expected there to be one file in the package but there was %d`, len(ps.Syntax))
-		return
-	}
-	f := ps.Syntax[0]
 	c := &Converter{
 		Info:    ps.TypesInfo,
 		FileSet: ps.Fset,
 	}
-
-	result := []string{}
-	for _, d := range f.Decls {
-
-		// TODO: FINISH by making from file and from package
-
-		// ast.Print(c.FileSet, d) // TODO: REMOVE
-		n := c.FromNode(d)
-
-		result = append(result, n.String())
-	}
-
+	p := c.FromPackage(ps)
+	result := p.String()
 	exp := slices.Collect(strings.Lines(expected))
-	got := slices.Collect(strings.Lines(strings.Join(result, "\n")))
+	got := slices.Collect(strings.Lines(result))
 	if diff := cmp.Diff(exp, got); len(diff) > 0 {
 		t.Errorf(`Unexpected results:\n%s`, diff)
 	}
@@ -112,8 +97,12 @@ func TestConverter_EmptyFunc(t *testing.T) {
 		``,
 		`func foo() {}`,
 	), lines(
-		`func foo {`,
-		`  block 0 ()<initial> {}`,
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func foo {`,
+		`      block 0 ()<initial> {}`,
+		`    }`,
 		`}`,
 	))
 }
@@ -126,10 +115,14 @@ func TestConverter_SimpleFunc(t *testing.T) {
 		`	return a + b`,
 		`}`,
 	), lines(
-		`func foo {`,
-		`  block 0 (a int, b int)<initial> {`,
-		`    return a + b`,
-		`  }`,
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func foo {`,
+		`      block 0 (a int, b int)<initial> {`,
+		`        return a + b`,
+		`      }`,
+		`    }`,
 		`}`,
 	))
 }
@@ -143,11 +136,15 @@ func TestConverter_FuncConstant(t *testing.T) {
 		`	return a + b`,
 		`}`,
 	), lines(
-		`func foo {`,
-		`  block 0 (a int)<initial> {`,
-		`    const b (def)untyped int = 10`,
-		`    return a + b`,
-		`  }`,
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func foo {`,
+		`      block 0 (a int)<initial> {`,
+		`        const b (def)untyped int = 10`,
+		`        return a + b`,
+		`      }`,
+		`    }`,
 		`}`,
 	))
 }
@@ -164,13 +161,17 @@ func TestConverter_ForLoop(t *testing.T) {
 		`	return sum`,
 		`}`,
 	), lines(
-		`func foo {`,
-		`  block 0 (a int, b int)<initial> {`,
-		`    var sum (def)int = 0`,
-		`    for (i := 0; i < b; ++i)`,
-		`      sum += a`,
-		`    return sum`,
-		`  }`,
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func foo {`,
+		`      block 0 (a int, b int)<initial> {`,
+		`        var sum (def)int = 0`,
+		`        for (i := 0; i < b; ++i)`,
+		`          sum += a`,
+		`        return sum`,
+		`      }`,
+		`    }`,
 		`}`,
 	))
 }
@@ -188,15 +189,19 @@ func TestConverter_ForRange(t *testing.T) {
 		`	return sum`,
 		`}`,
 	), lines(
-		`func foo {`,
-		`  block 0 (a int, b int)<initial> {`,
-		`    var sum (def)int = 0`,
-		`    for (i := range b) {`,
-		`      _ = i`,
-		`      sum += a`,
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func foo {`,
+		`      block 0 (a int, b int)<initial> {`,
+		`        var sum (def)int = 0`,
+		`        for (i := range b) {`,
+		`          _ = i`,
+		`          sum += a`,
+		`        }`,
+		`        return sum`,
+		`      }`,
 		`    }`,
-		`    return sum`,
-		`  }`,
 		`}`,
 	))
 }
@@ -215,15 +220,19 @@ func TestConverter_IfElse(t *testing.T) {
 		`	}`,
 		`}`,
 	), lines(
-		`func foo {`,
-		`  block 0 (a int, b int)<initial> {`,
-		`    if (a > 4)`,
-		`      return 4`,
-		`    else if (b > 4)`,
-		`      return -4`,
-		`    else`,
-		`      return a + b`,
-		`  }`,
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func foo {`,
+		`      block 0 (a int, b int)<initial> {`,
+		`        if (a > 4)`,
+		`          return 4`,
+		`        else if (b > 4)`,
+		`          return -4`,
+		`        else`,
+		`          return a + b`,
+		`      }`,
+		`    }`,
 		`}`,
 	))
 }
