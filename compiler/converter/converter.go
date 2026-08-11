@@ -132,7 +132,7 @@ func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 		case *ast.ValueSpec:
 			ss.Add(c.FromValueSpec(s, constant))
 		case *ast.TypeSpec:
-
+			ss.Add(c.FromTypeSpec(s))
 		default:
 			c.addFault(faults.New(`unexpected AST declaration node type`).
 				WithF(`type`, `%T`, s).
@@ -143,11 +143,8 @@ func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 }
 
 func (c *Converter) FromTypeSpec(s *ast.TypeSpec) ir.Stmt {
-
-	// TODO: Finish
-
 	return &ir.TypeStmt{
-		TypePos:      s.Pos(),
+		Name:         c.FromIdent(s.Name),
 		TypeAndValue: c.exprTypes(s.Type),
 	}
 }

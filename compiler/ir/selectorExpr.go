@@ -26,4 +26,4 @@ func (n *SelectorExpr) Type() types.Type { return n.SelType }
 
 func (n *SelectorExpr) ExprNode() {}
 
-func (n *SelectorExpr) String() string { return n.X.String() + n.Sel.String() }
+func (n *SelectorExpr) String() string { return n.X.String() + `.` + n.Sel.String() }

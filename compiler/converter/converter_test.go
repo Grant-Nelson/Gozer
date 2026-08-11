@@ -236,3 +236,30 @@ func TestConverter_IfElse(t *testing.T) {
 		`}`,
 	))
 }
+
+func TestConverter_SimpleStructAndMethod(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`type Person struct{`,
+		`	Name string`,
+		`	Age  int`,
+		`}`,
+		``,
+		`func (p *Person) String() string {`,
+		`	return p.Name`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Types:`,
+		`    Person struct{Name string; Age int}`,
+		`  Funcs:`,
+		`    func String {`,
+		`      block 0 ()<initial> {`,
+		`        return p.Name`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
