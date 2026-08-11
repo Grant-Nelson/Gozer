@@ -77,6 +77,8 @@ func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
 	for _, f := range pkg.Syntax {
 		for _, s := range c.ExpandStmt(c.FromFile(f)) {
 			switch d := s.(type) {
+			case *ir.TypeStmt:
+				p.Types = append(p.Types, d)
 			case *ir.ValueDecl:
 				if d.Constant {
 					p.Consts = append(p.Consts, d)
@@ -124,11 +126,30 @@ func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 	constant := d.Tok == token.CONST
 	ss := &ir.StmtListStmt{}
 	for _, s := range d.Specs {
-		if v, ok := s.(*ast.ValueSpec); ok {
-			ss.Add(c.FromValueSpec(v, constant))
+		switch s := s.(type) {
+		case *ast.ImportSpec:
+			// Ignore
+		case *ast.ValueSpec:
+			ss.Add(c.FromValueSpec(s, constant))
+		case *ast.TypeSpec:
+
+		default:
+			c.addFault(faults.New(`unexpected AST declaration node type`).
+				WithF(`type`, `%T`, s).
+				With(`pos`, c.pos(s.Pos())))
 		}
 	}
 	return c.SimplifyStmt(ss)
+}
+
+func (c *Converter) FromTypeSpec(s *ast.TypeSpec) ir.Stmt {
+
+	// TODO: Finish
+
+	return &ir.TypeStmt{
+		TypePos:      s.Pos(),
+		TypeAndValue: c.exprTypes(s.Type),
+	}
 }
 
 func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) ir.Stmt {

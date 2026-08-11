@@ -2,7 +2,6 @@ package ir
 
 import (
 	"go/token"
-	"go/types"
 )
 
 // Package is the IR for a whole package.
@@ -20,7 +19,7 @@ type Package struct {
 	Imports []*Package
 
 	// Types is the collection of types for this package.
-	Types []types.Type
+	Types []*TypeStmt
 
 	// Consts is the collection of const values for this package.
 	Consts []*ValueDecl
