@@ -263,3 +263,33 @@ func TestConverter_SimpleStructAndMethod(t *testing.T) {
 		`}`,
 	))
 }
+
+func TestConverter_Globals(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`const start = 0`,
+		`var current = start`,
+		`const step = 1`,
+		``,
+		`var update = func() {`,
+		`	current += step`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Consts: {`,
+		`    const start (def)untyped int = 0`,
+		`    const step (def)untyped int = 1`,
+		`  }`,
+		`  Vars: {`,
+		`    var current (def)int = start`,
+		`    var update (def)func() = funcLit: func unnamed {`,
+		`      block 0 ()<initial> {`,
+		`        current += step`,
+		`      }`,
+		`    }`,
+		`  }`,
+		`}`,
+	))
+}

@@ -38,9 +38,8 @@ func (c *Converter) FromExpr(e ast.Expr) ir.Expr {
 		return c.FromEllipsis(e)
 	case *ast.BasicLit:
 		return c.FromBasicLit(e)
-	// TODO: FIX by making func lit have an expression reference to the func
-	//case *ast.FuncLit:
-	//	return c.FromFuncLit(e)
+	case *ast.FuncLit:
+		return c.FromFuncLit(e)
 	case *ast.CompositeLit:
 		return c.FromCompositeLit(e)
 	case *ast.ParenExpr:

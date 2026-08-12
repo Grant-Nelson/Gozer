@@ -7,7 +7,6 @@ import (
 
 // Func represents a function block defining a function as
 // a collection of statement blocks.
-// See [README.md]
 type Func struct {
 
 	// Package is the package this function belongs to.
@@ -72,7 +71,11 @@ func (fn *Func) Pos() token.Pos { return fn.FuncPos }
 func (fn *Func) StmtNode() {}
 
 func (fn *Func) String() string {
-	return fmt.Sprintf("func %s {\n%s\n}", fn.Name.String(), linesString(fn.Blocks))
+	name := `unnamed`
+	if fn.Name != nil {
+		name = fn.Name.String()
+	}
+	return fmt.Sprintf("func %s {\n%s\n}", name, linesString(fn.Blocks))
 }
 
 func (fn *Func) Children(yield func(Node) bool) {
