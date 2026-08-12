@@ -3,7 +3,7 @@ package mods
 import (
 	"go/ast"
 
-	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 // ModFactory is a tool for creating modifiers to modifying parts of a

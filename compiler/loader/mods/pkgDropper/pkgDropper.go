@@ -6,11 +6,12 @@ import (
 	"slices"
 	"strings"
 
+	"golang.org/x/tools/go/packages"
+
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"golang.org/x/tools/go/packages"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 type Config struct {

@@ -3,7 +3,7 @@ package mods
 import (
 	"go/ast"
 
-	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 type (

@@ -9,10 +9,10 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/parser"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/parser"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
+	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
 )
 
 // Config is the configuration for the loader.
