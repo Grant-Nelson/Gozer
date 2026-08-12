@@ -7,10 +7,10 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
-	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
-	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
+	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
 )
 
 type Config struct {

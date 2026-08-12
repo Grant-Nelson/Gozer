@@ -4,8 +4,8 @@ import (
 	"go/ast"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 type augReplace struct {

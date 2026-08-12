@@ -188,11 +188,11 @@ func (ld *loader) parallelParseProject() error {
 
 // parallelParseGroup is a group of packages that all have their imports already
 // loaded and do not depend on each other, so they can be loaded in parallel.
-func (ld *loader) parallelParseGroup(depth int, pkgs []*project.Package) error {
+func (ld *loader) parallelParseGroup(depth int, packages []*project.Package) error {
 	defer ld.logger.LogGroup(`Parsing Project (Parallel) Depth %d`, depth)()
 	wg := &sync.WaitGroup{}
-	wg.Add(len(pkgs))
-	for _, pkg := range pkgs {
+	wg.Add(len(packages))
+	for _, pkg := range packages {
 		go func(pkg *project.Package) {
 			defer wg.Done()
 			ld.errGroup.Add(ld.parsePackage(pkg))
@@ -226,7 +226,7 @@ func (ld *loader) parsePackage(pkg *project.Package) (err error) {
 		return err
 	}
 
-	if err := ld.parsePackageDone(pkg, mg); err != nil {
+	if err := ld.parsePackageDone(mg); err != nil {
 		return err
 	}
 
@@ -265,7 +265,7 @@ func (ld *loader) parsePackageGoFile(pkg *project.Package, mg mods.Modifier) err
 	return ld.errGroup.FullOrNil()
 }
 
-func (ld *loader) parsePackageDone(pkg *project.Package, mg mods.Modifier) error {
+func (ld *loader) parsePackageDone(mg mods.Modifier) error {
 	if mg == nil {
 		return nil
 	}

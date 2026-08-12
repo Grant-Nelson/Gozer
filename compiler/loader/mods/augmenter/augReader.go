@@ -12,8 +12,8 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/augmenter/directives"
-	"github.com/Grant-Nelson/Gozer/project/loader/parser"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/augmenter/directives"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/parser"
 )
 
 var (
