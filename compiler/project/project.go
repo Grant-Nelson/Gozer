@@ -6,9 +6,10 @@ import (
 	"iter"
 	"slices"
 
-	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
 	"golang.org/x/tools/go/packages"
+
+	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
 )
 
 // Project represents all the information for a build of an application,

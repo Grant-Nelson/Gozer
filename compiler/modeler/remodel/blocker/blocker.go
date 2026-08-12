@@ -9,9 +9,9 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
-	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 type Config struct {
@@ -63,7 +63,7 @@ type funcBlockBuilder struct {
 
 func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 	bb.errGroup.Recover(&err)
-	if fn.Atomic() {
+	if fn.Atomic {
 		return true, nil
 	}
 

@@ -11,9 +11,9 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
-	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 func Test_Blocker_Label_ForwardJump(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/enums/buildState"
-	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
 )
 
 // Package describes a single package in a project.

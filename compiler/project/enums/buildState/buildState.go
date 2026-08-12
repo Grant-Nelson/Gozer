@@ -30,6 +30,14 @@ const (
 	// next state.
 	Analyzed
 
+	// Converting indicates that the AST is being converted into the IR.
+	Converting
+
+	// Converted indicated that the package has finished [Converting] and is
+	// and is waiting for other package to finish analyzing before moving to
+	// the next state.
+	Converted
+
 	// Remodelling indicates that the package is being converted
 	// and analyzed such to create the intermediated representation.
 	Remodelling
@@ -43,11 +51,7 @@ const (
 )
 
 func (b BuildState) Valid() bool {
-	switch b {
-	case Listed, Loading, Loaded, Finished:
-		return true
-	}
-	return false
+	return b >= Listed && b <= Finished
 }
 
 func (b BuildState) String() string {
@@ -62,6 +66,10 @@ func (b BuildState) String() string {
 		return `Analyzing`
 	case Analyzed:
 		return `Analyzed`
+	case Converting:
+		return `Converting`
+	case Converted:
+		return `Converted`
 	case Remodelling:
 		return `Remodelling`
 	case Remodelled:

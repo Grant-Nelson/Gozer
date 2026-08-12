@@ -1,8 +1,8 @@
 package remodel
 
 import (
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 type (

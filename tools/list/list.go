@@ -16,7 +16,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 	"github.com/Grant-Nelson/Gozer/targets"
 	"golang.org/x/tools/go/packages"
 )

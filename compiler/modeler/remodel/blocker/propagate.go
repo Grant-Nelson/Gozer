@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project/modeler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
 
 // objectSet is a set of types.Objects.
