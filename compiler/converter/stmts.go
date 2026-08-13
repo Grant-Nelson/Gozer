@@ -380,8 +380,9 @@ func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.Func {
 		return nil
 	}
 	fn := &ir.Func{
-		FuncPos: astFunc.Type.Func,
-		Name:    c.FromIdent(astFunc.Name),
+		FuncPos:   astFunc.Type.Func,
+		Name:      c.FromIdent(astFunc.Name),
+		Signature: c.exprTypes(astFunc.Name).Type,
 	}
 	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
 
@@ -398,19 +399,17 @@ func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.Func {
 	return fn
 }
 
-func (c *Converter) FromFuncLit(astFunc *ast.FuncLit) *ir.FuncLit {
+func (c *Converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
 	if astFunc == nil {
 		return nil
 	}
 	pos := astFunc.Type.Func
 	fn := &ir.Func{
-		FuncPos: pos,
+		FuncPos:   pos,
+		Signature: c.exprTypes(astFunc).Type,
 	}
 	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
-	return &ir.FuncLit{
-		Func:     fn,
-		FuncType: c.exprTypes(astFunc).Type,
-	}
+	return fn
 }
 
 func (c *Converter) ExpandParams(ft *ast.FuncType) []*ir.Param {

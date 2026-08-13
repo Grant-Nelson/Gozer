@@ -22,7 +22,6 @@ type Converter struct {
 	Info    *types.Info
 	FileSet *token.FileSet
 	Errors  *faults.ErrGroup
-	Package *ir.Package
 }
 
 func (c *Converter) pos(p token.Pos) string {
@@ -44,7 +43,6 @@ func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
 		Path:    pkg.PkgPath,
 		FileSet: c.FileSet,
 	}
-	c.Package = p
 	for _, f := range pkg.Syntax {
 		for _, s := range c.ExpandStmt(c.FromFile(f)) {
 			switch d := s.(type) {
@@ -66,6 +64,10 @@ func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
 			}
 		}
 	}
+
+	// TODO: Finish
+	//ir.WalkPackage(pkg, )
+
 	return p
 }
 

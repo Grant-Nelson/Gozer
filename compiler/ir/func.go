@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 )
 
 // Func represents a function block defining a function as
@@ -53,6 +54,9 @@ type Func struct {
 	// instead of `*ast.FuncDecl`
 	Anonymous bool
 
+	// Signature is the type for the signature of the function.
+	Signature types.Type
+
 	// Blocks is the collection of statement blocks for this function.
 	// The first block in this slice is the entry point for this function.
 	Blocks []*Block
@@ -64,16 +68,22 @@ type Func struct {
 var (
 	_ Stmt   = (*Func)(nil)
 	_ Parent = (*Func)(nil)
+	_ Expr   = (*Func)(nil)
 )
 
 func (fn *Func) Pos() token.Pos { return fn.FuncPos }
 
+func (fn *Func) Type() types.Type { return fn.Signature }
+
 func (fn *Func) StmtNode() {}
+func (fn *Func) ExprNode() {}
 
 func (fn *Func) String() string {
 	name := `unnamed`
 	if fn.Name != nil {
 		name = fn.Name.String()
+	} else if fn.Anonymous {
+		name = `anonymous`
 	}
 	return fmt.Sprintf("func %s {\n%s\n}", name, linesString(fn.Blocks))
 }
