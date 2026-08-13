@@ -1,10 +1,8 @@
 package modeler
 
 import (
-	"go/ast"
 	"go/token"
 
-	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
@@ -86,58 +84,6 @@ func (rm *modeler) remodelPackageStart(group remodel.Group) error {
 	}
 	rm.group = rg
 	return rm.errGroup.FullOrNil()
-}
-
-func (rm *modeler) addFile(f *ast.File) error {
-	for it := range astTools.DeclSpecs(rm.pkg.Ast.Fset, f) {
-		switch n := it.Node.(type) {
-		case *ast.ImportSpec:
-			// ignore import specs
-		case *ast.FuncDecl:
-			if err := rm.addFuncDecl(n); err != nil {
-				return err
-			}
-		case *ast.TypeSpec:
-			if err := rm.addTypeSpec(it.GenDecl, n); err != nil {
-				return err
-			}
-		case *ast.ValueSpec:
-			if err := rm.addValueSpec(it.GenDecl, n); err != nil {
-				return err
-			}
-		default:
-			err := faults.New(`unexpected node type`).
-				With(`pos`, rm.pos(n.Pos())).
-				WithF(`type`, `%T`, n)
-			if err := rm.errGroup.Add(err); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (rm *modeler) addFuncDecl(astFunc *ast.FuncDecl) error {
-	fn := rm.pkg.Ir.NewFunc(astFunc)
-	if rm.group != nil {
-		if m, ok := rm.group.(remodel.RemodelFuncExt); ok {
-			if _, err := m.RemodelFunc(fn); err != nil {
-				rm.logger.Printf(`Error Remodeling function`)
-				return rm.errGroup.Add(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (rm *modeler) addTypeSpec(astGen *ast.GenDecl, astTypr *ast.TypeSpec) error {
-	// TODO: Implement
-	return nil
-}
-
-func (rm *modeler) addValueSpec(astGen *ast.GenDecl, astValue *ast.ValueSpec) error {
-	// TODO: Implement
-	return nil
 }
 
 func (rm *modeler) remodelPackageDone() error {

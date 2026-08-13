@@ -16,9 +16,19 @@ type WalkStep struct {
 	Skip bool
 }
 
+func WalkPackage(pkg *Package) iterator.Iterator[*WalkStep] {
+	s := stack.New[Node]()
+	s.PushSeq(pkg.Children, 0)
+	return walk(s)
+}
+
 func WalkNodes(roots ...Node) iterator.Iterator[*WalkStep] {
 	s := stack.New[Node]()
 	s.Push(roots...)
+	return walk(s)
+}
+
+func walk(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
 	if s.Empty() {
 		return iterator.Empty[*WalkStep]()
 	}

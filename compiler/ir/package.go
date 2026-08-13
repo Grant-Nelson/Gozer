@@ -31,6 +31,8 @@ type Package struct {
 	Funcs []*Func
 }
 
+var _ Parent = (*Package)(nil)
+
 func (p *Package) String() string {
 	result := `package{` + nlStr
 	if len(p.Name) > 0 {
@@ -52,6 +54,11 @@ func (p *Package) String() string {
 		result += indentStr + `Funcs:` + indentInner(bodyString(p.Funcs)) + nlStr
 	}
 	return result + `}`
+}
+
+func (p *Package) Children(yield func(Node) bool) {
+	_ = YieldSlice(p.Types, yield) && YieldSlice(p.Consts, yield) &&
+		YieldSlice(p.Vars, yield) && YieldSlice(p.Funcs, yield)
 }
 
 // FindFunc finds a function with the given name or nil if not found.

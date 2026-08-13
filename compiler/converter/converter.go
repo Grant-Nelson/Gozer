@@ -22,6 +22,7 @@ type Converter struct {
 	Info    *types.Info
 	FileSet *token.FileSet
 	Errors  *faults.ErrGroup
+	Package *ir.Package
 }
 
 func (c *Converter) pos(p token.Pos) string {
@@ -35,6 +36,37 @@ func (c *Converter) addFault(f *faults.Fault) {
 	if err := c.Errors.Add(f); err != nil {
 		panic(err)
 	}
+}
+
+func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
+	p := &ir.Package{
+		Name:    pkg.Name,
+		Path:    pkg.PkgPath,
+		FileSet: c.FileSet,
+	}
+	c.Package = p
+	for _, f := range pkg.Syntax {
+		for _, s := range c.ExpandStmt(c.FromFile(f)) {
+			switch d := s.(type) {
+			case *ir.TypeStmt:
+				p.Types = append(p.Types, d)
+			case *ir.ValueDecl:
+				if d.Constant {
+					p.Consts = append(p.Consts, d)
+				} else {
+					p.Vars = append(p.Vars, d)
+				}
+			case *ir.Func:
+				p.Funcs = append(p.Funcs, d)
+			default:
+				c.addFault(faults.New(`unexpected AST package-level node type`).
+					With(`package`, pkg.PkgPath).
+					WithF(`type`, `%T`, d).
+					With(`pos`, c.pos(d.Pos())))
+			}
+		}
+	}
+	return p
 }
 
 func (c *Converter) FromNodeSlice(ns []ast.Node) []ir.Node {
@@ -63,39 +95,6 @@ func (c *Converter) FromNode(n ast.Node) ir.Node {
 			With(`pos`, c.pos(n.Pos())))
 		return nil
 	}
-}
-
-// TODO: Finish commenting
-//
-// This doesn't convert imports.
-func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
-	p := &ir.Package{
-		Name:    pkg.Name,
-		Path:    pkg.PkgPath,
-		FileSet: c.FileSet,
-	}
-	for _, f := range pkg.Syntax {
-		for _, s := range c.ExpandStmt(c.FromFile(f)) {
-			switch d := s.(type) {
-			case *ir.TypeStmt:
-				p.Types = append(p.Types, d)
-			case *ir.ValueDecl:
-				if d.Constant {
-					p.Consts = append(p.Consts, d)
-				} else {
-					p.Vars = append(p.Vars, d)
-				}
-			case *ir.Func:
-				p.Funcs = append(p.Funcs, d)
-			default:
-				c.addFault(faults.New(`unexpected AST package-level node type`).
-					With(`package`, pkg.PkgPath).
-					WithF(`type`, `%T`, d).
-					With(`pos`, c.pos(d.Pos())))
-			}
-		}
-	}
-	return p
 }
 
 func (c *Converter) FromFile(f *ast.File) ir.Stmt {
