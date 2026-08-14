@@ -28,7 +28,7 @@ type Package struct {
 	Vars []*ValueDecl
 
 	// Funcs is the collection of functions for this package.
-	Funcs []*Func
+	Funcs []*FuncDecl
 }
 
 var _ Parent = (*Package)(nil)
@@ -59,14 +59,4 @@ func (p *Package) String() string {
 func (p *Package) Children(yield func(Node) bool) {
 	_ = YieldSlice(p.Types, yield) && YieldSlice(p.Consts, yield) &&
 		YieldSlice(p.Vars, yield) && YieldSlice(p.Funcs, yield)
-}
-
-// FindFunc finds a function with the given name or nil if not found.
-func (p *Package) FindFunc(name string) *Func {
-	for _, fn := range p.Funcs {
-		if fn.Name.Name == name {
-			return fn
-		}
-	}
-	return nil
 }

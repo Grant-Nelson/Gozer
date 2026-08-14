@@ -375,16 +375,18 @@ func (c *Converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *ir.TypeSwitchStmt
 	}
 }
 
-func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.Func {
+func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 	if astFunc == nil {
 		return nil
 	}
-	fn := &ir.Func{
-		FuncPos:   astFunc.Type.Func,
-		Name:      c.FromIdent(astFunc.Name),
-		Signature: c.exprTypes(astFunc.Name).Type,
+	fn := &ir.FuncDecl{
+		Name: astFunc.Name.Name,
+		Func: &ir.Func{
+			FuncPos:   astFunc.Type.Func,
+			Signature: c.exprTypes(astFunc.Name).Type,
+		},
 	}
-	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
+	c.setInitialBlock(fn.Func, astFunc.Body, astFunc.Type)
 
 	if astFunc.Doc != nil {
 		dv := astTools.Directives(astFunc.Doc.List, directiveGroup)
