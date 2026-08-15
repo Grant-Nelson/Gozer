@@ -3,6 +3,7 @@ package converter
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/packages"
 
@@ -59,6 +60,17 @@ func (c *converter) addFault(f *faults.Fault) {
 }
 
 func (c *converter) PrepareDecls() {
+	for id, def := range c.Source.TypesInfo.Defs {
+		c.prepareDeclDefs(id, def)
+	}
+
+	// TODO: Implement
+
+}
+
+func (c *converter) prepareDeclDefs(id *ast.Ident, def types.Object) {
+
+	// TODO: Implement
 
 }
 

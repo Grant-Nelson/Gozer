@@ -11,7 +11,9 @@ type FuncRef struct {
 	RefPos token.Pos
 
 	// Func is the function declaration being referenced.
-	Func *FuncDecl
+	FuncDecl *FuncDecl
+
+	TypeArgs []types.Type
 
 	// Instance is the instance type for the signature of the function.
 	// This includes the type arguments for the reference. For example,
@@ -19,12 +21,15 @@ type FuncRef struct {
 	Instance types.Type
 }
 
-var _ Expr = (*FuncRef)(nil)
-
-func (n *FuncRef) Pos() token.Pos { return n.RefPos }
-
-func (n *FuncRef) Type() types.Type { return n.Instance }
+var (
+	_ Expr = (*FuncRef)(nil)
+	_ Ref  = (*FuncRef)(nil)
+)
 
 func (*FuncRef) ExprNode() {}
+func (*FuncRef) RefNode()  {}
 
-func (n *FuncRef) String() string { return n.Func.Name }
+func (n *FuncRef) Pos() token.Pos   { return n.RefPos }
+func (n *FuncRef) Type() types.Type { return n.Instance }
+func (n *FuncRef) Decl() Decl       { return n.FuncDecl }
+func (n *FuncRef) String() string   { return n.FuncDecl.Name }

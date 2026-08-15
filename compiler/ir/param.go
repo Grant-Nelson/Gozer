@@ -17,7 +17,7 @@ type Param struct {
 	// only pass named parameters into the block. The function will keep
 	// the unnamed parameters so that its signature remained the same as
 	// it was defined in the AST.
-	Name *Ident
+	Name string
 
 	// Expr is the source-level type expression for this parameter.
 	//
@@ -31,12 +31,12 @@ type Param struct {
 	// Used as a fallback when Type is nil. The blocker sets this when
 	// synthesizing block params for variables defined inside the function
 	// body.
-	Type types.Type // TODO: REPLACE
+	Type types.Type
 }
 
 func (p *Param) String() string {
 	if p.Expr != nil {
-		return fmt.Sprintf(`%s %s`, p.Name.String(), p.Expr)
+		return fmt.Sprintf(`%s %s`, p.Name, p.Expr)
 	}
-	return fmt.Sprintf(`%s %v`, p.Name.String(), p.Type)
+	return fmt.Sprintf(`%s %v`, p.Name, p.Type)
 }

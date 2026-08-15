@@ -25,7 +25,10 @@ type Func struct {
 	ReturnBlocks []*Block
 }
 
-var _ Parent = (*Func)(nil)
+var (
+	_ Parent = (*Func)(nil)
+	_ Parent = (*Func)(nil)
+)
 
 func (fn *Func) Pos() token.Pos { return fn.FuncPos }
 

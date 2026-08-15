@@ -2,6 +2,7 @@ package ir
 
 import (
 	"go/token"
+	"go/types"
 )
 
 // FuncDecl represents a named function declaration.
@@ -31,18 +32,24 @@ type FuncDecl struct {
 	// the function name is unique per receiver type.
 	Name string
 
+	// NamePos is the position of the function name.
+	NamePos token.Pos
+
 	// Func is the function definition.
 	Func *Func
 }
 
 var (
 	_ Stmt   = (*FuncDecl)(nil)
+	_ Decl   = (*FuncDecl)(nil)
 	_ Parent = (*FuncDecl)(nil)
 )
 
-func (fn *FuncDecl) Pos() token.Pos { return fn.Func.Pos() }
+func (*FuncDecl) StmtNode() {}
+func (*FuncDecl) DeclNode() {}
 
-func (fn *FuncDecl) StmtNode() {}
+func (fn *FuncDecl) Pos() token.Pos   { return fn.NamePos }
+func (fn *FuncDecl) Type() types.Type { return fn.Func.Signature }
 
 func (fn *FuncDecl) String() string {
 	name := ``

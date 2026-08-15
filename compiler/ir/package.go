@@ -19,7 +19,7 @@ type Package struct {
 	Imports []*Package
 
 	// Types is the collection of types for this package.
-	Types []*TypeStmt
+	Types []*TypeDecl
 
 	// Consts is the collection of const values for this package.
 	Consts []*ValueDecl
