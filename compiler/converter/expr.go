@@ -10,7 +10,7 @@ import (
 )
 
 func (c *converter) exprTypes(e ast.Expr) *types.TypeAndValue {
-	tv, ok := c.Info.Types[e]
+	tv, ok := c.Source.TypesInfo.Types[e]
 	if !ok {
 		c.addFault(faults.New(`failed to get expression type`).
 			WithF(`expr`, `%T`, e).
@@ -101,6 +101,19 @@ func (c *converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
 	}
 }
 
+func (c *converter) FromFuncLit(astFunc *ast.FuncLit) *ir.FuncLit {
+	if astFunc == nil {
+		return nil
+	}
+	pos := astFunc.Type.Func
+	fn := &ir.Func{
+		FuncPos:   pos,
+		Signature: c.exprTypes(astFunc).Type,
+	}
+	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
+	return fn
+}
+
 func (c *converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
 	// TODO: Need to store the initial values
 	return c.FromTypeExpr(e)
@@ -120,7 +133,8 @@ func (c *converter) FromSelectorExpr(e *ast.SelectorExpr) *ir.SelectorExpr {
 	}
 	return &ir.SelectorExpr{
 		X:       c.FromExpr(e.X),
-		Sel:     c.FromIdent(e.Sel),
+		Sel:     e.Sel.Name,
+		SelPos:  e.Sel.NamePos,
 		SelType: c.exprTypes(e).Type,
 	}
 }

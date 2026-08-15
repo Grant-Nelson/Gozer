@@ -11,6 +11,8 @@ type TypeDecl struct {
 	NamePos token.Pos
 
 	TypeAndValue *types.TypeAndValue
+
+	TypeObj *types.TypeName
 }
 
 var (
@@ -21,8 +23,9 @@ var (
 func (*TypeDecl) StmtNode() {}
 func (*TypeDecl) DeclNode() {}
 
-func (n *TypeDecl) Pos() token.Pos   { return n.NamePos }
-func (n *TypeDecl) Type() types.Type { return n.TypeAndValue.Type }
+func (n *TypeDecl) Pos() token.Pos       { return n.NamePos }
+func (n *TypeDecl) Type() types.Type     { return n.TypeAndValue.Type }
+func (n *TypeDecl) Object() types.Object { return n.TypeObj }
 
 func (n *TypeDecl) String() string {
 	if n.TypeAndValue.Value != nil {

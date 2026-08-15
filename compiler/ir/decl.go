@@ -8,4 +8,6 @@ type Decl interface {
 	DeclNode()
 
 	Type() types.Type
+
+	Object() types.Object
 }

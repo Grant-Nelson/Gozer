@@ -2,6 +2,7 @@ package ir
 
 import (
 	"go/token"
+	"go/types"
 )
 
 // Package is the IR for a whole package.
@@ -15,6 +16,10 @@ type Package struct {
 	// Path is the path that would be used to import this package.
 	Path string
 
+	// Sizes are the sizes for the architecture.
+	// For example TS and JS will have 32-bit `int`, `uint`, and `uintptr`.
+	Sizes types.Sizes
+
 	// Imports are the packages that are imported by this package.
 	Imports []*Package
 
@@ -22,10 +27,10 @@ type Package struct {
 	Types []*TypeDecl
 
 	// Consts is the collection of const values for this package.
-	Consts []*ValueDecl
+	Consts []*ConstDecl
 
 	// Vars is the collection of variables for this package.
-	Vars []*ValueDecl
+	Vars []*VarDecl
 
 	// Funcs is the collection of functions for this package.
 	Funcs []*FuncDecl

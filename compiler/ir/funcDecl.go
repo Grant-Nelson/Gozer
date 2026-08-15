@@ -35,6 +35,8 @@ type FuncDecl struct {
 	// NamePos is the position of the function name.
 	NamePos token.Pos
 
+	FuncObj *types.Func
+
 	// Func is the function definition.
 	Func *Func
 }
@@ -48,8 +50,9 @@ var (
 func (*FuncDecl) StmtNode() {}
 func (*FuncDecl) DeclNode() {}
 
-func (fn *FuncDecl) Pos() token.Pos   { return fn.NamePos }
-func (fn *FuncDecl) Type() types.Type { return fn.Func.Signature }
+func (fn *FuncDecl) Pos() token.Pos       { return fn.NamePos }
+func (fn *FuncDecl) Type() types.Type     { return fn.Func.Signature }
+func (fn *FuncDecl) Object() types.Object { return fn.FuncObj }
 
 func (fn *FuncDecl) String() string {
 	name := ``

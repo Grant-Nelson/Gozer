@@ -22,7 +22,9 @@ func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Pac
 		Name:    pkg.Name,
 		Path:    pkg.PkgPath,
 		FileSet: pkg.Fset,
+		Sizes:   pkg.TypesSizes,
 	}
+
 	c := &converter{
 		Source:  pkg,
 		Errors:  errGroup,
@@ -78,27 +80,29 @@ func (c *converter) PopulateDecls() {
 
 	// TODO: FIX
 
-	for _, f := range c.Source.Syntax {
-		for _, s := range c.ExpandStmt(c.FromFile(f)) {
-			switch d := s.(type) {
-			case *ir.TypeStmt:
-				c.Package.Types = append(c.Package.Types, d)
-			case *ir.ValueDecl:
-				if d.Constant {
-					c.Package.Consts = append(c.Package.Consts, d)
-				} else {
-					c.Package.Vars = append(c.Package.Vars, d)
+	/*
+		for _, f := range c.Source.Syntax {
+			for _, s := range c.ExpandStmt(c.FromFile(f)) {
+				switch d := s.(type) {
+				case *ir.TypeStmt:
+					c.Package.Types = append(c.Package.Types, d)
+				case *ir.ValueDecl:
+					if d.Constant {
+						c.Package.Consts = append(c.Package.Consts, d)
+					} else {
+						c.Package.Vars = append(c.Package.Vars, d)
+					}
+				case *ir.Func:
+					p.Funcs = append(p.Funcs, d)
+				default:
+					c.addFault(faults.New(`unexpected AST package-level node type`).
+						With(`package`, c.Source.PkgPath).
+						WithF(`type`, `%T`, d).
+						With(`pos`, c.pos(d.Pos())))
 				}
-			case *ir.Func:
-				p.Funcs = append(p.Funcs, d)
-			default:
-				c.addFault(faults.New(`unexpected AST package-level node type`).
-					With(`package`, c.Source.PkgPath).
-					WithF(`type`, `%T`, d).
-					With(`pos`, c.pos(d.Pos())))
 			}
 		}
-	}
+	*/
 
 	// TODO: Finish
 	//ir.WalkPackage(pkg, )
@@ -177,8 +181,9 @@ func (c *converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 }
 
 func (c *converter) FromTypeSpec(s *ast.TypeSpec) ir.Stmt {
-	return &ir.TypeStmt{
-		Name:         c.FromIdent(s.Name),
+	return &ir.TypeDecl{
+		Name:         s.Name.Name,
+		NamePos:      s.Name.NamePos,
 		TypeAndValue: c.exprTypes(s.Type),
 	}
 }

@@ -402,19 +402,6 @@ func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 	return fn
 }
 
-func (c *converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
-	if astFunc == nil {
-		return nil
-	}
-	pos := astFunc.Type.Func
-	fn := &ir.Func{
-		FuncPos:   pos,
-		Signature: c.exprTypes(astFunc).Type,
-	}
-	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
-	return fn
-}
-
 func (c *converter) ExpandParams(ft *ast.FuncType) []*ir.Param {
 	if ft == nil {
 		return nil
@@ -442,8 +429,9 @@ func (c *converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
 				continue
 			}
 			param := &ir.Param{
-				Name: c.FromIdent(name),
+				Name: name.Name,
 				Expr: c.FromExpr(field.Type),
+				Type: c.exprTypes(name).Type,
 			}
 			params = append(params, param)
 		}
