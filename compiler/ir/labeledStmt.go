@@ -7,8 +7,9 @@ import (
 
 // A LabeledStmt node represents a labeled statement.
 type LabeledStmt struct {
-	Label *Ident // same as AST so works with types.Info
-	Stmt  Stmt   // TODO: INVERT RELATIONSHIP
+	Name    string
+	NamePos token.Pos
+	Stmt    Stmt
 }
 
 var (
@@ -16,12 +17,10 @@ var (
 	_ Parent = (*LabeledStmt)(nil)
 )
 
-func (n *LabeledStmt) String() string { return fmt.Sprintf("%s:\n%v", n.Label, n.Stmt) }
+func (n *LabeledStmt) String() string { return fmt.Sprintf("%s:\n%v", n.Name, n.Stmt) }
 
-func (n *LabeledStmt) Pos() token.Pos { return n.Label.Pos() }
+func (n *LabeledStmt) Pos() token.Pos { return n.NamePos }
 
 func (*LabeledStmt) StmtNode() {}
 
-func (n *LabeledStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Label) && yield(n.Stmt)
-}
+func (n *LabeledStmt) Children(yield func(Node) bool) { _ = yield(n.Stmt) }

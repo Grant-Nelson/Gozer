@@ -11,7 +11,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
 
-func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
+func (c *converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
 	result := make([]ir.Stmt, 0, len(ss))
 	for _, s := range ss {
 		result = append(result, c.ExpandStmt(c.FromStmt(s))...)
@@ -19,7 +19,7 @@ func (c *Converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
 	return result
 }
 
-func (c *Converter) SimplifyStmt(s ir.Stmt) ir.Stmt {
+func (c *converter) SimplifyStmt(s ir.Stmt) ir.Stmt {
 	if b, ok := s.(*ir.StmtListStmt); ok {
 		b.List = iterator.NotZero(iterator.Iterate(c.ExpandStmtSlice(b.List)...)).ToSlice()
 		switch len(b.List) {
@@ -34,7 +34,7 @@ func (c *Converter) SimplifyStmt(s ir.Stmt) ir.Stmt {
 	return s
 }
 
-func (c *Converter) ExpandStmtSlice(ss []ir.Stmt) []ir.Stmt {
+func (c *converter) ExpandStmtSlice(ss []ir.Stmt) []ir.Stmt {
 	st := make([]ir.Stmt, 0, len(ss))
 	for _, s := range ss {
 		for x := range iterator.NotZero(iterator.Iterate(c.ExpandStmt(s)...)) {
@@ -44,7 +44,7 @@ func (c *Converter) ExpandStmtSlice(ss []ir.Stmt) []ir.Stmt {
 	return st
 }
 
-func (c *Converter) ExpandStmt(s ir.Stmt) []ir.Stmt {
+func (c *converter) ExpandStmt(s ir.Stmt) []ir.Stmt {
 	if s == nil {
 		return []ir.Stmt{}
 	}
@@ -54,7 +54,7 @@ func (c *Converter) ExpandStmt(s ir.Stmt) []ir.Stmt {
 	return []ir.Stmt{s}
 }
 
-func (c *Converter) FromStmt(s ast.Stmt) ir.Stmt {
+func (c *converter) FromStmt(s ast.Stmt) ir.Stmt {
 	switch s := s.(type) {
 	case nil, *ast.BadStmt, *ast.EmptyStmt:
 		return nil
@@ -104,7 +104,7 @@ func (c *Converter) FromStmt(s ast.Stmt) ir.Stmt {
 	}
 }
 
-func (c *Converter) FromAssignStmt(s *ast.AssignStmt) ir.Stmt {
+func (c *converter) FromAssignStmt(s *ast.AssignStmt) ir.Stmt {
 	if s == nil {
 		return nil
 	}
@@ -135,7 +135,7 @@ func (c *Converter) FromAssignStmt(s *ast.AssignStmt) ir.Stmt {
 	}
 }
 
-func (c *Converter) FromBranchStmt(s *ast.BranchStmt) *ir.BranchStmt {
+func (c *converter) FromBranchStmt(s *ast.BranchStmt) *ir.BranchStmt {
 	if s == nil {
 		return nil
 	}
@@ -146,7 +146,7 @@ func (c *Converter) FromBranchStmt(s *ast.BranchStmt) *ir.BranchStmt {
 	}
 }
 
-func (c *Converter) FromCaseClause(s *ast.CaseClause) *ir.CaseClause {
+func (c *converter) FromCaseClause(s *ast.CaseClause) *ir.CaseClause {
 	if s == nil {
 		return nil
 	}
@@ -157,7 +157,7 @@ func (c *Converter) FromCaseClause(s *ast.CaseClause) *ir.CaseClause {
 	}
 }
 
-func (c *Converter) FromCaseClauseSlice(s *ast.BlockStmt) []*ir.CaseClause {
+func (c *converter) FromCaseClauseSlice(s *ast.BlockStmt) []*ir.CaseClause {
 	if s == nil {
 		return []*ir.CaseClause{}
 	}
@@ -179,7 +179,7 @@ func (c *Converter) FromCaseClauseSlice(s *ast.BlockStmt) []*ir.CaseClause {
 	return ccs
 }
 
-func (c *Converter) FromCommClause(s *ast.CommClause) *ir.CommClause {
+func (c *converter) FromCommClause(s *ast.CommClause) *ir.CommClause {
 	if s == nil {
 		return nil
 	}
@@ -190,7 +190,7 @@ func (c *Converter) FromCommClause(s *ast.CommClause) *ir.CommClause {
 	}
 }
 
-func (c *Converter) FromCommClauseSlice(s *ast.BlockStmt) []*ir.CommClause {
+func (c *converter) FromCommClauseSlice(s *ast.BlockStmt) []*ir.CommClause {
 	if s == nil {
 		return []*ir.CommClause{}
 	}
@@ -212,14 +212,14 @@ func (c *Converter) FromCommClauseSlice(s *ast.BlockStmt) []*ir.CommClause {
 	return ccs
 }
 
-func (c *Converter) FromDeclStmt(s *ast.DeclStmt) ir.Stmt {
+func (c *converter) FromDeclStmt(s *ast.DeclStmt) ir.Stmt {
 	if s == nil {
 		return nil
 	}
 	return c.FromDecl(s.Decl)
 }
 
-func (c *Converter) FromDeferStmt(s *ast.DeferStmt) *ir.DeferStmt {
+func (c *converter) FromDeferStmt(s *ast.DeferStmt) *ir.DeferStmt {
 	if s == nil {
 		return nil
 	}
@@ -229,7 +229,7 @@ func (c *Converter) FromDeferStmt(s *ast.DeferStmt) *ir.DeferStmt {
 	}
 }
 
-func (c *Converter) FromExprStmt(s *ast.ExprStmt) *ir.ExprStmt {
+func (c *converter) FromExprStmt(s *ast.ExprStmt) *ir.ExprStmt {
 	if s == nil {
 		return nil
 	}
@@ -238,7 +238,7 @@ func (c *Converter) FromExprStmt(s *ast.ExprStmt) *ir.ExprStmt {
 	}
 }
 
-func (c *Converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
+func (c *converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
 	if s == nil {
 		return nil
 	}
@@ -251,7 +251,7 @@ func (c *Converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
 	}
 }
 
-func (c *Converter) FromForStmt(s *ast.ForStmt) *ir.ForStmt {
+func (c *converter) FromForStmt(s *ast.ForStmt) *ir.ForStmt {
 	if s == nil {
 		return nil
 	}
@@ -264,7 +264,7 @@ func (c *Converter) FromForStmt(s *ast.ForStmt) *ir.ForStmt {
 	}
 }
 
-func (c *Converter) FromGoStmt(s *ast.GoStmt) *ir.GoStmt {
+func (c *converter) FromGoStmt(s *ast.GoStmt) *ir.GoStmt {
 	if s == nil {
 		return nil
 	}
@@ -274,7 +274,7 @@ func (c *Converter) FromGoStmt(s *ast.GoStmt) *ir.GoStmt {
 	}
 }
 
-func (c *Converter) FromIfStmt(s *ast.IfStmt) *ir.IfStmt {
+func (c *converter) FromIfStmt(s *ast.IfStmt) *ir.IfStmt {
 	if s == nil {
 		return nil
 	}
@@ -287,17 +287,18 @@ func (c *Converter) FromIfStmt(s *ast.IfStmt) *ir.IfStmt {
 	}
 }
 
-func (c *Converter) FromLabeledStmt(s *ast.LabeledStmt) *ir.LabeledStmt {
+func (c *converter) FromLabeledStmt(s *ast.LabeledStmt) *ir.LabeledStmt {
 	if s == nil {
 		return nil
 	}
 	return &ir.LabeledStmt{
-		Label: c.FromIdent(s.Label),
-		Stmt:  c.FromStmt(s.Stmt),
+		Name:    s.Label.Name,
+		NamePos: s.Label.Pos(),
+		Stmt:    c.FromStmt(s.Stmt),
 	}
 }
 
-func (c *Converter) FromRangeStmt(s *ast.RangeStmt) *ir.RangeStmt {
+func (c *converter) FromRangeStmt(s *ast.RangeStmt) *ir.RangeStmt {
 	if s == nil {
 		return nil
 	}
@@ -311,7 +312,7 @@ func (c *Converter) FromRangeStmt(s *ast.RangeStmt) *ir.RangeStmt {
 	}
 }
 
-func (c *Converter) FromReturnStmt(s *ast.ReturnStmt) *ir.ReturnStmt {
+func (c *converter) FromReturnStmt(s *ast.ReturnStmt) *ir.ReturnStmt {
 	if s == nil {
 		return nil
 	}
@@ -321,7 +322,7 @@ func (c *Converter) FromReturnStmt(s *ast.ReturnStmt) *ir.ReturnStmt {
 	}
 }
 
-func (c *Converter) FromSelectStmt(s *ast.SelectStmt) *ir.SelectStmt {
+func (c *converter) FromSelectStmt(s *ast.SelectStmt) *ir.SelectStmt {
 	if s == nil {
 		return nil
 	}
@@ -331,7 +332,7 @@ func (c *Converter) FromSelectStmt(s *ast.SelectStmt) *ir.SelectStmt {
 	}
 }
 
-func (c *Converter) FromSendStmt(s *ast.SendStmt) *ir.SendStmt {
+func (c *converter) FromSendStmt(s *ast.SendStmt) *ir.SendStmt {
 	if s == nil {
 		return nil
 	}
@@ -342,7 +343,7 @@ func (c *Converter) FromSendStmt(s *ast.SendStmt) *ir.SendStmt {
 	}
 }
 
-func (c *Converter) FromBlockStmt(s *ast.BlockStmt) *ir.StmtListStmt {
+func (c *converter) FromBlockStmt(s *ast.BlockStmt) *ir.StmtListStmt {
 	if s == nil {
 		return nil
 	}
@@ -351,7 +352,7 @@ func (c *Converter) FromBlockStmt(s *ast.BlockStmt) *ir.StmtListStmt {
 	}
 }
 
-func (c *Converter) FromSwitchStmt(s *ast.SwitchStmt) *ir.SwitchStmt {
+func (c *converter) FromSwitchStmt(s *ast.SwitchStmt) *ir.SwitchStmt {
 	if s == nil {
 		return nil
 	}
@@ -363,7 +364,7 @@ func (c *Converter) FromSwitchStmt(s *ast.SwitchStmt) *ir.SwitchStmt {
 	}
 }
 
-func (c *Converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *ir.TypeSwitchStmt {
+func (c *converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *ir.TypeSwitchStmt {
 	if s == nil {
 		return nil
 	}
@@ -375,7 +376,7 @@ func (c *Converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *ir.TypeSwitchStmt
 	}
 }
 
-func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
+func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 	if astFunc == nil {
 		return nil
 	}
@@ -401,7 +402,7 @@ func (c *Converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 	return fn
 }
 
-func (c *Converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
+func (c *converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
 	if astFunc == nil {
 		return nil
 	}
@@ -414,21 +415,21 @@ func (c *Converter) FromFuncLit(astFunc *ast.FuncLit) *ir.Func {
 	return fn
 }
 
-func (c *Converter) ExpandParams(ft *ast.FuncType) []*ir.Param {
+func (c *converter) ExpandParams(ft *ast.FuncType) []*ir.Param {
 	if ft == nil {
 		return nil
 	}
 	return c.ExpandFieldList(ft.Params)
 }
 
-func (c *Converter) ExpandResults(ft *ast.FuncType) []*ir.Param {
+func (c *converter) ExpandResults(ft *ast.FuncType) []*ir.Param {
 	if ft == nil {
 		return nil
 	}
 	return c.ExpandFieldList(ft.Results)
 }
 
-func (c *Converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
+func (c *converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
 	if fl == nil || len(fl.List) <= 0 {
 		return nil
 	}
@@ -453,7 +454,7 @@ func (c *Converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
 // setInitialBlock creates an initial block, populate it with current statements, add params.
 // Named return values are appended after input params so they are in scope
 // for the function body just like declared locals.
-func (c *Converter) setInitialBlock(fn *ir.Func, fnBody *ast.BlockStmt, fnType *ast.FuncType) *ir.Block {
+func (c *converter) setInitialBlock(fn *ir.Func, fnBody *ast.BlockStmt, fnType *ast.FuncType) *ir.Block {
 	body := c.ExpandStmt(c.FromBlockStmt(fnBody))
 	params := append(c.ExpandParams(fnType), c.ExpandResults(fnType)...)
 	return fn.NewBlock(`initial`, body, params)

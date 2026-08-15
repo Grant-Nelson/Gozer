@@ -9,7 +9,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
 
-func (c *Converter) exprTypes(e ast.Expr) *types.TypeAndValue {
+func (c *converter) exprTypes(e ast.Expr) *types.TypeAndValue {
 	tv, ok := c.Info.Types[e]
 	if !ok {
 		c.addFault(faults.New(`failed to get expression type`).
@@ -20,7 +20,7 @@ func (c *Converter) exprTypes(e ast.Expr) *types.TypeAndValue {
 	return &tv
 }
 
-func (c *Converter) FromExprSlice(es []ast.Expr) []ir.Expr {
+func (c *converter) FromExprSlice(es []ast.Expr) []ir.Expr {
 	result := make([]ir.Expr, 0, len(es))
 	for _, e := range es {
 		result = append(result, c.FromExpr(e))
@@ -28,7 +28,7 @@ func (c *Converter) FromExprSlice(es []ast.Expr) []ir.Expr {
 	return result
 }
 
-func (c *Converter) FromExpr(e ast.Expr) ir.Expr {
+func (c *converter) FromExpr(e ast.Expr) ir.Expr {
 	switch e := e.(type) {
 	case nil, *ast.BadExpr:
 		return nil
@@ -84,37 +84,14 @@ func (c *Converter) FromExpr(e ast.Expr) ir.Expr {
 	}
 }
 
-func (c *Converter) FromIdent(e *ast.Ident) *ir.Ident {
-	if e == nil {
-		return nil
-	}
-	id := &ir.Ident{
-		NamePos: e.NamePos,
-		Name:    e.Name,
-	}
-	if tv, ok := c.Info.Types[e]; ok {
-		id.TypeAndValue = &tv
-	}
-	if in, ok := c.Info.Instances[e]; ok {
-		id.Instance = &in
-	}
-	if ds, ok := c.Info.Defs[e]; ok {
-		id.Def = ds
-	}
-	if us, ok := c.Info.Uses[e]; ok {
-		id.Use = us
-	}
-	return id
-}
-
-func (c *Converter) FromEllipsis(e *ast.Ellipsis) ir.Expr {
+func (c *converter) FromEllipsis(e *ast.Ellipsis) ir.Expr {
 	if e == nil {
 		return nil
 	}
 	return c.FromExpr(e.Elt)
 }
 
-func (c *Converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
+func (c *converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
 	if e == nil {
 		return nil
 	}
@@ -124,12 +101,12 @@ func (c *Converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
 	}
 }
 
-func (c *Converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
+func (c *converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
 	// TODO: Need to store the initial values
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromParenExpr(e *ast.ParenExpr) ir.Expr {
+func (c *converter) FromParenExpr(e *ast.ParenExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
@@ -137,7 +114,7 @@ func (c *Converter) FromParenExpr(e *ast.ParenExpr) ir.Expr {
 	return c.FromExpr(e.X)
 }
 
-func (c *Converter) FromSelectorExpr(e *ast.SelectorExpr) *ir.SelectorExpr {
+func (c *converter) FromSelectorExpr(e *ast.SelectorExpr) *ir.SelectorExpr {
 	if e == nil {
 		return nil
 	}
@@ -148,7 +125,7 @@ func (c *Converter) FromSelectorExpr(e *ast.SelectorExpr) *ir.SelectorExpr {
 	}
 }
 
-func (c *Converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
+func (c *converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
 	if e == nil {
 		return nil
 	}
@@ -162,7 +139,7 @@ func (c *Converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
 	}
 }
 
-func (c *Converter) FromIndexListExpr(e *ast.IndexListExpr) *ir.IndexListExpr {
+func (c *converter) FromIndexListExpr(e *ast.IndexListExpr) *ir.IndexListExpr {
 	if e == nil {
 		return nil
 	}
@@ -176,7 +153,7 @@ func (c *Converter) FromIndexListExpr(e *ast.IndexListExpr) *ir.IndexListExpr {
 	}
 }
 
-func (c *Converter) FromSliceExpr(e *ast.SliceExpr) *ir.SliceExpr {
+func (c *converter) FromSliceExpr(e *ast.SliceExpr) *ir.SliceExpr {
 	if e == nil {
 		return nil
 	}
@@ -191,7 +168,7 @@ func (c *Converter) FromSliceExpr(e *ast.SliceExpr) *ir.SliceExpr {
 	}
 }
 
-func (c *Converter) FromTypeAssertExpr(e *ast.TypeAssertExpr) *ir.TypeAssertExpr {
+func (c *converter) FromTypeAssertExpr(e *ast.TypeAssertExpr) *ir.TypeAssertExpr {
 	if e == nil {
 		return nil
 	}
@@ -203,7 +180,7 @@ func (c *Converter) FromTypeAssertExpr(e *ast.TypeAssertExpr) *ir.TypeAssertExpr
 	}
 }
 
-func (c *Converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
+func (c *converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
 	if e == nil {
 		return nil
 	}
@@ -216,7 +193,7 @@ func (c *Converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
 	}
 }
 
-func (c *Converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
+func (c *converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
@@ -235,7 +212,7 @@ func (c *Converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	}
 }
 
-func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
+func (c *converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
 	if e == nil {
 		return nil
 	}
@@ -247,7 +224,7 @@ func (c *Converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
 	}
 }
 
-func (c *Converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
+func (c *converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 	if e == nil {
 		return nil
 	}
@@ -260,35 +237,35 @@ func (c *Converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 	}
 }
 
-func (c *Converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.TypeExpr {
+func (c *converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.TypeExpr {
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromArrayType(e *ast.ArrayType) *ir.TypeExpr {
+func (c *converter) FromArrayType(e *ast.ArrayType) *ir.TypeExpr {
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromStructType(e *ast.StructType) *ir.TypeExpr {
+func (c *converter) FromStructType(e *ast.StructType) *ir.TypeExpr {
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromFuncType(e *ast.FuncType) *ir.TypeExpr {
+func (c *converter) FromFuncType(e *ast.FuncType) *ir.TypeExpr {
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromInterfaceType(e *ast.InterfaceType) *ir.TypeExpr {
+func (c *converter) FromInterfaceType(e *ast.InterfaceType) *ir.TypeExpr {
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromMapType(e *ast.MapType) *ir.TypeExpr {
+func (c *converter) FromMapType(e *ast.MapType) *ir.TypeExpr {
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromChanType(e *ast.ChanType) *ir.TypeExpr {
+func (c *converter) FromChanType(e *ast.ChanType) *ir.TypeExpr {
 	return c.FromTypeExpr(e)
 }
 
-func (c *Converter) FromTypeExpr(e ast.Expr) *ir.TypeExpr {
+func (c *converter) FromTypeExpr(e ast.Expr) *ir.TypeExpr {
 	if e == nil {
 		return nil
 	}

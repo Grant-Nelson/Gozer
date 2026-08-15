@@ -75,15 +75,19 @@ func checkFile(t *testing.T, input, expected string) {
 
 	ps, err := parsePackage(map[string]string{`t.go`: input}, nil)
 	if err != nil {
-		t.Errorf(`Failed to parse input expression: %v`, err)
+		t.Errorf(`Failed to parse package: %v`, err)
 		return
 	}
-	c := &Converter{
-		Info:    ps.TypesInfo,
-		FileSet: ps.Fset,
+
+	p, err := ConvertPackage(ps, nil)
+	if err != nil {
+		t.Errorf(`Failed to convert package: %v`, err)
+		return
+
 	}
-	p := c.FromPackage(ps)
+
 	result := p.String()
+
 	exp := slices.Collect(strings.Lines(expected))
 	got := slices.Collect(strings.Lines(result))
 	if diff := cmp.Diff(exp, got); len(diff) > 0 {

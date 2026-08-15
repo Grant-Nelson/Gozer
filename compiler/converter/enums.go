@@ -9,7 +9,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
 
-func (c *Converter) FromBranchToken(t token.Token, pos token.Pos) branchKind.BranchKind {
+func (c *converter) FromBranchToken(t token.Token, pos token.Pos) branchKind.BranchKind {
 	switch t {
 	case token.BREAK:
 		return branchKind.Break
@@ -27,7 +27,7 @@ func (c *Converter) FromBranchToken(t token.Token, pos token.Pos) branchKind.Bra
 	}
 }
 
-func (c *Converter) FromUnaryOp(t token.Token, pos token.Pos) unaryOp.UnaryOp {
+func (c *converter) FromUnaryOp(t token.Token, pos token.Pos) unaryOp.UnaryOp {
 	switch t {
 	case token.SUB:
 		return unaryOp.Negate
@@ -51,7 +51,7 @@ func (c *Converter) FromUnaryOp(t token.Token, pos token.Pos) unaryOp.UnaryOp {
 	}
 }
 
-func (c *Converter) FromBinaryOp(t token.Token, pos token.Pos) binaryOp.BinaryOp {
+func (c *converter) FromBinaryOp(t token.Token, pos token.Pos) binaryOp.BinaryOp {
 	switch t {
 	case token.ADD:
 		return binaryOp.Add

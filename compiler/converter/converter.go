@@ -3,13 +3,34 @@ package converter
 import (
 	"go/ast"
 	"go/token"
-	"go/types"
 
 	"golang.org/x/tools/go/packages"
 
+	"github.com/Grant-Nelson/Gozer/avail/assert"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
+
+func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Package, err error) {
+	defer errGroup.Recover(&err)
+	assert.NotNil(pkg)
+	assert.NotNil(pkg.TypesInfo)
+	assert.NotNil(pkg.Fset)
+
+	p = &ir.Package{
+		Name:    pkg.Name,
+		Path:    pkg.PkgPath,
+		FileSet: pkg.Fset,
+	}
+	c := &converter{
+		Source:  pkg,
+		Errors:  errGroup,
+		Package: p,
+	}
+	c.PrepareDecls()
+	c.PopulateDecls()
+	return c.Package, nil
+}
 
 const (
 	directiveGroup      = `gozer`
@@ -18,17 +39,17 @@ const (
 
 // TODO: Add `//go:linkname` information for declarations
 
-type Converter struct {
-	Info    *types.Info
-	FileSet *token.FileSet
+type converter struct {
+	Source  *packages.Package
 	Errors  *faults.ErrGroup
+	Package *ir.Package
 }
 
-func (c *Converter) pos(p token.Pos) string {
-	return c.FileSet.Position(p).String()
+func (c *converter) pos(p token.Pos) string {
+	return c.Source.Fset.Position(p).String()
 }
 
-func (c *Converter) addFault(f *faults.Fault) {
+func (c *converter) addFault(f *faults.Fault) {
 	if c == nil || c.Errors == nil {
 		panic(f)
 	}
@@ -37,28 +58,30 @@ func (c *Converter) addFault(f *faults.Fault) {
 	}
 }
 
-func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
-	p := &ir.Package{
-		Name:    pkg.Name,
-		Path:    pkg.PkgPath,
-		FileSet: c.FileSet,
-	}
-	for _, f := range pkg.Syntax {
+func (c *converter) PrepareDecls() {
+
+}
+
+func (c *converter) PopulateDecls() {
+
+	// TODO: FIX
+
+	for _, f := range c.Source.Syntax {
 		for _, s := range c.ExpandStmt(c.FromFile(f)) {
 			switch d := s.(type) {
 			case *ir.TypeStmt:
-				p.Types = append(p.Types, d)
+				c.Package.Types = append(c.Package.Types, d)
 			case *ir.ValueDecl:
 				if d.Constant {
-					p.Consts = append(p.Consts, d)
+					c.Package.Consts = append(c.Package.Consts, d)
 				} else {
-					p.Vars = append(p.Vars, d)
+					c.Package.Vars = append(c.Package.Vars, d)
 				}
 			case *ir.Func:
 				p.Funcs = append(p.Funcs, d)
 			default:
 				c.addFault(faults.New(`unexpected AST package-level node type`).
-					With(`package`, pkg.PkgPath).
+					With(`package`, c.Source.PkgPath).
 					WithF(`type`, `%T`, d).
 					With(`pos`, c.pos(d.Pos())))
 			}
@@ -67,11 +90,9 @@ func (c *Converter) FromPackage(pkg *packages.Package) *ir.Package {
 
 	// TODO: Finish
 	//ir.WalkPackage(pkg, )
-
-	return p
 }
 
-func (c *Converter) FromNodeSlice(ns []ast.Node) []ir.Node {
+func (c *converter) FromNodeSlice(ns []ast.Node) []ir.Node {
 	result := make([]ir.Node, 0, len(ns))
 	for _, n := range ns {
 		result = append(result, c.FromNode(n))
@@ -79,7 +100,7 @@ func (c *Converter) FromNodeSlice(ns []ast.Node) []ir.Node {
 	return result
 }
 
-func (c *Converter) FromNode(n ast.Node) ir.Node {
+func (c *converter) FromNode(n ast.Node) ir.Node {
 	switch n := n.(type) {
 	case nil:
 		return nil
@@ -99,7 +120,7 @@ func (c *Converter) FromNode(n ast.Node) ir.Node {
 	}
 }
 
-func (c *Converter) FromFile(f *ast.File) ir.Stmt {
+func (c *converter) FromFile(f *ast.File) ir.Stmt {
 	ss := &ir.StmtListStmt{}
 	for _, d := range f.Decls {
 		ss.Add(c.FromDecl(d))
@@ -107,7 +128,7 @@ func (c *Converter) FromFile(f *ast.File) ir.Stmt {
 	return c.SimplifyStmt(ss)
 }
 
-func (c *Converter) FromDecl(d ast.Decl) ir.Stmt {
+func (c *converter) FromDecl(d ast.Decl) ir.Stmt {
 	switch d := d.(type) {
 	case nil, *ast.BadDecl:
 		return nil
@@ -123,7 +144,7 @@ func (c *Converter) FromDecl(d ast.Decl) ir.Stmt {
 	}
 }
 
-func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
+func (c *converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 	constant := d.Tok == token.CONST
 	ss := &ir.StmtListStmt{}
 	for _, s := range d.Specs {
@@ -143,14 +164,14 @@ func (c *Converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 	return c.SimplifyStmt(ss)
 }
 
-func (c *Converter) FromTypeSpec(s *ast.TypeSpec) ir.Stmt {
+func (c *converter) FromTypeSpec(s *ast.TypeSpec) ir.Stmt {
 	return &ir.TypeStmt{
 		Name:         c.FromIdent(s.Name),
 		TypeAndValue: c.exprTypes(s.Type),
 	}
 }
 
-func (c *Converter) FromValueSpec(s *ast.ValueSpec, constant bool) ir.Stmt {
+func (c *converter) FromValueSpec(s *ast.ValueSpec, constant bool) ir.Stmt {
 	ss := &ir.StmtListStmt{}
 	for i, n := range s.Names {
 		v := &ir.ValueDecl{
