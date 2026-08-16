@@ -63,7 +63,6 @@ func parsePackage(inputFiles, extraFiles map[string]string) (*packages.Package, 
 	if len(pkgErrors) > 0 {
 		return nil, errors.Join(pkgErrors...)
 	}
-
 	if len(pkgs) != 1 {
 		return nil, fmt.Errorf(`Expected exactly one root package but got %d`, len(pkgs))
 	}
@@ -83,11 +82,9 @@ func checkFile(t *testing.T, input, expected string) {
 	if err != nil {
 		t.Errorf(`Failed to convert package: %v`, err)
 		return
-
 	}
 
 	result := p.String()
-
 	exp := slices.Collect(strings.Lines(expected))
 	got := slices.Collect(strings.Lines(result))
 	if diff := cmp.Diff(exp, got); len(diff) > 0 {

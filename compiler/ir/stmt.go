@@ -8,5 +8,3 @@ type Stmt interface {
 	// StmtNode is an empty method used for duck-typing statements.
 	StmtNode()
 }
-
-var _ Node = (Stmt)(nil)

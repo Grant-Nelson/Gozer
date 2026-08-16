@@ -25,16 +25,6 @@ type FuncDecl struct {
 	// specifically designed for the schedular to call.
 	Atomic bool
 
-	// Name of the function.
-	//
-	// The function name is unique per package if it has no receiver
-	// and is not `init`. If the function has a receiver (a method) then
-	// the function name is unique per receiver type.
-	Name string
-
-	// NamePos is the position of the function name.
-	NamePos token.Pos
-
 	FuncObj *types.Func
 
 	// Func is the function definition.
@@ -50,16 +40,12 @@ var (
 func (*FuncDecl) StmtNode() {}
 func (*FuncDecl) DeclNode() {}
 
-func (fn *FuncDecl) Pos() token.Pos       { return fn.NamePos }
+func (fn *FuncDecl) Pos() token.Pos       { return fn.FuncObj.Pos() }
 func (fn *FuncDecl) Type() types.Type     { return fn.Func.Signature }
 func (fn *FuncDecl) Object() types.Object { return fn.FuncObj }
 
 func (fn *FuncDecl) String() string {
-	name := ``
-	if len(fn.Name) > 0 {
-		name = fn.Name + ` `
-	}
-	return `func ` + name + toString(fn.Func)
+	return `func ` + fn.FuncObj.FullName() + toString(fn.Func)
 }
 
 func (fn *FuncDecl) Children(yield func(Node) bool) {

@@ -2,7 +2,6 @@ package ir
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/branchKind"
@@ -11,23 +10,35 @@ import (
 // BranchStmt is a node that represents a break, continue, goto,
 // or fallthrough statement.
 type BranchStmt struct {
-	TokPos token.Pos             // TokPos is the position of token for the branch kind.
-	Kind   branchKind.BranchKind // Tok is the kind of the branch.
-	Label  *ast.Ident            // TODO: REPLACE // label name; or nil
+	// TokPos is the position of token for the branch kind.
+	TokPos token.Pos
+
+	// Tok is the kind of the branch.
+	Kind branchKind.BranchKind
+
+	// Label is the optional label to jump with or nil.
+	Label *LabeledStmt
 }
 
 var (
 	_ Stmt     = (*BranchStmt)(nil)
+	_ Ref      = (*BranchStmt)(nil)
 	_ FlowCtrl = (*BranchStmt)(nil)
 	_ Parent   = (*BranchStmt)(nil)
 )
 
-func (n *BranchStmt) String() string { return fmt.Sprintf(`%s %v`, n.Kind.String(), n.Label) }
-
-func (n *BranchStmt) Pos() token.Pos { return n.TokPos }
-
 func (*BranchStmt) StmtNode()     {}
 func (*BranchStmt) FlowCtrlNode() {}
+
+func (n *BranchStmt) Pos() token.Pos { return n.TokPos }
+func (n *BranchStmt) Decl() Decl     { return n.Label }
+
+func (n *BranchStmt) String() string {
+	if n.Label == nil {
+		return fmt.Sprintf(`%s`, n.Kind.String())
+	}
+	return n.Kind.String() + ` ` + toString(n.Label)
+}
 
 func (n *BranchStmt) Children(yield func(Node) bool) {
 	_ = yield(n.Label)

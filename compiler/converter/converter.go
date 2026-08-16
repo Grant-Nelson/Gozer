@@ -46,6 +46,8 @@ type converter struct {
 	Source  *packages.Package
 	Errors  *faults.ErrGroup
 	Package *ir.Package
+	Decls   map[*ast.Ident]ir.Decl
+	Refs    map[*ast.Ident]ir.Ref
 }
 
 func (c *converter) pos(p token.Pos) string {
@@ -63,17 +65,58 @@ func (c *converter) addFault(f *faults.Fault) {
 
 func (c *converter) PrepareDecls() {
 	for id, def := range c.Source.TypesInfo.Defs {
-		c.prepareDeclDefs(id, def)
+		c.prepareDef(id, def)
+	}
+	for id, def := range c.Source.TypesInfo.Uses {
+		c.prepareUse(id, def)
 	}
 
 	// TODO: Implement
-
 }
 
-func (c *converter) prepareDeclDefs(id *ast.Ident, def types.Object) {
+func (c *converter) prepareDef(id *ast.Ident, def types.Object) {
+	switch def := def.(type) {
+	case *types.TypeName:
+		c.Decls[id] = &ir.TypeDecl{TypeObj: def}
+	case *types.Const:
+		c.Decls[id] = &ir.ConstDecl{ConstObj: def}
+	case *types.Var:
+		c.Decls[id] = &ir.VarDecl{VarObj: def}
+	case *types.Func:
+		c.Decls[id] = &ir.FuncDecl{FuncObj: def}
+	case *types.Label:
+		c.Decls[id] = &ir.LabeledStmt{LabelObj: def}
+	default:
+		c.addFault(faults.New(`unexpected Def Object`).
+			With(`id`, def.Name()).
+			WithF(`type`, `%T`, def).
+			With(`pos`, c.pos(def.Pos())))
+	}
+}
 
-	// TODO: Implement
-
+func (c *converter) prepareUse(id *ast.Ident, def types.Object) {
+	switch def := def.(type) {
+	//case *types.PkgName: // TODO: Finish
+	/*
+		case *types.TypeName:
+			c.Refs[id] = &ir.TypeDecl{TypeObj: def}
+		case *types.Const:
+			c.Refs[id] = &ir.ConstDecl{ConstObj: def}
+		case *types.Var:
+			c.Refs[id] = &ir.VarDecl{VarObj: def}
+		case *c.Refs[id] =.Func:
+			return &ir.FuncDecl{FuncObj: def}
+		//case *types.Label:   // TODO: Finish
+		//case *types.Builtin: // TODO: Finish
+	*/
+	case *types.Nil:
+		c.Decls[id] = &ir.NilType{Obj: def}
+	default:
+		c.addFault(faults.New(`unexpected Use Object`).
+			With(`id`, def.Name()).
+			WithF(`type`, `%T`, def).
+			With(`pos`, c.pos(def.Pos())))
+	}
 }
 
 func (c *converter) PopulateDecls() {

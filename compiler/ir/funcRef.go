@@ -32,4 +32,4 @@ func (*FuncRef) RefNode()  {}
 func (n *FuncRef) Pos() token.Pos   { return n.RefPos }
 func (n *FuncRef) Type() types.Type { return n.Instance }
 func (n *FuncRef) Decl() Decl       { return n.FuncDecl }
-func (n *FuncRef) String() string   { return n.FuncDecl.Name }
+func (n *FuncRef) String() string   { return n.Instance.String() }

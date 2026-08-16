@@ -84,6 +84,30 @@ func (c *converter) FromExpr(e ast.Expr) ir.Expr {
 	}
 }
 
+func (c *converter) FromIdent(e *ast.Ident) ir.Expr {
+	if e == nil {
+		return nil
+	}
+	id := &ir.Ident{
+		NamePos: e.NamePos,
+		Name:    e.Name,
+	}
+	info := c.Source.TypesInfo
+	if tv, ok := info.Types[e]; ok {
+		id.TypeAndValue = &tv
+	}
+	if in, ok := info.Instances[e]; ok {
+		id.Instance = &in
+	}
+	if ds, ok := info.Defs[e]; ok {
+		id.Def = ds
+	}
+	if us, ok := info.Uses[e]; ok {
+		id.Use = us
+	}
+	return id
+}
+
 func (c *converter) FromEllipsis(e *ast.Ellipsis) ir.Expr {
 	if e == nil {
 		return nil
@@ -111,7 +135,9 @@ func (c *converter) FromFuncLit(astFunc *ast.FuncLit) *ir.FuncLit {
 		Signature: c.exprTypes(astFunc).Type,
 	}
 	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
-	return fn
+	return &ir.FuncLit{
+		Func: fn,
+	}
 }
 
 func (c *converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
