@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -157,27 +158,118 @@ func (c *converter) prepareUseImport(id *ast.Ident, def *types.PkgName) {
 }
 
 func (c *converter) prepareUseType(id *ast.Ident, def *types.TypeName) {
-	c.Refs[id] = &ir.TypeRef{TypeObj: def}
+	decl, ok := c.Decls[id]
+	if !ok {
+		// TODO: Determine what to do for externally defined types if that's a problem
+		panic(fmt.Errorf(`failed to find decl for %s at %s`, id.Name, id.Pos()))
+	}
+	td, ok := decl.(*ir.TypeDecl)
+	if !ok {
+		// TODO: Update
+		panic(fmt.Errorf(`failed to cast to type decl for %s at %s: %v`, id.Name, id.Pos(), decl))
+	}
+
+	tr := &ir.TypeRef{
+		RefPos:   id.Pos(),
+		TypeDecl: td,
+	}
+	if inst, ok := c.Source.TypesInfo.Instances[id]; ok {
+		count := inst.TypeArgs.Len()
+		typeArgs := make([]types.Type, count)
+		for i := range count {
+			typeArgs[i] = inst.TypeArgs.At(i)
+		}
+		tr.TypeArgs = typeArgs
+		tr.Instance = inst.Type
+	}
+	c.Refs[id] = tr
 }
 
 func (c *converter) prepareUseConst(id *ast.Ident, def *types.Const) {
-	c.Refs[id] = &ir.ConstDecl{ConstObj: def}
+	decl, ok := c.Decls[id]
+	if !ok {
+		// TODO: Determine what to do for externally defined const if that's a problem
+		panic(fmt.Errorf(`failed to find decl for %s at %s`, id.Name, id.Pos()))
+	}
+	cd, ok := decl.(*ir.ConstDecl)
+	if !ok {
+		// TODO: Update
+		panic(fmt.Errorf(`failed to cast to const decl for %s at %s: %v`, id.Name, id.Pos(), decl))
+	}
+
+	c.Refs[id] = &ir.ConstRef{
+		RefPos:    id.Pos(),
+		ConstDecl: cd,
+	}
 }
 
 func (c *converter) prepareUseVar(id *ast.Ident, def *types.Var) {
-	c.Refs[id] = &ir.VarDecl{VarObj: def}
+	decl, ok := c.Decls[id]
+	if !ok {
+		// TODO: Determine what to do for externally defined var if that's a problem
+		panic(fmt.Errorf(`failed to find decl for %s at %s`, id.Name, id.Pos()))
+	}
+	vd, ok := decl.(*ir.VarDecl)
+	if !ok {
+		// TODO: Update
+		panic(fmt.Errorf(`failed to cast to var decl for %s at %s: %v`, id.Name, id.Pos(), decl))
+	}
+
+	c.Refs[id] = &ir.VarRef{
+		RefPos:  id.Pos(),
+		VarDecl: vd,
+	}
 }
 
 func (c *converter) prepareUseFunc(id *ast.Ident, def *types.Func) {
-	c.Refs[id] = &ir.FuncDecl{FuncObj: def}
+	decl, ok := c.Decls[id]
+	if !ok {
+		// TODO: Determine what to do for externally defined func if that's a problem
+		panic(fmt.Errorf(`failed to find decl for %s at %s`, id.Name, id.Pos()))
+	}
+	fd, ok := decl.(*ir.FuncDecl)
+	if !ok {
+		// TODO: Update
+		panic(fmt.Errorf(`failed to cast to func decl for %s at %s: %v`, id.Name, id.Pos(), decl))
+	}
+
+	fr := &ir.FuncRef{
+		RefPos:   id.Pos(),
+		FuncDecl: fd,
+	}
+	if inst, ok := c.Source.TypesInfo.Instances[id]; ok {
+		count := inst.TypeArgs.Len()
+		typeArgs := make([]types.Type, count)
+		for i := range count {
+			typeArgs[i] = inst.TypeArgs.At(i)
+		}
+		fr.TypeArgs = typeArgs
+		fr.Instance = inst.Type
+	}
+	c.Refs[id] = fr
 }
 
 func (c *converter) prepareUseLabel(id *ast.Ident, def *types.Label) {
-	c.Refs[id] = &ir.FuncDecl{FuncObj: def}
+	decl, ok := c.Decls[id]
+	if !ok {
+		// TODO: Update, the label must be local
+		panic(fmt.Errorf(`failed to find decl for %s at %s`, id.Name, id.Pos()))
+	}
+	ld, ok := decl.(*ir.LabeledStmt)
+	if !ok {
+		// TODO: Update
+		panic(fmt.Errorf(`failed to cast to label decl for %s at %s: %v`, id.Name, id.Pos(), decl))
+	}
+
+	c.Refs[id] = &ir.BranchStmt{
+		TokPos: id.Pos(),
+		Label:  ld,
+	}
 }
 
 func (c *converter) prepareUseBuiltin(id *ast.Ident, def *types.Builtin) {
-	c.Refs[id] = &ir.FuncDecl{FuncObj: def}
+	// TODO: Implement
+	//c.Refs[id] = &ir.FuncDecl{FuncObj: def}
 }
 
 func (c *converter) PopulateDecls() {
