@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/branchKind"
 )
@@ -17,7 +18,7 @@ type BranchStmt struct {
 	Kind branchKind.BranchKind
 
 	// Label is the optional label to jump with or nil.
-	Label *LabeledStmt
+	Label *types.Label
 }
 
 var (
@@ -28,10 +29,12 @@ var (
 )
 
 func (*BranchStmt) StmtNode()     {}
+func (*BranchStmt) RefNode()      {}
 func (*BranchStmt) FlowCtrlNode() {}
 
-func (n *BranchStmt) Pos() token.Pos { return n.TokPos }
-func (n *BranchStmt) Decl() Decl     { return n.Label }
+func (n *BranchStmt) Pos() token.Pos       { return n.TokPos }
+func (n *BranchStmt) Type() types.Type     { return n.Label.Type() }
+func (n *BranchStmt) Object() types.Object { return n.Label }
 
 func (n *BranchStmt) String() string {
 	if n.Label == nil {

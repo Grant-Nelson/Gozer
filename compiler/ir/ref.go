@@ -1,7 +1,13 @@
 package ir
 
+import "go/types"
+
 type Ref interface {
 	Node
 
-	Decl() Decl
+	RefNode()
+
+	Type() types.Type
+
+	Object() types.Object
 }

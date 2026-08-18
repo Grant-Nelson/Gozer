@@ -8,7 +8,7 @@ import (
 type TypeRef struct {
 	RefPos token.Pos
 
-	TypeDecl *TypeDecl
+	TypeObj *types.TypeName
 
 	TypeArgs []types.Type
 
@@ -26,7 +26,7 @@ var (
 func (*TypeRef) ExprNode() {}
 func (*TypeRef) RefNode()  {}
 
-func (n *TypeRef) Pos() token.Pos   { return n.RefPos }
-func (n *TypeRef) Type() types.Type { return n.Instance }
-func (n *TypeRef) Decl() Decl       { return n.TypeDecl }
-func (n *TypeRef) String() string   { return n.Instance.String() }
+func (n *TypeRef) Pos() token.Pos       { return n.RefPos }
+func (n *TypeRef) Type() types.Type     { return n.Instance }
+func (n *TypeRef) Object() types.Object { return n.TypeObj }
+func (n *TypeRef) String() string       { return n.Instance.String() }

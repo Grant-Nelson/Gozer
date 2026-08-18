@@ -7,8 +7,7 @@ import (
 
 type VarRef struct {
 	RefPos token.Pos
-
-	VarDecl *VarDecl
+	VarObj *types.Var
 }
 
 var (
@@ -19,7 +18,7 @@ var (
 func (*VarRef) ExprNode() {}
 func (*VarRef) RefNode()  {}
 
-func (n *VarRef) Pos() token.Pos   { return n.RefPos }
-func (n *VarRef) Type() types.Type { return n.VarDecl.Type() }
-func (n *VarRef) Decl() Decl       { return n.VarDecl }
-func (n *VarRef) String() string   { return `ref ` + n.VarDecl.String() }
+func (n *VarRef) Pos() token.Pos       { return n.RefPos }
+func (n *VarRef) Type() types.Type     { return n.VarObj.Type() }
+func (n *VarRef) Object() types.Object { return n.VarObj }
+func (n *VarRef) String() string       { return `ref ` + n.VarObj.String() }

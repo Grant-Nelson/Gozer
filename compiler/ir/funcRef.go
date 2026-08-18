@@ -10,8 +10,7 @@ type FuncRef struct {
 	// RefPos is the identifier position
 	RefPos token.Pos
 
-	// Func is the function declaration being referenced.
-	FuncDecl *FuncDecl
+	FuncObj *types.Func
 
 	TypeArgs []types.Type
 
@@ -29,7 +28,7 @@ var (
 func (*FuncRef) ExprNode() {}
 func (*FuncRef) RefNode()  {}
 
-func (n *FuncRef) Pos() token.Pos   { return n.RefPos }
-func (n *FuncRef) Type() types.Type { return n.Instance }
-func (n *FuncRef) Decl() Decl       { return n.FuncDecl }
-func (n *FuncRef) String() string   { return n.Instance.String() }
+func (n *FuncRef) Pos() token.Pos       { return n.RefPos }
+func (n *FuncRef) Type() types.Type     { return n.Instance }
+func (n *FuncRef) Object() types.Object { return n.FuncObj }
+func (n *FuncRef) String() string       { return n.Instance.String() }

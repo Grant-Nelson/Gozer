@@ -21,7 +21,7 @@ type Package struct {
 	Sizes types.Sizes
 
 	// Imports are the packages that are imported by this package.
-	Imports []*Package
+	Imports map[string]*ImportDecl
 
 	// Types is the collection of types for this package.
 	Types []*TypeDecl
@@ -46,6 +46,8 @@ func (p *Package) String() string {
 	if len(p.Path) > 0 && p.Path != `command-line-arguments` {
 		result += indentStr + `Path: ` + p.Path + nlStr
 	}
+
+	// TODO: Add Imports
 	if len(p.Types) > 0 {
 		result += indentStr + `Types:` + indentInner(bodyString(p.Types)) + nlStr
 	}
