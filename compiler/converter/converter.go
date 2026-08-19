@@ -3,6 +3,7 @@ package converter
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/packages"
 
@@ -27,10 +28,11 @@ func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Pac
 
 	c := &converter{
 		FileSet: pkg.Fset,
+		Info:    pkg.TypesInfo,
 		Errors:  errGroup,
 		Package: p,
 	}
-	c.Convert(pkg)
+	c.FromPackage(pkg)
 	return p, nil
 }
 
@@ -41,6 +43,7 @@ const (
 
 type converter struct {
 	FileSet *token.FileSet
+	Info    *types.Info
 	Errors  *faults.ErrGroup
 	Package *ir.Package
 }
@@ -58,27 +61,10 @@ func (c *converter) addFault(f *faults.Fault) {
 	}
 }
 
-func (c *converter) Convert(pkg *packages.Package) {
+func (c *converter) FromPackage(pkg *packages.Package) {
 	for _, f := range pkg.Syntax {
-		for _, s := range c.ExpandStmt(c.FromFile(f)) {
-			switch d := s.(type) {
-			case *ir.TypeStmt:
-				c.Package.Types = append(c.Package.Types, d)
-			case *ir.ValueDecl:
-				if d.Constant {
-					c.Package.Consts = append(c.Package.Consts, d)
-				} else {
-					c.Package.Vars = append(c.Package.Vars, d)
-				}
-			case *ir.Func:
-				p.Funcs = append(p.Funcs, d)
-			default:
-				c.addFault(faults.New(`unexpected AST package-level node type`).
-					With(`package`, c.Source.PkgPath).
-					WithF(`type`, `%T`, d).
-					With(`pos`, c.pos(d.Pos())))
-			}
-		}
+		// With package set to `c` the nodes will be set correctly.
+		c.FromFile(f)
 	}
 }
 
@@ -142,7 +128,11 @@ func (c *converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 		case *ast.ImportSpec:
 			// Ignore
 		case *ast.ValueSpec:
-			ss.Add(c.FromValueSpec(s, constant))
+			if constant {
+				ss.Add(c.FromConstSpec(s))
+			} else {
+				ss.Add(c.FromVarSpec(s))
+			}
 		case *ast.TypeSpec:
 			ss.Add(c.FromTypeSpec(s))
 		default:
@@ -154,25 +144,82 @@ func (c *converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 	return c.SimplifyStmt(ss)
 }
 
-func (c *converter) FromTypeSpec(s *ast.TypeSpec) ir.Stmt {
-	return &ir.TypeDecl{
-		Name:         s.Name.Name,
-		NamePos:      s.Name.NamePos,
-		TypeAndValue: c.exprTypes(s.Type),
+func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDecl {
+	obj, ok := c.Info.Defs[s.Name]
+	if !ok {
+		c.addFault(faults.New(`expected a def for a TypeSpec to exist`).
+			With(`pos`, c.pos(s.Pos())).
+			With(`id`, s.Name.Name))
 	}
+
+	typ, ok := obj.(*types.TypeName)
+	if !ok {
+		c.addFault(faults.New(`expected the object for the TypeSpec to be a TypeName`).
+			WithF(`type`, `%T`, obj).
+			With(`pos`, c.pos(s.Pos())).
+			With(`id`, s.Name.Name))
+	}
+
+	td := &ir.TypeDecl{TypeObj: typ}
+	if c.Package != nil {
+		c.Package.Types = append(c.Package.Types, td)
+	}
+	return td
 }
 
-func (c *converter) FromValueSpec(s *ast.ValueSpec, constant bool) ir.Stmt {
+func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
+	ss := &ir.StmtListStmt{}
+	for _, n := range s.Names {
+		obj, ok := c.Info.Defs[n]
+		if !ok {
+			c.addFault(faults.New(`expected a def for a constant ValueSpec to exist`).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
+		}
+
+		tc, ok := obj.(*types.Const)
+		if !ok {
+			c.addFault(faults.New(`expected the object for the constant ValueSpec to be a Const`).
+				WithF(`type`, `%T`, obj).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
+		}
+
+		cd := &ir.ConstDecl{ConstObj: tc}
+		if c.Package != nil {
+			c.Package.Consts = append(c.Package.Consts, cd)
+		}
+		ss.Add(cd)
+	}
+	return c.SimplifyStmt(ss)
+}
+
+func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 	ss := &ir.StmtListStmt{}
 	for i, n := range s.Names {
-		v := &ir.ValueDecl{
-			Constant: constant,
-			Name:     c.FromIdent(n),
+		obj, ok := c.Info.Defs[n]
+		if !ok {
+			c.addFault(faults.New(`expected a def for a variable ValueSpec to exist`).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
 		}
+
+		tv, ok := obj.(*types.Var)
+		if !ok {
+			c.addFault(faults.New(`expected the object for the variable TypeSpec to be a Var`).
+				WithF(`type`, `%T`, obj).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
+		}
+
+		vd := &ir.VarDecl{VarObj: tv}
 		if len(s.Values) > i {
-			v.Value = c.FromExpr(s.Values[i])
+			vd.Value = c.FromExpr(s.Values[i])
 		}
-		ss.Add(v)
+		if c.Package != nil {
+			c.Package.Vars = append(c.Package.Vars, vd)
+		}
+		ss.Add(vd)
 	}
 	return c.SimplifyStmt(ss)
 }

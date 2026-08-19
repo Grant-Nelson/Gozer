@@ -10,7 +10,7 @@ import (
 )
 
 func (c *converter) exprTypes(e ast.Expr) *types.TypeAndValue {
-	tv, ok := c.Source.TypesInfo.Types[e]
+	tv, ok := c.Info.Types[e]
 	if !ok {
 		c.addFault(faults.New(`failed to get expression type`).
 			WithF(`expr`, `%T`, e).
@@ -88,24 +88,46 @@ func (c *converter) FromIdent(e *ast.Ident) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	id := &ir.Ident{
-		NamePos: e.NamePos,
-		Name:    e.Name,
+	obj, ok := c.Info.Uses[e]
+	if !ok {
+		c.addFault(faults.New(`expected a Uses for a naked identifier`).
+			With(`id`, e.Name).
+			With(`pos`, c.pos(e.Pos())))
+		return nil
 	}
-	info := c.Source.TypesInfo
-	if tv, ok := info.Types[e]; ok {
-		id.TypeAndValue = &tv
+
+	switch obj := obj.(type) {
+	case *types.PkgName:
+		pkgPath := obj.Pkg().Path()
+		var imp *ir.ImportDecl
+		if c.Package != nil {
+			imp = c.Package.Imports[pkgPath]
+		}
+		if imp == nil {
+			imp = &ir.ImportDecl{PkgObj: obj}
+			if c.Package != nil {
+				c.Package.Imports[pkgPath] = imp
+			}
+		}
+		return &ir.ImportRef{
+			RefPos:     e.NamePos,
+			ImportDecl: imp,
+		}
+	case *types.TypeName:
+	case *types.Const:
+	case *types.Var:
+	case *types.Func:
+	case *types.Label:
+	case *types.Builtin:
+	case *types.Nil:
+	default:
+		c.addFault(faults.New(`unexpected Use object for a naked identifier in an expression`).
+			With(`id`, e.Name).
+			With(`pos`, c.pos(e.Pos())).
+			WithF(`type`, `%T`, obj).
+			With(`object`, obj))
+		return nil
 	}
-	if in, ok := info.Instances[e]; ok {
-		id.Instance = &in
-	}
-	if ds, ok := info.Defs[e]; ok {
-		id.Def = ds
-	}
-	if us, ok := info.Uses[e]; ok {
-		id.Use = us
-	}
-	return id
 }
 
 func (c *converter) FromEllipsis(e *ast.Ellipsis) ir.Expr {
