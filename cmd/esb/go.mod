@@ -1,6 +1,6 @@
 module github.com/Grant-Nelson/Gozer/cmd/esb
 
-go 1.26.0
+go 1.27.0
 
 require (
 	github.com/Grant-Nelson/Gozer v0.0.0-00010101000000-000000000000
