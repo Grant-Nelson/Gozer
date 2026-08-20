@@ -3,6 +3,7 @@ package converter
 import (
 	"go/ast"
 	"go/types"
+	"slices"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
@@ -114,12 +115,42 @@ func (c *converter) FromIdent(e *ast.Ident) ir.Expr {
 			ImportDecl: imp,
 		}
 	case *types.TypeName:
+		tr := &ir.TypeRef{
+			RefPos:  e.NamePos,
+			TypeObj: obj,
+		}
+		if inst, ok := c.Info.Instances[e]; ok {
+			tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
+			tr.Instance = inst.Type
+		}
+		return tr
 	case *types.Const:
+		return &ir.ConstRef{
+			RefPos:   e.NamePos,
+			ConstObj: obj,
+		}
 	case *types.Var:
+		return &ir.VarRef{
+			RefPos: e.NamePos,
+			VarObj: obj,
+		}
 	case *types.Func:
-	case *types.Label:
+		tr := &ir.FuncRef{
+			RefPos:  e.NamePos,
+			FuncObj: obj,
+		}
+		if inst, ok := c.Info.Instances[e]; ok {
+			tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
+			tr.Instance = inst.Type
+		}
+		return tr
 	case *types.Builtin:
+		return &ir.BuiltinRef{
+			RefPos:  e.NamePos,
+			Builtin: obj,
+		}
 	case *types.Nil:
+		return &ir.NilType{Obj: obj}
 	default:
 		c.addFault(faults.New(`unexpected Use object for a naked identifier in an expression`).
 			With(`id`, e.Name).

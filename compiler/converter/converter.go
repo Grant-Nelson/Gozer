@@ -8,6 +8,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/assert"
+	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
@@ -222,4 +223,49 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 		ss.Add(vd)
 	}
 	return c.SimplifyStmt(ss)
+}
+
+func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
+	if astFunc == nil {
+		return nil
+	}
+
+	obj, ok := c.Info.Defs[astFunc.Name]
+	if !ok {
+		c.addFault(faults.From(`expected a def object for a function declaration`).
+			With(`label`, astFunc.Name).
+			With(`pos`, c.pos(astFunc.Pos())))
+	}
+
+	fnObj, ok := obj.(*types.Func)
+	if !ok {
+		c.addFault(faults.From(`unexpected object type for a function declaration`).
+			With(`object`, obj).
+			WithF(`type`, `%T`, obj).
+			With(`pos`, c.pos(astFunc.Pos())))
+	}
+
+	fn := &ir.FuncDecl{
+		FuncObj: fnObj,
+		Func: &ir.Func{
+			FuncPos:   astFunc.Type.Func,
+			Signature: c.exprTypes(astFunc.Name).Type,
+		},
+	}
+	c.setInitialBlock(fn.Func, astFunc.Body, astFunc.Type)
+
+	if astFunc.Doc != nil {
+		dv := astTools.Directives(astFunc.Doc.List, directiveGroup)
+		if s, ok := dv[directiveAtomicFunc]; ok {
+			// The atomic directive should have no fields.
+			// Any fields will be ignored (if asserts are off).
+			assert.EmptySlice(s)
+			fn.Atomic = true
+		}
+	}
+
+	if c.Package != nil {
+		c.Package.Funcs = append(c.Package.Funcs, fn)
+	}
+	return fn
 }

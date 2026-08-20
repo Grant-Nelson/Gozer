@@ -3,9 +3,8 @@ package converter
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 
-	"github.com/Grant-Nelson/Gozer/avail/assert"
-	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
@@ -139,11 +138,22 @@ func (c *converter) FromBranchStmt(s *ast.BranchStmt) *ir.BranchStmt {
 	if s == nil {
 		return nil
 	}
-	return &ir.BranchStmt{
+	bs := &ir.BranchStmt{
 		TokPos: s.TokPos,
 		Kind:   c.FromBranchToken(s.Tok, s.TokPos),
-		Label:  s.Label,
 	}
+	if obj, ok := c.Info.Uses[s.Label]; ok {
+		lbl, ok := obj.(*types.Label)
+		if !ok {
+			c.addFault(faults.From(`unexpected object type for a branch label`).
+				With(`token`, s.Tok).
+				With(`object`, obj).
+				WithF(`type`, `%T`, obj).
+				With(`pos`, c.pos(s.Pos())))
+		}
+		bs.Label = lbl
+	}
+	return bs
 }
 
 func (c *converter) FromCaseClause(s *ast.CaseClause) *ir.CaseClause {
@@ -291,10 +301,25 @@ func (c *converter) FromLabeledStmt(s *ast.LabeledStmt) *ir.LabeledStmt {
 	if s == nil {
 		return nil
 	}
+
+	obj, ok := c.Info.Defs[s.Label]
+	if !ok {
+		c.addFault(faults.From(`expected a def object for a label statement`).
+			With(`label`, s.Label.Name).
+			With(`pos`, c.pos(s.Pos())))
+	}
+
+	lbl, ok := obj.(*types.Label)
+	if !ok {
+		c.addFault(faults.From(`unexpected object type for a branch label`).
+			With(`object`, obj).
+			WithF(`type`, `%T`, obj).
+			With(`pos`, c.pos(s.Pos())))
+	}
+
 	return &ir.LabeledStmt{
-		Name:    s.Label.Name,
-		NamePos: s.Label.Pos(),
-		Stmt:    c.FromStmt(s.Stmt),
+		LabelObj: lbl,
+		Stmt:     c.FromStmt(s.Stmt),
 	}
 }
 
@@ -374,32 +399,6 @@ func (c *converter) FromTypeSwitchStmt(s *ast.TypeSwitchStmt) *ir.TypeSwitchStmt
 		Assign:    c.FromStmt(s.Assign),
 		Body:      c.FromCaseClauseSlice(s.Body),
 	}
-}
-
-func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
-	if astFunc == nil {
-		return nil
-	}
-	fn := &ir.FuncDecl{
-		Name: astFunc.Name.Name,
-		Func: &ir.Func{
-			FuncPos:   astFunc.Type.Func,
-			Signature: c.exprTypes(astFunc.Name).Type,
-		},
-	}
-	c.setInitialBlock(fn.Func, astFunc.Body, astFunc.Type)
-
-	if astFunc.Doc != nil {
-		dv := astTools.Directives(astFunc.Doc.List, directiveGroup)
-		if s, ok := dv[directiveAtomicFunc]; ok {
-			// The atomic directive should have no fields.
-			// Any fields will be ignored (if asserts are off).
-			assert.EmptySlice(s)
-			fn.Atomic = true
-		}
-	}
-
-	return fn
 }
 
 func (c *converter) ExpandParams(ft *ast.FuncType) []*ir.Param {
