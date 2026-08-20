@@ -39,7 +39,7 @@ func (n *BinaryExpr) Type() types.Type { return n.ResultType }
 func (*BinaryExpr) ExprNode() {}
 
 func (n *BinaryExpr) String() string {
-	return fmt.Sprintf(`%s %s %s`, n.X, n.Op, n.Y)
+	return fmt.Sprintf(`(%s)%s(%s)`, n.X, n.Op, n.Y)
 }
 
 func (n *BinaryExpr) Children(yield func(Node) bool) {

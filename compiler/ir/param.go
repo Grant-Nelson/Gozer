@@ -16,13 +16,6 @@ type Param struct {
 	// it was defined in the AST.
 	Name string
 
-	// Expr is the source-level type expression for this parameter.
-	//
-	// May be nil for params synthesized by the blocker for variables
-	// that were defined inside the function body (no source type expression
-	// is available). In that case Type must be set.
-	Expr Expr
-
 	// Type is the resolved type for this parameter.
 	//
 	// Used as a fallback when Expr is nil. The blocker sets this when
@@ -31,9 +24,4 @@ type Param struct {
 	Type types.Type
 }
 
-func (p *Param) String() string {
-	if p.Expr != nil {
-		return p.Name + ` ` + p.Expr.String()
-	}
-	return p.Name + ` ` + p.Type.String()
-}
+func (p *Param) String() string { return p.Name + ` ` + p.Type.String() }

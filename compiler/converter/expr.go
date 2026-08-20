@@ -121,8 +121,10 @@ func (c *converter) FromIdent(e *ast.Ident) ir.Expr {
 			TypeObj: obj,
 		}
 		if inst, ok := c.Info.Instances[e]; ok {
-			tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
 			tr.Instance = inst.Type
+			if inst.TypeArgs != nil {
+				tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
+			}
 		}
 		crumb.DropMsg("%[1]v => (%[2]T) %[2]v => %[3]v", e, obj, tr)
 		return tr

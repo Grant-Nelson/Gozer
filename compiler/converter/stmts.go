@@ -1,7 +1,6 @@
 package converter
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -431,17 +430,8 @@ func (c *converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
 
 			param := &ir.Param{
 				Name: name.Name,
-				Expr: c.FromExpr(field.Type),
 				Type: c.exprTypes(field.Type).Type,
 			}
-
-			fmt.Printf("--------------------\n")
-			fmt.Printf("field.Type: (%[1]T) %[1]v\n", field.Type)
-			fmt.Printf("Param.Name: %v\n", param.Name)
-			fmt.Printf("Param.Expr: %v\n", param.Expr)
-			fmt.Printf("Param.Type: %v\n", param.Type)
-			fmt.Printf("Param: %v\n", param)
-
 			params = append(params, param)
 		}
 	}
