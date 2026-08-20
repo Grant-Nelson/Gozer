@@ -14,7 +14,7 @@ import (
 )
 
 func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Package, err error) {
-	defer errGroup.Recover(&err)
+	//defer errGroup.Recover(&err) // TODO: Uncomment
 	assert.NotNil(pkg)
 	assert.NotNil(pkg.TypesInfo)
 	assert.NotNil(pkg.Fset)
@@ -249,7 +249,7 @@ func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 		FuncObj: fnObj,
 		Func: &ir.Func{
 			FuncPos:   astFunc.Type.Func,
-			Signature: c.exprTypes(astFunc.Name).Type,
+			Signature: fnObj.Signature(),
 		},
 	}
 	c.setInitialBlock(fn.Func, astFunc.Body, astFunc.Type)
@@ -268,4 +268,13 @@ func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 		c.Package.Funcs = append(c.Package.Funcs, fn)
 	}
 	return fn
+}
+
+// setInitialBlock creates an initial block, populate it with current statements, add params.
+// Named return values are appended after input params so they are in scope
+// for the function body just like declared locals.
+func (c *converter) setInitialBlock(fn *ir.Func, fnBody *ast.BlockStmt, fnType *ast.FuncType) *ir.Block {
+	body := c.ExpandStmt(c.FromBlockStmt(fnBody))
+	params := append(c.ExpandParams(fnType), c.ExpandResults(fnType)...)
+	return fn.NewBlock(`initial`, body, params)
 }

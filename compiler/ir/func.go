@@ -15,7 +15,7 @@ type Func struct {
 	FuncPos token.Pos
 
 	// Signature is the type for the signature of the function.
-	Signature types.Type
+	Signature *types.Signature
 
 	// Blocks is the collection of statement blocks for this function.
 	// The first block in this slice is the entry point for this function.

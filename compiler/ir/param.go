@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/types"
-)
+import "go/types"
 
 // Parameter represents a single variable that can be passed into a block.
 type Param struct {
@@ -28,7 +25,7 @@ type Param struct {
 
 	// Type is the resolved type for this parameter.
 	//
-	// Used as a fallback when Type is nil. The blocker sets this when
+	// Used as a fallback when Expr is nil. The blocker sets this when
 	// synthesizing block params for variables defined inside the function
 	// body.
 	Type types.Type
@@ -36,7 +33,7 @@ type Param struct {
 
 func (p *Param) String() string {
 	if p.Expr != nil {
-		return fmt.Sprintf(`%s %s`, p.Name, p.Expr)
+		return p.Name + ` ` + p.Expr.String()
 	}
-	return fmt.Sprintf(`%s %v`, p.Name, p.Type)
+	return p.Name + ` ` + p.Type.String()
 }

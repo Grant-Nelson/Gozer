@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
@@ -123,6 +124,7 @@ func (c *converter) FromIdent(e *ast.Ident) ir.Expr {
 			tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
 			tr.Instance = inst.Type
 		}
+		crumb.DropMsg("%[1]v => (%[2]T) %[2]v => %[3]v", e, obj, tr)
 		return tr
 	case *types.Const:
 		return &ir.ConstRef{
@@ -182,10 +184,11 @@ func (c *converter) FromFuncLit(astFunc *ast.FuncLit) *ir.FuncLit {
 	if astFunc == nil {
 		return nil
 	}
-	pos := astFunc.Type.Func
+	// TODO: Make more robust
+	sig := c.exprTypes(astFunc).Type.(*types.Signature)
 	fn := &ir.Func{
-		FuncPos:   pos,
-		Signature: c.exprTypes(astFunc).Type,
+		FuncPos:   astFunc.Type.Func,
+		Signature: sig,
 	}
 	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
 	return &ir.FuncLit{
@@ -222,8 +225,8 @@ func (c *converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Should determine if this is for a string, slice, or map
-	//       but if it is for generics then it should be an index list.
+	// TODO: Should determine if this is for a string, slice, or map,
+	//       however, if it is for generics then it should be an index list.
 	return &ir.IndexExpr{
 		X:          c.FromExpr(e.X),
 		LeftPos:    e.Lbrack,

@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -427,22 +428,22 @@ func (c *converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
 			if name == nil {
 				continue
 			}
+
 			param := &ir.Param{
 				Name: name.Name,
 				Expr: c.FromExpr(field.Type),
-				Type: c.exprTypes(name).Type,
+				Type: c.exprTypes(field.Type).Type,
 			}
+
+			fmt.Printf("--------------------\n")
+			fmt.Printf("field.Type: (%[1]T) %[1]v\n", field.Type)
+			fmt.Printf("Param.Name: %v\n", param.Name)
+			fmt.Printf("Param.Expr: %v\n", param.Expr)
+			fmt.Printf("Param.Type: %v\n", param.Type)
+			fmt.Printf("Param: %v\n", param)
+
 			params = append(params, param)
 		}
 	}
 	return params
-}
-
-// setInitialBlock creates an initial block, populate it with current statements, add params.
-// Named return values are appended after input params so they are in scope
-// for the function body just like declared locals.
-func (c *converter) setInitialBlock(fn *ir.Func, fnBody *ast.BlockStmt, fnType *ast.FuncType) *ir.Block {
-	body := c.ExpandStmt(c.FromBlockStmt(fnBody))
-	params := append(c.ExpandParams(fnType), c.ExpandResults(fnType)...)
-	return fn.NewBlock(`initial`, body, params)
 }

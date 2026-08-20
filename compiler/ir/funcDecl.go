@@ -3,6 +3,7 @@ package ir
 import (
 	"go/token"
 	"go/types"
+	"strings"
 )
 
 // FuncDecl represents a named function declaration.
@@ -45,7 +46,9 @@ func (fn *FuncDecl) Type() types.Type     { return fn.Func.Signature }
 func (fn *FuncDecl) Object() types.Object { return fn.FuncObj }
 
 func (fn *FuncDecl) String() string {
-	return `func ` + fn.FuncObj.FullName() + toString(fn.Func)
+	name := fn.FuncObj.FullName()
+	name, _ = strings.CutPrefix(name, `command-line-arguments.`)
+	return `func ` + name + ` ` + toString(fn.Func)
 }
 
 func (fn *FuncDecl) Children(yield func(Node) bool) {
