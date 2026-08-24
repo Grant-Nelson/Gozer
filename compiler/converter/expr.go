@@ -5,7 +5,6 @@ import (
 	"go/types"
 	"slices"
 
-	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
@@ -90,15 +89,12 @@ func (c *converter) FromIdent(e *ast.Ident) ir.Expr {
 	if e == nil {
 		return nil
 	}
-
 	if obj, ok := c.Info.Defs[e]; ok {
 		return c.fromIdentDef(e, obj)
 	}
-
 	if obj, ok := c.Info.Uses[e]; ok {
 		return c.fromIdentUses(e, obj)
 	}
-
 	c.addFault(faults.New(`expected a Def or Uses for a naked identifier`).
 		With(`id`, e.Name).
 		With(`pos`, c.pos(e.Pos())))
@@ -110,10 +106,7 @@ func (c *converter) fromIdentDef(e *ast.Ident, obj types.Object) ir.Expr {
 	case nil:
 		return nil
 	case *types.Var:
-		return &ir.VarRef{
-			RefPos: e.NamePos,
-			VarObj: obj,
-		}
+		return c.fromIdentDefVar(e, obj)
 	default:
 		c.addFault(faults.New(`unexpected Def object for a naked identifier in an expression`).
 			With(`id`, e.Name).
@@ -124,64 +117,29 @@ func (c *converter) fromIdentDef(e *ast.Ident, obj types.Object) ir.Expr {
 	}
 }
 
+func (c *converter) fromIdentDefVar(e *ast.Ident, obj *types.Var) ir.Expr {
+	return &ir.VarRef{
+		RefPos: e.NamePos,
+		VarObj: obj,
+	}
+}
+
 func (c *converter) fromIdentUses(e *ast.Ident, obj types.Object) ir.Expr {
 	switch obj := obj.(type) {
 	case *types.PkgName:
-		pkgPath := obj.Pkg().Path()
-		var imp *ir.ImportDecl
-		if c.Imports != nil {
-			imp = c.Imports[pkgPath]
-		}
-		if imp == nil {
-			imp = &ir.ImportDecl{PkgObj: obj}
-			if c.Imports != nil {
-				c.Imports[pkgPath] = imp
-			}
-		}
-		return &ir.ImportRef{
-			RefPos:     e.NamePos,
-			ImportDecl: imp,
-		}
+		return c.fromIdentUsesPkgName(e, obj)
 	case *types.TypeName:
-		tr := &ir.TypeRef{
-			RefPos:  e.NamePos,
-			TypeObj: obj,
-		}
-		if inst, ok := c.Info.Instances[e]; ok {
-			tr.Instance = inst.Type
-			if inst.TypeArgs != nil {
-				tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
-			}
-		}
-		crumb.DropMsg("%[1]v => (%[2]T) %[2]v => %[3]v", e, obj, tr)
-		return tr
+		return c.fromIdentUsesTypeName(e, obj)
 	case *types.Const:
-		return &ir.ConstRef{
-			RefPos:   e.NamePos,
-			ConstObj: obj,
-		}
+		return c.fromIdentUsesConst(e, obj)
 	case *types.Var:
-		return &ir.VarRef{
-			RefPos: e.NamePos,
-			VarObj: obj,
-		}
+		return c.fromIdentUsesVar(e, obj)
 	case *types.Func:
-		tr := &ir.FuncRef{
-			RefPos:  e.NamePos,
-			FuncObj: obj,
-		}
-		if inst, ok := c.Info.Instances[e]; ok {
-			tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
-			tr.Instance = inst.Type
-		}
-		return tr
+		return c.fromIdentUsesFunc(e, obj)
 	case *types.Builtin:
-		return &ir.BuiltinRef{
-			RefPos:  e.NamePos,
-			Builtin: obj,
-		}
+		return c.fromIdentUsesBuiltin(e, obj)
 	case *types.Nil:
-		return &ir.NilType{Obj: obj}
+		return c.fromIdentUsesNil(obj)
 	default:
 		c.addFault(faults.New(`unexpected Use object for a naked identifier in an expression`).
 			With(`id`, e.Name).
@@ -189,6 +147,75 @@ func (c *converter) fromIdentUses(e *ast.Ident, obj types.Object) ir.Expr {
 			WithF(`type`, `%T`, obj).
 			With(`object`, obj))
 		return nil
+	}
+}
+
+func (c *converter) fromIdentUsesPkgName(e *ast.Ident, obj *types.PkgName) ir.Expr {
+	pkgPath := obj.Pkg().Path()
+	var imp *ir.ImportDecl
+	if c.Imports != nil {
+		imp = c.Imports[pkgPath]
+	}
+	if imp == nil {
+		imp = &ir.ImportDecl{PkgObj: obj}
+		if c.Imports != nil {
+			c.Imports[pkgPath] = imp
+		}
+	}
+	return &ir.ImportRef{
+		RefPos:     e.NamePos,
+		ImportDecl: imp,
+	}
+}
+
+func (c *converter) fromIdentUsesTypeName(e *ast.Ident, obj *types.TypeName) ir.Expr {
+	tr := &ir.TypeRef{
+		RefPos:  e.NamePos,
+		TypeObj: obj,
+	}
+	if inst, ok := c.Info.Instances[e]; ok {
+		tr.Instance = inst.Type
+		if inst.TypeArgs != nil {
+			tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
+		}
+	}
+	return tr
+}
+
+func (c *converter) fromIdentUsesConst(e *ast.Ident, obj *types.Const) ir.Expr {
+	return &ir.ConstRef{
+		RefPos:   e.NamePos,
+		ConstObj: obj,
+	}
+}
+
+func (c *converter) fromIdentUsesVar(e *ast.Ident, obj *types.Var) ir.Expr {
+	return &ir.VarRef{
+		RefPos: e.NamePos,
+		VarObj: obj,
+	}
+}
+
+func (c *converter) fromIdentUsesFunc(e *ast.Ident, obj *types.Func) ir.Expr {
+	tr := &ir.FuncRef{
+		RefPos:  e.NamePos,
+		FuncObj: obj,
+	}
+	if inst, ok := c.Info.Instances[e]; ok {
+		tr.TypeArgs = slices.Collect(inst.TypeArgs.Types())
+		tr.Instance = inst.Type
+	}
+	return tr
+}
+
+func (c *converter) fromIdentUsesNil(obj *types.Nil) ir.Expr {
+	return &ir.NilType{Obj: obj}
+}
+
+func (c *converter) fromIdentUsesBuiltin(e *ast.Ident, obj *types.Builtin) ir.Expr {
+	return &ir.BuiltinRef{
+		RefPos:  e.NamePos,
+		Builtin: obj,
 	}
 }
 
@@ -209,25 +236,35 @@ func (c *converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
 	}
 }
 
-func (c *converter) FromFuncLit(astFunc *ast.FuncLit) *ir.FuncLit {
-	if astFunc == nil {
+func (c *converter) FromFuncLit(e *ast.FuncLit) *ir.FuncLit {
+	if e == nil {
 		return nil
 	}
-	// TODO: Make more robust
-	sig := c.exprTypes(astFunc).Type.(*types.Signature)
+	t := c.exprTypes(e).Type
+	sig, ok := t.(*types.Signature)
+	if !ok {
+		c.addFault(faults.New(`expected a signature type for a function lit`).
+			WithF(`type`, `%T`, t).
+			With(`t`, t).
+			With(`pos`, c.pos(e.Pos())))
+	}
 	fn := &ir.Func{
-		FuncPos:   astFunc.Type.Func,
+		FuncPos:   e.Type.Func,
 		Signature: sig,
 	}
-	c.setInitialBlock(fn, astFunc.Body, astFunc.Type)
-	return &ir.FuncLit{
-		Func: fn,
-	}
+	c.setInitialBlock(fn, e.Body, e.Type)
+	return &ir.FuncLit{Func: fn}
 }
 
-func (c *converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeExpr {
-	// TODO: Need to store the initial values
-	return c.FromTypeExpr(e)
+func (c *converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeLit {
+	if e == nil {
+		return nil
+	}
+	return &ir.TypeLit{
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
+		Values:  c.FromExprSlice(e.Elts),
+	}
 }
 
 func (c *converter) FromParenExpr(e *ast.ParenExpr) ir.Expr {
@@ -325,8 +362,8 @@ func (c *converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	tv := c.exprTypes(e)
 	if tv.IsType() {
 		return &ir.TypeExpr{
-			TypePos:      e.Star,
-			TypeAndValue: tv,
+			TypePos: e.Star,
+			TypeRef: tv.Type,
 		}
 	}
 	return &ir.UnaryExpr{
@@ -363,39 +400,71 @@ func (c *converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 }
 
 func (c *converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.TypeExpr {
-	return c.FromTypeExpr(e)
-}
-
-func (c *converter) FromArrayType(e *ast.ArrayType) *ir.TypeExpr {
-	return c.FromTypeExpr(e)
-}
-
-func (c *converter) FromStructType(e *ast.StructType) *ir.TypeExpr {
-	return c.FromTypeExpr(e)
-}
-
-func (c *converter) FromFuncType(e *ast.FuncType) *ir.TypeExpr {
-	return c.FromTypeExpr(e)
-}
-
-func (c *converter) FromInterfaceType(e *ast.InterfaceType) *ir.TypeExpr {
-	return c.FromTypeExpr(e)
-}
-
-func (c *converter) FromMapType(e *ast.MapType) *ir.TypeExpr {
-	return c.FromTypeExpr(e)
-}
-
-func (c *converter) FromChanType(e *ast.ChanType) *ir.TypeExpr {
-	return c.FromTypeExpr(e)
-}
-
-func (c *converter) FromTypeExpr(e ast.Expr) *ir.TypeExpr {
 	if e == nil {
 		return nil
 	}
 	return &ir.TypeExpr{
-		TypePos:      e.Pos(),
-		TypeAndValue: c.exprTypes(e),
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
+	}
+}
+
+func (c *converter) FromArrayType(e *ast.ArrayType) *ir.TypeExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.TypeExpr{
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
+	}
+}
+
+func (c *converter) FromStructType(e *ast.StructType) *ir.TypeExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.TypeExpr{
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
+	}
+}
+
+func (c *converter) FromFuncType(e *ast.FuncType) *ir.TypeExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.TypeExpr{
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
+	}
+}
+
+func (c *converter) FromInterfaceType(e *ast.InterfaceType) *ir.TypeExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.TypeExpr{
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
+	}
+}
+
+func (c *converter) FromMapType(e *ast.MapType) *ir.TypeExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.TypeExpr{
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
+	}
+}
+
+func (c *converter) FromChanType(e *ast.ChanType) *ir.TypeExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.TypeExpr{
+		TypePos: e.Pos(),
+		TypeRef: c.exprTypes(e).Type,
 	}
 }

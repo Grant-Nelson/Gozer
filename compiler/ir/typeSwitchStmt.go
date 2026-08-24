@@ -17,7 +17,7 @@ func (*TypeSwitchStmt) StmtNode() {}
 func (n *TypeSwitchStmt) Pos() token.Pos { return n.SwitchPos }
 
 func (n *TypeSwitchStmt) String() string {
-	return `switch ` + toString(n.Assign) + ` {` + nlStr + linesString(n.Body) + nlStr + `}`
+	return `switch ` + toString(n.Assign) + bodyString(n.Body)
 }
 
 func (n *TypeSwitchStmt) Children(yield func(Node) bool) {

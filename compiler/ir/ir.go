@@ -3,7 +3,9 @@ package ir
 import (
 	"fmt"
 	"go/constant"
+	"regexp"
 	"strings"
+	"sync"
 )
 
 const (
@@ -43,6 +45,21 @@ func bodyString[E any, S ~[]E](body S) string {
 	return ` {` + nlStr + linesString(body) + nlStr + `}`
 }
 
+var wordReg = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^[a-zA-Z0-9_$.]+$`)
+})
+
+func paren(a Expr) string {
+	v := `_`
+	if a != nil {
+		v = toString(a)
+	}
+	if wordReg().MatchString(v) {
+		return v
+	}
+	return `(` + v + `)`
+}
+
 func emptyZeroOrString[T comparable](t T) string {
 	var zero T
 	if t == zero {
@@ -55,6 +72,8 @@ func toString(t any) string {
 	switch t := t.(type) {
 	case nil:
 		return `<nil>`
+	case string:
+		return t
 	case constant.Value:
 		return t.ExactString()
 	case interface{ String() string }:

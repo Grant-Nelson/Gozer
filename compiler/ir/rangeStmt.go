@@ -40,16 +40,12 @@ func (n *RangeStmt) String() string {
 		def = `:=`
 	}
 	head := ``
-	if n.Key != nil {
-		if n.Value != nil {
-			head = toString(n.Key) + `, ` + toString(n.Value) + ` ` + def + ` `
-		} else {
-			head = toString(n.Key) + ` ` + def + ` `
-		}
-	} else if n.Value != nil {
-		head = `_, ` + toString(n.Value) + ` ` + def + ` `
+	if n.Value != nil {
+		head = paren(n.Key) + `, ` + paren(n.Value) + ` ` + def + ` `
+	} else if n.Key != nil {
+		head = paren(n.Key) + ` ` + def + ` `
 	}
-	return `for (` + head + `range ` + toString(n.X) + `)` + bodyString(n.Body)
+	return `for (` + head + `range ` + paren(n.X) + `)` + bodyString(n.Body)
 }
 
 func (n *RangeStmt) Children(yield func(Node) bool) {

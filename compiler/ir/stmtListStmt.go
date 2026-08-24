@@ -1,6 +1,8 @@
 package ir
 
-import "go/token"
+import (
+	"go/token"
+)
 
 // StmtListStmt is a node that represents a braced statement list.
 type StmtListStmt struct {
@@ -21,7 +23,9 @@ func (n *StmtListStmt) Pos() token.Pos {
 	return token.NoPos
 }
 
-func (n *StmtListStmt) String() string { return `{` + nlStr + linesString(n.List) + nlStr + `}` }
+func (n *StmtListStmt) String() string {
+	return bodyString(n.List)
+}
 
 func (n *StmtListStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.List, yield)

@@ -3,6 +3,7 @@ package ir
 import (
 	"go/token"
 	"go/types"
+	"strings"
 )
 
 // FuncDecl represents a named function declaration.
@@ -49,8 +50,9 @@ func (fn *FuncDecl) String() string {
 	if fn.Atomic {
 		flags = `<atomic> `
 	}
-
-	return `func ` + fn.FuncObj.FullName() + ` ` + flags + toString(fn.Func)
+	sig := fn.FuncObj.Signature().String()
+	sig, _ = strings.CutPrefix(sig, `func`)
+	return `func ` + fn.FuncObj.FullName() + ` ` + sig + ` ` + flags + toString(fn.Func)
 }
 
 func (fn *FuncDecl) Children(yield func(Node) bool) {

@@ -32,6 +32,9 @@ var (
 func (fn *Func) Pos() token.Pos { return fn.FuncPos }
 
 func (fn *Func) String() string {
+	if len(fn.Blocks) <= 0 {
+		return `{ }`
+	}
 	return `{` + nlStr + linesString(fn.Blocks) + nlStr + `}`
 }
 

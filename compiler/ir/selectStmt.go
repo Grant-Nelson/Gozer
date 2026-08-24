@@ -18,7 +18,7 @@ func (*SelectStmt) StmtNode() {}
 func (n *SelectStmt) Pos() token.Pos { return n.SelectPos }
 
 func (n *SelectStmt) String() string {
-	return `select {` + nlStr + linesString(n.Body) + nlStr + `}`
+	return `select` + bodyString(n.Body)
 }
 
 func (n *SelectStmt) Children(yield func(Node) bool) {

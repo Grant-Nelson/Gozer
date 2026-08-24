@@ -48,6 +48,7 @@ func (p *Package) String() string {
 	}
 
 	// TODO: Add Imports
+
 	if len(p.Types) > 0 {
 		result += indentStr + `Types:` + indentInner(bodyString(p.Types)) + nlStr
 	}

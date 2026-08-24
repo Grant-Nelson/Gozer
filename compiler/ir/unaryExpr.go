@@ -32,9 +32,6 @@ func (*UnaryExpr) ExprNode() {}
 
 func (n *UnaryExpr) Pos() token.Pos   { return n.OpPos }
 func (n *UnaryExpr) Type() types.Type { return n.ResultType }
-
-func (n *UnaryExpr) String() string {
-	return toString(n.Op) + `(` + toString(n.X) + `)`
-}
+func (n *UnaryExpr) String() string   { return toString(n.Op) + paren(n.X) }
 
 func (n *UnaryExpr) Children(yield func(Node) bool) { _ = yield(n.X) }
