@@ -45,7 +45,12 @@ func (fn *FuncDecl) Type() types.Type     { return fn.Func.Signature }
 func (fn *FuncDecl) Object() types.Object { return fn.FuncObj }
 
 func (fn *FuncDecl) String() string {
-	return `func ` + fn.FuncObj.FullName() + ` ` + toString(fn.Func)
+	flags := ``
+	if fn.Atomic {
+		flags = `<atomic> `
+	}
+
+	return `func ` + fn.FuncObj.FullName() + ` ` + flags + toString(fn.Func)
 }
 
 func (fn *FuncDecl) Children(yield func(Node) bool) {
