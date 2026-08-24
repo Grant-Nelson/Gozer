@@ -46,7 +46,7 @@ func (n *Block) String() string {
 	if len(n.Params) > 0 {
 		parts := make([]string, len(n.Params))
 		for i, p := range n.Params {
-			parts[i] = p.String()
+			parts[i] = toString(p)
 		}
 		params = strings.Join(parts, `, `)
 	}
@@ -54,7 +54,7 @@ func (n *Block) String() string {
 		hint = `<` + n.Hint + `> `
 	}
 	if len(n.Body) > 0 {
-		tail = fmt.Sprintf("\n%s\n", linesString(n.Body))
+		tail = nlStr + linesString(n.Body) + nlStr
 	}
 	return fmt.Sprintf("block %d (%s)%s{%s}", n.Index, params, hint, tail)
 }

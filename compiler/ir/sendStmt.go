@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/token"
-)
+import "go/token"
 
 // SendStmt is a node that represents a send statement.
 type SendStmt struct {
@@ -17,13 +14,13 @@ var (
 	_ Parent = (*SendStmt)(nil)
 )
 
-func (n *SendStmt) String() string {
-	return fmt.Sprintf(`%s<-%s`, n.Chan, n.Value)
-}
+func (*SendStmt) StmtNode() {}
 
 func (n *SendStmt) Pos() token.Pos { return n.ArrowPos }
 
-func (*SendStmt) StmtNode() {}
+func (n *SendStmt) String() string {
+	return toString(n.Chan) + `<-` + toString(n.Value)
+}
 
 func (n *SendStmt) Children(yield func(Node) bool) {
 	_ = yield(n.Chan) && yield(n.Value)

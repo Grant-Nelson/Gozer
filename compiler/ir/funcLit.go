@@ -22,12 +22,10 @@ var (
 	_ Parent = (*FuncLit)(nil)
 )
 
-func (fn *FuncLit) Pos() token.Pos { return fn.Func.Pos() }
-
-func (fn *FuncLit) Type() types.Type { return fn.Func.Signature }
-
 func (fn *FuncLit) ExprNode() {}
 
-func (fn *FuncLit) String() string { return `funcLit ` + fn.Func.String() }
+func (fn *FuncLit) Pos() token.Pos   { return fn.Func.Pos() }
+func (fn *FuncLit) Type() types.Type { return fn.Func.Signature }
+func (fn *FuncLit) String() string   { return `funcLit ` + toString(fn.Func) }
 
 func (fn *FuncLit) Children(yield func(Node) bool) { _ = yield(fn.Func) }

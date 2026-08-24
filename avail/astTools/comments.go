@@ -11,15 +11,13 @@ func Directives(comments []*ast.Comment, prefix string) map[string][]string {
 	result := map[string][]string{}
 	for _, c := range comments {
 		if tail, ok := strings.CutPrefix(c.Text, prefix); ok {
-			var key, value string
 			if i := strings.Index(tail, ` `); i > 0 {
-				key = strings.TrimSpace(tail[:i])
-				value = strings.TrimSpace(tail[i:])
+				key := strings.TrimSpace(tail[:i])
+				value := strings.TrimSpace(tail[i:])
+				result[key] = append(result[key], value)
 			} else {
-				key = tail
-				value = ``
+				result[tail] = result[tail]
 			}
-			result[key] = append(result[key], value)
 		}
 	}
 	return result

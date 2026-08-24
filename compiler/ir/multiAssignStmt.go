@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/token"
-)
+import "go/token"
 
 // MultiAssignStmt is a node that represents an assignment or
 // a short variable declaration.
@@ -29,17 +26,17 @@ var (
 	_ Parent = (*MultiAssignStmt)(nil)
 )
 
+func (*MultiAssignStmt) StmtNode() {}
+
+func (n *MultiAssignStmt) Pos() token.Pos { return n.TokPos }
+
 func (n *MultiAssignStmt) String() string {
 	def := ` = `
 	if n.Define {
 		def = ` := `
 	}
-	return fmt.Sprintf(`%s%s%s`, csvString(n.Lhs), def, csvString(n.Rhs))
+	return csvString(n.Lhs) + def + csvString(n.Rhs)
 }
-
-func (n *MultiAssignStmt) Pos() token.Pos { return n.TokPos }
-
-func (*MultiAssignStmt) StmtNode() {}
 
 func (n *MultiAssignStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Lhs, yield) && YieldSlice(n.Rhs, yield)

@@ -23,12 +23,10 @@ type IndexListExpr struct {
 
 var _ Expr = (*IndexListExpr)(nil)
 
-func (n *IndexListExpr) Pos() token.Pos { return n.LeftPos }
-
+func (n *IndexListExpr) ExprNode()        {}
+func (n *IndexListExpr) Pos() token.Pos   { return n.LeftPos }
 func (n *IndexListExpr) Type() types.Type { return n.ResultType }
 
-func (n *IndexListExpr) ExprNode() {}
-
 func (n *IndexListExpr) String() string {
-	return n.X.String() + `[` + csvString(n.Indices) + `]`
+	return toString(n.X) + `[` + csvString(n.Indices) + `]`
 }

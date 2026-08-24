@@ -20,4 +20,4 @@ func (*TypeDecl) DeclNode() {}
 func (n *TypeDecl) Pos() token.Pos       { return n.TypeObj.Pos() }
 func (n *TypeDecl) Type() types.Type     { return n.TypeObj.Type() }
 func (n *TypeDecl) Object() types.Object { return n.TypeObj }
-func (n *TypeDecl) String() string       { return n.TypeObj.String() }
+func (n *TypeDecl) String() string       { return toString(n.TypeObj) }

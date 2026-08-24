@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/token"
-)
+import "go/token"
 
 // CommClause is a node that represents a case of a select statement.
 type CommClause struct {
@@ -23,20 +20,20 @@ var (
 	_ Parent = (*CommClause)(nil)
 )
 
-func (n *CommClause) String() string {
-	str := `default:`
-	if n.Comm != nil {
-		str = fmt.Sprintf(`case %v:`, n.Comm)
-	}
-	if len(n.Body) > 0 {
-		str += "\n" + linesString(n.Body)
-	}
-	return str
-}
-
 func (*CommClause) StmtNode() {}
 
 func (n *CommClause) Pos() token.Pos { return n.Case }
+
+func (n *CommClause) String() string {
+	str := `default:`
+	if n.Comm != nil {
+		str = `case ` + toString(n.Comm) + `:`
+	}
+	if len(n.Body) > 0 {
+		str += nlStr + linesString(n.Body)
+	}
+	return str
+}
 
 func (n *CommClause) Children(yield func(Node) bool) {
 	_ = yield(n.Comm) && YieldSlice(n.Body, yield)

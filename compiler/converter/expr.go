@@ -90,25 +90,52 @@ func (c *converter) FromIdent(e *ast.Ident) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	obj, ok := c.Info.Uses[e]
-	if !ok {
-		c.addFault(faults.New(`expected a Uses for a naked identifier`).
-			With(`id`, e.Name).
-			With(`pos`, c.pos(e.Pos())))
-		return nil
+
+	if obj, ok := c.Info.Defs[e]; ok {
+		return c.fromIdentDef(e, obj)
 	}
 
+	if obj, ok := c.Info.Uses[e]; ok {
+		return c.fromIdentUses(e, obj)
+	}
+
+	c.addFault(faults.New(`expected a Def or Uses for a naked identifier`).
+		With(`id`, e.Name).
+		With(`pos`, c.pos(e.Pos())))
+	return nil
+}
+
+func (c *converter) fromIdentDef(e *ast.Ident, obj types.Object) ir.Expr {
+	switch obj := obj.(type) {
+	case nil:
+		return nil
+	case *types.Var:
+		return &ir.VarRef{
+			RefPos: e.NamePos,
+			VarObj: obj,
+		}
+	default:
+		c.addFault(faults.New(`unexpected Def object for a naked identifier in an expression`).
+			With(`id`, e.Name).
+			With(`pos`, c.pos(e.Pos())).
+			WithF(`type`, `%T`, obj).
+			With(`object`, obj))
+		return nil
+	}
+}
+
+func (c *converter) fromIdentUses(e *ast.Ident, obj types.Object) ir.Expr {
 	switch obj := obj.(type) {
 	case *types.PkgName:
 		pkgPath := obj.Pkg().Path()
 		var imp *ir.ImportDecl
-		if c.Package != nil {
-			imp = c.Package.Imports[pkgPath]
+		if c.Imports != nil {
+			imp = c.Imports[pkgPath]
 		}
 		if imp == nil {
 			imp = &ir.ImportDecl{PkgObj: obj}
-			if c.Package != nil {
-				c.Package.Imports[pkgPath] = imp
+			if c.Imports != nil {
+				c.Imports[pkgPath] = imp
 			}
 		}
 		return &ir.ImportRef{

@@ -21,4 +21,4 @@ func (*ImportDecl) DeclNode() {}
 func (n *ImportDecl) Pos() token.Pos       { return n.PkgObj.Pos() }
 func (n *ImportDecl) Type() types.Type     { return n.PkgObj.Type() }
 func (n *ImportDecl) Object() types.Object { return n.PkgObj }
-func (n *ImportDecl) String() string       { return `const ` + n.PkgObj.String() }
+func (n *ImportDecl) String() string       { return `import ` + toString(n.PkgObj) }

@@ -17,10 +17,8 @@ type BasicLit struct {
 
 var _ Expr = (*BasicLit)(nil)
 
-func (n *BasicLit) Pos() token.Pos { return n.ValuePos }
-
-func (n *BasicLit) Type() types.Type { return n.TypeAndValue.Type }
-
 func (n *BasicLit) ExprNode() {}
 
-func (n *BasicLit) String() string { return n.TypeAndValue.Value.String() }
+func (n *BasicLit) Pos() token.Pos   { return n.ValuePos }
+func (n *BasicLit) Type() types.Type { return n.TypeAndValue.Type }
+func (n *BasicLit) String() string   { return toString(n.TypeAndValue.Value) }

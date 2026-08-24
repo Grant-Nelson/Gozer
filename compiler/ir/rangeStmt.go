@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/token"
-)
+import "go/token"
 
 // RangeStmt is a node that represents a for statement with a range clause.
 type RangeStmt struct {
@@ -33,6 +30,10 @@ var (
 	_ Parent = (*RangeStmt)(nil)
 )
 
+func (*RangeStmt) StmtNode() {}
+
+func (n *RangeStmt) Pos() token.Pos { return n.ForPos }
+
 func (n *RangeStmt) String() string {
 	def := `=`
 	if n.Define {
@@ -41,19 +42,15 @@ func (n *RangeStmt) String() string {
 	head := ``
 	if n.Key != nil {
 		if n.Value != nil {
-			head = fmt.Sprintf(`%s, %s %s `, toString(n.Key), toString(n.Value), def)
+			head = toString(n.Key) + `, ` + toString(n.Value) + ` ` + def + ` `
 		} else {
-			head = fmt.Sprintf(`%s %s `, toString(n.Key), def)
+			head = toString(n.Key) + ` ` + def + ` `
 		}
 	} else if n.Value != nil {
-		head = fmt.Sprintf(`_, %s %s `, toString(n.Value), def)
+		head = `_, ` + toString(n.Value) + ` ` + def + ` `
 	}
-	return fmt.Sprintf(`for (%srange %s)%s`, head, toString(n.X), bodyString(n.Body))
+	return `for (` + head + `range ` + toString(n.X) + `)` + bodyString(n.Body)
 }
-
-func (n *RangeStmt) Pos() token.Pos { return n.ForPos }
-
-func (*RangeStmt) StmtNode() {}
 
 func (n *RangeStmt) Children(yield func(Node) bool) {
 	_ = yield(n.Key) && yield(n.Value) && yield(n.X) && YieldSlice(n.Body, yield)

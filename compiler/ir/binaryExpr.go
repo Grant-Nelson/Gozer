@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 
@@ -32,14 +31,21 @@ var (
 	_ Parent = (*BinaryExpr)(nil)
 )
 
-func (n *BinaryExpr) Pos() token.Pos { return n.OpPos }
-
-func (n *BinaryExpr) Type() types.Type { return n.ResultType }
-
 func (*BinaryExpr) ExprNode() {}
 
+func (n *BinaryExpr) Pos() token.Pos   { return n.OpPos }
+func (n *BinaryExpr) Type() types.Type { return n.ResultType }
+
 func (n *BinaryExpr) String() string {
-	return fmt.Sprintf(`(%s)%s(%s)`, n.X, n.Op, n.Y)
+	lhs := `_`
+	if n.X != nil {
+		lhs = `(` + toString(n.X) + `)`
+	}
+	rhs := `_`
+	if n.Y != nil {
+		rhs = `(` + toString(n.Y) + `)`
+	}
+	return lhs + toString(n.Op) + rhs
 }
 
 func (n *BinaryExpr) Children(yield func(Node) bool) {

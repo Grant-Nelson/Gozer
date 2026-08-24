@@ -22,4 +22,7 @@ func (*ConstDecl) DeclNode() {}
 func (n *ConstDecl) Pos() token.Pos       { return n.ConstObj.Pos() }
 func (n *ConstDecl) Type() types.Type     { return n.ConstObj.Type() }
 func (n *ConstDecl) Object() types.Object { return n.ConstObj }
-func (n *ConstDecl) String() string       { return `const ` + n.ConstObj.String() }
+
+func (n *ConstDecl) String() string {
+	return toString(n.ConstObj) + ` = ` + toString(n.ConstObj.Val())
+}

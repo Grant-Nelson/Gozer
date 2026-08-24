@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/token"
-)
+import "go/token"
 
 // TypeSwitchStmt is a node that represents a type switch statement.
 type TypeSwitchStmt struct {
@@ -15,13 +12,13 @@ type TypeSwitchStmt struct {
 
 var _ Stmt = (*TypeSwitchStmt)(nil)
 
-func (n *TypeSwitchStmt) String() string {
-	return fmt.Sprintf("switch %v {\n%s\n}", n.Assign, linesString(n.Body))
-}
+func (*TypeSwitchStmt) StmtNode() {}
 
 func (n *TypeSwitchStmt) Pos() token.Pos { return n.SwitchPos }
 
-func (*TypeSwitchStmt) StmtNode() {}
+func (n *TypeSwitchStmt) String() string {
+	return `switch ` + toString(n.Assign) + ` {` + nlStr + linesString(n.Body) + nlStr + `}`
+}
 
 func (n *TypeSwitchStmt) Children(yield func(Node) bool) {
 	_ = yield(n.Init) && yield(n.Assign) && YieldSlice(n.Body, yield)

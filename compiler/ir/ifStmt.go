@@ -19,6 +19,10 @@ var (
 	_ Parent = (*IfStmt)(nil)
 )
 
+func (*IfStmt) StmtNode() {}
+
+func (n *IfStmt) Pos() token.Pos { return n.IfPos }
+
 func (n *IfStmt) String() string {
 	str := `if (` + toString(n.Cond) + `)` + bodyString(n.Body)
 	if len(n.Else) <= 0 {
@@ -36,10 +40,6 @@ func (n *IfStmt) String() string {
 	}
 	return str + bodyString(n.Else)
 }
-
-func (n *IfStmt) Pos() token.Pos { return n.IfPos }
-
-func (*IfStmt) StmtNode() {}
 
 func (n *IfStmt) Children(yield func(Node) bool) {
 	_ = yield(n.Init) && yield(n.Cond) &&

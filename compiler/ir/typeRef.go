@@ -29,4 +29,4 @@ func (*TypeRef) RefNode()  {}
 func (n *TypeRef) Pos() token.Pos       { return n.RefPos }
 func (n *TypeRef) Type() types.Type     { return n.Instance }
 func (n *TypeRef) Object() types.Object { return n.TypeObj }
-func (n *TypeRef) String() string       { return n.Instance.String() }
+func (n *TypeRef) String() string       { return toString(n.Instance) }

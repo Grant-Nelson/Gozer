@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/token"
-)
+import "go/token"
 
 // InjectStmt is a statement containing code in the target language that
 // can be used to drop explicitly defined target code into the output.
@@ -17,10 +14,10 @@ type InjectStmt struct {
 
 var _ Stmt = (*InjectStmt)(nil)
 
-func (n *InjectStmt) String() string {
-	return fmt.Sprintf(`inject[%q]`, n.Injection)
-}
+func (*InjectStmt) StmtNode() {}
 
 func (n *InjectStmt) Pos() token.Pos { return n.Source }
 
-func (*InjectStmt) StmtNode() {}
+func (n *InjectStmt) String() string {
+	return `inject[` + toString(n.Injection) + `]`
+}

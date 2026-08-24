@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 )
@@ -33,7 +32,7 @@ var (
 func (fn *Func) Pos() token.Pos { return fn.FuncPos }
 
 func (fn *Func) String() string {
-	return fmt.Sprintf("{\n%s\n}", linesString(fn.Blocks))
+	return `{` + nlStr + linesString(fn.Blocks) + nlStr + `}`
 }
 
 func (fn *Func) Children(yield func(Node) bool) {

@@ -1,9 +1,6 @@
 package ir
 
-import (
-	"fmt"
-	"go/token"
-)
+import "go/token"
 
 // SelectStmt is a node that represents a select statement.
 type SelectStmt struct {
@@ -16,13 +13,13 @@ var (
 	_ Parent = (*SelectStmt)(nil)
 )
 
-func (n *SelectStmt) String() string {
-	return fmt.Sprintf("select {\n%s\n}", linesString(n.Body))
-}
+func (*SelectStmt) StmtNode() {}
 
 func (n *SelectStmt) Pos() token.Pos { return n.SelectPos }
 
-func (*SelectStmt) StmtNode() {}
+func (n *SelectStmt) String() string {
+	return `select {` + nlStr + linesString(n.Body) + nlStr + `}`
+}
 
 func (n *SelectStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Body, yield)

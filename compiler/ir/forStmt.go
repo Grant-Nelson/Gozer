@@ -28,6 +28,10 @@ var (
 	_ Parent = (*ForStmt)(nil)
 )
 
+func (*ForStmt) StmtNode() {}
+
+func (n *ForStmt) Pos() token.Pos { return n.ForPos }
+
 func (n *ForStmt) String() string {
 	if n.Init == nil && n.Post == nil {
 		return fmt.Sprintf(`for (%s)%s`,
@@ -40,10 +44,6 @@ func (n *ForStmt) String() string {
 		emptyZeroOrString(n.Post),
 		bodyString(n.Body))
 }
-
-func (n *ForStmt) Pos() token.Pos { return n.ForPos }
-
-func (*ForStmt) StmtNode() {}
 
 func (n *ForStmt) Children(yield func(Node) bool) {
 	_ = yield(n.Init) && yield(n.Cond) && yield(n.Post) && YieldSlice(n.Body, yield)

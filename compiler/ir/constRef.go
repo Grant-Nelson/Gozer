@@ -22,4 +22,4 @@ func (*ConstRef) RefNode()  {}
 func (n *ConstRef) Pos() token.Pos       { return n.RefPos }
 func (n *ConstRef) Type() types.Type     { return n.ConstObj.Type() }
 func (n *ConstRef) Object() types.Object { return n.ConstObj }
-func (n *ConstRef) String() string       { return `ref ` + n.ConstObj.String() }
+func (n *ConstRef) String() string       { return `ref ` + toString(n.ConstObj) }

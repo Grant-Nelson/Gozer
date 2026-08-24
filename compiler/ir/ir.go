@@ -2,6 +2,7 @@ package ir
 
 import (
 	"fmt"
+	"go/constant"
 	"strings"
 )
 
@@ -54,6 +55,8 @@ func toString(t any) string {
 	switch t := t.(type) {
 	case nil:
 		return `<nil>`
+	case constant.Value:
+		return t.ExactString()
 	case interface{ String() string }:
 		return t.String()
 	default:

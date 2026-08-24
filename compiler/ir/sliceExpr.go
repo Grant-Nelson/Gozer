@@ -32,25 +32,25 @@ type SliceExpr struct {
 
 var _ Expr = (*SliceExpr)(nil)
 
+func (n *SliceExpr) ExprNode() {}
+
 func (n *SliceExpr) Pos() token.Pos { return n.LeftPos }
 
 func (n *SliceExpr) Type() types.Type { return n.ResultType }
 
-func (n *SliceExpr) ExprNode() {}
-
 func (n *SliceExpr) String() string {
-	str := n.X.String() + `[`
+	str := toString(n.X) + `[`
 	if n.Low != nil {
-		str += n.Low.String()
+		str += toString(n.Low)
 	}
 	str += `:`
 	if n.High != nil {
-		str += n.High.String()
+		str += toString(n.High)
 	}
 	if n.Slice3 {
 		str += `:`
 		if n.Max != nil {
-			str += n.Max.String()
+			str += toString(n.Max)
 		}
 	}
 	return str + `]`

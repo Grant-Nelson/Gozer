@@ -24,4 +24,4 @@ type Param struct {
 	Type types.Type
 }
 
-func (p *Param) String() string { return p.Name + ` ` + p.Type.String() }
+func (p *Param) String() string { return p.Name + ` ` + toString(p.Type) }

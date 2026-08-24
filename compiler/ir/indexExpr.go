@@ -23,10 +23,11 @@ type IndexExpr struct {
 
 var _ Expr = (*IndexExpr)(nil)
 
-func (n *IndexExpr) Pos() token.Pos { return n.LeftPos }
-
-func (n *IndexExpr) Type() types.Type { return n.ResultType }
-
 func (n *IndexExpr) ExprNode() {}
 
-func (n *IndexExpr) String() string { return n.X.String() + `[` + n.Index.String() + `]` }
+func (n *IndexExpr) Pos() token.Pos   { return n.LeftPos }
+func (n *IndexExpr) Type() types.Type { return n.ResultType }
+
+func (n *IndexExpr) String() string {
+	return toString(n.X) + `[` + toString(n.Index) + `]`
+}

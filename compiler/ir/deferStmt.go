@@ -1,8 +1,6 @@
 package ir
 
-import (
-	"go/token"
-)
+import "go/token"
 
 // DeferStmt is a node that represents a defer statement.
 type DeferStmt struct {
@@ -18,12 +16,9 @@ var (
 	_ Parent = (*DeferStmt)(nil)
 )
 
-func (n *DeferStmt) String() string { return `defer ` + n.Call.String() }
-
-func (n *DeferStmt) Pos() token.Pos { return n.Defer }
-
 func (*DeferStmt) StmtNode() {}
 
-func (n *DeferStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Call)
-}
+func (n *DeferStmt) Pos() token.Pos { return n.Defer }
+func (n *DeferStmt) String() string { return `defer ` + toString(n.Call) }
+
+func (n *DeferStmt) Children(yield func(Node) bool) { _ = yield(n.Call) }

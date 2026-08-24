@@ -24,10 +24,10 @@ var (
 func (n *BlockRef) String() string {
 	var tail string
 	if len(n.Args) > 0 {
-		tail = fmt.Sprintf(`, [%s]`, csvString(n.Args))
+		tail = `, [` + csvString(n.Args) + `]`
 	}
 	if n.Block == nil {
-		return fmt.Sprintf(`block <nil>%s`, tail)
+		return `block <nil>` + tail
 	}
 	return fmt.Sprintf(`block %d%s`, n.Block.Index, tail)
 }

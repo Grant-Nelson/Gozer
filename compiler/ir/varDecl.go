@@ -27,6 +27,12 @@ func (*VarDecl) DeclNode() {}
 func (n *VarDecl) Pos() token.Pos       { return n.VarObj.Pos() }
 func (n *VarDecl) Type() types.Type     { return n.VarObj.Type() }
 func (n *VarDecl) Object() types.Object { return n.VarObj }
-func (n *VarDecl) String() string       { return `var ` + n.VarObj.String() }
+
+func (n *VarDecl) String() string {
+	if n.Value == nil {
+		return toString(n.VarObj)
+	}
+	return toString(n.VarObj) + ` = ` + toString(n.Value)
+}
 
 func (n *VarDecl) Children(yield func(Node) bool) { _ = yield(n.Value) }

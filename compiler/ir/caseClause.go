@@ -23,6 +23,10 @@ var (
 	_ Parent = (*CaseClause)(nil)
 )
 
+func (*CaseClause) StmtNode() {}
+
+func (n *CaseClause) Pos() token.Pos { return n.Case }
+
 func (n *CaseClause) String() string {
 	str := `default:`
 	if len(n.List) > 0 {
@@ -33,10 +37,6 @@ func (n *CaseClause) String() string {
 	}
 	return str
 }
-
-func (*CaseClause) StmtNode() {}
-
-func (n *CaseClause) Pos() token.Pos { return n.Case }
 
 func (n *CaseClause) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.List, yield) && YieldSlice(n.Body, yield)

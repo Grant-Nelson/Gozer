@@ -15,18 +15,13 @@ var (
 	_ Parent   = (*GotoBlockStmt)(nil)
 )
 
-func (n *GotoBlockStmt) String() string {
-	return `goto(` + n.Block.String() + `)`
-}
-
-func (n *GotoBlockStmt) Pos() token.Pos { return n.SrcPos }
-
 func (*GotoBlockStmt) StmtNode()     {}
 func (*GotoBlockStmt) FlowCtrlNode() {}
 
-func (n *GotoBlockStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Block)
-}
+func (n *GotoBlockStmt) Pos() token.Pos { return n.SrcPos }
+func (n *GotoBlockStmt) String() string { return `goto(` + toString(n.Block) + `)` }
+
+func (n *GotoBlockStmt) Children(yield func(Node) bool) { _ = yield(n.Block) }
 
 func NewGotoBlockStmt(pos token.Pos, nextBlk *Block, args ...Expr) *GotoBlockStmt {
 	return &GotoBlockStmt{

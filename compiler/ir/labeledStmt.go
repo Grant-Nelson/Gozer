@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 )
@@ -34,7 +33,7 @@ func (n *LabeledStmt) Type() types.Type     { return n.LabelObj.Type() }
 func (n *LabeledStmt) Object() types.Object { return n.LabelObj }
 
 func (n *LabeledStmt) String() string {
-	return fmt.Sprintf("%s:\n%v", n.LabelObj.Name(), toString(n.Stmt))
+	return n.LabelObj.Name() + `:` + nlStr + toString(n.Stmt)
 }
 
 func (n *LabeledStmt) Children(yield func(Node) bool) { _ = yield(n.Stmt) }

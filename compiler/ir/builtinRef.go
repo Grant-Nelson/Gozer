@@ -21,4 +21,4 @@ func (*BuiltinRef) RefNode()  {}
 func (n *BuiltinRef) Pos() token.Pos       { return n.RefPos }
 func (n *BuiltinRef) Type() types.Type     { return n.Builtin.Type() }
 func (n *BuiltinRef) Object() types.Object { return n.Builtin }
-func (n *BuiltinRef) String() string       { return n.Builtin.String() }
+func (n *BuiltinRef) String() string       { return toString(n.Builtin) }

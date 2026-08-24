@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 
@@ -38,9 +37,9 @@ func (n *BranchStmt) Object() types.Object { return n.Label }
 
 func (n *BranchStmt) String() string {
 	if n.Label == nil {
-		return fmt.Sprintf(`%s`, n.Kind.String())
+		return toString(n.Kind)
 	}
-	return n.Kind.String() + ` ` + toString(n.Label)
+	return toString(n.Kind) + ` ` + toString(n.Label)
 }
 
 func (n *BranchStmt) Children(yield func(Node) bool) {

@@ -19,7 +19,7 @@ func (n *TypeExpr) Type() types.Type { return n.TypeAndValue.Type }
 
 func (n *TypeExpr) String() string {
 	if n.TypeAndValue.Value != nil {
-		return n.TypeAndValue.Value.String()
+		return toString(n.TypeAndValue.Value)
 	}
-	return n.TypeAndValue.Type.String()
+	return toString(n.TypeAndValue.Type)
 }

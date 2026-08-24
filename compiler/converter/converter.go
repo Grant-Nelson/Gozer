@@ -18,23 +18,12 @@ func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Pac
 	assert.NotNil(pkg)
 	assert.NotNil(pkg.TypesInfo)
 	assert.NotNil(pkg.Fset)
-
-	p = &ir.Package{
-		Name:    pkg.Name,
-		Path:    pkg.PkgPath,
-		FileSet: pkg.Fset,
-		Sizes:   pkg.TypesSizes,
-		Imports: map[string]*ir.ImportDecl{},
-	}
-
 	c := &converter{
 		FileSet: pkg.Fset,
 		Info:    pkg.TypesInfo,
 		Errors:  errGroup,
-		Package: p,
 	}
-	c.FromPackage(pkg)
-	return p, nil
+	return c.FromPackage(pkg), nil
 }
 
 const (
@@ -46,7 +35,7 @@ type converter struct {
 	FileSet *token.FileSet
 	Info    *types.Info
 	Errors  *faults.ErrGroup
-	Package *ir.Package
+	Imports map[string]*ir.ImportDecl
 }
 
 func (c *converter) pos(p token.Pos) string {
@@ -62,11 +51,38 @@ func (c *converter) addFault(f *faults.Fault) {
 	}
 }
 
-func (c *converter) FromPackage(pkg *packages.Package) {
-	for _, f := range pkg.Syntax {
-		// With package set to `c` the nodes will be set correctly.
-		c.FromFile(f)
+func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
+	p := &ir.Package{
+		Name:    pkg.Name,
+		Path:    pkg.PkgPath,
+		FileSet: pkg.Fset,
+		Sizes:   pkg.TypesSizes,
+		Imports: map[string]*ir.ImportDecl{},
 	}
+
+	c.Imports = p.Imports
+	defer func() { c.Imports = nil }()
+
+	for _, f := range pkg.Syntax {
+		for _, stmt := range c.ExpandStmt(c.FromFile(f)) {
+			switch stmt := stmt.(type) {
+			case *ir.ConstDecl:
+				p.Consts = append(p.Consts, stmt)
+			case *ir.VarDecl:
+				p.Vars = append(p.Vars, stmt)
+			case *ir.FuncDecl:
+				p.Funcs = append(p.Funcs, stmt)
+			case *ir.TypeDecl:
+				p.Types = append(p.Types, stmt)
+			default:
+				c.addFault(faults.New(`unexpected AST node type`).
+					WithF(`type`, `%T`, stmt).
+					With(`statement`, stmt).
+					With(`pos`, c.pos(stmt.Pos())))
+			}
+		}
+	}
+	return p
 }
 
 func (c *converter) FromNodeSlice(ns []ast.Node) []ir.Node {
@@ -161,11 +177,7 @@ func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDecl {
 			With(`id`, s.Name.Name))
 	}
 
-	td := &ir.TypeDecl{TypeObj: typ}
-	if c.Package != nil {
-		c.Package.Types = append(c.Package.Types, td)
-	}
-	return td
+	return &ir.TypeDecl{TypeObj: typ}
 }
 
 func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
@@ -187,9 +199,6 @@ func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
 		}
 
 		cd := &ir.ConstDecl{ConstObj: tc}
-		if c.Package != nil {
-			c.Package.Consts = append(c.Package.Consts, cd)
-		}
 		ss.Add(cd)
 	}
 	return c.SimplifyStmt(ss)
@@ -217,9 +226,7 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 		if len(s.Values) > i {
 			vd.Value = c.FromExpr(s.Values[i])
 		}
-		if c.Package != nil {
-			c.Package.Vars = append(c.Package.Vars, vd)
-		}
+
 		ss.Add(vd)
 	}
 	return c.SimplifyStmt(ss)
@@ -264,9 +271,6 @@ func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 		}
 	}
 
-	if c.Package != nil {
-		c.Package.Funcs = append(c.Package.Funcs, fn)
-	}
 	return fn
 }
 

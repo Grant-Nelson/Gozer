@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 
@@ -29,16 +28,13 @@ var (
 	_ Parent = (*UnaryExpr)(nil)
 )
 
-func (n *UnaryExpr) Pos() token.Pos { return n.OpPos }
-
-func (n *UnaryExpr) Type() types.Type { return n.ResultType }
-
 func (*UnaryExpr) ExprNode() {}
 
+func (n *UnaryExpr) Pos() token.Pos   { return n.OpPos }
+func (n *UnaryExpr) Type() types.Type { return n.ResultType }
+
 func (n *UnaryExpr) String() string {
-	return fmt.Sprintf(`(%s%s)`, n.Op, n.X)
+	return toString(n.Op) + `(` + toString(n.X) + `)`
 }
 
-func (n *UnaryExpr) Children(yield func(Node) bool) {
-	_ = yield(n.X)
-}
+func (n *UnaryExpr) Children(yield func(Node) bool) { _ = yield(n.X) }

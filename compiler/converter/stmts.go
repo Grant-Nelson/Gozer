@@ -109,12 +109,21 @@ func (c *converter) FromAssignStmt(s *ast.AssignStmt) ir.Stmt {
 	}
 	if len(s.Lhs) == 1 && len(s.Rhs) == 1 {
 		lhs := c.FromExpr(s.Lhs[0])
+		rhs := c.FromExpr(s.Rhs[0])
+
+		var typ types.Type
+		if lhs != nil {
+			typ = lhs.Type()
+		} else if rhs != nil {
+			typ = rhs.Type()
+		}
+
 		b := &ir.BinaryExpr{
 			X:          lhs,
 			OpPos:      s.TokPos,
 			Op:         c.FromBinaryOp(s.Tok, s.TokPos),
-			Y:          c.FromExpr(s.Rhs[0]),
-			ResultType: lhs.Type(),
+			Y:          rhs,
+			ResultType: typ,
 		}
 		return &ir.ExprStmt{X: b}
 	}

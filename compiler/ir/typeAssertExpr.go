@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 )
@@ -27,18 +26,17 @@ var (
 	_ Parent = (*TypeAssertExpr)(nil)
 )
 
-func (n *TypeAssertExpr) Pos() token.Pos { return n.LparenPos }
-
-func (n *TypeAssertExpr) Type() types.Type { return n.ResultType }
-
 func (*TypeAssertExpr) ExprNode() {}
+
+func (n *TypeAssertExpr) Pos() token.Pos   { return n.LparenPos }
+func (n *TypeAssertExpr) Type() types.Type { return n.ResultType }
 
 func (n *TypeAssertExpr) String() string {
 	typeStr := `type`
 	if n.AssertType != nil {
-		typeStr = n.AssertType.String()
+		typeStr = toString(n.AssertType)
 	}
-	return fmt.Sprintf(`%s.(%s)`, n.X, typeStr)
+	return toString(n.X) + `.(` + typeStr + `)`
 }
 
 func (n *TypeAssertExpr) Children(yield func(Node) bool) {

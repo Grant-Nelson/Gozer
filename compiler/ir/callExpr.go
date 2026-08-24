@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 )
@@ -32,18 +31,17 @@ var (
 	_ Parent = (*CallExpr)(nil)
 )
 
-func (n *CallExpr) Pos() token.Pos { return n.LeftParenPos }
-
-func (n *CallExpr) Type() types.Type { return n.ResultType }
-
 func (*CallExpr) ExprNode() {}
+
+func (n *CallExpr) Pos() token.Pos   { return n.LeftParenPos }
+func (n *CallExpr) Type() types.Type { return n.ResultType }
 
 func (n *CallExpr) String() string {
 	ellipsis := ``
 	if n.Expanded {
 		ellipsis = `...`
 	}
-	return fmt.Sprintf(`%s(%s%s)`, n.Fun, csvString(n.Args), ellipsis)
+	return toString(n.Fun) + `(` + csvString(n.Args) + ellipsis + `)`
 }
 
 func (n *CallExpr) Children(yield func(Node) bool) {

@@ -23,10 +23,8 @@ type SelectorExpr struct {
 
 var _ Expr = (*SelectorExpr)(nil)
 
-func (n *SelectorExpr) Pos() token.Pos { return n.SelPos }
-
-func (n *SelectorExpr) Type() types.Type { return n.SelType }
-
 func (n *SelectorExpr) ExprNode() {}
 
-func (n *SelectorExpr) String() string { return n.X.String() + `.` + n.Sel }
+func (n *SelectorExpr) Pos() token.Pos   { return n.SelPos }
+func (n *SelectorExpr) Type() types.Type { return n.SelType }
+func (n *SelectorExpr) String() string   { return `(` + n.X.String() + `).` + n.Sel }
