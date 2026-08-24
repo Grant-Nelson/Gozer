@@ -24,7 +24,11 @@ func (*IfStmt) StmtNode() {}
 func (n *IfStmt) Pos() token.Pos { return n.IfPos }
 
 func (n *IfStmt) String() string {
-	str := `if (` + toString(n.Cond) + `)` + bodyString(n.Body)
+	init := ``
+	if n.Init != nil {
+		init = toString(n.Init) + `; `
+	}
+	str := `if (` + init + toString(n.Cond) + `)` + bodyString(n.Body)
 	if len(n.Else) <= 0 {
 		return str
 	}

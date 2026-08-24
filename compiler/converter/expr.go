@@ -117,7 +117,7 @@ func (c *converter) fromIdentDef(e *ast.Ident, obj types.Object) ir.Expr {
 	}
 }
 
-func (c *converter) fromIdentDefVar(e *ast.Ident, obj *types.Var) ir.Expr {
+func (c *converter) fromIdentDefVar(e *ast.Ident, obj *types.Var) *ir.VarRef {
 	return &ir.VarRef{
 		RefPos: e.NamePos,
 		VarObj: obj,
@@ -150,7 +150,7 @@ func (c *converter) fromIdentUses(e *ast.Ident, obj types.Object) ir.Expr {
 	}
 }
 
-func (c *converter) fromIdentUsesPkgName(e *ast.Ident, obj *types.PkgName) ir.Expr {
+func (c *converter) fromIdentUsesPkgName(e *ast.Ident, obj *types.PkgName) *ir.ImportRef {
 	pkgPath := obj.Pkg().Path()
 	var imp *ir.ImportDecl
 	if c.Imports != nil {
@@ -168,7 +168,7 @@ func (c *converter) fromIdentUsesPkgName(e *ast.Ident, obj *types.PkgName) ir.Ex
 	}
 }
 
-func (c *converter) fromIdentUsesTypeName(e *ast.Ident, obj *types.TypeName) ir.Expr {
+func (c *converter) fromIdentUsesTypeName(e *ast.Ident, obj *types.TypeName) *ir.TypeRef {
 	tr := &ir.TypeRef{
 		RefPos:  e.NamePos,
 		TypeObj: obj,
@@ -182,21 +182,21 @@ func (c *converter) fromIdentUsesTypeName(e *ast.Ident, obj *types.TypeName) ir.
 	return tr
 }
 
-func (c *converter) fromIdentUsesConst(e *ast.Ident, obj *types.Const) ir.Expr {
+func (c *converter) fromIdentUsesConst(e *ast.Ident, obj *types.Const) *ir.ConstRef {
 	return &ir.ConstRef{
 		RefPos:   e.NamePos,
 		ConstObj: obj,
 	}
 }
 
-func (c *converter) fromIdentUsesVar(e *ast.Ident, obj *types.Var) ir.Expr {
+func (c *converter) fromIdentUsesVar(e *ast.Ident, obj *types.Var) *ir.VarRef {
 	return &ir.VarRef{
 		RefPos: e.NamePos,
 		VarObj: obj,
 	}
 }
 
-func (c *converter) fromIdentUsesFunc(e *ast.Ident, obj *types.Func) ir.Expr {
+func (c *converter) fromIdentUsesFunc(e *ast.Ident, obj *types.Func) *ir.FuncRef {
 	tr := &ir.FuncRef{
 		RefPos:  e.NamePos,
 		FuncObj: obj,
@@ -208,11 +208,11 @@ func (c *converter) fromIdentUsesFunc(e *ast.Ident, obj *types.Func) ir.Expr {
 	return tr
 }
 
-func (c *converter) fromIdentUsesNil(obj *types.Nil) ir.Expr {
+func (c *converter) fromIdentUsesNil(obj *types.Nil) *ir.NilType {
 	return &ir.NilType{Obj: obj}
 }
 
-func (c *converter) fromIdentUsesBuiltin(e *ast.Ident, obj *types.Builtin) ir.Expr {
+func (c *converter) fromIdentUsesBuiltin(e *ast.Ident, obj *types.Builtin) *ir.BuiltinRef {
 	return &ir.BuiltinRef{
 		RefPos:  e.NamePos,
 		Builtin: obj,

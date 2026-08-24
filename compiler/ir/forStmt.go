@@ -1,7 +1,6 @@
 package ir
 
 import (
-	"fmt"
 	"go/token"
 )
 
@@ -33,18 +32,17 @@ func (*ForStmt) StmtNode() {}
 func (n *ForStmt) Pos() token.Pos { return n.ForPos }
 
 func (n *ForStmt) String() string {
-	if n.Init == nil && n.Post == nil {
-		return fmt.Sprintf(`for (%s)%s`,
-			emptyZeroOrString(n.Cond),
-			bodyString(n.Body))
+	if n.IsWhile() {
+		return `while (` + emptyZeroOrString(n.Cond) + `)` + bodyString(n.Body)
 	}
-	return fmt.Sprintf(`for (%s; %s; %s)%s`,
-		emptyZeroOrString(n.Init),
-		emptyZeroOrString(n.Cond),
-		emptyZeroOrString(n.Post),
-		bodyString(n.Body))
+	return `for (` + emptyZeroOrString(n.Init) + `; ` + emptyZeroOrString(n.Cond) +
+		`; ` + emptyZeroOrString(n.Post) + `)` + bodyString(n.Body)
 }
 
 func (n *ForStmt) Children(yield func(Node) bool) {
 	_ = yield(n.Init) && yield(n.Cond) && yield(n.Post) && YieldSlice(n.Body, yield)
+}
+
+func (n *ForStmt) IsWhile() bool {
+	return n.Init == nil && n.Post == nil
 }

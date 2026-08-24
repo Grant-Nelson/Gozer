@@ -197,7 +197,7 @@ func TestConverter_ForRange(t *testing.T) {
 		`    func $.foo (a int, b int) int {`,
 		`      block 0 (a int, b int)<initial> {`,
 		`        var sum int = 0`,
-		`        for (ref var i int := range ref var b int) {`,
+		`        for ((ref var i int) := range (ref var b int)) {`,
 		`          _ = (ref var i int)`,
 		`          (ref var sum int) += (ref var a int)`,
 		`        }`,
@@ -424,6 +424,188 @@ func TestConverter_SliceLit(t *testing.T) {
 		`        return builtin append([]int {}, ref var v []int...)`,
 		`      }`,
 		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_SliceIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func last(v []int) int {`,
+		`	if count := len(v); count > 0 {`,
+		`		return v[count-1]`,
+		`	}`,
+		`   return 0`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.last (v []int) int {`,
+		`      block 0 (v []int)<initial> {`,
+		`        if ((ref var count int) := (builtin len(ref var v []int)); (ref var count int) > 0)`,
+		`          return ref var v []int[(ref var count int) - 1]`,
+		`        return 0`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_GotoLabel(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	print("start")`,
+		`	goto End`,
+		`	print("unreachable")`,
+		`	End:`,
+		`   print("done")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.foo () {`,
+		`      block 0 ()<initial> {`,
+		`        builtin print("start")`,
+		`        goto End`,
+		`        builtin print("unreachable")`,
+		`        End:`,
+		`        builtin print("done")`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_Branch(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	for i := 0; i < 10; i++ {`,
+		`		if i % 2 == 0 {`,
+		`			println("even")`,
+		`			continue`,
+		`		}`,
+		`		println("odd")`,
+		`		break`,
+		`	}`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.foo () {`,
+		`      block 0 ()<initial> {`,
+		`        for ((ref var i int) := 0; (ref var i int) < 10; ++(ref var i int)) {`,
+		`          if (((ref var i int) % 2) == 0) {`,
+		`            builtin println("even")`,
+		`            continue`,
+		`          }`,
+		`          builtin println("odd")`,
+		`          break`,
+		`        }`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_LabelBranch(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	Loop: for i := 0; i < 10; i++ {`,
+		`		if i % 2 == 0 {`,
+		`			println("even")`,
+		`			continue Loop`,
+		`		}`,
+		`		println("odd")`,
+		`		break Loop`,
+		`	}`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.foo () {`,
+		`      block 0 ()<initial> {`,
+		`        Loop:`,
+		`        for ((ref var i int) := 0; (ref var i int) < 10; ++(ref var i int)) {`,
+		`          if (((ref var i int) % 2) == 0) {`,
+		`            builtin println("even")`,
+		`            continue Loop`,
+		`          }`,
+		`          builtin println("odd")`,
+		`          break Loop`,
+		`        }`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_SimpleCall(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	bar()`,
+		`}`,
+		``,
+		`func bar() {`,
+		`	println("Boop")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs: {`,
+		`    func $.foo () {`,
+		`      block 0 ()<initial> {`,
+		`        bar()`,
+		`      }`,
+		`    }`,
+		`    func $.bar () {`,
+		`      block 0 ()<initial> {`,
+		`        builtin println("Boop")`,
+		`      }`,
+		`    }`,
+		`  }`,
+		`}`,
+	))
+}
+
+func TestConverter_GoFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	go bar()`,
+		`}`,
+		``,
+		`func bar() {`,
+		`	println("Boop")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs: {`,
+		`    func $.foo () {`,
+		`      block 0 ()<initial> {`,
+		`        go bar()`,
+		`      }`,
+		`    }`,
+		`    func $.bar () {`,
+		`      block 0 ()<initial> {`,
+		`        builtin println("Boop")`,
+		`      }`,
+		`    }`,
+		`  }`,
 		`}`,
 	))
 }

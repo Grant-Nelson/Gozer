@@ -33,6 +33,9 @@ func (n *LabeledStmt) Type() types.Type     { return n.LabelObj.Type() }
 func (n *LabeledStmt) Object() types.Object { return n.LabelObj }
 
 func (n *LabeledStmt) String() string {
+	if n.Stmt == nil {
+		return n.LabelObj.Name() + `:`
+	}
 	return n.LabelObj.Name() + `:` + nlStr + toString(n.Stmt)
 }
 

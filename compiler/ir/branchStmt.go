@@ -39,7 +39,7 @@ func (n *BranchStmt) String() string {
 	if n.Label == nil {
 		return toString(n.Kind)
 	}
-	return toString(n.Kind) + ` ` + toString(n.Label)
+	return toString(n.Kind) + ` ` + n.Label.Name()
 }
 
 func (n *BranchStmt) Children(yield func(Node) bool) {
