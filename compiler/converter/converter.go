@@ -14,7 +14,7 @@ import (
 )
 
 func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Package, err error) {
-	defer errGroup.Recover(&err)
+	//defer errGroup.Recover(&err) // TODO: Uncomment
 	assert.NotNil(pkg)
 	assert.NotNil(pkg.TypesInfo)
 	assert.NotNil(pkg.Fset)

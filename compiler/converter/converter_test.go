@@ -641,3 +641,41 @@ func TestConverter_GenericCall(t *testing.T) {
 		`}`,
 	))
 }
+
+func TestConverter_MultiGenericCall(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	m := map[string]int{`,
+		`		"banana": 6,`,
+		`		"cat":    3,`,
+		`	}`,
+		`	bar[string, int](m)`,
+		`}`,
+		``,
+		`func bar[K comparable, V any, M ~map[K]V](t M) {`,
+		`	print(">", t, "<\n")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs: {`,
+		`    func $.foo () {`,
+		`      block 0 ()<initial> {`,
+		`        (ref var m map[string]int) := (map[string]int {`,
+		`          "banana": 6`,
+		`          "cat": 3`,
+		`        })`,
+		`        $.bar[string, int, map[string]int](ref var m map[string]int)`,
+		`      }`,
+		`    }`,
+		`    func $.bar [K comparable, V any, M ~map[K]V](t M) {`,
+		`      block 0 (t M)<initial> {`,
+		`        builtin print(">", ref var t M, "<\n")`,
+		`      }`,
+		`    }`,
+		`  }`,
+		`}`,
+	))
+}

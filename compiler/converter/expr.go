@@ -405,8 +405,14 @@ func (c *converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 	}
 }
 
-func (c *converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.TypeExpr {
-	return c.fromTypeExpr(e)
+func (c *converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.KeyValueExpr {
+	if e == nil {
+		return nil
+	}
+	return &ir.KeyValueExpr{
+		Key:   c.FromExpr(e.Key),
+		Value: c.FromExpr(e.Value),
+	}
 }
 
 func (c *converter) FromArrayType(e *ast.ArrayType) *ir.TypeExpr {

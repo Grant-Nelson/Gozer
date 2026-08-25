@@ -3,10 +3,7 @@ package typeTools
 import "go/types"
 
 func Unalias(t types.Type) types.Type {
-	if a, ok := t.(*types.Alias); ok {
-		return a.Rhs()
-	}
-	return t
+	return types.Unalias(t)
 }
 
 func Is[T types.Type](t types.Type) bool {
