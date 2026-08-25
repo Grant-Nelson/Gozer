@@ -6,11 +6,12 @@ import (
 	"slices"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/avail/typeTools"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
 
-func (c *converter) exprTypes(e ast.Expr) *types.TypeAndValue {
+func (c *converter) exprTypeAndValue(e ast.Expr) *types.TypeAndValue {
 	tv, ok := c.Info.Types[e]
 	if !ok {
 		c.addFault(faults.New(`failed to get expression type`).
@@ -19,6 +20,13 @@ func (c *converter) exprTypes(e ast.Expr) *types.TypeAndValue {
 		return nil
 	}
 	return &tv
+}
+
+func (c *converter) exprType(e ast.Expr) types.Type {
+	if tv := c.exprTypeAndValue(e); tv != nil {
+		return tv.Type
+	}
+	return nil
 }
 
 func (c *converter) FromExprSlice(es []ast.Expr) []ir.Expr {
@@ -232,7 +240,7 @@ func (c *converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
 	}
 	return &ir.BasicLit{
 		ValuePos:     e.ValuePos,
-		TypeAndValue: c.exprTypes(e),
+		TypeAndValue: c.exprTypeAndValue(e),
 	}
 }
 
@@ -240,7 +248,7 @@ func (c *converter) FromFuncLit(e *ast.FuncLit) *ir.FuncLit {
 	if e == nil {
 		return nil
 	}
-	t := c.exprTypes(e).Type
+	t := c.exprType(e)
 	sig, ok := t.(*types.Signature)
 	if !ok {
 		c.addFault(faults.New(`expected a signature type for a function lit`).
@@ -262,7 +270,7 @@ func (c *converter) FromCompositeLit(e *ast.CompositeLit) *ir.TypeLit {
 	}
 	return &ir.TypeLit{
 		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
+		TypeRef: c.exprType(e),
 		Values:  c.FromExprSlice(e.Elts),
 	}
 }
@@ -283,36 +291,34 @@ func (c *converter) FromSelectorExpr(e *ast.SelectorExpr) *ir.SelectorExpr {
 		X:       c.FromExpr(e.X),
 		Sel:     e.Sel.Name,
 		SelPos:  e.Sel.NamePos,
-		SelType: c.exprTypes(e).Type,
+		SelType: c.exprType(e),
 	}
 }
 
-func (c *converter) FromIndexExpr(e *ast.IndexExpr) *ir.IndexExpr {
+func (c *converter) FromIndexExpr(e *ast.IndexExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Should determine if this is for a string, slice, or map,
-	//       however, if it is for generics then it should be an index list.
-	return &ir.IndexExpr{
-		X:          c.FromExpr(e.X),
-		LeftPos:    e.Lbrack,
-		Index:      c.FromExpr(e.Index),
-		ResultType: c.exprTypes(e).Type,
+	if t := c.exprType(e); typeTools.IsIndexable(t) {
+		return &ir.IndexExpr{
+			X:          c.FromExpr(e.X),
+			LeftPos:    e.Lbrack,
+			Index:      c.FromExpr(e.Index),
+			ResultType: t,
+		}
 	}
+	// Type arguments aren't needed since the type information will come
+	// from the type objects put onto the type or func reference.
+	return c.FromExpr(e.X)
 }
 
-func (c *converter) FromIndexListExpr(e *ast.IndexListExpr) *ir.IndexListExpr {
+func (c *converter) FromIndexListExpr(e *ast.IndexListExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	// TODO: Is this needed? Or can all the information be gotten
-	//       from type and instantiation information on identifiers?
-	return &ir.IndexListExpr{
-		X:          c.FromExpr(e.X),
-		LeftPos:    e.Lbrack,
-		Indices:    c.FromExprSlice(e.Indices),
-		ResultType: c.exprTypes(e).Type,
-	}
+	// Type arguments aren't needed since the type information will come
+	// from the type objects put onto the type or func reference.
+	return c.FromExpr(e.X)
 }
 
 func (c *converter) FromSliceExpr(e *ast.SliceExpr) *ir.SliceExpr {
@@ -326,7 +332,7 @@ func (c *converter) FromSliceExpr(e *ast.SliceExpr) *ir.SliceExpr {
 		High:       c.FromExpr(e.High),
 		Max:        c.FromExpr(e.Max),
 		Slice3:     e.Slice3,
-		ResultType: c.exprTypes(e).Type,
+		ResultType: c.exprType(e),
 	}
 }
 
@@ -338,7 +344,7 @@ func (c *converter) FromTypeAssertExpr(e *ast.TypeAssertExpr) *ir.TypeAssertExpr
 		X:          c.FromExpr(e.X),
 		LparenPos:  e.Lparen,
 		AssertType: c.FromExpr(e.Type),
-		ResultType: c.exprTypes(e).Type,
+		ResultType: c.exprType(e),
 	}
 }
 
@@ -351,7 +357,7 @@ func (c *converter) FromCallExpr(e *ast.CallExpr) *ir.CallExpr {
 		LeftParenPos: e.Lparen,
 		Args:         c.FromExprSlice(e.Args),
 		Expanded:     e.Ellipsis.IsValid(),
-		ResultType:   c.exprTypes(e).Type,
+		ResultType:   c.exprType(e),
 	}
 }
 
@@ -359,8 +365,8 @@ func (c *converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	tv := c.exprTypes(e)
-	if tv.IsType() {
+	tv := c.exprTypeAndValue(e)
+	if tv != nil && tv.IsType() {
 		return &ir.TypeExpr{
 			TypePos: e.Star,
 			TypeRef: tv.Type,
@@ -382,7 +388,7 @@ func (c *converter) FromUnaryExpr(e *ast.UnaryExpr) *ir.UnaryExpr {
 		OpPos:      e.OpPos,
 		Op:         c.FromUnaryOp(e.Op, e.OpPos),
 		X:          c.FromExpr(e.X),
-		ResultType: c.exprTypes(e).Type,
+		ResultType: c.exprType(e),
 	}
 }
 
@@ -395,76 +401,48 @@ func (c *converter) FromBinaryExpr(e *ast.BinaryExpr) *ir.BinaryExpr {
 		OpPos:      e.OpPos,
 		Op:         c.FromBinaryOp(e.Op, e.OpPos),
 		Y:          c.FromExpr(e.Y),
-		ResultType: c.exprTypes(e).Type,
+		ResultType: c.exprType(e),
 	}
 }
 
 func (c *converter) FromKeyValueExpr(e *ast.KeyValueExpr) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	return &ir.TypeExpr{
-		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
-	}
+	return c.fromTypeExpr(e)
 }
 
 func (c *converter) FromArrayType(e *ast.ArrayType) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	return &ir.TypeExpr{
-		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
-	}
+	return c.fromTypeExpr(e)
 }
 
 func (c *converter) FromStructType(e *ast.StructType) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	return &ir.TypeExpr{
-		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
-	}
+	return c.fromTypeExpr(e)
 }
 
 func (c *converter) FromFuncType(e *ast.FuncType) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	return &ir.TypeExpr{
-		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
-	}
+	return c.fromTypeExpr(e)
 }
 
 func (c *converter) FromInterfaceType(e *ast.InterfaceType) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	return &ir.TypeExpr{
-		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
-	}
+	return c.fromTypeExpr(e)
 }
 
 func (c *converter) FromMapType(e *ast.MapType) *ir.TypeExpr {
-	if e == nil {
-		return nil
-	}
-	return &ir.TypeExpr{
-		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
-	}
+	return c.fromTypeExpr(e)
 }
 
 func (c *converter) FromChanType(e *ast.ChanType) *ir.TypeExpr {
-	if e == nil {
+	return c.fromTypeExpr(e)
+}
+
+func (c *converter) fromTypeExpr[T interface {
+	ast.Expr
+	comparable
+}](e T) *ir.TypeExpr {
+	var zero T
+	if e == zero {
 		return nil
 	}
 	return &ir.TypeExpr{
 		TypePos: e.Pos(),
-		TypeRef: c.exprTypes(e).Type,
+		TypeRef: c.exprType(e),
 	}
 }

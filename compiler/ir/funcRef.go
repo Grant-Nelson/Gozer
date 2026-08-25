@@ -31,4 +31,11 @@ func (*FuncRef) RefNode()  {}
 func (n *FuncRef) Pos() token.Pos       { return n.RefPos }
 func (n *FuncRef) Type() types.Type     { return n.Instance }
 func (n *FuncRef) Object() types.Object { return n.FuncObj }
-func (n *FuncRef) String() string       { return toString(n.Instance) }
+
+func (n *FuncRef) String() string {
+	fn := n.FuncObj.FullName()
+	if len(n.TypeArgs) > 0 {
+		fn += `[` + csvString(n.TypeArgs) + `]`
+	}
+	return fn
+}

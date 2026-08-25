@@ -439,7 +439,7 @@ func (c *converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
 
 			param := &ir.Param{
 				Name: name.Name,
-				Type: c.exprTypes(field.Type).Type,
+				Type: c.exprType(field.Type),
 			}
 			params = append(params, param)
 		}
