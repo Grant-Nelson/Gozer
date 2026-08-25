@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"fmt"
 	"go/ast"
 	"go/types"
 	"slices"
@@ -299,14 +300,17 @@ func (c *converter) FromIndexExpr(e *ast.IndexExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	if t := c.exprType(e); typeTools.IsIndexable(t) {
+	xt := c.exprType(e.X)
+	fmt.Printf(">>> t: %T: %v\n", xt, xt) // TODO: REMOVE
+	if typeTools.IsIndexable(xt) {
 		return &ir.IndexExpr{
 			X:          c.FromExpr(e.X),
 			LeftPos:    e.Lbrack,
 			Index:      c.FromExpr(e.Index),
-			ResultType: t,
+			ResultType: c.exprType(e),
 		}
 	}
+
 	// Type arguments aren't needed since the type information will come
 	// from the type objects put onto the type or func reference.
 	return c.FromExpr(e.X)

@@ -35,14 +35,18 @@ func indentInner(s string) string {
 }
 
 func bodyString[E any, S ~[]E](body S) string {
-	count := len(body)
-	if count <= 0 {
+	if len(body) <= 0 {
 		return ` {}`
 	}
-	if count == 1 {
-		return nlStr + indentStr + indentInner(toString(body[0]))
-	}
 	return ` {` + nlStr + linesString(body) + nlStr + `}`
+}
+
+func groupString[E any, S ~[]E](name string, group S) string {
+	if len(group) <= 0 {
+		return ``
+	}
+	return indentStr + name + `:` + nlStr + indentStr +
+		indentInner(linesString(group)) + nlStr
 }
 
 var wordReg = sync.OnceValue(func() *regexp.Regexp {

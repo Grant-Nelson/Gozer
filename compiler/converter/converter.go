@@ -4,6 +4,8 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"maps"
+	"slices"
 
 	"golang.org/x/tools/go/packages"
 
@@ -57,10 +59,9 @@ func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
 		Path:    pkg.PkgPath,
 		FileSet: pkg.Fset,
 		Sizes:   pkg.TypesSizes,
-		Imports: map[string]*ir.ImportDecl{},
 	}
 
-	c.Imports = p.Imports
+	c.Imports = map[string]*ir.ImportDecl{}
 	defer func() { c.Imports = nil }()
 
 	for _, f := range pkg.Syntax {
@@ -82,6 +83,15 @@ func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
 			}
 		}
 	}
+
+	paths := slices.Collect(maps.Keys(c.Imports))
+	slices.Sort(paths)
+	imports := make([]*ir.ImportDecl, len(paths))
+	for i, path := range paths {
+		imports[i] = c.Imports[path]
+	}
+	p.Imports = imports
+
 	return p
 }
 

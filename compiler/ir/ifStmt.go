@@ -32,6 +32,7 @@ func (n *IfStmt) String() string {
 	if len(n.Else) <= 0 {
 		return str
 	}
+
 	if strings.HasSuffix(str, `}`) {
 		str += ` else`
 	} else {

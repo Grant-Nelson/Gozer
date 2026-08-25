@@ -169,8 +169,9 @@ func TestConverter_ForLoop(t *testing.T) {
 		`    func $.foo (a int, b int) int {`,
 		`      block 0 (a int, b int)<initial> {`,
 		`        var sum int = 0`,
-		`        for ((ref var i int) := 0; (ref var i int) < (ref var b int); ++(ref var i int))`,
+		`        for ((ref var i int) := 0; (ref var i int) < (ref var b int); ++(ref var i int)) {`,
 		`          (ref var sum int) += (ref var a int)`,
+		`        }`,
 		`        return ref var sum int`,
 		`      }`,
 		`    }`,
@@ -227,12 +228,13 @@ func TestConverter_IfElse(t *testing.T) {
 		`  Funcs:`,
 		`    func $.foo (a int, b int) int {`,
 		`      block 0 (a int, b int)<initial> {`,
-		`        if ((ref var a int) > 4)`,
+		`        if ((ref var a int) > 4) {`,
 		`          return 4`,
-		`        else if ((ref var b int) > 4)`,
+		`        } else if ((ref var b int) > 4) {`,
 		`          return -4`,
-		`        else`,
+		`        } else {`,
 		`          return (ref var a int) + (ref var b int)`,
+		`        }`,
 		`      }`,
 		`    }`,
 		`}`,
@@ -280,18 +282,16 @@ func TestConverter_Globals(t *testing.T) {
 	), lines(
 		`package{`,
 		`  Name: t`,
-		`  Consts: {`,
+		`  Consts:`,
 		`    const $.start untyped int = 0`,
 		`    const $.step untyped int = 1`,
-		`  }`,
-		`  Vars: {`,
+		`  Vars:`,
 		`    var $.current int = ref const $.start untyped int`,
 		`    var $.update func() = funcLit {`,
 		`      block 0 ()<initial> {`,
 		`        (ref var $.current int) += (ref const $.step untyped int)`,
 		`      }`,
 		`    }`,
-		`  }`,
 		`}`,
 	))
 }
@@ -345,6 +345,8 @@ func TestConverter_FmtImport(t *testing.T) {
 	), lines(
 		`package{`,
 		`  Name: t`,
+		`  Imports:`,
+		`    import package fmt`,
 		`  Funcs:`,
 		`    func $.foo () {`,
 		`      block 0 ()<initial> {`,
@@ -373,8 +375,9 @@ func TestConverter_Ellipse(t *testing.T) {
 		`    func $.foo (vs ...int) int {`,
 		`      block 0 (vs []int)<initial> {`,
 		`        (ref var sum int) := 0`,
-		`        for ((ref var _ int), (ref var v int) := range (ref var vs []int))`,
+		`        for ((ref var _ int), (ref var v int) := range (ref var vs []int)) {`,
 		`          (ref var sum int) += (ref var v int)`,
+		`        }`,
 		`        return ref var sum int`,
 		`      }`,
 		`    }`,
@@ -444,9 +447,108 @@ func TestConverter_SliceIndex(t *testing.T) {
 		`  Funcs:`,
 		`    func $.last (v []int) int {`,
 		`      block 0 (v []int)<initial> {`,
-		`        if ((ref var count int) := (builtin len(ref var v []int)); (ref var count int) > 0)`,
+		`        if ((ref var count int) := (builtin len(ref var v []int)); (ref var count int) > 0) {`,
 		`          return ref var v []int[(ref var count int) - 1]`,
+		`        }`,
 		`        return 0`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_MapIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func has(m map[string]int, k string) bool {`,
+		`	_, ok := m[k]`,
+		`   return ok`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.has (m map[string]int, k string) bool {`,
+		`      block 0 (m map[string]int, k string)<initial> {`,
+		`        ref var _ int, ref var ok bool := ref var m map[string]int[ref var k string]`,
+		`        return ref var ok bool`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_StringIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func last(v string) byte {`,
+		`	if count := len(v); count > 0 {`,
+		`		return v[count-1]`,
+		`	}`,
+		`   return 0`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.last (v string) byte {`,
+		`      block 0 (v string)<initial> {`,
+		`        if ((ref var count int) := (builtin len(ref var v string)); (ref var count int) > 0) {`,
+		`          return ref var v string[(ref var count int) - 1]`,
+		`        }`,
+		`        return 0`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_GenericSliceIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func last[V any, S ~[]V](s S) V {`,
+		`	if count := len(s); count > 0 {`,
+		`		return s[count-1]`,
+		`	}`,
+		`	var zero V`,
+		`   return zero`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.last [V any, S ~[]V](s S) V {`,
+		`      block 0 (s S)<initial> {`,
+		`        if ((ref var count int) := (builtin len(ref var s S)); (ref var count int) > 0) {`,
+		`          return ref var s S[(ref var count int) - 1]`,
+		`        }`,
+		`        var zero V`,
+		`        return ref var zero V`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
+func TestConverter_GenericMapIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func has[K comparable, V any, M ~map[K]V](m M, k K) bool {`,
+		`	_, ok := m[k]`,
+		`   return ok`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.has [K comparable, V any, M ~map[K]V](m M, k K) bool {`,
+		`      block 0 (m M, k K)<initial> {`,
+		`        ref var _ V, ref var ok bool := (ref var m M)[ref var k K]`,
+		`        return ref var ok bool`,
 		`      }`,
 		`    }`,
 		`}`,
@@ -564,7 +666,7 @@ func TestConverter_SimpleCall(t *testing.T) {
 	), lines(
 		`package{`,
 		`  Name: t`,
-		`  Funcs: {`,
+		`  Funcs:`,
 		`    func $.foo () {`,
 		`      block 0 ()<initial> {`,
 		`        $.bar()`,
@@ -575,7 +677,6 @@ func TestConverter_SimpleCall(t *testing.T) {
 		`        builtin println("Boop")`,
 		`      }`,
 		`    }`,
-		`  }`,
 		`}`,
 	))
 }
@@ -594,7 +695,7 @@ func TestConverter_GoFunc(t *testing.T) {
 	), lines(
 		`package{`,
 		`  Name: t`,
-		`  Funcs: {`,
+		`  Funcs:`,
 		`    func $.foo () {`,
 		`      block 0 ()<initial> {`,
 		`        go $.bar()`,
@@ -605,7 +706,6 @@ func TestConverter_GoFunc(t *testing.T) {
 		`        builtin println("Boop")`,
 		`      }`,
 		`    }`,
-		`  }`,
 		`}`,
 	))
 }
@@ -625,7 +725,7 @@ func TestConverter_GenericCall(t *testing.T) {
 	), lines(
 		`package{`,
 		`  Name: t`,
-		`  Funcs: {`,
+		`  Funcs:`,
 		`    func $.foo () {`,
 		`      block 0 ()<initial> {`,
 		`        $.bar[int](42)`,
@@ -637,7 +737,6 @@ func TestConverter_GenericCall(t *testing.T) {
 		`        builtin print(">", ref var t T, "<\n")`,
 		`      }`,
 		`    }`,
-		`  }`,
 		`}`,
 	))
 }
@@ -660,7 +759,7 @@ func TestConverter_MultiGenericCall(t *testing.T) {
 	), lines(
 		`package{`,
 		`  Name: t`,
-		`  Funcs: {`,
+		`  Funcs:`,
 		`    func $.foo () {`,
 		`      block 0 ()<initial> {`,
 		`        (ref var m map[string]int) := (map[string]int {`,
@@ -675,7 +774,48 @@ func TestConverter_MultiGenericCall(t *testing.T) {
 		`        builtin print(">", ref var t M, "<\n")`,
 		`      }`,
 		`    }`,
-		`  }`,
+		`}`,
+	))
+}
+
+func TestConverter_Struct(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`type Foo struct { name string }`,
+		``,
+		`func (f *Foo) String() string { return f.name }`,
+		``,
+		`func main() {`,
+		`	f1 := &Foo{name: "Bob"}`,
+		`	println(f1.String())`,
+		``,
+		`	f2 := &Foo{"Bob"}`,
+		`   println(f1 == f2)`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Types:`,
+		`    type $.Foo struct{name string}`,
+		`  Funcs:`,
+		`    func (*$.Foo).String () string {`,
+		`      block 0 ()<initial> {`,
+		`        return (ref var f *$.Foo).name`,
+		`      }`,
+		`    }`,
+		`    func $.main () {`,
+		`      block 0 ()<initial> {`,
+		`        (ref var f1 *$.Foo) := (&($.Foo {`,
+		`          ref field name string: "Bob"`,
+		`        }))`,
+		`        builtin println((ref var f1 *$.Foo).String())`,
+		`        (ref var f2 *$.Foo) := (&($.Foo {`,
+		`          "Bob"`,
+		`        }))`,
+		`        builtin println((ref var f1 *$.Foo) == (ref var f2 *$.Foo))`,
+		`      }`,
+		`    }`,
 		`}`,
 	))
 }
