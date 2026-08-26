@@ -5,34 +5,32 @@ import "strings"
 type Op uint64
 
 const (
-	None     Op = 0
-	Make     Op = 1 << iota // make(x, len) for (slice, map, channel)
-	Make3                   // make3(x, len, cap) for (slice)
-	New                     // new(), new(x)
-	Add                     // x+y, x+=y for (numeric, string)
-	Arith                   // -x, x-y, x*y, x/y, x-=y, x*=y, x/=y, x++, x--
-	Mod                     // x%y, x%=y
-	Bitwise                 // x&y, x|y, ^x, x^y, x&^y, x<<y, x>>y, x&=y, x|=y, x^=y, x&^=y, x<<=y, x>>=y
-	Deref                   // *x
-	Ref                     // &x
-	Comp                    // x==y, x!=y
-	Order                   // x<y, x<=y, x>y, x>=y
-	Invoke                  // x(..)
-	Len                     // len(x)
-	Cap                     // cap(x)
-	Index                   // x[y]
-	RefIndex                // &x[y]
-	Slice                   // s[x:y]
-	Slice3                  // s[x:y:z]
-	Copy                    // copy(x, y)
-	Append                  // append(x, y)
-	Clear                   // clear(x)
-	Combine                 // combine(x, y), complex(x, y)
-	High                    // high(x), imag(x)
-	Low                     // low(x), real(x)
-	Send                    // x->y
-	Recv                    // <-x
-	Range                   // for ... range x
+	None       Op = 0         // still has zero() and new()
+	Add        Op = 1 << iota // x+y, x+=y for (numeric, string)
+	Arith                     // -x, x-y, x*y, x/y, x-=y, x*=y, x/=y, x++, x--
+	Bitwise                   // x&y, x|y, ^x, x^y, x&^y, x<<y, x>>y, x&=y, x|=y, x^=y, x&^=y, x<<=y, x>>=y
+	ByteSlice                 // []byte(x)
+	Cap                       // cap(x)
+	Clear                     // clear(x)
+	Comparable                // x==y, x!=y
+	Complex                   // complex(x,y)
+	Deref                     // *x
+	GetIndex                  // z=x[y]
+	GetIndex2                 // z,ok=x[y]
+	IsNil                     // x==nil
+	Len                       // len(x)
+	Make                      // make(x, len) for (slice, map, channel)
+	Make3                     // make3(x, len, cap) for (slice)
+	Mod                       // x%y, x%=y
+	Orderable                 // x<y, x<=y, x>y, x>=y
+	RealImag                  // real(x),imag(x)
+	Recv                      // <-x
+	Ref                       // &x, new(x)
+	RefIndex                  // &x[y]
+	Send                      // x->y
+	SetIndex                  // x[y]=z
+	Slice                     // s[x:y] for (slice, array, string)
+	Slice3                    // s[x:y:z] for (slice, array)
 )
 
 func (op Op) All(other Op) bool { return op&other == other }
@@ -50,33 +48,31 @@ func (op Op) String() string {
 		}
 	}
 
-	add(Make, `make`)
-	add(Make3, `make3`)
-	add(New, `new`)
-	add(Add, `add`)
-	add(Arith, `arith`)
-	add(Mod, `mod`)
-	add(Bitwise, `bitwise`)
-	add(Deref, `deref`)
-	add(Ref, `ref`)
-	add(Comp, `comp`)
-	add(Order, `order`)
-	add(Invoke, `invoke`)
-	add(Len, `len`)
-	add(Cap, `cap`)
-	add(Index, `index`)
-	add(RefIndex, `refIndex`)
-	add(Slice, `slice`)
-	add(Slice3, `slice3`)
-	add(Copy, `copy`)
-	add(Append, `append`)
-	add(Clear, `clear`)
-	add(Combine, `combine`)
-	add(High, `high`)
-	add(Low, `low`)
-	add(Send, `send`)
-	add(Recv, `recv`)
-	add(Range, `range`)
+	add(Add, `Add`)
+	add(Arith, `Arith`)
+	add(Bitwise, `Bitwise`)
+	add(ByteSlice, `ByteSlice`)
+	add(Cap, `Cap`)
+	add(Clear, `Clear`)
+	add(Comparable, `Comparable`)
+	add(Complex, `Complex`)
+	add(Deref, `Deref`)
+	add(GetIndex, `GetIndex`)
+	add(GetIndex2, `GetIndex2`)
+	add(IsNil, `IsNil`)
+	add(Len, `Len`)
+	add(Make, `Make`)
+	add(Make3, `Make3`)
+	add(Mod, `Mod`)
+	add(Orderable, `Orderable`)
+	add(RealImag, `RealImag`)
+	add(Recv, `Recv`)
+	add(Ref, `Ref`)
+	add(RefIndex, `RefIndex`)
+	add(Send, `Send`)
+	add(SetIndex, `SetIndex`)
+	add(Slice, `Slice`)
+	add(Slice3, `Slice3`)
 
 	return strings.Join(parts, `|`)
 }

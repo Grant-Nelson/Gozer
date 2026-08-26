@@ -1,36 +1,30 @@
 package typeTools
 
-import (
-	"go/types"
-)
-
-func Unalias(t types.Type) types.Type {
-	return types.Unalias(t)
-}
+import "go/types"
 
 func BasicKind(t types.Type) types.BasicKind {
-	if b, ok := t.(*types.Basic); ok {
+	if b, ok := t.Underlying().(*types.Basic); ok {
 		return b.Kind()
 	}
 	return types.Invalid
 }
 
 func BasicInfo(t types.Type) types.BasicInfo {
-	if b, ok := t.(*types.Basic); ok {
+	if b, ok := t.Underlying().(*types.Basic); ok {
 		return b.Info()
 	}
 	return 0
 }
 
 func Deref(t types.Type) types.Type {
-	if b, ok := t.(*types.Pointer); ok {
+	if b, ok := t.Underlying().(*types.Pointer); ok {
 		return b.Elem()
 	}
 	return nil
 }
 
 func Key(t types.Type) types.Type {
-	switch t := t.(type) {
+	switch t := t.Underlying().(type) {
 	case *types.Map:
 		return t.Key()
 	case *types.Slice:
@@ -50,7 +44,7 @@ func Key(t types.Type) types.Type {
 }
 
 func Elem(t types.Type) types.Type {
-	switch t := t.(type) {
+	switch t := t.Underlying().(type) {
 	case *types.Map:
 		return t.Elem()
 	case *types.Slice:
@@ -68,18 +62,3 @@ func Elem(t types.Type) types.Type {
 	}
 	return nil
 }
-
-/*
-func Ops(t types.Type) typeOp.Op {
-	switch t := t.(type) {
-	case *types.Basic:
-
-	case *types.Slice:
-	case *types.Array:
-	case *types.Map:
-	case *types.Struct:
-	case *types.Pointer:
-	}
-	return typeOp.None
-}
-*/
