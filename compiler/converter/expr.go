@@ -1,13 +1,11 @@
 package converter
 
 import (
-	"fmt"
 	"go/ast"
 	"go/types"
 	"slices"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/avail/typeTools"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
 )
@@ -300,20 +298,19 @@ func (c *converter) FromIndexExpr(e *ast.IndexExpr) ir.Expr {
 	if e == nil {
 		return nil
 	}
-	xt := c.exprType(e.X)
-	fmt.Printf(">>> t: %T: %v\n", xt, xt) // TODO: REMOVE
-	if typeTools.IsIndexable(xt) {
-		return &ir.IndexExpr{
-			X:          c.FromExpr(e.X),
-			LeftPos:    e.Lbrack,
-			Index:      c.FromExpr(e.Index),
-			ResultType: c.exprType(e),
-		}
+
+	if c.exprTypeAndValue(e.Index).IsType() {
+		// Type arguments aren't needed since the type information will come
+		// from the type objects put onto the type or func reference.
+		return c.FromExpr(e.X)
 	}
 
-	// Type arguments aren't needed since the type information will come
-	// from the type objects put onto the type or func reference.
-	return c.FromExpr(e.X)
+	return &ir.IndexExpr{
+		X:          c.FromExpr(e.X),
+		LeftPos:    e.Lbrack,
+		Index:      c.FromExpr(e.Index),
+		ResultType: c.exprType(e),
+	}
 }
 
 func (c *converter) FromIndexListExpr(e *ast.IndexListExpr) ir.Expr {
@@ -370,7 +367,7 @@ func (c *converter) FromStarExpr(e *ast.StarExpr) ir.Expr {
 		return nil
 	}
 	tv := c.exprTypeAndValue(e)
-	if tv != nil && tv.IsType() {
+	if tv.IsType() {
 		return &ir.TypeExpr{
 			TypePos: e.Star,
 			TypeRef: tv.Type,

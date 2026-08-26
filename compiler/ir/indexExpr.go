@@ -29,5 +29,5 @@ func (n *IndexExpr) Pos() token.Pos   { return n.LeftPos }
 func (n *IndexExpr) Type() types.Type { return n.ResultType }
 
 func (n *IndexExpr) String() string {
-	return toString(n.X) + `[` + toString(n.Index) + `]`
+	return paren(n.X) + `[` + toString(n.Index) + `]`
 }
