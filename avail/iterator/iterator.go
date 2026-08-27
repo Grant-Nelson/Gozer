@@ -317,7 +317,7 @@ func (it Iterator[T]) ToStringsF(format string) Iterator[string] {
 //
 // The values are stringified via `fmt.Sprint(value)`.
 func (it Iterator[T]) Join(sep string) string {
-	buf := strings.Builder{}
+	buf := &strings.Builder{}
 	first := true
 	for v := range it {
 		if first {
@@ -325,7 +325,7 @@ func (it Iterator[T]) Join(sep string) string {
 		} else {
 			_, _ = buf.WriteString(sep)
 		}
-		_, _ = buf.WriteString(fmt.Sprint(v))
+		_, _ = fmt.Fprint(buf, v)
 	}
 	return buf.String()
 }

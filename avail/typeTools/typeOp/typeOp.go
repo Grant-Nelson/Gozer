@@ -9,7 +9,7 @@ const (
 	Add        Op = 1 << iota // x+y, x+=y for (numeric, string)
 	Arith                     // -x, x-y, x*y, x/y, x-=y, x*=y, x/=y, x++, x--
 	Bitwise                   // x&y, x|y, ^x, x^y, x&^y, x<<y, x>>y, x&=y, x|=y, x^=y, x&^=y, x<<=y, x>>=y
-	ByteSlice                 // []byte(x)
+	ByteSlice                 // []byte(x), copyTo(x, y)
 	Cap                       // cap(x)
 	Clear                     // clear(x)
 	Comparable                // x==y, x!=y
