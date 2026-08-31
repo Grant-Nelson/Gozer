@@ -1,11 +1,8 @@
 package modeler
 
 import (
-	"go/token"
-
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
 	"github.com/Grant-Nelson/Gozer/compiler/project"
 	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
@@ -34,10 +31,6 @@ func Model(cfg *Config) (err error) {
 
 	pkg := cfg.Package
 	pkg.State = buildState.Remodelling
-	pkg.Ir = &ir.Package{
-		Info:    pkg.Ast.TypesInfo,
-		FileSet: pkg.Ast.Fset,
-	}
 
 	rm := &modeler{
 		logger:   cfg.Logger,
@@ -45,17 +38,15 @@ func Model(cfg *Config) (err error) {
 		pkg:      pkg,
 	}
 
-	if err := rm.remodelPackageStart(cfg.Remodelers); err != nil {
+	if err := rm.packageStart(cfg.Remodelers); err != nil {
 		return err
 	}
 
-	for _, f := range cfg.Package.Ast.Syntax {
-		if err := rm.addFile(f); err != nil {
-			return err
-		}
+	if err := rm.remodelPackage(); err != nil {
+		return err
 	}
 
-	if err := rm.remodelPackageDone(); err != nil {
+	if err := rm.packageDone(); err != nil {
 		return err
 	}
 
@@ -70,11 +61,7 @@ type modeler struct {
 	group    remodel.Remodeler
 }
 
-func (rm *modeler) pos(p token.Pos) token.Position {
-	return rm.pkg.Ast.Fset.Position(p)
-}
-
-func (rm *modeler) remodelPackageStart(group remodel.Group) error {
+func (rm *modeler) packageStart(group remodel.Group) error {
 	rm.logger.Printf(`Package Starting`)
 	defer rm.logger.Indent()()
 
@@ -86,7 +73,21 @@ func (rm *modeler) remodelPackageStart(group remodel.Group) error {
 	return rm.errGroup.FullOrNil()
 }
 
-func (rm *modeler) remodelPackageDone() error {
+func (rm *modeler) remodelPackage() error {
+	if rm.group == nil {
+		return nil
+	}
+
+	rm.logger.Printf(`Remodelling Package`)
+	defer rm.logger.Indent()()
+
+	if _, err := rm.group.Remodel(); err != nil {
+		return rm.errGroup.Add(err)
+	}
+	return rm.errGroup.FullOrNil()
+}
+
+func (rm *modeler) packageDone() error {
 	if rm.group == nil {
 		return nil
 	}
@@ -94,8 +95,10 @@ func (rm *modeler) remodelPackageDone() error {
 	rm.logger.Printf(`Package Finishing`)
 	defer rm.logger.Indent()()
 
-	if _, err := rm.group.PackageDone(); err != nil {
-		return rm.errGroup.Add(err)
+	if pd, ok := rm.group.(remodel.ProjectDoneExt); ok {
+		if _, err := pd.PackageDone(); err != nil {
+			return rm.errGroup.Add(err)
+		}
 	}
 	return rm.errGroup.FullOrNil()
 }

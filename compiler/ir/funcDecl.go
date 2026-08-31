@@ -26,6 +26,7 @@ type FuncDecl struct {
 	// specifically designed for the schedular to call.
 	Atomic bool
 
+	// FuncObj is the object with the type information for the function.
 	FuncObj *types.Func
 
 	// Func is the function definition.

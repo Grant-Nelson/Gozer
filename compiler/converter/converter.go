@@ -16,10 +16,12 @@ import (
 )
 
 func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Package, err error) {
-	//defer errGroup.Recover(&err) // TODO: Uncomment
+	defer errGroup.Recover(&err)
+
 	assert.NotNil(pkg)
 	assert.NotNil(pkg.TypesInfo)
 	assert.NotNil(pkg.Fset)
+
 	c := &converter{
 		FileSet: pkg.Fset,
 		Info:    pkg.TypesInfo,
@@ -34,10 +36,11 @@ const (
 )
 
 type converter struct {
-	FileSet *token.FileSet
-	Info    *types.Info
-	Errors  *faults.ErrGroup
-	Imports map[string]*ir.ImportDecl
+	FileSet   *token.FileSet
+	Info      *types.Info
+	Errors    *faults.ErrGroup
+	Imports   map[string]*ir.ImportDecl
+	LinkNames map[token.Pos]*ir.LinkName
 }
 
 func (c *converter) pos(p token.Pos) string {
@@ -125,10 +128,29 @@ func (c *converter) FromNode(n ast.Node) ir.Node {
 
 func (c *converter) FromFile(f *ast.File) ir.Stmt {
 	ss := &ir.StmtListStmt{}
+	for _, cg := range f.Comments {
+		c.ReadCommentGroup(cg)
+	}
 	for _, d := range f.Decls {
 		ss.Add(c.FromDecl(d))
 	}
 	return c.SimplifyStmt(ss)
+}
+
+func (c *converter) ReadCommentGroup(cg *ast.CommentGroup) {
+	if cg == nil {
+		return
+	}
+	for _, cm := range cg.List {
+		c.ReadComment(cm)
+	}
+}
+
+func (c *converter) ReadComment(cm *ast.Comment) {
+
+	// TODO: Implement
+
+	// TODO: Also add comments to declarations
 }
 
 func (c *converter) FromDecl(d ast.Decl) ir.Stmt {

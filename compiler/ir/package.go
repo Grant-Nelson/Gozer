@@ -34,6 +34,9 @@ type Package struct {
 
 	// Funcs is the collection of functions for this package.
 	Funcs []*FuncDecl
+
+	// LinkNames is the collection of link information for this package.
+	LinkNames []*LinkName
 }
 
 var _ Parent = (*Package)(nil)
@@ -55,6 +58,9 @@ func (p *Package) String() string {
 }
 
 func (p *Package) Children(yield func(Node) bool) {
-	_ = YieldSlice(p.Types, yield) && YieldSlice(p.Consts, yield) &&
-		YieldSlice(p.Vars, yield) && YieldSlice(p.Funcs, yield)
+	_ = YieldSlice(p.Types, yield) &&
+		YieldSlice(p.Consts, yield) &&
+		YieldSlice(p.Vars, yield) &&
+		YieldSlice(p.Funcs, yield) &&
+		YieldSlice(p.LinkNames, yield)
 }
