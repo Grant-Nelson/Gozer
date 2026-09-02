@@ -147,10 +147,15 @@ func (c *converter) ReadCommentGroup(cg *ast.CommentGroup) {
 }
 
 func (c *converter) ReadComment(cm *ast.Comment) {
+	if d, ok := ast.ParseDirective(cm.Pos(), cm.Text); ok {
+		c.ReadDirective(d)
+	}
+}
+
+func (c *converter) ReadDirective(d ast.Directive) {
 
 	// TODO: Implement
 
-	// TODO: Also add comments to declarations
 }
 
 func (c *converter) FromDecl(d ast.Decl) ir.Stmt {
@@ -209,7 +214,11 @@ func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDecl {
 			With(`id`, s.Name.Name))
 	}
 
-	return &ir.TypeDecl{TypeObj: typ}
+	td := &ir.TypeDecl{TypeObj: typ}
+	if s.Doc != nil {
+		td.Comment = s.Doc.Text()
+	}
+	return td
 }
 
 func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
@@ -231,6 +240,9 @@ func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
 		}
 
 		cd := &ir.ConstDecl{ConstObj: tc}
+		if s.Doc != nil {
+			cd.Comment = s.Doc.Text()
+		}
 		ss.Add(cd)
 	}
 	return c.SimplifyStmt(ss)
@@ -258,22 +270,24 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 		if len(s.Values) > i {
 			vd.Value = c.FromExpr(s.Values[i])
 		}
-
+		if s.Doc != nil {
+			vd.Comment = s.Doc.Text()
+		}
 		ss.Add(vd)
 	}
 	return c.SimplifyStmt(ss)
 }
 
-func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
-	if astFunc == nil {
+func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDecl {
+	if df == nil {
 		return nil
 	}
 
-	obj, ok := c.Info.Defs[astFunc.Name]
+	obj, ok := c.Info.Defs[df.Name]
 	if !ok {
 		c.addFault(faults.From(`expected a def object for a function declaration`).
-			With(`label`, astFunc.Name).
-			With(`pos`, c.pos(astFunc.Pos())))
+			With(`label`, df.Name).
+			With(`pos`, c.pos(df.Pos())))
 	}
 
 	fnObj, ok := obj.(*types.Func)
@@ -281,20 +295,26 @@ func (c *converter) FromFuncDecl(astFunc *ast.FuncDecl) *ir.FuncDecl {
 		c.addFault(faults.From(`unexpected object type for a function declaration`).
 			With(`object`, obj).
 			WithF(`type`, `%T`, obj).
-			With(`pos`, c.pos(astFunc.Pos())))
+			With(`pos`, c.pos(df.Pos())))
 	}
 
 	fn := &ir.FuncDecl{
 		FuncObj: fnObj,
 		Func: &ir.Func{
-			FuncPos:   astFunc.Type.Func,
+			FuncPos:   df.Type.Func,
 			Signature: fnObj.Signature(),
 		},
 	}
-	c.setInitialBlock(fn.Func, astFunc.Body, astFunc.Type)
 
-	if astFunc.Doc != nil {
-		dv := astTools.Directives(astFunc.Doc.List, directiveGroup)
+	if df.Doc != nil {
+		fn.Comment = df.Doc.Text()
+	}
+
+	c.setInitialBlock(fn.Func, df.Body, df.Type)
+
+	// TODO: Update to read directives using the directive reading methods
+	if df.Doc != nil {
+		dv := astTools.Directives(df.Doc.List, directiveGroup)
 		if s, ok := dv[directiveAtomicFunc]; ok {
 			// The atomic directive should have no fields.
 			// Any fields will be ignored (if asserts are off).

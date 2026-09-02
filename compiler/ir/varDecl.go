@@ -8,6 +8,9 @@ import (
 // VarDecl is the declaration for a single variable.
 type VarDecl struct {
 
+	// Comment for this type declaration.
+	Comment string
+
 	// VarObj is the object for this variable.
 	VarObj *types.Var
 

@@ -7,6 +7,10 @@ import (
 
 // ConstDecl is the declaration for a single constant.
 type ConstDecl struct {
+
+	// Comment for this constant.
+	Comment string
+
 	// ConstObj is the object for this constant.
 	ConstObj *types.Const
 }

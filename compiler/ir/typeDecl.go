@@ -6,6 +6,8 @@ import (
 )
 
 type TypeDecl struct {
+	// Comment for this type declaration.
+	Comment string
 	TypeObj *types.TypeName
 }
 

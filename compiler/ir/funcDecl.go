@@ -9,6 +9,9 @@ import (
 // FuncDecl represents a named function declaration.
 type FuncDecl struct {
 
+	// Comment for this function declaration.
+	Comment string
+
 	// Atomic indicates that this function should NOT be broken up into
 	// flow control blocks, meaning that the scheduler running in one real
 	// thread environment should not swap goroutines.
