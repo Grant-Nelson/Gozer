@@ -2,7 +2,8 @@ package astTools
 
 import (
 	"go/ast"
-	"strings"
+	"go/token"
+	"slices"
 
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
@@ -34,20 +35,16 @@ func DirectivesFromComment(cm *ast.Comment) *ast.Directive {
 	return nil
 }
 
-// TODO: Continue updating below
-
-func RemoveDirectives(cg *ast.CommentGroup, prefix string) {
-	if cg == nil || len(cg.List) <= 0 {
+func RemoveDirectives(cg *ast.CommentGroup, directives ...*ast.Directive) {
+	if cg == nil || len(cg.List) <= 0 || len(directives) <= 0 {
 		return
 	}
-	prefix = `//` + prefix + `:`
-	result := make([]*ast.Comment, 0, len(cg.List))
-	for _, c := range cg.List {
-		if !strings.HasPrefix(c.Text, prefix) {
-			result = append(result, c)
-		}
+	pos := map[token.Pos]bool{}
+	for _, d := range directives {
+		pos[d.Pos()] = true
 	}
-	cg.List = result
+	cg.List = slices.DeleteFunc(cg.List,
+		func(c *ast.Comment) bool { return pos[c.Pos()] })
 }
 
 func CommentsAttachedToNode(n ast.Node) []*ast.CommentGroup {
