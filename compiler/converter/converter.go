@@ -137,25 +137,24 @@ func (c *converter) FromFile(f *ast.File) ir.Stmt {
 	return c.SimplifyStmt(ss)
 }
 
-func (c *converter) ReadCommentGroup(cg *ast.CommentGroup) {
-	if cg == nil {
-		return
+func (c *converter) FromCommentGroup(cg *ast.CommentGroup) []ir.Directive {
+	ds := []ir.Directive{}
+	for d := range astTools.DirectivesFromGroup(cg) {
+		if dt := c.FromDirective(d); dt != nil {
+			ds = append(ds, dt)
+		}
 	}
-	for _, cm := range cg.List {
-		c.ReadComment(cm)
-	}
+	return ds
 }
 
-func (c *converter) ReadComment(cm *ast.Comment) {
-	if d, ok := ast.ParseDirective(cm.Pos(), cm.Text); ok {
-		c.ReadDirective(d)
+func (c *converter) FromDirective(d *ast.Directive) ir.Directive {
+	switch d.Tool + `:` + d.Name {
+	case `gozer:import`:
+		// TODO: Implement
+	case `go:linkname`:
+
+		// TODO: Implement
 	}
-}
-
-func (c *converter) ReadDirective(d ast.Directive) {
-
-	// TODO: Implement
-
 }
 
 func (c *converter) FromDecl(d ast.Decl) ir.Stmt {

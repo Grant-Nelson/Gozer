@@ -21,9 +21,11 @@ type LinkName struct {
 	RemoteName string
 }
 
-var _ Node = (*Func)(nil)
+var _ Directive = (*LinkName)(nil)
 
 func (n *LinkName) Pos() token.Pos { return n.LinkPos }
+
+func (n *LinkName) DirectiveNode() {}
 
 func (n *LinkName) String() string {
 	return n.LocalName + ` => ` + n.RemotePath + `.` + n.RemoteName

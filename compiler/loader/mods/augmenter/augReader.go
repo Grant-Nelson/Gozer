@@ -96,6 +96,7 @@ func (ar *augReader) addFile(filename string, src []byte) {
 
 	ar.curFile = f
 	if !ar.shouldAdd() {
+		ar.curFile = nil
 		return
 	}
 	for _, d := range f.Decls {

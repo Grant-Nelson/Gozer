@@ -48,7 +48,7 @@ func (a *Augmenter) StartPackage(pkg *project.Package) (con bool, mod mods.Modif
 
 	hasAug, augPath, augData, err := a.pathConv(pkg.PkgPath(), nil)
 	if !hasAug {
-		// Skip this package since there is no aug source.
+		// Skip augmenting this package since there is no aug source.
 		return true, nil, nil
 	}
 

@@ -14,8 +14,9 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
 
+const directiveTool = `gozer`
+
 const (
-	directiveGroup       = `gozer`
 	directiveAdd         = `add`
 	directiveDelete      = `delete`
 	directiveDeleteAll   = `deleteAll`
@@ -77,7 +78,6 @@ func (d *Directives) ReplaceSig() bool { return d.replaceSig }
 // Rename indicates the code exists in the original and needs to
 // have its identifier replaced with the given identifier.
 // This will be non-empty for `gozer:rename <name>`.
-
 func (d *Directives) Rename() string { return d.rename }
 
 // HasRename indicate that there is a rename directive.
@@ -175,24 +175,24 @@ func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position) (d
 func readDirectives(comments []*ast.Comment) iterator.Iterator[*ast.Directive] {
 	return func(yield func(*ast.Directive) bool) {
 		for d := range astTools.Directives(comments) {
-			if d.Tool == directiveGroup && directiveNames[d.Name] && !yield(d) {
+			if d.Tool == directiveTool && directiveNames[d.Name] && !yield(d) {
 				return
 			}
 		}
 	}
 }
 
-func parseDirective(d *ast.Directive) ([]string, error) {
+func parseDirective(d *ast.Directive) []string {
 	das, err := d.ParseArgs()
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
 	args := make([]string, len(das))
 	for i, da := range das {
 		args[i] = da.Arg
 	}
-	return args, nil
+	return args
 }
 
 // Read will read the given comments and gather the directives in those comments.
@@ -201,11 +201,7 @@ func Read(comments []*ast.Comment, pkgPath string, pos token.Position) (dv *Dire
 
 	dm := map[string][]string{}
 	for d := range readDirectives(comments) {
-		args, err := parseDirective(d)
-		if err != nil {
-			return nil, err
-		}
-		dm[d.Name] = args
+		dm[d.Name] = parseDirective(d)
 	}
 
 	mod := &directiveMod{
