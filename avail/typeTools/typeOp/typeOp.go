@@ -23,7 +23,9 @@ const (
 	Make3                     // make3(x, len, cap) for (slice)
 	Mod                       // x%y, x%=y
 	Orderable                 // x<y, x<=y, x>y, x>=y
-	RealImag                  // real(x),imag(x)
+	Range                     // for _ = range x, for y = range x
+	Range2                    // for _, _ = range x, for y, _ = range x, for y, z = range x
+	RealImag                  // real(x), imag(x)
 	Recv                      // <-x
 	Ref                       // &x, new(x)
 	RefIndex                  // &x[y]
@@ -65,6 +67,8 @@ func (op Op) String() string {
 	add(Make3, `Make3`)
 	add(Mod, `Mod`)
 	add(Orderable, `Orderable`)
+	add(Range, `Range`)
+	add(Range2, `Range2`)
 	add(RealImag, `RealImag`)
 	add(Recv, `Recv`)
 	add(Ref, `Ref`)

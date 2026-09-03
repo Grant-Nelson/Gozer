@@ -130,3 +130,25 @@ func Test_Ops_UnionsTypes(t *testing.T) {
 	// TODO: Fix, needs to check value and other types.
 	checkOps(t, `interface{~[]byte|~[]int}`, `Cap|Clear|IsNil|Len|Make|Make3|Ref`)
 }
+
+// TODO: Create a test to check c.Walk has the correct value
+//		package main
+//
+//		import "fmt"
+//
+//		type Cat struct{ lives int }
+//
+//		func (c *Cat) Walk(y func(int) bool) {
+//			for i := range c.lives {
+//				if !y(i) {
+//					return
+//				}
+//			}
+//		}
+//
+//		func main() {
+//			c := &Cat{lives: 3}
+//			for i := range c.Walk {
+//				fmt.Println(i)
+//			}
+//		}
