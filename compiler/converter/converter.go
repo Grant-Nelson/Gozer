@@ -312,14 +312,14 @@ func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDecl {
 
 	c.setInitialBlock(fn.Func, df.Body, df.Type)
 
-	// TODO: Update to read directives using the directive reading methods
 	if df.Doc != nil {
-		dv := astTools.Directives(df.Doc.List, directiveGroup)
-		if s, ok := dv[directiveAtomicFunc]; ok {
-			// The atomic directive should have no fields.
-			// Any fields will be ignored (if asserts are off).
-			assert.EmptySlice(s)
-			fn.Atomic = true
+		for d := range astTools.Directives(df.Doc.List) {
+			if d.Tool == directiveGroup && d.Name == directiveAtomicFunc {
+				// The atomic directive should have no fields.
+				// Any fields will be ignored, if asserts are off.
+				assert.EmptyStr(d.Args)
+				fn.Atomic = true
+			}
 		}
 	}
 

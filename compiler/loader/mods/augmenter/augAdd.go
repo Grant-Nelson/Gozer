@@ -44,15 +44,14 @@ type augAdd struct {
 
 func newAdd(pkg *project.Package, errGroup *faults.ErrGroup) *augAdd {
 	return &augAdd{
-		pkg:              pkg,
-		errGroup:         errGroup,
-		beingAdded:       map[string]token.Pos{},
-		newImports:       []ast.Decl{},
-		newImportSpecs:   []*ast.ImportSpec{},
-		newDecls:         []ast.Decl{},
-		newDeclsComments: [][]*ast.CommentGroup{},
-		newFields:        map[string]*ast.StructType{},
-		newMethods:       map[string]*ast.InterfaceType{},
+		pkg:            pkg,
+		errGroup:       errGroup,
+		beingAdded:     map[string]token.Pos{},
+		newImports:     []ast.Decl{},
+		newImportSpecs: []*ast.ImportSpec{},
+		newDecls:       []ast.Decl{},
+		newFields:      map[string]*ast.StructType{},
+		newMethods:     map[string]*ast.InterfaceType{},
 	}
 }
 

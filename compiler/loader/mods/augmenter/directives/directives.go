@@ -11,6 +11,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
 
 const (
@@ -24,6 +25,17 @@ const (
 	directiveReplaceRecv = `replaceRecv`
 	directiveIgnore      = `ignore`
 )
+
+var directiveNames = map[string]bool{
+	directiveAdd:         true,
+	directiveDelete:      true,
+	directiveDeleteAll:   true,
+	directiveReplace:     true,
+	directiveReplaceSig:  true,
+	directiveRename:      true,
+	directiveReplaceRecv: true,
+	directiveIgnore:      true,
+}
 
 // Directives contains the gozer directives to indicate what to do
 // with code from the augmenter in relation to the original code.
@@ -160,11 +172,44 @@ func (d *Directives) Join(d2 *Directives, pkgPath string, pos token.Position) (d
 	return mod.dv, nil
 }
 
+func readDirectives(comments []*ast.Comment) iterator.Iterator[*ast.Directive] {
+	return func(yield func(*ast.Directive) bool) {
+		for d := range astTools.Directives(comments) {
+			if d.Tool == directiveGroup && directiveNames[d.Name] && !yield(d) {
+				return
+			}
+		}
+	}
+}
+
+func parseDirective(d *ast.Directive) ([]string, error) {
+	das, err := d.ParseArgs()
+	if err != nil {
+		return nil, err
+	}
+
+	args := make([]string, len(das))
+	for i, da := range das {
+		args[i] = da.Arg
+	}
+	return args, nil
+}
+
 // Read will read the given comments and gather the directives in those comments.
 func Read(comments []*ast.Comment, pkgPath string, pos token.Position) (dv *Directives, err error) {
 	defer faults.Recover(&err)
+
+	dm := map[string][]string{}
+	for d := range readDirectives(comments) {
+		args, err := parseDirective(d)
+		if err != nil {
+			return nil, err
+		}
+		dm[d.Name] = args
+	}
+
 	mod := &directiveMod{
-		dm:      astTools.Directives(comments, directiveGroup),
+		dm:      dm,
 		dv:      &Directives{},
 		pkgPath: pkgPath,
 		pos:     pos,
@@ -384,5 +429,6 @@ func (mod *directiveMod) checkRemainder() {
 }
 
 func RemoveDirectives(cg *ast.CommentGroup) {
-	astTools.RemoveDirectives(cg, directiveGroup)
+	group := readDirectives(cg.List).ToSlice()
+	astTools.RemoveDirectives(cg, group...)
 }
