@@ -225,7 +225,7 @@ func Test_Ops_ChanTypes(t *testing.T) {
 			`{ Range1:int }`)
 }
 
-func Test_Ops_UnionsTypes(t *testing.T) {
+func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 	checkOps(t, `interface{String() string}`, `IsNil`)
 
 	checkOps(t, `interface{int|uint}`,
@@ -244,10 +244,16 @@ func Test_Ops_UnionsTypes(t *testing.T) {
 
 	checkOps(t, `interface{String() string; int|uint}`,
 		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Ref`)
+}
 
+func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	checkOps(t, `interface{~[]byte|~string}`,
 		`ByteSlice|GetIndex|Len|Range|Ref|Slice`+
-			`{ Key:untyped int, Range1:int }`)
+			`{ Key:untyped int, Elem:byte, Range1:int, Slice:interface{~[]byte|~string}}`)
+
+	checkOps(t, `interface{~[][]byte|~[]string}`,
+		`ByteSlice|GetIndex|Len|Range|Ref|Slice`+
+			`{ Key:untyped int, Elem:byte, Range1:int, Slice:interface{~[]byte|~string}}`)
 
 	checkOps(t, `interface{~[]int|~[3]int}`,
 		`Clear|GetIndex|IsNil|Len|Make|Make3|Ref|RefIndex|SetIndex|Slice|Slice3`+
@@ -271,24 +277,27 @@ func Test_Ops_UnionsTypes(t *testing.T) {
 			`{ Key:untyped int, Range1:int }`)
 }
 
-// TODO: Create a test to check c.Walk has the correct value
-//		package main
-//
-//		import "fmt"
-//
-//		type Cat struct{ lives int }
-//
-//		func (c *Cat) Walk(y func(int) bool) {
-//			for i := range c.lives {
-//				if !y(i) {
-//					return
-//				}
-//			}
-//		}
-//
-//		func main() {
-//			c := &Cat{lives: 3}
-//			for i := range c.Walk {
-//				fmt.Println(i)
-//			}
-//		}
+func Test_Ops_FunctionsTypes(t *testing.T) {
+	// TODO: Create a test to check c.Walk has the correct value
+	//
+	//	package main
+	//
+	//	import "fmt"
+	//
+	//	type Cat struct{ lives int }
+	//
+	//	func (c *Cat) Walk(y func(int) bool) {
+	//		for i := range c.lives {
+	//			if !y(i) {
+	//				return
+	//			}
+	//		}
+	//	}
+	//
+	//	func main() {
+	//		c := &Cat{lives: 3}
+	//		for i := range c.Walk {
+	//			fmt.Println(i)
+	//		}
+	//	}
+}

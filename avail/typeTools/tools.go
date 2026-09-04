@@ -27,14 +27,20 @@ func Deref(t types.Type) types.Type {
 	return nil
 }
 
-var runeType = sync.OnceValue(func() *types.Basic {
-	tv, err := types.Eval(token.NewFileSet(), nil, token.NoPos, `rune`)
-	if err != nil {
-		panic(err)
+func namedBasicAlias(exp string) func() *types.Basic {
+	return func() *types.Basic {
+		tv, err := types.Eval(token.NewFileSet(), nil, token.NoPos, exp)
+		if err != nil {
+			panic(err)
+		}
+		return tv.Type.(*types.Basic)
 	}
-	return tv.Type.(*types.Basic)
-})
-
-func RuneType() *types.Basic {
-	return runeType()
 }
+
+var runeType = sync.OnceValue(namedBasicAlias(`rune`))
+
+func RuneType() *types.Basic { return runeType() }
+
+var byteType = sync.OnceValue(namedBasicAlias(`byte`))
+
+func ByteType() *types.Basic { return byteType() }

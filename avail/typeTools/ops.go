@@ -61,34 +61,6 @@ func (ops OpTypes) String() string {
 	return ops.Ops.String() + tail
 }
 
-func IntersectOps(a, b OpTypes) OpTypes {
-	ops := a.Ops & b.Ops
-	adj := func(aType, bType types.Type, adjOps typeOp.Op) types.Type {
-		if ops.Any(adjOps) {
-			if aType == bType {
-				return aType
-			} else if aType.Underlying() == bType.Underlying() {
-				return aType.Underlying()
-			} else {
-				ops &^= adjOps
-			}
-		}
-		return nil
-	}
-
-	return OpTypes{
-		Ops:      ops,
-		Key:      adj(a.Key, b.Key, typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex),
-		Elem:     adj(a.Elem, b.Elem, typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex),
-		Complex:  adj(a.Complex, b.Complex, typeOp.Complex),
-		RealImag: adj(a.RealImag, b.RealImag, typeOp.RealImag),
-		Slice:    adj(a.Slice, b.Slice, typeOp.Slice|typeOp.Slice3),
-		Deref:    adj(a.Deref, b.Deref, typeOp.Deref),
-		Range1:   adj(a.Range1, b.Range1, typeOp.Range|typeOp.Range2),
-		Range2:   adj(a.Range2, b.Range2, typeOp.Range2),
-	}
-}
-
 func Ops(t types.Type) OpTypes {
 	switch t2 := t.Underlying().(type) {
 	case *types.Array:
@@ -253,7 +225,7 @@ func interfaceTypeOps(t2 *types.Interface) OpTypes {
 		if i == 0 {
 			ops = u
 		} else {
-			ops = IntersectOps(ops, u)
+			ops = intersectOps(ops, u)
 		}
 	}
 	return ops
@@ -338,8 +310,36 @@ func unionTypeOps(t2 *types.Union) OpTypes {
 		if i == 0 {
 			ops = u
 		} else {
-			ops = IntersectOps(ops, u)
+			ops = intersectOps(ops, u)
 		}
 	}
 	return ops
+}
+
+func intersectOps(a, b OpTypes) OpTypes {
+	ops := a.Ops & b.Ops
+	adj := func(aType, bType types.Type, adjOps typeOp.Op) types.Type {
+		if ops.Any(adjOps) {
+			if aType == bType {
+				return aType
+			}
+			if types.IdenticalIgnoreTags(aType, bType) {
+				// TODO: Handle not exact types, e.g. ~[]byte|string
+			}
+			ops &^= adjOps
+		}
+		return nil
+	}
+
+	return OpTypes{
+		Ops:      ops,
+		Key:      adj(a.Key, b.Key, typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex),
+		Elem:     adj(a.Elem, b.Elem, typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex),
+		Complex:  adj(a.Complex, b.Complex, typeOp.Complex),
+		RealImag: adj(a.RealImag, b.RealImag, typeOp.RealImag),
+		Slice:    adj(a.Slice, b.Slice, typeOp.Slice|typeOp.Slice3),
+		Deref:    adj(a.Deref, b.Deref, typeOp.Deref),
+		Range1:   adj(a.Range1, b.Range1, typeOp.Range|typeOp.Range2),
+		Range2:   adj(a.Range2, b.Range2, typeOp.Range2),
+	}
 }
