@@ -150,10 +150,13 @@ func (c *converter) FromCommentGroup(cg *ast.CommentGroup) []ir.Directive {
 func (c *converter) FromDirective(d *ast.Directive) ir.Directive {
 	switch d.Tool + `:` + d.Name {
 	case `gozer:import`:
+
 		// TODO: Implement
+
 	case `go:linkname`:
 
 		// TODO: Implement
+
 	}
 }
 

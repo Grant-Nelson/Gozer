@@ -23,8 +23,8 @@ const (
 	Make3                     // make3(x, len, cap) for (slice)
 	Mod                       // x%y, x%=y
 	Orderable                 // x<y, x<=y, x>y, x>=y
-	Range                     // for _ = range x, for y = range x
-	Range2                    // for _, _ = range x, for y, _ = range x, for y, z = range x
+	Range                     // for _=range x, for y=range x
+	Range2                    // for _,_=range x, for y,_=range x, for y,z=range x
 	RealImag                  // real(x), imag(x)
 	Recv                      // <-x
 	Ref                       // &x, new(x)
