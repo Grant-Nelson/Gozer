@@ -66,23 +66,19 @@ func (ops OpTypes) String() string {
 }
 
 func Ops(t types.Type) OpTypes {
-	return getOps(false, t)
+	return getOps(t, t)
 }
 
-func tildeType(tilde bool, t types.Type) types.Type {
-	return types.NewUnion([]*types.Term{types.NewTerm(tilde, t)})
-}
-
-func getOps(tilde bool, t types.Type) OpTypes {
+func getOps(orig, t types.Type) OpTypes {
 	switch t2 := t.Underlying().(type) {
 	case *types.Array:
 		return arrayTypeOps(t2)
 	case *types.Basic:
-		return basicTypeOps(tilde, t, t2)
+		return basicTypeOps(orig, t2)
 	case *types.Chan:
 		return chanTypeOps(t2)
 	case *types.Interface:
-		return interfaceTypeOps(t2)
+		return interfaceTypeOps(orig, t2)
 	case *types.Map:
 		return mapTypeOps(t2)
 	case *types.Pointer:
@@ -90,11 +86,11 @@ func getOps(tilde bool, t types.Type) OpTypes {
 	case *types.Signature:
 		return signatureTypeOps(t2)
 	case *types.Slice:
-		return sliceTypeOps(tilde, t, t2)
+		return sliceTypeOps(orig, t2)
 	case *types.Struct:
 		return structTypeOps(t2)
 	case *types.Union:
-		return unionTypeOps(t2)
+		return unionTypeOps(orig, t2)
 	}
 	return OpTypes{}
 }
@@ -116,7 +112,7 @@ func arrayTypeOps(t2 *types.Array) OpTypes {
 	return ops
 }
 
-func basicTypeOps(tilde bool, t types.Type, t2 *types.Basic) OpTypes {
+func basicTypeOps(orig types.Type, t2 *types.Basic) OpTypes {
 	switch t2.Kind() {
 	case types.Bool, types.UntypedBool:
 		return booleanTypeOps()
@@ -129,7 +125,7 @@ func basicTypeOps(tilde bool, t types.Type, t2 *types.Basic) OpTypes {
 	case types.UntypedComplex, types.Complex64, types.Complex128:
 		return complexTypeOps(t2)
 	case types.UntypedString, types.String:
-		return stringTypeOps(tilde, t)
+		return stringTypeOps(orig)
 	case types.UnsafePointer:
 		return unsafePointerTypeOps()
 	case types.UntypedNil:
@@ -183,14 +179,14 @@ func complexTypeOps(t2 *types.Basic) OpTypes {
 	return ops
 }
 
-func stringTypeOps(tilde bool, t types.Type) OpTypes {
+func stringTypeOps(orig types.Type) OpTypes {
 	return OpTypes{
 		Ops: typeOp.Add | typeOp.ByteSlice | typeOp.GetIndex | typeOp.Len |
 			typeOp.Comparable | typeOp.Orderable | typeOp.Range | typeOp.Range2 |
 			typeOp.Ref | typeOp.Slice,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   types.Typ[types.Byte],
-		Slice:  tildeType(tilde, t),
+		Slice:  orig,
 		Range1: types.Typ[types.Int],
 		Range2: RuneType(),
 	}
@@ -223,7 +219,7 @@ func chanTypeOps(t2 *types.Chan) OpTypes {
 	return ops
 }
 
-func interfaceTypeOps(t2 *types.Interface) OpTypes {
+func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
 	if t2.IsMethodSet() {
 		if t2.IsComparable() {
 			return OpTypes{Ops: typeOp.IsNil | typeOp.Comparable}
@@ -233,9 +229,10 @@ func interfaceTypeOps(t2 *types.Interface) OpTypes {
 
 	terms, err := typeparams.NormalTerms(t2)
 	if err != nil {
-		panic(err)
+		panic(faults.New(`failed to determine op type of interface`, err).
+			With(`interface`, t2))
 	}
-	return termsTypeOps(terms)
+	return unionTermsOps(orig, terms)
 }
 
 func mapTypeOps(t2 *types.Map) OpTypes {
@@ -286,14 +283,14 @@ func signatureTypeOps(t2 *types.Signature) OpTypes {
 	return OpTypes{Ops: typeOp.IsNil | typeOp.Ref}
 }
 
-func sliceTypeOps(tilde bool, t types.Type, t2 *types.Slice) OpTypes {
+func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 	ops := OpTypes{
 		Ops: typeOp.Cap | typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
 			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref | typeOp.RefIndex |
 			typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   t2.Elem(),
-		Slice:  tildeType(tilde, t),
+		Slice:  orig,
 		Range1: types.Typ[types.Int],
 		Range2: t2.Elem(),
 	}
@@ -310,19 +307,29 @@ func structTypeOps(t2 *types.Struct) OpTypes {
 	return OpTypes{Ops: typeOp.IsNil}
 }
 
-func unionTypeOps(t2 *types.Union) OpTypes {
-	return termsTypeOps(slices.Collect(t2.Terms()))
+func unionTypeOps(orig types.Type, t2 *types.Union) OpTypes {
+	return unionTermsOps(orig, slices.Collect(t2.Terms()))
 }
 
-func termsTypeOps(t2 []*types.Term) OpTypes {
-	if len(t2) <= 0 {
+func termOps(t *types.Term) OpTypes {
+	if t.Tilde() {
+		return getOps(types.NewUnion([]*types.Term{t}), t.Type())
+	}
+	return getOps(t.Type(), t.Type())
+}
+
+func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
+	switch len(t2) {
+	case 0:
 		return OpTypes{}
+	case 1:
+		getOps(orig, t2[0].Type())
 	}
 
 	terms := make([]OpTypes, len(t2))
 	ops := typeOp.None
 	for i, t := range t2 {
-		u := getOps(t.Tilde(), t.Type())
+		u := termOps(t)
 		terms[i] = u
 		if i == 0 {
 			ops = u.Ops
@@ -336,7 +343,7 @@ func termsTypeOps(t2 []*types.Term) OpTypes {
 
 	adj := func(adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
 		if ops.Any(adjOps) {
-			if result := sameTypes(terms, getType); result != nil {
+			if result := innerUnionType(terms, getType); result != nil {
 				return result
 			}
 			ops &^= adjOps
@@ -357,7 +364,7 @@ func termsTypeOps(t2 []*types.Term) OpTypes {
 	}
 }
 
-func sameTypes(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
+func innerUnionType(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
 	ts := make([]*types.Term, 0, len(terms))
 	for _, term := range terms {
 		t := getType(term)
@@ -371,12 +378,13 @@ func sameTypes(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
 	it := types.NewUnion(ts)
 	t2, err := typeparams.NormalTerms(it)
 	if err != nil {
-		panic(faults.New(`failed to determine op type`, err).
+		panic(faults.New(`failed to determine inner op type`, err).
 			With(`union`, it))
 	}
+
 	switch len(t2) {
 	case 0:
-		return nil
+		return anyType()
 	case 1:
 		if !t2[0].Tilde() {
 			return t2[0].Type()

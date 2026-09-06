@@ -50,3 +50,9 @@ var byteSliceType = sync.OnceValue(func() *types.Slice {
 })
 
 func ByteSliceType() *types.Slice { return byteSliceType() }
+
+var anyType = sync.OnceValue(func() *types.Interface {
+	return types.NewInterfaceType(nil, nil)
+})
+
+func AnyType() *types.Interface { return anyType() }
