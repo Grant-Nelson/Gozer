@@ -44,3 +44,9 @@ func RuneType() *types.Basic { return runeType() }
 var byteType = sync.OnceValue(namedBasicAlias(`byte`))
 
 func ByteType() *types.Basic { return byteType() }
+
+var byteSliceType = sync.OnceValue(func() *types.Slice {
+	return types.NewSlice(types.Typ[types.Byte])
+})
+
+func ByteSliceType() *types.Slice { return byteSliceType() }

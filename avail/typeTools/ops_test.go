@@ -248,21 +248,57 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 
 func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	checkOps(t, `interface{~[]byte|~string}`,
-		`ByteSlice|GetIndex|Len|Range|Ref|Slice`+
-			`{ Key:untyped int, Elem:byte, Range1:int, Slice:interface{~[]byte|~string}}`)
+		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+			`{ Key:untyped int, Elem:byte, Slice:~[]byte | ~string, Range1:int, Range2:byte | rune }`)
 
+	checkOps(t, `interface{~[]byte|string}`,
+		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+			`{ Key:untyped int, Elem:byte, Slice:~[]byte | string, Range1:int, Range2:byte | rune }`)
+
+	checkOps(t, `interface{[]byte|~string}`,
+		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+			`{ Key:untyped int, Elem:byte, Slice:[]byte | ~string, Range1:int, Range2:byte | rune }`)
+
+	checkOps(t, `interface{[]byte|string}`,
+		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+			`{ Key:untyped int, Elem:byte, Slice:[]byte | string, Range1:int, Range2:byte | rune }`)
+}
+
+func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
+	// From https://cs.opensource.google/go/x/exp/+/e88cd736:typeparams/normalize.go;l=66
+	// > In this example, the structural type restriction of P is ~string|int: A|B
+	// > expands to ~string|~[]byte|int|string, which reduces to ~string|~[]byte|int,
+	// > which when intersected with C (~string|~int) yields ~string|int.
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`type A interface{ ~string|~[]byte }`,
+		`type B interface{ int|string }`,
+		`type C interface { ~string|~int }`,
+		`type P interface{ A|B; C }`, // ~string|int
+	), token.Pos(45), `P`,
+		`Add|Comparable|Orderable|Range|Ref`+
+			`{ Range1:int }`)
+}
+
+func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 	checkOps(t, `interface{~[][]byte|~[]string}`,
-		`ByteSlice|GetIndex|Len|Range|Ref|Slice`+
-			`{ Key:untyped int, Elem:byte, Range1:int, Slice:interface{~[]byte|~string}}`)
+		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+			`{ Key:untyped int, Elem:[]byte | string, Slice:~[][]byte | ~[]string, Range1:int, Range2:[]byte | string }`)
 
 	checkOps(t, `interface{~[]int|~[3]int}`,
-		`Clear|GetIndex|IsNil|Len|Make|Make3|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:int, Range1:int, Range2:int }`)
+		`Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `interface{~[]int|~*[3]int}`,
-		`Clear|GetIndex|IsNil|Len|Make|Make3|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:int, Range1:int, Range2:int }`)
+		`Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
 
+	checkOps(t, `interface{~[]byte|~[]int}`,
+		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+			`{ Key:untyped int, Elem:byte | int, Slice:~[]byte | ~[]int, Range1:int, Range2:byte | int }`)
+}
+
+func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 	checkOpsWithFile(t, lines(
 		`package t`,
 		`func Foo[T any, S ~[]T](s S) {`,
@@ -271,10 +307,6 @@ func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	), token.Pos(45), `s`,
 		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
 			`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
-
-	checkOps(t, `interface{~[]byte|~[]int}`,
-		`Cap|Clear|IsNil|Len|Make|Make3|Range|Ref`+
-			`{ Key:untyped int, Range1:int }`)
 }
 
 func Test_Ops_FunctionsTypes(t *testing.T) {

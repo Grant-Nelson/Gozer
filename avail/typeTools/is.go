@@ -67,7 +67,7 @@ func IsBasicPtr(t types.Type) bool  { return IsPtrOf[*types.Basic](t) }
 func IsSlicePtr(t types.Type) bool  { return IsPtrOf[*types.Slice](t) }
 func IsStructPtr(t types.Type) bool { return IsPtrOf[*types.Struct](t) }
 
-func IsSliceOf[T types.Type](t types.Type) bool {
+func IsByteSlice(t types.Type) bool {
 	s, ok := t.(*types.Slice)
-	return ok && Is[T](s.Elem())
+	return ok && IsUint8(s.Elem())
 }

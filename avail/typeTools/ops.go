@@ -2,8 +2,12 @@ package typeTools
 
 import (
 	"go/types"
+	"slices"
 	"strings"
 
+	"golang.org/x/exp/typeparams"
+
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
 
@@ -62,11 +66,19 @@ func (ops OpTypes) String() string {
 }
 
 func Ops(t types.Type) OpTypes {
+	return getOps(false, t)
+}
+
+func tildeType(tilde bool, t types.Type) types.Type {
+	return types.NewUnion([]*types.Term{types.NewTerm(tilde, t)})
+}
+
+func getOps(tilde bool, t types.Type) OpTypes {
 	switch t2 := t.Underlying().(type) {
 	case *types.Array:
 		return arrayTypeOps(t2)
 	case *types.Basic:
-		return basicTypeOps(t, t2)
+		return basicTypeOps(tilde, t, t2)
 	case *types.Chan:
 		return chanTypeOps(t2)
 	case *types.Interface:
@@ -78,7 +90,7 @@ func Ops(t types.Type) OpTypes {
 	case *types.Signature:
 		return signatureTypeOps(t2)
 	case *types.Slice:
-		return sliceTypeOps(t, t2)
+		return sliceTypeOps(tilde, t, t2)
 	case *types.Struct:
 		return structTypeOps(t2)
 	case *types.Union:
@@ -104,7 +116,7 @@ func arrayTypeOps(t2 *types.Array) OpTypes {
 	return ops
 }
 
-func basicTypeOps(t types.Type, t2 *types.Basic) OpTypes {
+func basicTypeOps(tilde bool, t types.Type, t2 *types.Basic) OpTypes {
 	switch t2.Kind() {
 	case types.Bool, types.UntypedBool:
 		return booleanTypeOps()
@@ -117,7 +129,7 @@ func basicTypeOps(t types.Type, t2 *types.Basic) OpTypes {
 	case types.UntypedComplex, types.Complex64, types.Complex128:
 		return complexTypeOps(t2)
 	case types.UntypedString, types.String:
-		return stringTypeOps(t)
+		return stringTypeOps(tilde, t)
 	case types.UnsafePointer:
 		return unsafePointerTypeOps()
 	case types.UntypedNil:
@@ -171,14 +183,14 @@ func complexTypeOps(t2 *types.Basic) OpTypes {
 	return ops
 }
 
-func stringTypeOps(t types.Type) OpTypes {
+func stringTypeOps(tilde bool, t types.Type) OpTypes {
 	return OpTypes{
 		Ops: typeOp.Add | typeOp.ByteSlice | typeOp.GetIndex | typeOp.Len |
 			typeOp.Comparable | typeOp.Orderable | typeOp.Range | typeOp.Range2 |
 			typeOp.Ref | typeOp.Slice,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   types.Typ[types.Byte],
-		Slice:  t,
+		Slice:  tildeType(tilde, t),
 		Range1: types.Typ[types.Int],
 		Range2: RuneType(),
 	}
@@ -219,16 +231,11 @@ func interfaceTypeOps(t2 *types.Interface) OpTypes {
 		return OpTypes{Ops: typeOp.IsNil}
 	}
 
-	var ops OpTypes
-	for i := range t2.NumEmbeddeds() {
-		u := Ops(t2.EmbeddedType(i))
-		if i == 0 {
-			ops = u
-		} else {
-			ops = intersectOps(ops, u)
-		}
+	terms, err := typeparams.NormalTerms(t2)
+	if err != nil {
+		panic(err)
 	}
-	return ops
+	return termsTypeOps(terms)
 }
 
 func mapTypeOps(t2 *types.Map) OpTypes {
@@ -279,14 +286,14 @@ func signatureTypeOps(t2 *types.Signature) OpTypes {
 	return OpTypes{Ops: typeOp.IsNil | typeOp.Ref}
 }
 
-func sliceTypeOps(t types.Type, t2 *types.Slice) OpTypes {
+func sliceTypeOps(tilde bool, t types.Type, t2 *types.Slice) OpTypes {
 	ops := OpTypes{
 		Ops: typeOp.Cap | typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
 			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref | typeOp.RefIndex |
 			typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   t2.Elem(),
-		Slice:  t,
+		Slice:  tildeType(tilde, t),
 		Range1: types.Typ[types.Int],
 		Range2: t2.Elem(),
 	}
@@ -304,27 +311,33 @@ func structTypeOps(t2 *types.Struct) OpTypes {
 }
 
 func unionTypeOps(t2 *types.Union) OpTypes {
-	var ops OpTypes
-	for i := range t2.Len() {
-		u := Ops(t2.Term(i).Type())
-		if i == 0 {
-			ops = u
-		} else {
-			ops = intersectOps(ops, u)
-		}
-	}
-	return ops
+	return termsTypeOps(slices.Collect(t2.Terms()))
 }
 
-func intersectOps(a, b OpTypes) OpTypes {
-	ops := a.Ops & b.Ops
-	adj := func(aType, bType types.Type, adjOps typeOp.Op) types.Type {
+func termsTypeOps(t2 []*types.Term) OpTypes {
+	if len(t2) <= 0 {
+		return OpTypes{}
+	}
+
+	terms := make([]OpTypes, len(t2))
+	ops := typeOp.None
+	for i, t := range t2 {
+		u := getOps(t.Tilde(), t.Type())
+		terms[i] = u
+		if i == 0 {
+			ops = u.Ops
+		} else {
+			ops &= u.Ops
+		}
+	}
+	if ops == typeOp.None {
+		return OpTypes{}
+	}
+
+	adj := func(adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
 		if ops.Any(adjOps) {
-			if aType == bType {
-				return aType
-			}
-			if types.IdenticalIgnoreTags(aType, bType) {
-				// TODO: Handle not exact types, e.g. ~[]byte|string
+			if result := sameTypes(terms, getType); result != nil {
+				return result
 			}
 			ops &^= adjOps
 		}
@@ -333,13 +346,41 @@ func intersectOps(a, b OpTypes) OpTypes {
 
 	return OpTypes{
 		Ops:      ops,
-		Key:      adj(a.Key, b.Key, typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex),
-		Elem:     adj(a.Elem, b.Elem, typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex),
-		Complex:  adj(a.Complex, b.Complex, typeOp.Complex),
-		RealImag: adj(a.RealImag, b.RealImag, typeOp.RealImag),
-		Slice:    adj(a.Slice, b.Slice, typeOp.Slice|typeOp.Slice3),
-		Deref:    adj(a.Deref, b.Deref, typeOp.Deref),
-		Range1:   adj(a.Range1, b.Range1, typeOp.Range|typeOp.Range2),
-		Range2:   adj(a.Range2, b.Range2, typeOp.Range2),
+		Key:      adj(typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
+		Elem:     adj(typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
+		Complex:  adj(typeOp.Complex, func(op OpTypes) types.Type { return op.Complex }),
+		RealImag: adj(typeOp.RealImag, func(op OpTypes) types.Type { return op.RealImag }),
+		Slice:    adj(typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice }),
+		Deref:    adj(typeOp.Deref, func(op OpTypes) types.Type { return op.Deref }),
+		Range1:   adj(typeOp.Range|typeOp.Range2, func(op OpTypes) types.Type { return op.Range1 }),
+		Range2:   adj(typeOp.Range2, func(op OpTypes) types.Type { return op.Range2 }),
 	}
+}
+
+func sameTypes(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
+	ts := make([]*types.Term, 0, len(terms))
+	for _, term := range terms {
+		t := getType(term)
+		if u, ok := t.(*types.Union); ok {
+			ts = slices.AppendSeq(ts, u.Terms())
+		} else {
+			ts = append(ts, types.NewTerm(false, t))
+		}
+	}
+
+	it := types.NewUnion(ts)
+	t2, err := typeparams.NormalTerms(it)
+	if err != nil {
+		panic(faults.New(`failed to determine op type`, err).
+			With(`union`, it))
+	}
+	switch len(t2) {
+	case 0:
+		return nil
+	case 1:
+		if !t2[0].Tilde() {
+			return t2[0].Type()
+		}
+	}
+	return types.NewUnion(t2)
 }
