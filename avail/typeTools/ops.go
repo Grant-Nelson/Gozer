@@ -7,6 +7,7 @@ import (
 
 	"golang.org/x/exp/typeparams"
 
+	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
@@ -66,10 +67,12 @@ func (ops OpTypes) String() string {
 }
 
 func Ops(t types.Type) OpTypes {
+	crumb.DropMsg("Ops(%v)", t)
 	return getOps(t, t)
 }
 
 func getOps(orig, t types.Type) OpTypes {
+	crumb.DropMsg("getOps(%v, %v)", orig, t)
 	switch t2 := t.Underlying().(type) {
 	case *types.Array:
 		return arrayTypeOps(t2)
@@ -96,6 +99,7 @@ func getOps(orig, t types.Type) OpTypes {
 }
 
 func arrayTypeOps(t2 *types.Array) OpTypes {
+	crumb.DropMsg("arrayTypeOps(%v)", t2)
 	ops := OpTypes{
 		Ops: typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
 			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref |
@@ -113,6 +117,7 @@ func arrayTypeOps(t2 *types.Array) OpTypes {
 }
 
 func basicTypeOps(orig types.Type, t2 *types.Basic) OpTypes {
+	crumb.DropMsg("basicTypeOps(%v, %v)", orig, t2)
 	switch t2.Kind() {
 	case types.Bool, types.UntypedBool:
 		return booleanTypeOps()
@@ -220,6 +225,7 @@ func chanTypeOps(t2 *types.Chan) OpTypes {
 }
 
 func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
+	crumb.DropMsg("interfaceTypeOps(%v, %v)", orig, t2)
 	if t2.IsMethodSet() {
 		if t2.IsComparable() {
 			return OpTypes{Ops: typeOp.IsNil | typeOp.Comparable}
@@ -284,6 +290,7 @@ func signatureTypeOps(t2 *types.Signature) OpTypes {
 }
 
 func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
+	crumb.DropMsg("sliceTypeOps(%v, %v)", orig, t2)
 	ops := OpTypes{
 		Ops: typeOp.Cap | typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
 			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref | typeOp.RefIndex |
@@ -301,6 +308,7 @@ func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 }
 
 func structTypeOps(t2 *types.Struct) OpTypes {
+	crumb.DropMsg("structTypeOps(%v)", t2)
 	if types.Comparable(t2) {
 		return OpTypes{Ops: typeOp.Comparable | typeOp.IsNil}
 	}
@@ -308,10 +316,12 @@ func structTypeOps(t2 *types.Struct) OpTypes {
 }
 
 func unionTypeOps(orig types.Type, t2 *types.Union) OpTypes {
+	crumb.DropMsg("unionTypeOps(%v, %v)", orig, t2)
 	return unionTermsOps(orig, slices.Collect(t2.Terms()))
 }
 
 func termOps(t *types.Term) OpTypes {
+	crumb.DropMsg("termOps(%v)", t)
 	if t.Tilde() {
 		return getOps(types.NewUnion([]*types.Term{t}), t.Type())
 	}
@@ -319,11 +329,12 @@ func termOps(t *types.Term) OpTypes {
 }
 
 func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
+	crumb.DropMsg("unionTermsOps(%v, %v)", orig, t2)
 	switch len(t2) {
 	case 0:
 		return OpTypes{}
 	case 1:
-		getOps(orig, t2[0].Type())
+		return getOps(orig, t2[0].Type())
 	}
 
 	terms := make([]OpTypes, len(t2))

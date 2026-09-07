@@ -27,32 +27,27 @@ func Deref(t types.Type) types.Type {
 	return nil
 }
 
-func namedBasicAlias(exp string) func() *types.Basic {
-	return func() *types.Basic {
+func namedType[T types.Type](exp string) func() T {
+	return func() T {
 		tv, err := types.Eval(token.NewFileSet(), nil, token.NoPos, exp)
 		if err != nil {
 			panic(err)
 		}
-		return tv.Type.(*types.Basic)
+		return tv.Type.(T)
 	}
 }
 
-var runeType = sync.OnceValue(namedBasicAlias(`rune`))
+var (
+	runeType      = sync.OnceValue(namedType[*types.Basic](`rune`))
+	byteType      = sync.OnceValue(namedType[*types.Basic](`byte`))
+	anyType       = sync.OnceValue(namedType[*types.Alias](`any`))
+	byteSliceType = sync.OnceValue(namedType[*types.Slice](`[]byte`))
+)
 
 func RuneType() *types.Basic { return runeType() }
 
-var byteType = sync.OnceValue(namedBasicAlias(`byte`))
-
 func ByteType() *types.Basic { return byteType() }
 
-var byteSliceType = sync.OnceValue(func() *types.Slice {
-	return types.NewSlice(types.Typ[types.Byte])
-})
+func AnyType() *types.Alias { return anyType() }
 
 func ByteSliceType() *types.Slice { return byteSliceType() }
-
-var anyType = sync.OnceValue(func() *types.Interface {
-	return types.NewInterfaceType(nil, nil)
-})
-
-func AnyType() *types.Interface { return anyType() }

@@ -2,7 +2,7 @@ package converter
 
 import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/compiler/converter"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/converter"
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods"
 	"github.com/Grant-Nelson/Gozer/compiler/project"
 )

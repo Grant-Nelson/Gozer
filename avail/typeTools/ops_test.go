@@ -229,7 +229,8 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 	checkOps(t, `interface{String() string}`, `IsNil`)
 
 	checkOps(t, `interface{int|uint}`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Ref`)
+		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+			`{ Range1:int | uint }`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
@@ -237,13 +238,15 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 		`	println(t)`,
 		`}`,
 	), token.Pos(40), `t`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Ref`)
+		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+			`{ Range1:int | uint }`)
 
 	checkOps(t, `interface{int64|float64}`,
 		`Add|Arith|Comparable|Orderable|Ref`)
 
 	checkOps(t, `interface{String() string; int|uint}`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Ref`)
+		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+			`{ Range1:int | uint }`)
 }
 
 func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
@@ -307,6 +310,14 @@ func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 	), token.Pos(45), `s`,
 		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
 			`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
+
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`func Foo[T any, S ~[]T | ~map[int]T](s S) {`,
+		`	println(s)`,
+		`}`,
+	), token.Pos(65), `s`,
+		``)
 }
 
 func Test_Ops_FunctionsTypes(t *testing.T) {

@@ -129,7 +129,8 @@ func (c *converter) FromNode(n ast.Node) ir.Node {
 func (c *converter) FromFile(f *ast.File) ir.Stmt {
 	ss := &ir.StmtListStmt{}
 	for _, cg := range f.Comments {
-		c.ReadCommentGroup(cg)
+		// TODO: Finish
+		c.FromCommentGroup(cg)
 	}
 	for _, d := range f.Decls {
 		ss.Add(c.FromDecl(d))
@@ -158,6 +159,7 @@ func (c *converter) FromDirective(d *ast.Directive) ir.Directive {
 		// TODO: Implement
 
 	}
+	return nil
 }
 
 func (c *converter) FromDecl(d ast.Decl) ir.Stmt {
