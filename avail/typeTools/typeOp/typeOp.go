@@ -120,49 +120,75 @@ const (
 	//	| `x = new(y)` | `x T, y *T` | creates a pointer to a new copy of the given value |
 	Ref
 
-	// Make indicates that single parameter make is available.
+	// Make indicates that make operations are available.
 	// The make can build slices, maps, and channels.
-	// If the parameter is zero or not given, the default is used.
-	// See [https://pkg.go.dev/builtin#make]
 	//
-	//	| Operator  | Types            | Comment                            |
-	//	|-----------|------------------|------------------------------------|
-	//	| `make()`  |                  | creates a type with default length |
-	//	| `make(x)` | `x unsigned int` | creates a type with a length       |
-	Make
-
-	// Make3 indicates that a two parameter make is available.
-	// Two parameter should always have single parameter make too.
+	// If the first parameter is zero or not given, the default is used.
+	// The second parameter is only defined for slices by Go so shouldn't be called by any type other
+	// than a slice. However, for other types the second parameter can simply be ignored.
+	//
 	// See [https://pkg.go.dev/builtin#make]
 	//
 	//	| Operator     | Types               | Comment                                    |
 	//	|--------------|---------------------|--------------------------------------------|
+	//	| `make()`     |                     | creates a type with default length         |
+	//	| `make(x)`    | `x unsigned int`    | creates a type with a length               |
 	//	| `make(x, y)` | `x, y unsigned int` | creates a slice with a length and capacity |
-	Make3
+	Make
 
-	// GetIndex indicates that index operations are available.
-	// The index operations for slices and arrays use untyped ints, and for maps use the map's key type.
+	// GetIndex indicates that index getter operations are available.
+	// Index getter operations should always have the length operation.
+	// The index getter operations for strings, slices, and arrays use untyped ints,
+	// and for maps use the map's key type.
+	//
 	// Go does not define the two results operation for a non-map, so it will not be called in normal
 	// Go code however, may be used to not panic on out-of-bounds for slices and arrays.
 	//
-	//	| Operator      | Types                   | Comment                                  |
-	//	|---------------|-------------------------|------------------------------------------|
-	//	| `x = y[z]`    | `x E, y T, z K`         | gets the value at the given index or key |
+	//	| Operator      | Types                   | Comment                                             |
+	//	|---------------|-------------------------|-----------------------------------------------------|
+	//	| `x = y[z]`    | `x E, y T, z K`         | gets the value at the given index or key            |
 	//	| `x, y = z[w]` | `x E, y bool, z T, w K` | gets the value and exists at the given index or key |
 	GetIndex
 
-	// See [https://pkg.go.dev/builtin#clear]
-	SetIndex // x[y]=z, clear(x)
-
-	RefIndex // &x[y]
-
-	// Slice indicates that byte slice operations are available. (slice, array, string)
+	// SetIndex indicates that index setter operations are available.
+	// Index setter operations should always have index getter operations and the length operation.
+	// This is separate from the index getters operations because strings are immutable
+	// and therefore will not have the setter operations on them.
 	//
-	//	| Operator       | Types                      | Comment                                            |
-	//	|----------------|----------------------------|----------------------------------------------------|
-	//  | `x = y[z:w]`   | `x, y T, z, w untyped int` |
-	//	| `x = []E(y)`   | `x = []E, y = T`           |
-	//	| `copyTo(x, y)` | `x = T, y = []E`           |
+	// Any type that can have indices set on it can also have all the indices cleared.
+	// See [https://pkg.go.dev/builtin#clear]
+	//
+	//	| Operator   | Types           | Comment                                             |
+	//	|------------|-----------------|-----------------------------------------------------|
+	//	| `x[y] = z` | `x T, y K, z E` | sets the value at the given index or key            |
+	//	| `clear(x)` | `x T`           | clears all the values from the slice, array, or map |
+	SetIndex
+
+	// RefIndex indicates that the element pointer operations are available.
+	// For slices, the pointer is on the internal array such that if the slice is grown and
+	// a new array is allocated, the pointer remains pointing at the original array.
+	// This is not available for maps.
+	//
+	//	| Operator    | Types            | Comment                                        |
+	//	|-------------|------------------|------------------------------------------------|
+	//	| `x = &y[z]` | `x *E, y T, z K` | gets a pointer to the value at the given index |
+	RefIndex
+
+	// Slice indicates that non-capacity slice operations are available.
+	// Slice operations should always have index getter operations and the length operation.
+	// Being able to slice also indicates that the type may be used as an array of the element type.
+	//
+	// This works for slices, arrays, and strings. For arrays and slices, the slice returns as `[]E`,
+	// however, for strings the slice will return a substring of type `string` yet will still be
+	// able to be used as `[]byte` when needed.
+	//
+	// The `copyTo` function can be used in the builtin functions `append` and `copy`.
+	//
+	//	| Operator       | Types                           | Comment                                                                |
+	//	|----------------|---------------------------------|------------------------------------------------------------------------|
+	//  | `x = y[z:w]`   | `x ~[]E, y T, z, w untyped int` | creates a slice of the type                                            |
+	//	| `x = []E(y)`   | `x = []E, y = T`                | converts the slice, array, or string into a slice of its element types |
+	//	| `copyTo(x, y)` | `x = T, y = []E`                | copies this value over the given section of the given slice            |
 	Slice
 
 	Slice3 // s[x:y:z] for (slice, array)
