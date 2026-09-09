@@ -33,9 +33,6 @@ type OpTypes struct {
 	// Slice is the returned type from the ops Slice and Slice3.
 	Slice types.Type
 
-	// Deref is the returned type from the Deref op.
-	Deref types.Type
-
 	// Range1 is the returned type from a Range op and
 	// the first returned type from a Range2 op.
 	Range1 types.Type
@@ -99,10 +96,10 @@ func getOps(orig, t types.Type) OpTypes {
 }
 
 func arrayTypeOps(t2 *types.Array) OpTypes {
-	crumb.DropMsg("arrayTypeOps(%v)", t2)
-	ops := OpTypes{
-		Ops: typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
-			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref |
+	crumb.DropMsg(`arrayTypeOps(%v)`, t2)
+	return OpTypes{
+		Ops: typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
+			typeOp.Make | typeOp.Range | typeOp.Range2 | typeOp.Ref |
 			typeOp.RefIndex | typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   t2.Elem(),
@@ -110,14 +107,10 @@ func arrayTypeOps(t2 *types.Array) OpTypes {
 		Range1: types.Typ[types.Int],
 		Range2: t2.Elem(),
 	}
-	if IsUint8(t2.Elem()) {
-		ops.Ops |= typeOp.ByteSlice
-	}
-	return ops
 }
 
 func basicTypeOps(orig types.Type, t2 *types.Basic) OpTypes {
-	crumb.DropMsg("basicTypeOps(%v, %v)", orig, t2)
+	crumb.DropMsg(`basicTypeOps(%v, %v)`, orig, t2)
 	switch t2.Kind() {
 	case types.Bool, types.UntypedBool:
 		return booleanTypeOps()
@@ -186,7 +179,7 @@ func complexTypeOps(t2 *types.Basic) OpTypes {
 
 func stringTypeOps(orig types.Type) OpTypes {
 	return OpTypes{
-		Ops: typeOp.Add | typeOp.ByteSlice | typeOp.GetIndex | typeOp.Len |
+		Ops: typeOp.Add | typeOp.GetIndex | typeOp.Len |
 			typeOp.Comparable | typeOp.Orderable | typeOp.Range | typeOp.Range2 |
 			typeOp.Ref | typeOp.Slice,
 		Key:    types.Typ[types.UntypedInt],
@@ -225,7 +218,7 @@ func chanTypeOps(t2 *types.Chan) OpTypes {
 }
 
 func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
-	crumb.DropMsg("interfaceTypeOps(%v, %v)", orig, t2)
+	crumb.DropMsg(`interfaceTypeOps(%v, %v)`, orig, t2)
 	if t2.IsMethodSet() {
 		if t2.IsComparable() {
 			return OpTypes{Ops: typeOp.IsNil | typeOp.Comparable}
@@ -290,7 +283,7 @@ func signatureTypeOps(t2 *types.Signature) OpTypes {
 }
 
 func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
-	crumb.DropMsg("sliceTypeOps(%v, %v)", orig, t2)
+	crumb.DropMsg(`sliceTypeOps(%v, %v)`, orig, t2)
 	ops := OpTypes{
 		Ops: typeOp.Cap | typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
 			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref | typeOp.RefIndex |
@@ -308,7 +301,7 @@ func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 }
 
 func structTypeOps(t2 *types.Struct) OpTypes {
-	crumb.DropMsg("structTypeOps(%v)", t2)
+	crumb.DropMsg(`structTypeOps(%v)`, t2)
 	if types.Comparable(t2) {
 		return OpTypes{Ops: typeOp.Comparable | typeOp.IsNil}
 	}
@@ -316,12 +309,12 @@ func structTypeOps(t2 *types.Struct) OpTypes {
 }
 
 func unionTypeOps(orig types.Type, t2 *types.Union) OpTypes {
-	crumb.DropMsg("unionTypeOps(%v, %v)", orig, t2)
+	crumb.DropMsg(`unionTypeOps(%v, %v)`, orig, t2)
 	return unionTermsOps(orig, slices.Collect(t2.Terms()))
 }
 
 func termOps(t *types.Term) OpTypes {
-	crumb.DropMsg("termOps(%v)", t)
+	crumb.DropMsg(`termOps(%v)`, t)
 	if t.Tilde() {
 		return getOps(types.NewUnion([]*types.Term{t}), t.Type())
 	}
@@ -329,7 +322,7 @@ func termOps(t *types.Term) OpTypes {
 }
 
 func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
-	crumb.DropMsg("unionTermsOps(%v, %v)", orig, t2)
+	crumb.DropMsg(`unionTermsOps(%v, %v)`, orig, t2)
 	switch len(t2) {
 	case 0:
 		return OpTypes{}
@@ -364,12 +357,11 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 
 	return OpTypes{
 		Ops:      ops,
-		Key:      adj(typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
-		Elem:     adj(typeOp.GetIndex|typeOp.GetIndex2|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
+		Key:      adj(typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
+		Elem:     adj(typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
 		Complex:  adj(typeOp.Complex, func(op OpTypes) types.Type { return op.Complex }),
 		RealImag: adj(typeOp.RealImag, func(op OpTypes) types.Type { return op.RealImag }),
 		Slice:    adj(typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice }),
-		Deref:    adj(typeOp.Deref, func(op OpTypes) types.Type { return op.Deref }),
 		Range1:   adj(typeOp.Range|typeOp.Range2, func(op OpTypes) types.Type { return op.Range1 }),
 		Range2:   adj(typeOp.Range2, func(op OpTypes) types.Type { return op.Range2 }),
 	}

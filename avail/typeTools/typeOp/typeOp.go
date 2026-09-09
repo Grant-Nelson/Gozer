@@ -1,6 +1,9 @@
 package typeOp
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type Op uint64
 
@@ -191,28 +194,94 @@ const (
 	//	| `copyTo(x, y)` | `x = T, y = []E`                | copies this value over the given section of the given slice            |
 	Slice
 
-	Slice3 // s[x:y:z] for (slice, array)
+	// Slice3 indicates that a capacity slice operation is available.
+	// Slice3 operations should always have non-capacity slice operations are available too.
+	//
+	//	| Operator       | Types                             | Comment                                   |
+	//	|----------------|-----------------------------------|-------------------------------------------|
+	//  | `x = y[z:w:v]` | `x []E, y T, z, w, v untyped int` | creates a slice of the type with capacity |
+	Slice3
 
-	Range // for _=range x, for y=range x
+	// Range indicates that zero or one result range operations are available.
+	// Range operations should always have index getter operations and the length operation.
+	// This is for integer types, slices, arrays, maps, and `iter.Seq[K]` functions.
+	// There are different functions for operating with zero results and
+	// one result so that some types can use a faster method for iteration.
+	//
+	//	| Operator          | Types      | Comment                                    |
+	//	|-------------------|------------|--------------------------------------------|
+	//	| `for range x`     | `x T`      | iterates the type's length number of times |
+	//	| `for x = range y` | `x K, y T` | iterates over all the indices or keys      |
+	Range
 
-	Range2 // for _,_=range x, for y,_=range x, for y,z=range x
+	// Range2 indicates that a two result range operation is available.
+	// Range2 operations should always have zero or one result range operations.
+	// This is for slices, arrays, maps, and `iter.Seq2[K, V]` functions, but not integers.
+	//
+	//	| Operator             | Types           | Comment                                           |
+	//	|----------------------|-----------------|---------------------------------------------------|
+	//	| `for x, y = range z` | `x K, y V, z T` | iterates over all the indices/key and value pairs |
+	Range2
 
-	Recv // x<-y, x,y<-z
+	// Recv indicates that the channel receive operations are available.
+	// See [https://go.dev/ref/spec#Channel_types] and [https://go.dev/ref/spec#Receive_operator]
+	//
+	//	| Operator      | Types              | Comment                                                                 |
+	//	|---------------|--------------------|-------------------------------------------------------------------------|
+	//	| `x = <- y`    | `x E, y T`         | blocks until it receives a value from the channel                       |
+	//	| `x, y = <- z` | `x E, y bool, z T` | returns the value and true, or false if the channel is closed and empty |
+	Recv
 
-	// See [https://pkg.go.dev/builtin#close]
-	Send // x->y, close(y)
+	// Send indicates that the channel send operations are available.
+	// See [https://go.dev/ref/spec#Send_statements] and [https://pkg.go.dev/builtin#close]
+	//
+	//	| Operator   | Types      | Comment                        |
+	//	|------------|------------|--------------------------------|
+	//	| `x <- y`   | `x T, y E` | sends a value into the channel |
+	//	| `close(x)` | `x T`      | closes the channel             |
+	Send
 
-	Complex // complex(x,y)
+	// Complex indicates that the complex creation operator is available.
+	// This is for float32 to create complex64 and float64 to create complex128 values.
+	//
+	//	| Operator            | Types         | Comment                                      |
+	//	|---------------------|---------------|----------------------------------------------|
+	//	| `x = complex(y, z)` | `x C, y, z T` | creates a complex value for the given values |
+	Complex
 
-	RealImag // real(x), imag(x)
+	// RealImag indicates that the complex decomposition operators are available.
+	// This is for getting the real and imaginary parts from a complex64 or complex128.
+	//
+	//	| Operator      | Types      | Comment                                      |
+	//	|---------------|------------|----------------------------------------------|
+	//	| `x = real(y)` | `x F, y T` | gets the real part of the complex value      |
+	//	| `x = imag(y)` | `x F, y T` | gets the imaginary part of the complex value |
+	RealImag
+
+	// mask is the mask of the valid operators.
+	mask = Add | Arith | Mod | Bitwise | Len | Cap | IsNil | Comparable |
+		Orderable | Ref | Make | GetIndex | SetIndex | RefIndex | Slice |
+		Slice3 | Range | Range2 | Recv | Send | Complex | RealImag
 )
 
-func (op Op) All(other Op) bool { return op&other == other }
-func (op Op) Any(other Op) bool { return op&other != None }
+func (op Op) Valid() bool       { return op&mask == op }
+func (op Op) All(other Op) bool { return op&other&mask == other }
+func (op Op) Any(other Op) bool { return op&other&mask != None }
+
+func (op Op) NeedsKeyType() bool      { return op.Any(GetIndex | RefIndex | SetIndex) }
+func (op Op) NeedsElemType() bool     { return op.Any(GetIndex | RefIndex | SetIndex | Slice | Slice3) }
+func (op Op) NeedsComplexType() bool  { return op.Any(Complex) }
+func (op Op) NeedsRealImagType() bool { return op.Any(RealImag) }
+func (op Op) NeedsSliceType() bool    { return op.Any(Slice | Slice3) }
+func (op Op) NeedsRange1Type() bool   { return op.Any(Range | Range2) }
+func (op Op) NeedsRange2Type() bool   { return op.Any(Range2) }
 
 func (op Op) String() string {
 	if op == None {
-		return "none"
+		return `None`
+	}
+	if !op.Valid() {
+		return fmt.Sprintf(`Invalid(0x%X)`, int(op))
 	}
 
 	parts := []string{}
@@ -224,31 +293,26 @@ func (op Op) String() string {
 
 	add(Add, `Add`)
 	add(Arith, `Arith`)
-	add(Bitwise, `Bitwise`)
-	add(ByteSlice, `ByteSlice`)
-	add(Cap, `Cap`)
-	add(Clear, `Clear`)
-	add(Comparable, `Comparable`)
-	add(Complex, `Complex`)
-	add(Deref, `Deref`)
-	add(GetIndex, `GetIndex`)
-	add(GetIndex2, `GetIndex2`)
-	add(IsNil, `IsNil`)
-	add(Len, `Len`)
-	add(Make, `Make`)
-	add(Make3, `Make3`)
 	add(Mod, `Mod`)
+	add(Bitwise, `Bitwise`)
+	add(Len, `Len`)
+	add(Cap, `Cap`)
+	add(IsNil, `IsNil`)
+	add(Comparable, `Comparable`)
 	add(Orderable, `Orderable`)
-	add(Range, `Range`)
-	add(Range2, `Range2`)
-	add(RealImag, `RealImag`)
-	add(Recv, `Recv`)
 	add(Ref, `Ref`)
-	add(RefIndex, `RefIndex`)
-	add(Send, `Send`)
+	add(Make, `Make`)
+	add(GetIndex, `GetIndex`)
 	add(SetIndex, `SetIndex`)
+	add(RefIndex, `RefIndex`)
 	add(Slice, `Slice`)
 	add(Slice3, `Slice3`)
+	add(Range, `Range`)
+	add(Range2, `Range2`)
+	add(Recv, `Recv`)
+	add(Send, `Send`)
+	add(Complex, `Complex`)
+	add(RealImag, `RealImag`)
 
 	return strings.Join(parts, `|`)
 }
