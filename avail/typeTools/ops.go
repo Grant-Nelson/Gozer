@@ -53,7 +53,6 @@ func (ops OpTypes) String() string {
 	add(`Complex`, ops.Complex)
 	add(`RealImag`, ops.RealImag)
 	add(`Slice`, ops.Slice)
-	add(`Deref`, ops.Deref)
 	add(`Range1`, ops.Range1)
 	add(`Range2`, ops.Range2)
 	tail := ``
@@ -236,9 +235,8 @@ func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
 
 func mapTypeOps(t2 *types.Map) OpTypes {
 	return OpTypes{
-		Ops: typeOp.Cap | typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
-			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref |
-			typeOp.SetIndex,
+		Ops: typeOp.Cap | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
+			typeOp.Make | typeOp.Range | typeOp.Range2 | typeOp.Ref | typeOp.SetIndex,
 		Key:    t2.Key(),
 		Elem:   t2.Elem(),
 		Range1: t2.Key(),
@@ -251,9 +249,7 @@ func pointerTypeOps(t2 *types.Pointer) OpTypes {
 	if at, ok := t2.Elem().Underlying().(*types.Array); ok {
 		ops = arrayTypeOps(at)
 	}
-	ops.Ops |= typeOp.Comparable | typeOp.Deref | typeOp.IsNil |
-		typeOp.Orderable | typeOp.Ref
-	ops.Deref = t2.Elem()
+	ops.Ops |= typeOp.Comparable | typeOp.IsNil | typeOp.Orderable | typeOp.Ref
 	return ops
 }
 
@@ -284,9 +280,9 @@ func signatureTypeOps(t2 *types.Signature) OpTypes {
 
 func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 	crumb.DropMsg(`sliceTypeOps(%v, %v)`, orig, t2)
-	ops := OpTypes{
-		Ops: typeOp.Cap | typeOp.Clear | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
-			typeOp.Make | typeOp.Make3 | typeOp.Range | typeOp.Range2 | typeOp.Ref | typeOp.RefIndex |
+	return OpTypes{
+		Ops: typeOp.Cap | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
+			typeOp.Make | typeOp.Range | typeOp.Range2 | typeOp.Ref | typeOp.RefIndex |
 			typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   t2.Elem(),
@@ -294,10 +290,6 @@ func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 		Range1: types.Typ[types.Int],
 		Range2: t2.Elem(),
 	}
-	if IsUint8(t2.Elem()) {
-		ops.Ops |= typeOp.ByteSlice
-	}
-	return ops
 }
 
 func structTypeOps(t2 *types.Struct) OpTypes {

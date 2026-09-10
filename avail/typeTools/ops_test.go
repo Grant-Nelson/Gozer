@@ -50,62 +50,63 @@ func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp strin
 
 func Test_Ops_Arrays(t *testing.T) {
 	checkOps(t, `[3]int`,
-		`Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
-	checkOps(t, `[3]byte`,
-		`ByteSlice|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+	checkOps(t, `[...]byte{1, 2, 3}`,
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 }
 
 func Test_Ops_PointersToArrays(t *testing.T) {
 	checkOps(t, `&[3]int{1,2,3}`,
-		`Clear|Comparable|Deref|GetIndex|IsNil|Len|Make|Make3|Orderable|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Deref:[3]int, Range1:int, Range2:int }`)
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `*[3]int`,
-		`Clear|Comparable|Deref|GetIndex|IsNil|Len|Make|Make3|Orderable|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Deref:[3]int, Range1:int, Range2:int }`)
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `*[3]byte`,
-		`ByteSlice|Clear|Comparable|Deref|GetIndex|IsNil|Len|Make|Make3|Orderable|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:byte, Slice:[]byte, Deref:[3]byte, Range1:int, Range2:byte }`)
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 
 	checkOps(t, `(*int)(nil)`,
-		`Comparable|Deref|IsNil|Orderable|Ref`+
-			`{ Deref:int }`)
+		`IsNil|Comparable|Orderable|Ref`)
+
+	checkOps(t, `**[3]byte`,
+		`IsNil|Comparable|Orderable|Ref`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
 		`type Foo [3]int`,
 	), token.NoPos, `new(Foo)`,
-		`Clear|Comparable|Deref|GetIndex|IsNil|Len|Make|Make3|Orderable|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Deref:$.Foo, Range1:int, Range2:int }`)
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 }
 
 func Test_Ops_Slices(t *testing.T) {
 	checkOps(t, `[]int`,
-		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `[]*float64`,
-		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:*float64, Slice:[]*float64, Range1:int, Range2:*float64 }`)
 
 	checkOps(t, `[]byte`,
-		`ByteSlice|Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 
 	checkOps(t, `*[]byte`,
-		`Comparable|Deref|IsNil|Orderable|Ref`+
-			`{ Deref:[]byte }`)
+		`IsNil|Comparable|Orderable|Ref`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
 		`type Bar struct{ v int }`,
 		`type Foo []*Bar`,
 	), token.NoPos, `Foo`,
-		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:*$.Bar, Slice:$.Foo, Range1:int, Range2:*$.Bar }`)
 }
 
@@ -122,48 +123,51 @@ func Test_Ops_BooleanTypes(t *testing.T) {
 
 func Test_Ops_IntegerTypes(t *testing.T) {
 	checkOps(t, `int`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
 			`{ Range1:int }`)
 
 	checkOps(t, `uint`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
 			`{ Range1:uint }`)
 
 	checkOps(t, `int64`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
 			`{ Range1:int64 }`)
 
 	checkOps(t, `42`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
 			`{ Range1:untyped int }`)
 }
 
 func Test_Ops_FloatTypes(t *testing.T) {
 	checkOps(t, `float32`,
-		`Add|Arith|Comparable|Complex|Orderable|Ref`+
+		`Add|Arith|Comparable|Orderable|Ref|Complex`+
 			`{ Complex:complex64 }`)
 
 	checkOps(t, `float64`,
-		`Add|Arith|Comparable|Complex|Orderable|Ref`+
+		`Add|Arith|Comparable|Orderable|Ref|Complex`+
 			`{ Complex:complex128 }`)
 
 	checkOps(t, `1.42`,
-		`Add|Arith|Comparable|Complex|Orderable|Ref`+
+		`Add|Arith|Comparable|Orderable|Ref|Complex`+
 			`{ Complex:untyped complex }`)
 }
 
 func Test_Ops_ComplexTypes(t *testing.T) {
 	checkOps(t, `complex128`,
-		`Add|Arith|Comparable|RealImag|Ref`+
+		`Add|Arith|Comparable|Ref|RealImag`+
 			`{ RealImag:float64 }`)
 
 	checkOps(t, `complex64`,
-		`Add|Arith|Comparable|RealImag|Ref`+
+		`Add|Arith|Comparable|Ref|RealImag`+
 			`{ RealImag:float32 }`)
 
 	checkOps(t, `1.42+6.2i`,
-		`Add|Arith|Comparable|RealImag|Ref`+
+		`Add|Arith|Comparable|Ref|RealImag`+
 			`{ RealImag:untyped float }`)
+
+	checkOps(t, `interface{float64|complex128}`,
+		`Add|Arith|Comparable|Ref`)
 }
 
 func Test_Ops_StringTypes(t *testing.T) {

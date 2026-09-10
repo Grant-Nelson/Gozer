@@ -279,7 +279,7 @@ func (op Op) Any(other Op) bool { return op&other&mask != None }
 
 // NeedsKeyType indicates that the type of `k` in the operations `e = s[k]`, `s[k] = e`, or `p = &s[k]` is needed.
 //
-// For arrays, slices, and strings the key should be an integer.
+// For arrays, slices, and strings the key should be an untyped int, meaning any integer may be used.
 // For maps the key is the map's key type, i.e. `K` in `map[K]E`.
 func (op Op) NeedsKeyType() bool { return op.Any(GetIndex | RefIndex | SetIndex) }
 
@@ -299,12 +299,16 @@ func (op Op) NeedsElemType() bool { return op.Any(GetIndex | RefIndex | SetIndex
 // meaning it isn't a specific complex number type but has the operators for complex types, e.g. RealImag.
 func (op Op) NeedsComplexType() bool { return op.Any(Complex) }
 
+// TODO: Comment
 func (op Op) NeedsRealImagType() bool { return op.Any(RealImag) }
 
+// TODO: Comment
 func (op Op) NeedsSliceType() bool { return op.Any(Slice | Slice3) }
 
+// TODO: Comment
 func (op Op) NeedsRange1Type() bool { return op.Any(Range | Range2) }
 
+// TODO: Comment
 func (op Op) NeedsRange2Type() bool { return op.Any(Range2) }
 
 func (op Op) String() string {
