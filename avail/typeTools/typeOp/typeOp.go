@@ -258,23 +258,54 @@ const (
 	//	| `x = imag(y)` | `x F, y T` | gets the imaginary part of the complex value |
 	RealImag
 
+	// stop is the next value past the last valid value.
+	stop
+
 	// mask is the mask of the valid operators.
-	mask = Add | Arith | Mod | Bitwise | Len | Cap | IsNil | Comparable |
-		Orderable | Ref | Make | GetIndex | SetIndex | RefIndex | Slice |
-		Slice3 | Range | Range2 | Recv | Send | Complex | RealImag
+	mask = stop - 1
 )
 
-func (op Op) Valid() bool       { return op&mask == op }
+// Valid will indicate if the ops is a combination of valid type operators,
+// but does not check for conflicts such as Complex|RealImag (which should be exclusive)
+// nor SetIndex without a GetIndex (which should be inclusive).
+// This just checks if the Op is not in the valid space of the Op enumerator.
+func (op Op) Valid() bool { return op&mask == op }
+
+// All determines if all of the operations in the other Op exist in this Op.
 func (op Op) All(other Op) bool { return op&other&mask == other }
+
+// Any determines if one or more of the operations in the other Op exists in this Op.
 func (op Op) Any(other Op) bool { return op&other&mask != None }
 
-func (op Op) NeedsKeyType() bool      { return op.Any(GetIndex | RefIndex | SetIndex) }
-func (op Op) NeedsElemType() bool     { return op.Any(GetIndex | RefIndex | SetIndex | Slice | Slice3) }
-func (op Op) NeedsComplexType() bool  { return op.Any(Complex) }
+// NeedsKeyType indicates that the type of `k` in the operations `e = s[k]`, `s[k] = e`, or `p = &s[k]` is needed.
+//
+// For arrays, slices, and strings the key should be an integer.
+// For maps the key is the map's key type, i.e. `K` in `map[K]E`.
+func (op Op) NeedsKeyType() bool { return op.Any(GetIndex | RefIndex | SetIndex) }
+
+// NeedsElemType indicates that the type of `e` in the operations `e = s[k]` or `s[k] = e` is needed.
+// The element type of `T` is also used as the `*T` result from `&s[k]` and `[]T` result from `s[x:y]`.
+//
+// For arrays and slices the element type is the defined element, i.e. `T` in `[]T`.
+// For strings the element type is a `byte`.
+// For maps the element is the map's value type, i.e. `E` in `map[K]E`.
+func (op Op) NeedsElemType() bool { return op.Any(GetIndex | RefIndex | SetIndex | Slice | Slice3) }
+
+// NeedsComplexType indicates that the type of the resulting complex number from
+// the `complex(x,y)` operator is needed.
+//
+// For float32 the type will be complex64 and for float64 the type will be complex128.
+// The type may also be an untyped complex for `~float32|~float64` of other type unions,
+// meaning it isn't a specific complex number type but has the operators for complex types, e.g. RealImag.
+func (op Op) NeedsComplexType() bool { return op.Any(Complex) }
+
 func (op Op) NeedsRealImagType() bool { return op.Any(RealImag) }
-func (op Op) NeedsSliceType() bool    { return op.Any(Slice | Slice3) }
-func (op Op) NeedsRange1Type() bool   { return op.Any(Range | Range2) }
-func (op Op) NeedsRange2Type() bool   { return op.Any(Range2) }
+
+func (op Op) NeedsSliceType() bool { return op.Any(Slice | Slice3) }
+
+func (op Op) NeedsRange1Type() bool { return op.Any(Range | Range2) }
+
+func (op Op) NeedsRange2Type() bool { return op.Any(Range2) }
 
 func (op Op) String() string {
 	if op == None {
