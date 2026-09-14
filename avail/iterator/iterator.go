@@ -386,6 +386,8 @@ func Append[T any](its ...Iterator[T]) Iterator[T] {
 	}
 }
 
+// TODO: Change to use Iterator as the receiver and a method type param
+//
 // Select will change all the values in the given iterator into the
 // values of the returned iterator with the given selector function.
 func Select[TIn, TOut any](it Iterator[TIn], s func(TIn) TOut) Iterator[TOut] {
@@ -398,6 +400,8 @@ func Select[TIn, TOut any](it Iterator[TIn], s func(TIn) TOut) Iterator[TOut] {
 	}
 }
 
+// TODO: Change to use Iterator as the receiver and a method type param
+//
 // Cast will cast all the values in the input iterator and return
 // only the values that could be cast into the output type.
 func Cast[TIn, TOut any](it Iterator[TIn]) Iterator[TOut] {
@@ -453,6 +457,8 @@ func Zip[T1, T2 any](p1 Iterator[T1], p2 Iterator[T2]) iter.Seq2[T1, T2] {
 	}
 }
 
+// TODO: Change to use Iterator as the receiver and a method type param
+//
 // Aggregate will run all the values through the given aggregator function
 // to reduce the value. The given initial value is used with the first value
 // from the iterator and the result is used with the next value, and so on.
@@ -465,6 +471,8 @@ func Aggregate[T1, T2 any](it Iterator[T1], init T2, ag func(T1, T2) T2) T2 {
 	return cur
 }
 
+// TODO: Change to use Iterator as the receiver and a method type param
+//
 // Reduce will run all the values through the given reduce function
 // to reduce the value. The first value and the second value is passed into
 // the reduction function, the result and third value is passed into the

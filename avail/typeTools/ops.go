@@ -45,7 +45,11 @@ func (ops OpTypes) String() string {
 	parts := []string{}
 	add := func(name string, t types.Type) {
 		if t != nil {
-			parts = append(parts, name+`:`+t.String())
+			str := t.String()
+			if strings.Contains(str, ` | `) {
+				str = `{` + str + `}`
+			}
+			parts = append(parts, name+`:`+str)
 		}
 	}
 	add(`Key`, ops.Key)

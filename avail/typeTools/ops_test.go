@@ -172,28 +172,28 @@ func Test_Ops_ComplexTypes(t *testing.T) {
 
 func Test_Ops_StringTypes(t *testing.T) {
 	checkOps(t, `string`,
-		`Add|ByteSlice|Comparable|GetIndex|Len|Orderable|Range|Range2|Ref|Slice`+
+		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range|Range2`+
 			`{ Key:untyped int, Elem:uint8, Slice:string, Range1:int, Range2:rune }`)
 
 	checkOps(t, `"Hello"`,
-		`Add|ByteSlice|Comparable|GetIndex|Len|Orderable|Range|Range2|Ref|Slice`+
+		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range|Range2`+
 			`{ Key:untyped int, Elem:uint8, Slice:untyped string, Range1:int, Range2:rune }`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
 		`type Foo string`,
 	), token.NoPos, `Foo`,
-		`Add|ByteSlice|Comparable|GetIndex|Len|Orderable|Range|Range2|Ref|Slice`+
+		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range|Range2`+
 			`{ Key:untyped int, Elem:uint8, Slice:$.Foo, Range1:int, Range2:rune }`)
 }
 
 func Test_Ops_RuneTypes(t *testing.T) {
 	checkOps(t, `rune`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
 			`{ Range1:rune }`)
 
 	checkOps(t, `'☺'`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
 			`{ Range1:untyped rune }`)
 }
 
@@ -203,29 +203,29 @@ func Test_Ops_PointersTypes(t *testing.T) {
 		`import "unsafe"`,
 		`var x = 10`,
 		`var p = unsafe.Pointer(&x)`,
-	), token.NoPos, `p`, `Comparable|IsNil|Orderable|Ref`)
+	), token.NoPos, `p`,
+		`IsNil|Comparable|Orderable|Ref`)
 
 	checkOps(t, `nil`, `IsNil|Ref`)
 }
 
 func Test_Ops_ChanTypes(t *testing.T) {
 	checkOps(t, `chan int`,
-		`Cap|Comparable|IsNil|Len|Range|Recv|Send`+
+		`Len|Cap|IsNil|Comparable|Range|Recv|Send`+
 			`{ Range1:int }`)
 
 	checkOps(t, `make(chan int, 3)`,
-		`Cap|Comparable|IsNil|Len|Range|Recv|Send`+
+		`Len|Cap|IsNil|Comparable|Range|Recv|Send`+
 			`{ Range1:int }`)
 
 	checkOps(t, `new(chan int)`,
-		`Comparable|Deref|IsNil|Orderable|Ref`+
-			`{ Deref:chan int }`)
+		`IsNil|Comparable|Orderable|Ref`)
 
 	checkOps(t, `chan<- int`,
-		`Cap|Comparable|IsNil|Len|Send`)
+		`Len|Cap|IsNil|Comparable|Send`)
 
 	checkOps(t, `<-chan int`,
-		`Cap|Comparable|IsNil|Len|Range|Recv`+
+		`Len|Cap|IsNil|Comparable|Range|Recv`+
 			`{ Range1:int }`)
 }
 
@@ -233,8 +233,8 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 	checkOps(t, `interface{String() string}`, `IsNil`)
 
 	checkOps(t, `interface{int|uint}`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
-			`{ Range1:int | uint }`)
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:{int | uint} }`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
@@ -242,32 +242,32 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 		`	println(t)`,
 		`}`,
 	), token.Pos(40), `t`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
-			`{ Range1:int | uint }`)
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:{int | uint} }`)
 
 	checkOps(t, `interface{int64|float64}`,
 		`Add|Arith|Comparable|Orderable|Ref`)
 
 	checkOps(t, `interface{String() string; int|uint}`,
-		`Add|Arith|Bitwise|Comparable|Mod|Orderable|Range|Ref`+
-			`{ Range1:int | uint }`)
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:{int | uint} }`)
 }
 
 func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	checkOps(t, `interface{~[]byte|~string}`,
-		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:~[]byte | ~string, Range1:int, Range2:byte | rune }`)
 
 	checkOps(t, `interface{~[]byte|string}`,
-		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:~[]byte | string, Range1:int, Range2:byte | rune }`)
 
 	checkOps(t, `interface{[]byte|~string}`,
-		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte | ~string, Range1:int, Range2:byte | rune }`)
 
 	checkOps(t, `interface{[]byte|string}`,
-		`ByteSlice|GetIndex|Len|Range|Range2|Ref|Slice`+
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte | string, Range1:int, Range2:byte | rune }`)
 }
 
@@ -283,13 +283,13 @@ func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
 		`type C interface { ~string|~int }`,
 		`type P interface{ A|B; C }`, // ~string|int
 	), token.Pos(45), `P`,
-		`Add|Comparable|Orderable|Range|Ref`+
+		`Add|Comparable|Orderable|Ref|Range`+
 			`{ Range1:int }`)
 }
 
 func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 	checkOps(t, `interface{~[][]byte|~[]string}`,
-		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:[]byte | string, Slice:~[][]byte | ~[]string, Range1:int, Range2:[]byte | string }`)
 
 	checkOps(t, `interface{~[]int|~[3]int}`,
