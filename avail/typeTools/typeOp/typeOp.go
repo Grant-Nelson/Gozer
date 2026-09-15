@@ -241,22 +241,25 @@ const (
 	//	| `close(x)` | `x T`      | closes the channel             |
 	Send
 
-	// Complex indicates that the complex creation operator is available.
+	// Float indicates that float operators, such as the complex creation operator, is available.
 	// This is for float32 to create complex64 and float64 to create complex128 values.
 	//
 	//	| Operator            | Types         | Comment                                      |
 	//	|---------------------|---------------|----------------------------------------------|
 	//	| `x = complex(y, z)` | `x C, y, z T` | creates a complex value for the given values |
-	Complex
+	Float
 
-	// RealImag indicates that the complex decomposition operators are available.
-	// This is for getting the real and imaginary parts from a complex64 or complex128.
+	// Complex indicates that complex operators, such as the complex decomposition operators, are available.
+	// This is for getting the real and imaginary parts from a complex64 or complex128,
+	// and for casting between complex types.
 	//
-	//	| Operator      | Types      | Comment                                      |
-	//	|---------------|------------|----------------------------------------------|
-	//	| `x = real(y)` | `x F, y T` | gets the real part of the complex value      |
-	//	| `x = imag(y)` | `x F, y T` | gets the imaginary part of the complex value |
-	RealImag
+	//	| Operator            | Types               | Comment                                      |
+	//	|---------------------|---------------------|----------------------------------------------|
+	//	| `x = real(y)`       | `x F, y T`          | gets the real part of the complex value      |
+	//	| `x = imag(y)`       | `x F, y T`          | gets the imaginary part of the complex value |
+	//  | `x = complex64(y)`  | `x complex64, Y T`  | casts to complex64                           |
+	//  | `x = complex128(y)` | `x complex128, Y T` | casts to complex128                          |
+	Complex
 
 	// stop is the next value past the last valid value.
 	stop
@@ -297,10 +300,10 @@ func (op Op) NeedsElemType() bool { return op.Any(GetIndex | RefIndex | SetIndex
 // For float32 the type will be complex64 and for float64 the type will be complex128.
 // The type may also be an untyped complex for `~float32|~float64` of other type unions,
 // meaning it isn't a specific complex number type but has the operators for complex types, e.g. RealImag.
-func (op Op) NeedsComplexType() bool { return op.Any(Complex) }
+func (op Op) NeedsComplexType() bool { return op.Any(Float) }
 
 // TODO: Comment
-func (op Op) NeedsRealImagType() bool { return op.Any(RealImag) }
+func (op Op) NeedsFloatType() bool { return op.Any(Complex) }
 
 // TODO: Comment
 func (op Op) NeedsSliceType() bool { return op.Any(Slice | Slice3) }
@@ -346,8 +349,8 @@ func (op Op) String() string {
 	add(Range2, `Range2`)
 	add(Recv, `Recv`)
 	add(Send, `Send`)
+	add(Float, `Float`)
 	add(Complex, `Complex`)
-	add(RealImag, `RealImag`)
 
 	return strings.Join(parts, `|`)
 }

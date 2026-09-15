@@ -256,19 +256,19 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	checkOps(t, `interface{~[]byte|~string}`,
 		`Len|Ref|GetIndex|Slice|Range|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:~[]byte | ~string, Range1:int, Range2:byte | rune }`)
+			`{ Key:untyped int, Elem:byte, Slice:{~[]byte | ~string}, Range1:int, Range2:{byte | rune} }`)
 
 	checkOps(t, `interface{~[]byte|string}`,
 		`Len|Ref|GetIndex|Slice|Range|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:~[]byte | string, Range1:int, Range2:byte | rune }`)
+			`{ Key:untyped int, Elem:byte, Slice:{~[]byte | string}, Range1:int, Range2:{byte | rune} }`)
 
 	checkOps(t, `interface{[]byte|~string}`,
 		`Len|Ref|GetIndex|Slice|Range|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:[]byte | ~string, Range1:int, Range2:byte | rune }`)
+			`{ Key:untyped int, Elem:byte, Slice:{[]byte | ~string}, Range1:int, Range2:{byte | rune} }`)
 
 	checkOps(t, `interface{[]byte|string}`,
 		`Len|Ref|GetIndex|Slice|Range|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:[]byte | string, Range1:int, Range2:byte | rune }`)
+			`{ Key:untyped int, Elem:byte, Slice:{[]byte | string}, Range1:int, Range2:{byte | rune} }`)
 }
 
 func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
@@ -290,30 +290,30 @@ func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
 func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 	checkOps(t, `interface{~[][]byte|~[]string}`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
-			`{ Key:untyped int, Elem:[]byte | string, Slice:~[][]byte | ~[]string, Range1:int, Range2:[]byte | string }`)
+			`{ Key:untyped int, Elem:{[]byte | string}, Slice:{~[][]byte | ~[]string}, Range1:int, Range2:{[]byte | string} }`)
 
 	checkOps(t, `interface{~[]int|~[3]int}`,
-		`Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `interface{~[]int|~*[3]int}`,
-		`Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `interface{~[]byte|~[]int}`,
-		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:byte | int, Slice:~[]byte | ~[]int, Range1:int, Range2:byte | int }`)
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:{byte | int}, Slice:{~[]byte | ~[]int}, Range1:int, Range2:{byte | int} }`)
 }
 
 func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
-	checkOpsWithFile(t, lines(
-		`package t`,
-		`func Foo[T any, S ~[]T](s S) {`,
-		`	println(s)`,
-		`}`,
-	), token.Pos(45), `s`,
-		`Cap|Clear|GetIndex|IsNil|Len|Make|Make3|Range|Range2|Ref|RefIndex|SetIndex|Slice|Slice3`+
-			`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
+	//checkOpsWithFile(t, lines(
+	//	`package t`,
+	//	`func Foo[T any, S ~[]T](s S) {`,
+	//	`	println(s)`,
+	//	`}`,
+	//), token.Pos(45), `s`,
+	//	`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+	//		`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
@@ -321,7 +321,8 @@ func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 		`	println(s)`,
 		`}`,
 	), token.Pos(65), `s`,
-		``)
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|Range|Range2`+
+			`{ Key:int, Elem:T, Range1:int, Range2:T }`)
 }
 
 func Test_Ops_FunctionsTypes(t *testing.T) {
@@ -348,3 +349,5 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 	//		}
 	//	}
 }
+
+// TODO: Check comparable

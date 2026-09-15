@@ -24,11 +24,11 @@ type OpTypes struct {
 	// the element type in the pointer returned by the RefIndex op.
 	Elem types.Type
 
-	// Complex is the returned type from the Complex op.
+	// Complex is the returned type from the Float op.
 	Complex types.Type
 
-	// RealImag is the returned type from the RealImag op.
-	RealImag types.Type
+	// Float is the returned type from the Complex op.
+	Float types.Type
 
 	// Slice is the returned type from the ops Slice and Slice3.
 	Slice types.Type
@@ -55,7 +55,7 @@ func (ops OpTypes) String() string {
 	add(`Key`, ops.Key)
 	add(`Elem`, ops.Elem)
 	add(`Complex`, ops.Complex)
-	add(`RealImag`, ops.RealImag)
+	add(`Float`, ops.Float)
 	add(`Slice`, ops.Slice)
 	add(`Range1`, ops.Range1)
 	add(`Range2`, ops.Range2)
@@ -149,7 +149,7 @@ func integerTypeOps(t2 *types.Basic) OpTypes {
 
 func floatTypeOps(t2 *types.Basic) OpTypes {
 	ops := OpTypes{
-		Ops: typeOp.Add | typeOp.Arith | typeOp.Comparable | typeOp.Complex |
+		Ops: typeOp.Add | typeOp.Arith | typeOp.Comparable | typeOp.Float |
 			typeOp.Orderable | typeOp.Ref,
 		Complex: types.Typ[types.UntypedComplex],
 	}
@@ -166,16 +166,16 @@ func floatTypeOps(t2 *types.Basic) OpTypes {
 
 func complexTypeOps(t2 *types.Basic) OpTypes {
 	ops := OpTypes{
-		Ops: typeOp.Add | typeOp.Arith | typeOp.Comparable | typeOp.RealImag |
+		Ops: typeOp.Add | typeOp.Arith | typeOp.Comparable | typeOp.Complex |
 			typeOp.Ref,
 	}
 	switch t2.Kind() {
 	case types.Complex64:
-		ops.RealImag = types.Typ[types.Float32]
+		ops.Float = types.Typ[types.Float32]
 	case types.Complex128:
-		ops.RealImag = types.Typ[types.Float64]
+		ops.Float = types.Typ[types.Float64]
 	default:
-		ops.RealImag = types.Typ[types.UntypedFloat]
+		ops.Float = types.Typ[types.UntypedFloat]
 	}
 	return ops
 }
@@ -341,9 +341,9 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 		return OpTypes{}
 	}
 
-	adj := func(adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
-		if ops.Any(adjOps) {
-			if result := innerUnionType(terms, getType); result != nil {
+	adj := func(name string, adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
+		if ops.Any(adjOps) { // TODO: Switch to using Needs*Type
+			if result := innerUnionType(name, terms, getType); result != nil {
 				return result
 			}
 			ops &^= adjOps
@@ -352,18 +352,18 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 	}
 
 	return OpTypes{
-		Ops:      ops,
-		Key:      adj(typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
-		Elem:     adj(typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
-		Complex:  adj(typeOp.Complex, func(op OpTypes) types.Type { return op.Complex }),
-		RealImag: adj(typeOp.RealImag, func(op OpTypes) types.Type { return op.RealImag }),
-		Slice:    adj(typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice }),
-		Range1:   adj(typeOp.Range|typeOp.Range2, func(op OpTypes) types.Type { return op.Range1 }),
-		Range2:   adj(typeOp.Range2, func(op OpTypes) types.Type { return op.Range2 }),
+		Ops:     ops,
+		Key:     adj(`Key`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
+		Elem:    adj(`Elem`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
+		Complex: adj(`Complex`, typeOp.Float, func(op OpTypes) types.Type { return op.Complex }),
+		Float:   adj(`Float`, typeOp.Complex, func(op OpTypes) types.Type { return op.Float }),
+		Slice:   adj(`Slice`, typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice }),
+		Range1:  adj(`Range1`, typeOp.Range|typeOp.Range2, func(op OpTypes) types.Type { return op.Range1 }),
+		Range2:  adj(`Range2`, typeOp.Range2, func(op OpTypes) types.Type { return op.Range2 }),
 	}
 }
 
-func innerUnionType(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
+func innerUnionType(name string, terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
 	ts := make([]*types.Term, 0, len(terms))
 	for _, term := range terms {
 		t := getType(term)
@@ -373,6 +373,7 @@ func innerUnionType(terms []OpTypes, getType func(OpTypes) types.Type) types.Typ
 			ts = append(ts, types.NewTerm(false, t))
 		}
 	}
+	crumb.DropMsg(`%s NormalTerms in: %v`, name, ts)
 
 	it := types.NewUnion(ts)
 	t2, err := typeparams.NormalTerms(it)
@@ -380,6 +381,7 @@ func innerUnionType(terms []OpTypes, getType func(OpTypes) types.Type) types.Typ
 		panic(faults.New(`failed to determine inner op type`, err).
 			With(`union`, it))
 	}
+	crumb.DropMsg(`%s NormalTerms out: %v`, name, t2)
 
 	switch len(t2) {
 	case 0:
