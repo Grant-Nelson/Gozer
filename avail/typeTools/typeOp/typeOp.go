@@ -29,17 +29,19 @@ const (
 	// Arith indicates that arithmetic operations are available.
 	// Arithmetic operations should always have additions operations too.
 	//
-	//	| Operator    | Types       | Comment                                  |
-	//	|-------------|-------------|------------------------------------------|
-	//	| `x = -y`    | `x, y T`    | negation unary operation                 |
-	//	| `x = y - z` | `x, y, z T` | subtraction binary operation             |
-	//	| `x = y * z` | `x, y, z T` | multiplication binary operation          |
-	//	| `x = y / z` | `x, y, z T` | division binary operation                |
-	//	| `x -= y`    | `x, y T`    | in place subtraction binary operation    |
-	//	| `x *= y`    | `x, y T`    | in place multiplication binary operation |
-	//	| `x /= y`    | `x, y T`    | in place division binary operation       |
-	//	| `x++`       | `x T`       | increment unary operation                |
-	//	| `x--`       | `x T`       | decrement unary operation                |
+	//	| Operator     | Types        | Comment                                  |
+	//	|--------------|--------------|------------------------------------------|
+	//	| `x = -y`     | `x, y T`     | negation unary operation                 |
+	//	| `x = y - z`  | `x, y, z T`  | subtraction binary operation             |
+	//	| `x = y * z`  | `x, y, z T`  | multiplication binary operation          |
+	//	| `x = y / z`  | `x, y, z T`  | division binary operation                |
+	//	| `x -= y`     | `x, y T`     | in place subtraction binary operation    |
+	//	| `x *= y`     | `x, y T`     | in place multiplication binary operation |
+	//	| `x /= y`     | `x, y T`     | in place division binary operation       |
+	//	| `x++`        | `x T`        | increment unary operation                |
+	//	| `x--`        | `x T`        | decrement unary operation                |
+	//  | `x = int(y)` | `x int, y T` | cast to integer or float                 |
+	//  | `x = T(y)`   | `x T, y int` | cast from integer or float               |
 	Arith
 
 	// Mod indicates that modulo operations are available.
@@ -299,19 +301,41 @@ func (op Op) NeedsElemType() bool { return op.Any(GetIndex | RefIndex | SetIndex
 //
 // For float32 the type will be complex64 and for float64 the type will be complex128.
 // The type may also be an untyped complex for `~float32|~float64` of other type unions,
-// meaning it isn't a specific complex number type but has the operators for complex types, e.g. RealImag.
+// meaning it isn't a specific complex number type but has the operators for complex types.
 func (op Op) NeedsComplexType() bool { return op.Any(Float) }
 
-// TODO: Comment
+// NeedsFloatType indicates that the type of the resulting complex decomposition from
+// the `real(x)` or `imag(x)“ operators is needed.
+//
+// For complex64 the type will be float32 and for complex128 the type will be float64.
+// The type may also be an untyped float for `~complex64|~complex128` of other type unions,
+// meaning it isn't a specific float type but has the operators for float types.
 func (op Op) NeedsFloatType() bool { return op.Any(Complex) }
 
-// TODO: Comment
+// NeedsSliceType indicates that the type resulting from a slice is needed.
+//
+// For an array `T ~[N]E` this should be `[]E`. For a slice `T ~[]E` this should be `T`,
+// For a string `T ~string` this should be `T`, a string, not `[]byte`.
 func (op Op) NeedsSliceType() bool { return op.Any(Slice | Slice3) }
 
-// TODO: Comment
+// NeedsRange1Type indicates that the first type in a range operation is needed.
+//
+// This is the `k` in `for k = range s` and `for k, v = range s`.
+// Typically this is is the same as the `Key` type for `NeedsKeyType()`.
+// However, for ranging over integers which have no key type, this will
+// have the same type as the integer being ranged over.
+// If the type is equivalent to `iter.Seq[T]` then this will be the type `T`
+// as given in the function, e.g. `func(yield func(x int) bool)` is `int`.
 func (op Op) NeedsRange1Type() bool { return op.Any(Range | Range2) }
 
-// TODO: Comment
+// NeedsRange2Type indicates that the second type in a range operation is needed.
+//
+// This is the `v` in `for k, v := range s`.
+// Typically this is is the same as the `Elem` type for `NeedsElemType()`.
+// However, for strings this type will not be `Elem` (byte) but instead
+// will be `rune`.
+// If the type is equivalent to `iter.Seq2[T, U]` then this will be the type `U`
+// as given in the function, e.g. `func(yield func(x int, y float64) bool)` is `float64`.
 func (op Op) NeedsRange2Type() bool { return op.Any(Range2) }
 
 func (op Op) String() string {

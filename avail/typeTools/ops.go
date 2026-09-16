@@ -15,6 +15,10 @@ import (
 type OpTypes struct {
 	Ops typeOp.Op
 
+	// TODO: Add an indication if the type will always be boxed with the type
+	// or if the underlying type is consistent (add the underlying as a type)
+	// or if a type dictionary would been to be passed along side the type.
+
 	// Key is the type for the parameter of the ops
 	// GetIndex, GetIndex2, RefIndex, and SetIndex.
 	Key types.Type
@@ -342,7 +346,7 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 	}
 
 	adj := func(name string, adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
-		if ops.Any(adjOps) { // TODO: Switch to using Needs*Type
+		if ops.Any(adjOps) {
 			if result := innerUnionType(name, terms, getType); result != nil {
 				return result
 			}
