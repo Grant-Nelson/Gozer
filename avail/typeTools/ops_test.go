@@ -315,6 +315,8 @@ func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 	//	`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
 	//		`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
 
+	// TODO: This loses the type because of `typeparams.NormalTerms`.
+	//       Create a custom version of `NormalTerms` and/or a custom type system.
 	checkOpsWithFile(t, lines(
 		`package t`,
 		`func Foo[T any, S ~[]T | ~map[int]T](s S) {`,

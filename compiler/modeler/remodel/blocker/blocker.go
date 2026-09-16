@@ -45,7 +45,7 @@ func (bb *blockBuilder) PackageDone() (bool, error) { return true, nil }
 type funcBlockBuilder struct {
 	errGroup *faults.ErrGroup
 	pkg      *project.Package
-	fn       *ir.Func
+	fn       *ir.FuncDecl
 	curBlock *ir.Block
 
 	forRangeItType types.Type
@@ -61,7 +61,17 @@ type funcBlockBuilder struct {
 	blockPos      map[*ir.Block]token.Pos
 }
 
-func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
+func (bb *blockBuilder) Remodel() (bool, error) {
+	for _, fn := range bb.pkg.Ir.Funcs {
+		cont, err := bb.remodelFunc(fn)
+		if err != nil || !cont {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (bb *blockBuilder) remodelFunc(fn *ir.FuncDecl) (con bool, err error) {
 	bb.errGroup.Recover(&err)
 	if fn.Atomic {
 		return true, nil
@@ -80,14 +90,14 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 		blockPos:      map[*ir.Block]token.Pos{},
 	}
 
-	if len(fn.Blocks) <= 0 {
+	if len(fn.Func.Blocks) <= 0 {
 		return true, bb.errGroup.Add(faults.New(`function has no blocks`).
-			With(`function`, fn.Name))
+			With(`function`, fn.FuncObj.FullName()))
 	}
-	if len(fn.Blocks) > 1 {
+	if len(fn.Func.Blocks) > 1 {
 		return true, bb.errGroup.Add(faults.New(`function already has multiple blocks`).
-			With(`count`, len(fn.Blocks)).
-			With(`function`, fn.Name))
+			With(`count`, len(fn.Func.Blocks)).
+			With(`function`, fn.FuncObj.FullName()))
 	}
 
 	// TODO: FIX by moving to end after blocks have been broken out.
@@ -97,10 +107,10 @@ func (bb *blockBuilder) RemodelFunc(fn *ir.Func) (con bool, err error) {
 	//	fn.Blocks[0].Body = append(fn.Blocks[0].Body, &ir.ReturnStmt{})
 	//}
 
-	for blockIndex := 0; blockIndex < len(fn.Blocks); blockIndex++ {
-		fbb.remodelBlock(fn.Blocks[blockIndex])
+	for blockIndex := 0; blockIndex < len(fn.Func.Blocks); blockIndex++ {
+		fbb.remodelBlock(fn.Func.Blocks[blockIndex])
 	}
-	propagateParams(fn, fbb.info(), bb.errGroup)
+	propagateParams(fn.Func, fbb.info(), bb.errGroup)
 	return true, bb.errGroup.FullOrNil()
 }
 
