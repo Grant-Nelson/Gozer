@@ -12,12 +12,10 @@ type NilType struct {
 
 var (
 	_ Expr = (*NilType)(nil)
-	_ Stmt = (*NilType)(nil)
 	_ Decl = (*NilType)(nil)
 )
 
 func (n *NilType) ExprNode() {}
-func (n *NilType) StmtNode() {}
 func (n *NilType) DeclNode() {}
 
 func (n *NilType) Pos() token.Pos       { return n.Obj.Pos() }
