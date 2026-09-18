@@ -2,7 +2,6 @@ package blocker
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"go/types"
 	"slices"
@@ -110,16 +109,12 @@ func (bb *blockBuilder) remodelFunc(fn *ir.FuncDecl) (con bool, err error) {
 	for blockIndex := 0; blockIndex < len(fn.Func.Blocks); blockIndex++ {
 		fbb.remodelBlock(fn.Func.Blocks[blockIndex])
 	}
-	propagateParams(fn.Func, fbb.info(), bb.errGroup)
+	propagateParams(fn.Func, bb.errGroup)
 	return true, bb.errGroup.FullOrNil()
 }
 
 func (fbb *funcBlockBuilder) pos(p token.Pos) token.Position {
 	return fbb.pkg.Position(p)
-}
-
-func (fbb *funcBlockBuilder) info() *types.Info {
-	return fbb.pkg.Ast.TypesInfo
 }
 
 func (fbb *funcBlockBuilder) remodelBlock(b *ir.Block) {
@@ -153,7 +148,7 @@ func (fbb *funcBlockBuilder) remodelStmtSlice(ss []ir.Stmt) {
 // See: https://go.dev/ref/spec#Terminating_statements
 func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 	switch s := s.(type) {
-	case *ir.DeclStmt, *ir.GotoBlockStmt:
+	case *ir.GotoBlockStmt:
 		// Do Nothing
 	case *ir.LabeledStmt:
 		fbb.remodelLabeledStmt(s)
@@ -161,8 +156,8 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 		fbb.remodelForStmt(s)
 	case *ir.RangeStmt:
 		fbb.remodelRangeStmt(s)
-	case *ir.AssignStmt:
-		fbb.remodelAssignStmt(s)
+	case *ir.MultiAssignStmt:
+		fbb.remodelMultiAssignStmt(s)
 	case *ir.ReturnStmt:
 		fbb.remodelReturnStmt(s)
 	case *ir.BranchStmt:
@@ -179,7 +174,7 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelAssignStmt(s *ir.AssignStmt) {
+func (fbb *funcBlockBuilder) remodelMultiAssignStmt(s *ir.MultiAssignStmt) {
 	fbb.remodelExprSlice(s, nil, s.Lhs)
 	fbb.remodelExprSlice(s, nil, s.Rhs)
 }
@@ -219,7 +214,7 @@ func (fbb *funcBlockBuilder) approximateSplitParams(nextBlk *ir.Block, gotoLabel
 	}
 	ordered := orderedObjects(use)
 	params := make([]*ir.Param, 0, len(ordered))
-	args := make([]ast.Expr, 0, len(ordered))
+	args := make([]ir.Expr, 0, len(ordered))
 	for _, o := range ordered {
 		params = append(params, makeParam(o, fbb.info()))
 		args = append(args, makeArg(o, gotoLabel.SrcPos, fbb.info()))
@@ -329,7 +324,7 @@ func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
 
 	// Fill out the body for the for-loop including the conditional exit.
 	if s.Cond != nil {
-		ifCond := &ir.IfStmt{Cond: &ast.UnaryExpr{OpPos: s.Cond.Pos(), Op: token.NOT, X: s.Cond}}
+		ifCond := &ir.IfStmt{Cond: &ir.UnaryExpr{OpPos: s.Cond.Pos(), Op: token.NOT, X: s.Cond}}
 		ifCond.Body = append(ifCond.Body, ir.NewGotoBlockStmt(s.Cond.Pos(), afterBlk))
 		bodyBlk.Body = append(bodyBlk.Body, ifCond)
 	}
@@ -513,33 +508,34 @@ func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 		s.Init = nil
 		fbb.stmtIndex--
 	}
-	fbb.remodelExpr(s, nil, s.Cond)
+	//fbb.remodelExpr(s, nil, s.Cond)
 	fbb.remodelStmtSlice(s.Body)
 	fbb.remodelStmtSlice(s.Else)
 }
 
 func (fbb *funcBlockBuilder) remodelExprStmt(s *ir.ExprStmt) {
-	fbb.remodelExpr(s, nil, s.X)
+	// TODO: Handle single assignment
+	//fbb.remodelExpr(s, nil, s.X)
 }
 
-func (fbb *funcBlockBuilder) remodelExprSlice(s ir.Stmt, stack []ast.Expr, es []ast.Expr) {
+func (fbb *funcBlockBuilder) remodelExprSlice(s ir.Stmt, stack []ir.Expr, es []ir.Expr) {
 	for _, e := range es {
 		fbb.remodelExpr(s, stack, e)
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, stack []ast.Expr, e ast.Expr) {
+func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, stack []ir.Expr, e ir.Expr) {
 	switch e := e.(type) {
-	case nil, *ast.BadExpr, *ast.Ident, *ast.BasicLit:
+	case nil, *ir.BadExpr, *ir.Ident, *ir.BasicLit:
 		// Do Nothing
 		return
-	case *ast.StarExpr:
+	case *ir.StarExpr:
 		fbb.remodelExpr(s, append(stack, e), e.X)
-	case *ast.UnaryExpr:
+	case *ir.UnaryExpr:
 		fbb.remodelUnaryExpr(s, stack, e)
-	case *ast.BinaryExpr:
+	case *ir.BinaryExpr:
 		fbb.remodelBinaryExpr(s, stack, e)
-	case *ast.CallExpr:
+	case *ir.CallExpr:
 		fbb.remodelCallExpr(s, stack, e)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled expression node in blocker`).
@@ -549,7 +545,7 @@ func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, stack []ast.Expr, e ast.Expr
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, stack []ast.Expr, e *ast.UnaryExpr) {
+func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, stack []ir.Expr, e *ir.UnaryExpr) {
 	switch e.Op {
 	case token.INC, token.DEC, token.ADD, token.SUB, token.NOT, token.XOR, token.MUL, token.AND:
 		fbb.remodelExpr(s, append(stack, e), e.X)
@@ -566,11 +562,11 @@ func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, stack []ast.Expr, e *as
 
 // remodelReceiveExpr handles a unary expression for receiving a value from a channel.
 // See: https://go.dev/ref/spec#Receive_operator
-func (fbb *funcBlockBuilder) remodelReceiveExpr(s ir.Stmt, stack []ast.Expr, e *ast.UnaryExpr) {
+func (fbb *funcBlockBuilder) remodelReceiveExpr(s ir.Stmt, stack []ir.Expr, e *ir.UnaryExpr) {
 	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
 
-func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
+func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ir.Expr, e *ir.BinaryExpr) {
 	switch e.Op {
 	case token.ADD, token.SUB, token.MUL, token.QUO, token.REM, token.AND, token.OR,
 		token.XOR, token.SHL, token.SHR, token.AND_NOT, token.ADD_ASSIGN,
@@ -593,21 +589,21 @@ func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ast.Expr, e *a
 	}
 }
 
-func (fbb *funcBlockBuilder) remodelLogicalAndExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
+func (fbb *funcBlockBuilder) remodelLogicalAndExpr(s ir.Stmt, stack []ir.Expr, e *ir.BinaryExpr) {
 	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
 
-func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, stack []ast.Expr, e *ast.BinaryExpr) {
+func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, stack []ir.Expr, e *ir.BinaryExpr) {
 	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
 
-func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ast.Expr, e *ast.CallExpr) {
+func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ir.Expr, e *ir.CallExpr) {
 	if len(stack) <= 0 {
 		follow := fbb.fn.NewBlock(`follow call`, nil, nil)
 		_, gotoFollow := fbb.splitCurBlock(follow)
 		// Replace the goto with a call
 		fbb.curStmtList[fbb.stmtIndex+1] = &ir.FuncCallStmt{
-			Ast:    e,
+			//Ast:    e,
 			Fun:    e.Fun,
 			Args:   e.Args,
 			Follow: gotoFollow.Block,
@@ -621,7 +617,7 @@ func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ast.Expr, e *ast
 	for i, sx := range stack {   // TODO: Remove
 		fmt.Printf("(%d) %T\n", i+1, sx) // TODO: Remove
 	} // TODO: Remove
-	ast.Print(token.NewFileSet(), e) // TODO: Remove
+	//ast.Print(token.NewFileSet(), e) // TODO: Remove
 
 	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
