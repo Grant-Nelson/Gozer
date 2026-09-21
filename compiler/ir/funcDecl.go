@@ -12,6 +12,9 @@ type FuncDecl struct {
 	// Comment for this function declaration.
 	Comment string
 
+	// Directives attached to this function declaration.
+	Directives []Directive
+
 	// Atomic indicates that this function should NOT be broken up into
 	// flow control blocks, meaning that the scheduler running in one real
 	// thread environment should not swap goroutines.
@@ -60,5 +63,6 @@ func (fn *FuncDecl) String() string {
 }
 
 func (fn *FuncDecl) Children(yield func(Node) bool) {
-	_ = yield(fn.Func)
+	_ = YieldSlice(fn.Directives, yield) &&
+		yield(fn.Func)
 }

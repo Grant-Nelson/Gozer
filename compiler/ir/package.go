@@ -16,6 +16,12 @@ type Package struct {
 	// Path is the path that would be used to import this package.
 	Path string
 
+	// Comment for this function declaration.
+	Comment string
+
+	// Directives attached to the package.
+	Directives []Directive
+
 	// Sizes are the sizes for the architecture.
 	// For example TS and JS will have 32-bit `int`, `uint`, and `uintptr`.
 	Sizes types.Sizes
@@ -34,9 +40,6 @@ type Package struct {
 
 	// Funcs is the collection of functions for this package.
 	Funcs []*FuncDecl
-
-	// LinkNames is the collection of link information for this package.
-	LinkNames []*LinkName
 }
 
 var _ Parent = (*Package)(nil)
@@ -58,9 +61,9 @@ func (p *Package) String() string {
 }
 
 func (p *Package) Children(yield func(Node) bool) {
-	_ = YieldSlice(p.Types, yield) &&
+	_ = YieldSlice(p.Directives, yield) &&
+		YieldSlice(p.Types, yield) &&
 		YieldSlice(p.Consts, yield) &&
 		YieldSlice(p.Vars, yield) &&
-		YieldSlice(p.Funcs, yield) &&
-		YieldSlice(p.LinkNames, yield)
+		YieldSlice(p.Funcs, yield)
 }

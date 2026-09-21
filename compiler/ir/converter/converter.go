@@ -95,6 +95,9 @@ func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
 	}
 	p.Imports = imports
 
+	// TODO: Handle Comments / Directives
+	// TODO: Handle InitOrder
+
 	return p
 }
 
@@ -128,38 +131,14 @@ func (c *converter) FromNode(n ast.Node) ir.Node {
 
 func (c *converter) FromFile(f *ast.File) ir.Stmt {
 	ss := &ir.StmtListStmt{}
-	for _, cg := range f.Comments {
-		// TODO: Finish
-		c.FromCommentGroup(cg)
-	}
+
+	// TODO: Finish, the returned directives aren't used yet
+	c.FromCommentGroup(f.Doc)
+
 	for _, d := range f.Decls {
 		ss.Add(c.FromDecl(d))
 	}
 	return c.SimplifyStmt(ss)
-}
-
-func (c *converter) FromCommentGroup(cg *ast.CommentGroup) []ir.Directive {
-	ds := []ir.Directive{}
-	for d := range astTools.DirectivesFromGroup(cg) {
-		if dt := c.FromDirective(d); dt != nil {
-			ds = append(ds, dt)
-		}
-	}
-	return ds
-}
-
-func (c *converter) FromDirective(d *ast.Directive) ir.Directive {
-	switch d.Tool + `:` + d.Name {
-	case `gozer:import`:
-
-		// TODO: Implement
-
-	case `go:linkname`:
-
-		// TODO: Implement
-
-	}
-	return nil
 }
 
 func (c *converter) FromDecl(d ast.Decl) ir.Stmt {
@@ -221,6 +200,7 @@ func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDecl {
 	td := &ir.TypeDecl{TypeObj: typ}
 	if s.Doc != nil {
 		td.Comment = s.Doc.Text()
+		td.Directives = c.FromCommentGroup(s.Doc)
 	}
 	return td
 }
@@ -246,6 +226,7 @@ func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
 		cd := &ir.ConstDecl{ConstObj: tc}
 		if s.Doc != nil {
 			cd.Comment = s.Doc.Text()
+			cd.Directives = c.FromCommentGroup(s.Doc)
 		}
 		ss.Add(cd)
 	}
@@ -276,6 +257,7 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 		}
 		if s.Doc != nil {
 			vd.Comment = s.Doc.Text()
+			vd.Directives = c.FromCommentGroup(s.Doc)
 		}
 		ss.Add(vd)
 	}
@@ -309,9 +291,9 @@ func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDecl {
 			Signature: fnObj.Signature(),
 		},
 	}
-
 	if df.Doc != nil {
 		fn.Comment = df.Doc.Text()
+		fn.Directives = c.FromCommentGroup(df.Doc)
 	}
 
 	c.setInitialBlock(fn.Func, df.Body, df.Type)

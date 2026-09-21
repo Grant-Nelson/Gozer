@@ -42,6 +42,9 @@ func (fn *Func) Children(yield func(Node) bool) {
 	_ = YieldSlice(fn.Blocks, yield)
 }
 
+// Stub indicates this function is only a function stub defined without a function body.
+func (fn *Func) Stub() bool { return len(fn.Blocks) <= 0 }
+
 // NewBlock creates a new empty block and adds it to this function.
 func (fn *Func) NewBlock(hint string, body []Stmt, params []*Param) *Block {
 	b := &Block{

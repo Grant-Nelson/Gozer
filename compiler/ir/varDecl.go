@@ -8,8 +8,11 @@ import (
 // VarDecl is the declaration for a single variable.
 type VarDecl struct {
 
-	// Comment for this type declaration.
+	// Comment for this variable.
 	Comment string
+
+	// Directives attached to this variable.
+	Directives []Directive
 
 	// VarObj is the object for this variable.
 	VarObj *types.Var
@@ -38,4 +41,7 @@ func (n *VarDecl) String() string {
 	return toString(n.VarObj) + ` = ` + toString(n.Value)
 }
 
-func (n *VarDecl) Children(yield func(Node) bool) { _ = yield(n.Value) }
+func (n *VarDecl) Children(yield func(Node) bool) {
+	_ = YieldSlice(n.Directives, yield) &&
+		yield(n.Value)
+}
