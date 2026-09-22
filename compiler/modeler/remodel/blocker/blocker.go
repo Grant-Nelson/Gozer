@@ -208,7 +208,7 @@ func (fbb *funcBlockBuilder) splitCurBlock(nextBlk *ir.Block) (ir.Stmt, *ir.Goto
 // from a local scan of nextBlk's body. The propagateParams pass replaces
 // these with the exact live-variable set once the CFG is complete.
 func (fbb *funcBlockBuilder) approximateSplitParams(nextBlk *ir.Block, gotoLabel *ir.GotoBlockStmt) {
-	use, _ := computeUseDef(nextBlk.Body, fbb.info())
+	use, _ := computeUseDef(nextBlk.Body)
 	if len(use) == 0 {
 		return
 	}
@@ -216,8 +216,8 @@ func (fbb *funcBlockBuilder) approximateSplitParams(nextBlk *ir.Block, gotoLabel
 	params := make([]*ir.Param, 0, len(ordered))
 	args := make([]ir.Expr, 0, len(ordered))
 	for _, o := range ordered {
-		params = append(params, makeParam(o, fbb.info()))
-		args = append(args, makeArg(o, gotoLabel.SrcPos, fbb.info()))
+		params = append(params, makeParam(o))
+		args = append(args, makeArg(o, gotoLabel.SrcPos))
 	}
 	nextBlk.Params = append(nextBlk.Params, params...)
 	gotoLabel.Block.Args = append(gotoLabel.Block.Args, args...)

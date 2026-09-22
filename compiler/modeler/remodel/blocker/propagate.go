@@ -54,7 +54,7 @@ func orderedObjects(s objectSet) []types.Object {
 // computeUseDef walks the given statements in evaluation order and
 // computes the set of objects used (read before being defined locally)
 // and defined (assigned to or declared) within them.
-func computeUseDef(stmts []ir.Stmt, info *types.Info) (use, def objectSet) {
+func computeUseDef(stmts []ir.Stmt) (use, def objectSet) {
 	use = newObjectSet()
 	def = newObjectSet()
 	for _, s := range stmts {
@@ -66,7 +66,7 @@ func computeUseDef(stmts []ir.Stmt, info *types.Info) (use, def objectSet) {
 
 // visitStmtIdents walks a statement, populating use and def in
 // evaluation order.
-func visitStmtIdents(s ir.Stmt, info *types.Info, use, def objectSet) {
+func visitStmtIdents(s ir.Stmt, use, def objectSet) {
 	if s == nil {
 		return
 	}
@@ -131,7 +131,7 @@ func visitStmtIdents(s ir.Stmt, info *types.Info, use, def objectSet) {
 
 // visitExprIdents walks an expression and records identifier reads
 // into use (unless they have already been defined locally).
-func visitExprIdents(e ast.Expr, info *types.Info, use, def objectSet) {
+func visitExprIdents(e ast.Expr, use, def objectSet) {
 	if e == nil {
 		return
 	}
@@ -157,7 +157,7 @@ func visitExprIdents(e ast.Expr, info *types.Info, use, def objectSet) {
 // markLhsDef marks an LHS expression as defining or redefining variables.
 // Non-identifier LHS expressions (e.g. *p, a[i], s.f) contribute reads
 // of their target.
-func markLhsDef(e ast.Expr, info *types.Info, use, def objectSet) {
+func markLhsDef(e ast.Expr, use, def objectSet) {
 	id, ok := e.(*ast.Ident)
 	if !ok {
 		visitExprIdents(e, info, use, def)
@@ -227,7 +227,7 @@ func walkBlockRefs(stmts []ir.Stmt, fn func(ref *ir.BlockRef, srcPos token.Pos))
 
 // paramObjectSet returns the set of types.Objects referred to by the
 // given block params.
-func paramObjectSet(params []*ir.Param, info *types.Info) objectSet {
+func paramObjectSet(params []*ir.Param) objectSet {
 	out := newObjectSet()
 	for _, p := range params {
 		if p.Name == nil {
@@ -242,7 +242,7 @@ func paramObjectSet(params []*ir.Param, info *types.Info) objectSet {
 
 // makeParam creates a synthetic block parameter for the given object.
 // The synthetic identifier is registered in info.Defs.
-func makeParam(obj types.Object, info *types.Info) *ir.Param {
+func makeParam(obj types.Object) *ir.Param {
 	id := &ast.Ident{Name: obj.Name()}
 	info.Defs[id] = obj
 	return &ir.Param{
@@ -253,7 +253,7 @@ func makeParam(obj types.Object, info *types.Info) *ir.Param {
 
 // makeArg creates a synthetic argument expression referring to the given
 // object. The synthetic identifier is registered in info.Uses.
-func makeArg(obj types.Object, srcPos token.Pos, info *types.Info) ast.Expr {
+func makeArg(obj types.Object, srcPos token.Pos) ast.Expr {
 	id := &ast.Ident{NamePos: srcPos, Name: obj.Name()}
 	info.Uses[id] = obj
 	return id
@@ -263,7 +263,7 @@ func makeArg(obj types.Object, srcPos token.Pos, info *types.Info) ast.Expr {
 // block graph and assigns Block.Params and BlockRef.Args so that every
 // block receives exactly the variables it needs (transitively through
 // its successors).
-func propagateParams(fn *ir.Func, info *types.Info, errGroup *faults.ErrGroup) {
+func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
 	if fn == nil || len(fn.Blocks) == 0 {
 		return
 	}
@@ -274,7 +274,7 @@ func propagateParams(fn *ir.Func, info *types.Info, errGroup *faults.ErrGroup) {
 	liveIn := make(map[*ir.Block]objectSet, len(fn.Blocks))
 
 	for _, b := range fn.Blocks {
-		use, def := computeUseDef(b.Body, info)
+		use, def := computeUseDef(b.Body)
 		useMap[b] = use
 		defMap[b] = def
 		succMap[b] = successors(b)
@@ -308,7 +308,7 @@ func propagateParams(fn *ir.Func, info *types.Info, errGroup *faults.ErrGroup) {
 			// Initial block params are the function's external interface.
 			// Flag any extra live-in object as a free variable since
 			// closures aren't yet supported.
-			existing := paramObjectSet(b.Params, info)
+			existing := paramObjectSet(b.Params)
 			for o := range liveIn[b] {
 				if !existing.has(o) {
 					errGroup.Add(faults.New(`function block has free variable not declared as parameter`).
@@ -321,7 +321,7 @@ func propagateParams(fn *ir.Func, info *types.Info, errGroup *faults.ErrGroup) {
 		ordered := orderedObjects(liveIn[b])
 		newParams := make([]*ir.Param, 0, len(ordered))
 		for _, o := range ordered {
-			newParams = append(newParams, makeParam(o, info))
+			newParams = append(newParams, makeParam(o))
 		}
 		b.Params = newParams
 	}
@@ -340,7 +340,7 @@ func propagateParams(fn *ir.Func, info *types.Info, errGroup *faults.ErrGroup) {
 				if obj == nil {
 					continue
 				}
-				newArgs = append(newArgs, makeArg(obj, srcPos, info))
+				newArgs = append(newArgs, makeArg(obj, srcPos))
 			}
 			ref.Args = newArgs
 		})
