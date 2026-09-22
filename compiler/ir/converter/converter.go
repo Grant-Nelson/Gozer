@@ -10,7 +10,6 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/assert"
-	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
@@ -29,11 +28,6 @@ func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Pac
 	}
 	return c.FromPackage(pkg), nil
 }
-
-const (
-	directiveGroup      = `gozer`
-	directiveAtomicFunc = `atomic`
-)
 
 type converter struct {
 	FileSet   *token.FileSet
@@ -131,10 +125,6 @@ func (c *converter) FromNode(n ast.Node) ir.Node {
 
 func (c *converter) FromFile(f *ast.File) ir.Stmt {
 	ss := &ir.StmtListStmt{}
-
-	// TODO: Finish, the returned directives aren't used yet
-	c.FromCommentGroup(f.Doc)
-
 	for _, d := range f.Decls {
 		ss.Add(c.FromDecl(d))
 	}
@@ -200,7 +190,7 @@ func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDecl {
 	td := &ir.TypeDecl{TypeObj: typ}
 	if s.Doc != nil {
 		td.Comment = s.Doc.Text()
-		td.Directives = c.FromCommentGroup(s.Doc)
+		td.Directives = c.FromCommentGroup(s.Doc, td)
 	}
 	return td
 }
@@ -226,7 +216,7 @@ func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
 		cd := &ir.ConstDecl{ConstObj: tc}
 		if s.Doc != nil {
 			cd.Comment = s.Doc.Text()
-			cd.Directives = c.FromCommentGroup(s.Doc)
+			cd.Directives = c.FromCommentGroup(s.Doc, cd)
 		}
 		ss.Add(cd)
 	}
@@ -257,7 +247,7 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 		}
 		if s.Doc != nil {
 			vd.Comment = s.Doc.Text()
-			vd.Directives = c.FromCommentGroup(s.Doc)
+			vd.Directives = c.FromCommentGroup(s.Doc, vd)
 		}
 		ss.Add(vd)
 	}
@@ -293,22 +283,9 @@ func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDecl {
 	}
 	if df.Doc != nil {
 		fn.Comment = df.Doc.Text()
-		fn.Directives = c.FromCommentGroup(df.Doc)
+		fn.Directives = c.FromCommentGroup(df.Doc, fn)
 	}
-
 	c.setInitialBlock(fn.Func, df.Body, df.Type)
-
-	if df.Doc != nil {
-		for d := range astTools.Directives(df.Doc.List) {
-			if d.Tool == directiveGroup && d.Name == directiveAtomicFunc {
-				// The atomic directive should have no fields.
-				// Any fields will be ignored, if asserts are off.
-				assert.EmptyStr(d.Args)
-				fn.Atomic = true
-			}
-		}
-	}
-
 	return fn
 }
 

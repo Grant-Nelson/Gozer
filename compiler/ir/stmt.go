@@ -1,7 +1,7 @@
 package ir
 
-// Stmt is a code statement that can be put inside of a function
-// but has no type value like an expression.
+// Stmt is a code statement that can be put inside of a function or
+// at package level, and has no resulting type value like an expression.
 type Stmt interface {
 	Node
 

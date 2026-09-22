@@ -4,7 +4,9 @@ import (
 	"go/token"
 )
 
-// StmtListStmt is a node that represents a braced statement list.
+// StmtListStmt is a node that represents a statement list.
+// The statement list is typically from a block that that has been braced
+// meaning that typically the scope of these statements are local to the list.
 type StmtListStmt struct {
 	List []Stmt
 }

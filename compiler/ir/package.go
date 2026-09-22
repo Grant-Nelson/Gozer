@@ -42,7 +42,12 @@ type Package struct {
 	Funcs []*FuncDecl
 }
 
-var _ Parent = (*Package)(nil)
+var (
+	_ Node   = (*Package)(nil)
+	_ Parent = (*Package)(nil)
+)
+
+func (p *Package) Pos() token.Pos { return token.NoPos }
 
 func (p *Package) String() string {
 	result := `package{` + nlStr

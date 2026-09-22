@@ -8,7 +8,6 @@ import (
 
 // FuncDecl represents a named function declaration.
 type FuncDecl struct {
-
 	// Comment for this function declaration.
 	Comment string
 
@@ -19,7 +18,7 @@ type FuncDecl struct {
 	// flow control blocks, meaning that the scheduler running in one real
 	// thread environment should not swap goroutines.
 	//
-	// Atomic is based on the directive `//gozer:atomic`.
+	// Atomic is based on the directive `//gozer:atomic` or `//go:nosplit`
 	// However, the function may still not be atomic if it contains blocking
 	// calls such as a send, receive, sleep, or lock. Calling a function
 	// on an interface that is not pinned to a package could be blocking so
@@ -31,6 +30,18 @@ type FuncDecl struct {
 	// and returns from a non-atomic function will have parameters and returns
 	// specifically designed for the schedular to call.
 	Atomic bool
+
+	// NoInline indicates the `//go:noinline` was attached to this function,
+	// meaning that calls to the function should not be inlined, overriding
+	// the usual optimization rules. This is typically only needed for special
+	// runtime functions or when debugging the compiler.
+	NoInline bool
+
+	// NoRace indicates the `//go:norace` was attached to this function,
+	// meaning that the function's memory accesses must be ignored by the race
+	// detector. This is most commonly used in low-level code invoked at times
+	// when it is unsafe to call into the race detector runtime.
+	NoRace bool
 
 	// FuncObj is the object with the type information for the function.
 	FuncObj *types.Func
