@@ -2,7 +2,6 @@ package blocker
 
 import (
 	"cmp"
-	"go/ast"
 	"go/token"
 	"go/types"
 	"maps"
@@ -59,7 +58,7 @@ func computeUseDef(stmts []ir.Stmt) (use, def objectSet) {
 	def = newObjectSet()
 	for _, s := range stmts {
 		// TODO: SEE IF THIS CAN USE `WalkNodes`
-		visitStmtIdents(s, info, use, def)
+		visitStmtIdents(s, use, def)
 	}
 	return use, def
 }
@@ -73,52 +72,52 @@ func visitStmtIdents(s ir.Stmt, use, def objectSet) {
 	switch s := s.(type) {
 	case *ir.AssignStmt:
 		for _, e := range s.Rhs {
-			visitExprIdents(e, info, use, def)
+			visitExprIdents(e, use, def)
 		}
 		// For compound assigns the LHS is also read before being written.
 		if s.Tok != token.ASSIGN && s.Tok != token.DEFINE {
 			for _, e := range s.Lhs {
-				visitExprIdents(e, info, use, def)
+				visitExprIdents(e, use, def)
 			}
 		}
 		for _, e := range s.Lhs {
-			markLhsDef(e, info, use, def)
+			markLhsDef(e, use, def)
 		}
 	case *ir.ExprStmt:
-		visitExprIdents(s.X, info, use, def)
+		visitExprIdents(s.X, use, def)
 	case *ir.SendStmt:
-		visitExprIdents(s.Chan, info, use, def)
-		visitExprIdents(s.Value, info, use, def)
+		visitExprIdents(s.Chan, use, def)
+		visitExprIdents(s.Value, use, def)
 	case *ir.ReturnStmt:
 		for _, e := range s.Results {
-			visitExprIdents(e, info, use, def)
+			visitExprIdents(e, use, def)
 		}
 	case *ir.IfStmt:
-		visitStmtIdents(s.Init, info, use, def)
-		visitExprIdents(s.Cond, info, use, def)
+		visitStmtIdents(s.Init, use, def)
+		visitExprIdents(s.Cond, use, def)
 		for _, b := range s.Body {
-			visitStmtIdents(b, info, use, def)
+			visitStmtIdents(b, use, def)
 		}
 		for _, b := range s.Else {
-			visitStmtIdents(b, info, use, def)
+			visitStmtIdents(b, use, def)
 		}
 	case *ir.StmtListStmt:
 		for _, b := range s.List {
-			visitStmtIdents(b, info, use, def)
+			visitStmtIdents(b, use, def)
 		}
 	case *ir.ForStmt:
-		visitStmtIdents(s.Init, info, use, def)
-		visitExprIdents(s.Cond, info, use, def)
+		visitStmtIdents(s.Init, use, def)
+		visitExprIdents(s.Cond, use, def)
 		for _, b := range s.Body {
-			visitStmtIdents(b, info, use, def)
+			visitStmtIdents(b, use, def)
 		}
-		visitStmtIdents(s.Post, info, use, def)
+		visitStmtIdents(s.Post, use, def)
 	case *ir.LabeledStmt:
-		visitStmtIdents(s.Stmt, info, use, def)
+		visitStmtIdents(s.Stmt, use, def)
 	case *ir.FuncCallStmt:
-		visitExprIdents(s.Fun, info, use, def)
+		visitExprIdents(s.Fun, use, def)
 		for _, e := range s.Args {
-			visitExprIdents(e, info, use, def)
+			visitExprIdents(e, use, def)
 		}
 		// Follow.Args are synthesized by the blocker and intentionally skipped;
 		// they will be rederived from the successor's Params.
@@ -131,36 +130,24 @@ func visitStmtIdents(s ir.Stmt, use, def objectSet) {
 
 // visitExprIdents walks an expression and records identifier reads
 // into use (unless they have already been defined locally).
-func visitExprIdents(e ast.Expr, use, def objectSet) {
+func visitExprIdents(e ir.Expr, use, def objectSet) {
 	if e == nil {
 		return
 	}
-	ast.Inspect(e, func(n ast.Node) bool {
-		id, ok := n.(*ast.Ident)
-		if !ok {
-			return true
-		}
-		obj := info.Uses[id]
-		if obj == nil {
-			return true
-		}
-		if _, isVar := obj.(*types.Var); !isVar {
-			return true
-		}
-		if !def.has(obj) {
+	for n := range ir.WalkNodes(e).OfType[*ir.VarRef]() {
+		if obj := n.Object(); !def.has(obj) {
 			use.add(obj)
 		}
-		return true
-	})
+	}
 }
 
 // markLhsDef marks an LHS expression as defining or redefining variables.
 // Non-identifier LHS expressions (e.g. *p, a[i], s.f) contribute reads
 // of their target.
-func markLhsDef(e ast.Expr, use, def objectSet) {
-	id, ok := e.(*ast.Ident)
+func markLhsDef(e ir.Expr, use, def objectSet) {
+	id, ok := e.(*ir.Ident)
 	if !ok {
-		visitExprIdents(e, info, use, def)
+		visitExprIdents(e, use, def)
 		return
 	}
 	if obj := info.Defs[id]; obj != nil {
@@ -243,7 +230,7 @@ func paramObjectSet(params []*ir.Param) objectSet {
 // makeParam creates a synthetic block parameter for the given object.
 // The synthetic identifier is registered in info.Defs.
 func makeParam(obj types.Object) *ir.Param {
-	id := &ast.Ident{Name: obj.Name()}
+	id := &ir.Ident{Name: obj.Name()}
 	info.Defs[id] = obj
 	return &ir.Param{
 		Name: id,
@@ -253,8 +240,8 @@ func makeParam(obj types.Object) *ir.Param {
 
 // makeArg creates a synthetic argument expression referring to the given
 // object. The synthetic identifier is registered in info.Uses.
-func makeArg(obj types.Object, srcPos token.Pos) ast.Expr {
-	id := &ast.Ident{NamePos: srcPos, Name: obj.Name()}
+func makeArg(obj types.Object, srcPos token.Pos) ir.Expr {
+	id := &ir.Ident{NamePos: srcPos, Name: obj.Name()}
 	info.Uses[id] = obj
 	return id
 }
@@ -334,7 +321,7 @@ func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
 				ref.Args = nil
 				return
 			}
-			newArgs := make([]ast.Expr, 0, len(target.Params))
+			newArgs := make([]ir.Expr, 0, len(target.Params))
 			for _, p := range target.Params {
 				obj := info.ObjectOf(p.Name)
 				if obj == nil {
