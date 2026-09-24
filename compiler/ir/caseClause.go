@@ -7,7 +7,6 @@ import (
 
 // CaseClause is a node that represents a case of an expression or type switch statement.
 type CaseClause struct {
-
 	// Case is the position of "case" or "default" keyword.
 	Case token.Pos
 
@@ -38,12 +37,9 @@ func (n *CaseClause) String() string {
 	return str
 }
 
+func (n *CaseClause) ChildCount() int { return len(n.List) + len(n.Body) }
 func (n *CaseClause) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.List, yield) && YieldSlice(n.Body, yield)
-}
-
-func (n *CaseClause) ChildCount() int {
-	return CountSlice(n.List) + CountSlice(n.Body)
 }
 
 // IsDefault indicates if this is the default case for the switch.

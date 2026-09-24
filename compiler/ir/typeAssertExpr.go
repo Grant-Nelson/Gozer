@@ -7,7 +7,6 @@ import (
 
 // TypeAssertExpr is a node that represents a type assertion expression.
 type TypeAssertExpr struct {
-
 	// X is the expression whose type is being asserted.
 	X Expr
 
@@ -39,6 +38,9 @@ func (n *TypeAssertExpr) String() string {
 	return toString(n.X) + `.(` + typeStr + `)`
 }
 
+func (n *TypeAssertExpr) ChildCount() int { return 2 }
+
 func (n *TypeAssertExpr) Children(yield func(Node) bool) {
-	_ = yield(n.X) && yield(n.AssertType)
+	_ = YieldNode(n.X, yield) &&
+		YieldNode(n.AssertType, yield)
 }

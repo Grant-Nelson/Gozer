@@ -39,10 +39,7 @@ func (n *BlockRef) Pos() token.Pos {
 	return n.Args[0].Pos()
 }
 
+func (n *BlockRef) ChildCount() int { return len(n.Args) }
 func (n *BlockRef) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Args, yield)
-}
-
-func (n *BlockRef) ChildCount() int {
-	return CountSlice(n.Args)
 }

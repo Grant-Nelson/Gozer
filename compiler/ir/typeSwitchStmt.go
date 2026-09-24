@@ -10,7 +10,10 @@ type TypeSwitchStmt struct {
 	Body      []*CaseClause
 }
 
-var _ Stmt = (*TypeSwitchStmt)(nil)
+var (
+	_ Stmt   = (*TypeSwitchStmt)(nil)
+	_ Parent = (*TypeSwitchStmt)(nil)
+)
 
 func (*TypeSwitchStmt) StmtNode() {}
 
@@ -20,6 +23,10 @@ func (n *TypeSwitchStmt) String() string {
 	return `switch ` + toString(n.Assign) + bodyString(n.Body)
 }
 
+func (n *TypeSwitchStmt) ChildCount() int { return 2 + len(n.Body) }
+
 func (n *TypeSwitchStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Init) && yield(n.Assign) && YieldSlice(n.Body, yield)
+	_ = YieldNode(n.Init, yield) &&
+		YieldNode(n.Assign, yield) &&
+		YieldSlice(n.Body, yield)
 }

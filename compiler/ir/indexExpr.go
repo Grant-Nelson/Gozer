@@ -7,7 +7,6 @@ import (
 
 // IndexExpr is a node that represents an expression followed by an index.
 type IndexExpr struct {
-
 	// X is the expression that is being indexed.
 	X Expr
 
@@ -21,7 +20,10 @@ type IndexExpr struct {
 	ResultType types.Type
 }
 
-var _ Expr = (*IndexExpr)(nil)
+var (
+	_ Expr   = (*IndexExpr)(nil)
+	_ Parent = (*IndexExpr)(nil)
+)
 
 func (n *IndexExpr) ExprNode() {}
 
@@ -30,4 +32,11 @@ func (n *IndexExpr) Type() types.Type { return n.ResultType }
 
 func (n *IndexExpr) String() string {
 	return paren(n.X) + `[` + toString(n.Index) + `]`
+}
+
+func (n *IndexExpr) ChildCount() int { return 2 }
+
+func (n *IndexExpr) Children(yield func(Node) bool) {
+	_ = YieldNode(n.X, yield) &&
+		YieldNode(n.Index, yield)
 }

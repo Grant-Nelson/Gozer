@@ -26,6 +26,8 @@ func (n *ReturnStmt) String() string {
 	return `return ` + csvString(n.Results)
 }
 
+func (n *ReturnStmt) ChildCount() int { return len(n.Results) }
+
 func (n *ReturnStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Results, yield)
 }

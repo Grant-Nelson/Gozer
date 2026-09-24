@@ -29,12 +29,18 @@ func (n *StmtListStmt) String() string {
 	return bodyString(n.List)
 }
 
+func (n *StmtListStmt) ChildCount() int { return len(n.List) }
+
 func (n *StmtListStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.List, yield)
 }
 
-func (n *StmtListStmt) Add(s Stmt) {
-	if s != nil {
+func (n *StmtListStmt) Add[T interface {
+	Stmt
+	comparable
+}](s T) {
+	var zero T
+	if s != zero {
 		n.List = append(n.List, s)
 	}
 }

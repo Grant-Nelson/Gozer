@@ -9,7 +9,6 @@ import (
 
 // UnaryExpr is a node that represents a unary expression.
 type UnaryExpr struct {
-
 	// OpPos is the position of the operator.
 	OpPos token.Pos
 
@@ -40,4 +39,8 @@ func (n *UnaryExpr) String() string {
 	return toString(n.Op) + paren(n.X)
 }
 
-func (n *UnaryExpr) Children(yield func(Node) bool) { _ = yield(n.X) }
+func (n *UnaryExpr) ChildCount() int { return 1 }
+
+func (n *UnaryExpr) Children(yield func(Node) bool) {
+	_ = YieldNode(n.X, yield)
+}

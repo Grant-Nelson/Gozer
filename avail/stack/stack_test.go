@@ -122,7 +122,7 @@ func TestStack_Push(t *testing.T) {
 
 func TestStack_PushSeq(t *testing.T) {
 	s := New[int]()
-	s.PushSeq(iterator.Iterate(11, 22, 33), 5)
+	s.PushSeq(iterator.Iterate(11, 22, 33))
 	equal(t, 3, s.Count(), `count`)
 	equal(t, 8, s.Capacity(), `capacity`)
 	equal(t, false, s.Empty(), `empty`)
@@ -130,7 +130,7 @@ func TestStack_PushSeq(t *testing.T) {
 	equal(t, `11, 22, 33`, s.Iterate().Join(`, `), `iterate`)
 	validate(t, s)
 
-	s.PushSeq(iterator.Iterate(44, 55, 66, 77), 4)
+	s.PushSeq(iterator.Iterate(44, 55, 66, 77))
 	equal(t, 7, s.Count(), `count`)
 	equal(t, 8, s.Capacity(), `capacity`)
 	equal(t, false, s.Empty(), `empty`)
@@ -138,7 +138,7 @@ func TestStack_PushSeq(t *testing.T) {
 	equal(t, `44, 55, 66, 77, 11, 22, 33`, s.Iterate().Join(`, `), `iterate`)
 	validate(t, s)
 
-	s.PushSeq(iterator.Iterate(88, 99), 1)
+	s.PushSeq(iterator.Iterate(88, 99))
 	equal(t, 9, s.Count(), `count`)
 	equal(t, 16, s.Capacity(), `capacity`)
 	equal(t, false, s.Empty(), `empty`)

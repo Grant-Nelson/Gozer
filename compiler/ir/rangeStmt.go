@@ -48,6 +48,11 @@ func (n *RangeStmt) String() string {
 	return `for (` + head + `range ` + paren(n.X) + `)` + bodyString(n.Body)
 }
 
+func (n *RangeStmt) ChildCount() int { return 3 + len(n.Body) }
+
 func (n *RangeStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Key) && yield(n.Value) && yield(n.X) && YieldSlice(n.Body, yield)
+	_ = YieldNode(n.Key, yield) &&
+		YieldNode(n.Value, yield) &&
+		YieldNode(n.X, yield) &&
+		YieldSlice(n.Body, yield)
 }

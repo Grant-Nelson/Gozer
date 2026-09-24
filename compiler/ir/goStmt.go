@@ -15,7 +15,8 @@ var (
 
 func (*GoStmt) StmtNode() {}
 
-func (n *GoStmt) Pos() token.Pos { return n.GoPos }
-func (n *GoStmt) String() string { return `go ` + toString(n.Call) }
+func (n *GoStmt) Pos() token.Pos  { return n.GoPos }
+func (n *GoStmt) String() string  { return `go ` + toString(n.Call) }
+func (n *GoStmt) ChildCount() int { return 1 }
 
-func (n *GoStmt) Children(yield func(Node) bool) { _ = yield(n.Call) }
+func (n *GoStmt) Children(yield func(Node) bool) { _ = YieldNode(n.Call, yield) }

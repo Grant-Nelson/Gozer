@@ -9,7 +9,6 @@ import (
 
 // BinaryExpr is a node that represents a binary expression.
 type BinaryExpr struct {
-
 	// X is the left operand.
 	X Expr
 
@@ -40,10 +39,7 @@ func (n *BinaryExpr) String() string {
 	return paren(n.X) + ` ` + toString(n.Op) + ` ` + paren(n.Y)
 }
 
+func (n *BinaryExpr) ChildCount() int { return 2 }
 func (n *BinaryExpr) Children(yield func(Node) bool) {
 	_ = YieldNode(n.X, yield) && YieldNode(n.Y, yield)
-}
-
-func (n *BinaryExpr) ChildCount() int {
-	return CountNode(n.X) + CountNode(n.Y)
 }

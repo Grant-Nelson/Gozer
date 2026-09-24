@@ -22,6 +22,9 @@ func (n *SendStmt) String() string {
 	return toString(n.Chan) + `<-` + toString(n.Value)
 }
 
+func (n *SendStmt) ChildCount() int { return 2 }
+
 func (n *SendStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Chan) && yield(n.Value)
+	_ = YieldNode(n.Chan, yield) &&
+		YieldNode(n.Value, yield)
 }

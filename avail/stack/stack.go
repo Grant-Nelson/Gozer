@@ -6,7 +6,6 @@ import "github.com/Grant-Nelson/Gozer/avail/iterator"
 // that can be reused. This stack is designed to work very well
 // with depth first traversal of a tree.
 type Stack[T any] interface {
-
 	// Count is the number of values in the stack.
 	Count() int
 
@@ -52,11 +51,10 @@ type Stack[T any] interface {
 	// Returns this stack so calls can be chained.
 	Push(values ...T) Stack[T]
 
-	// PushSeq will put the first count values into the stack in reverse
-	// order so that the next pop will get the top value first.
-	// If the sequence ends before the count, the remaining will be zero values.
+	// PushSeq will put the values into the stack in reverse order such that
+	// the next pop will get the first value that was read from the sequence.
 	// Returns this stack so calls can be chained.
-	PushSeq(s iterator.Iterator[T], count int) Stack[T]
+	PushSeq(s iterator.Iterator[T]) Stack[T]
 }
 
 const allocateSize = 8
@@ -210,15 +208,14 @@ func (s *stackImp[T]) Push(values ...T) Stack[T] {
 	return s
 }
 
-func (s *stackImp[T]) PushSeq(it iterator.Iterator[T], count int) Stack[T] {
-	if count <= 0 {
-		count = allocateSize
+func (s *stackImp[T]) PushSeq(it iterator.Iterator[T]) Stack[T] {
+	if s.tombs == nil {
+		s.tombs = allocateNodes[T](allocateSize, nil)
+		s.tombCount += allocateSize
 	}
-	s.grow(count)
-	// Asserts: count > 0, tomb count >= count
 	cur := s.tombs
 	var last *node[T]
-	actual := 0
+	count := 0
 	for v := range it {
 		if cur == nil {
 			cur = allocateNodes[T](allocateSize, nil)
@@ -227,13 +224,13 @@ func (s *stackImp[T]) PushSeq(it iterator.Iterator[T], count int) Stack[T] {
 		}
 		last = cur
 		cur.value = v
-		actual++
+		count++
 		cur = cur.prev
 	}
 	last.prev = s.top
 	s.top = s.tombs
 	s.tombs = cur
-	s.tombCount -= actual
-	s.count += actual
+	s.tombCount -= count
+	s.count += count
 	return s
 }

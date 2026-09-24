@@ -42,10 +42,7 @@ func (n *BranchStmt) String() string {
 	return toString(n.Kind) + ` ` + n.Label.Name()
 }
 
+func (n *BranchStmt) ChildCount() int { return 1 }
 func (n *BranchStmt) Children(yield func(Node) bool) {
 	_ = YieldNode(n.Label, yield)
-}
-
-func (n *BranchStmt) ChildCount() int {
-	return CountNode(n.Label)
 }

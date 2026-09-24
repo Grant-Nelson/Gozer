@@ -7,7 +7,6 @@ import (
 
 // VarDecl is the declaration for a single variable.
 type VarDecl struct {
-
 	// Comment for this variable.
 	Comment string
 
@@ -41,7 +40,9 @@ func (n *VarDecl) String() string {
 	return toString(n.VarObj) + ` = ` + toString(n.Value)
 }
 
+func (n *VarDecl) ChildCount() int { return 1 + len(n.Directives) }
+
 func (n *VarDecl) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Directives, yield) &&
-		yield(n.Value)
+		YieldNode(n.Value, yield)
 }

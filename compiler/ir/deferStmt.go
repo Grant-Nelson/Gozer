@@ -18,7 +18,10 @@ var (
 
 func (*DeferStmt) StmtNode() {}
 
-func (n *DeferStmt) Pos() token.Pos { return n.Defer }
-func (n *DeferStmt) String() string { return `defer ` + toString(n.Call) }
+func (n *DeferStmt) Pos() token.Pos  { return n.Defer }
+func (n *DeferStmt) String() string  { return `defer ` + toString(n.Call) }
+func (n *DeferStmt) ChildCount() int { return 1 }
 
-func (n *DeferStmt) Children(yield func(Node) bool) { _ = yield(n.Call) }
+func (n *DeferStmt) Children(yield func(Node) bool) {
+	_ = YieldNode(n.Call, yield)
+}

@@ -7,6 +7,16 @@ import (
 
 // Parent is the interface any parent node should implement.
 type Parent interface {
+	// ChildCount returns the number of child nodes of this node.
+	//
+	// This value will be equal to or slightly larger than the number
+	// of yields from `Children` because this count may include nil children.
+	// This is useful to quickly preallocate memory for the children.
+	//
+	// To get an exact count of non-nil children, count the number of
+	// yields from `Children`.
+	ChildCount() int
+
 	// Children will call yield for all children to this node in read order.
 	// This will not return references to nodes that are not directly
 	// child node of this node. This must not yield a nil node.
@@ -14,33 +24,11 @@ type Parent interface {
 	// This returns false if yield returns false to exit the yield
 	// early. If yield never returns false, this will return true.
 	Children(yield func(Node) bool)
-
-	// ChildCount returns the number of non-nil child nodes of this node.
-	ChildCount() int
 }
 
 type NodeConstraint interface {
 	Node
 	comparable
-}
-
-func CountNode[T NodeConstraint](n T) int {
-	var zero T
-	if n == zero {
-		return 0
-	}
-	return 1
-}
-
-func CountSlice[T NodeConstraint, S ~[]T](s S) int {
-	var zero T
-	count := 0
-	for _, n := range s {
-		if n != zero {
-			count++
-		}
-	}
-	return count
 }
 
 // YieldNode will call the given yield for a non-nil node.
@@ -97,8 +85,8 @@ func walkStack(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
 			}
 			if !step.Skip {
 				if p, ok := node.(Parent); ok {
-					// TODO: Should add a child count in Parents
-					s.PushSeq(p.Children, 0)
+					s.Grow(p.ChildCount())
+					s.PushSeq(p.Children)
 				}
 			}
 		}

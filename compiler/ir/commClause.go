@@ -4,7 +4,6 @@ import "go/token"
 
 // CommClause is a node that represents a case of a select statement.
 type CommClause struct {
-
 	// Case is the position of "case" or "default" keyword.
 	Case token.Pos
 
@@ -35,12 +34,9 @@ func (n *CommClause) String() string {
 	return str
 }
 
+func (n *CommClause) ChildCount() int { return 1 + len(n.Body) }
 func (n *CommClause) Children(yield func(Node) bool) {
 	_ = YieldNode(n.Comm, yield) && YieldSlice(n.Body, yield)
-}
-
-func (n *CommClause) ChildCount() int {
-	return CountNode(n.Comm) + CountSlice(n.Body)
 }
 
 // IsDefault indicates if this is the default case for the switch.

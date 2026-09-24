@@ -44,10 +44,9 @@ func (n *CallExpr) String() string {
 	return toString(n.Fun) + `(` + csvString(n.Args) + ellipsis + `)`
 }
 
+func (n *CallExpr) ChildCount() int { return 2 + len(n.Args) }
 func (n *CallExpr) Children(yield func(Node) bool) {
-	_ = YieldNode(n.Fun, yield) && YieldSlice(n.Args, yield) && YieldNode(n.Follow, yield)
-}
-
-func (n *CallExpr) ChildCount() int {
-	return CountNode(n.Fun) + CountSlice(n.Args) + CountNode(n.Follow)
+	_ = YieldNode(n.Fun, yield) &&
+		YieldSlice(n.Args, yield) &&
+		YieldNode(n.Follow, yield)
 }

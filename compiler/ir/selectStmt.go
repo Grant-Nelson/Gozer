@@ -21,6 +21,8 @@ func (n *SelectStmt) String() string {
 	return `select` + bodyString(n.Body)
 }
 
+func (n *SelectStmt) ChildCount() int { return len(n.Body) }
+
 func (n *SelectStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Body, yield)
 }

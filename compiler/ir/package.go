@@ -65,6 +65,11 @@ func (p *Package) String() string {
 	return result + `}`
 }
 
+func (p *Package) ChildCount() int {
+	return len(p.Directives) + len(p.Types) +
+		len(p.Consts) + len(p.Vars) + len(p.Funcs)
+}
+
 func (p *Package) Children(yield func(Node) bool) {
 	_ = YieldSlice(p.Directives, yield) &&
 		YieldSlice(p.Types, yield) &&

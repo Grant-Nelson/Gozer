@@ -5,7 +5,6 @@ import "go/token"
 // MultiAssignStmt is a node that represents an assignment or
 // a short variable declaration.
 type MultiAssignStmt struct {
-
 	// TokPos is the position for the assignment token, `=` or `:=`.
 	TokPos token.Pos
 
@@ -37,6 +36,8 @@ func (n *MultiAssignStmt) String() string {
 	}
 	return csvString(n.Lhs) + def + csvString(n.Rhs)
 }
+
+func (n *MultiAssignStmt) ChildCount() int { return len(n.Lhs) + len(n.Rhs) }
 
 func (n *MultiAssignStmt) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Lhs, yield) && YieldSlice(n.Rhs, yield)

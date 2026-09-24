@@ -73,7 +73,8 @@ func (fn *FuncDecl) String() string {
 	return `func ` + fn.FuncObj.FullName() + ` ` + sig + ` ` + flags + toString(fn.Func)
 }
 
+func (fn *FuncDecl) ChildCount() int { return 1 + len(fn.Directives) }
 func (fn *FuncDecl) Children(yield func(Node) bool) {
 	_ = YieldSlice(fn.Directives, yield) &&
-		yield(fn.Func)
+		YieldNode(fn.Func, yield)
 }

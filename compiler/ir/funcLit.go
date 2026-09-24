@@ -12,7 +12,6 @@ import (
 // within a closure that had type parameters so it may inherit
 // type parameters and arguments.
 type FuncLit struct {
-
 	// Func is the function definition.
 	Func *Func
 }
@@ -27,5 +26,6 @@ func (fn *FuncLit) ExprNode() {}
 func (fn *FuncLit) Pos() token.Pos   { return fn.Func.Pos() }
 func (fn *FuncLit) Type() types.Type { return fn.Func.Signature }
 func (fn *FuncLit) String() string   { return `funcLit ` + toString(fn.Func) }
+func (fn *FuncLit) ChildCount() int  { return 1 }
 
-func (fn *FuncLit) Children(yield func(Node) bool) { _ = yield(fn.Func) }
+func (fn *FuncLit) Children(yield func(Node) bool) { _ = YieldNode(fn.Func, yield) }

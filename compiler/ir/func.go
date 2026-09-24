@@ -8,7 +8,6 @@ import (
 // Func represents a function block defining a function as
 // a collection of statement blocks.
 type Func struct {
-
 	// FuncPos is the position of `func` keyword for the function, method,
 	// or function literal.
 	FuncPos token.Pos
@@ -38,6 +37,7 @@ func (fn *Func) String() string {
 	return `{` + nlStr + linesString(fn.Blocks) + nlStr + `}`
 }
 
+func (fn *Func) ChildCount() int { return len(fn.Blocks) }
 func (fn *Func) Children(yield func(Node) bool) {
 	_ = YieldSlice(fn.Blocks, yield)
 }

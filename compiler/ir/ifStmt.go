@@ -46,7 +46,11 @@ func (n *IfStmt) String() string {
 	return str + bodyString(n.Else)
 }
 
+func (n *IfStmt) ChildCount() int { return 2 + len(n.Body) + len(n.Else) }
+
 func (n *IfStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Init) && yield(n.Cond) &&
-		YieldSlice(n.Body, yield) && YieldSlice(n.Else, yield)
+	_ = YieldNode(n.Init, yield) &&
+		YieldNode(n.Cond, yield) &&
+		YieldSlice(n.Body, yield) &&
+		YieldSlice(n.Else, yield)
 }

@@ -39,4 +39,6 @@ func (n *LabeledStmt) String() string {
 	return n.LabelObj.Name() + `:` + nlStr + toString(n.Stmt)
 }
 
-func (n *LabeledStmt) Children(yield func(Node) bool) { _ = yield(n.Stmt) }
+func (n *LabeledStmt) ChildCount() int { return 1 }
+
+func (n *LabeledStmt) Children(yield func(Node) bool) { _ = YieldNode(n.Stmt, yield) }

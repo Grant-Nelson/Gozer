@@ -39,8 +39,13 @@ func (n *ForStmt) String() string {
 		`; ` + emptyZeroOrString(n.Post) + `)` + bodyString(n.Body)
 }
 
+func (n *ForStmt) ChildCount() int { return 3 + len(n.Body) }
+
 func (n *ForStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Init) && yield(n.Cond) && yield(n.Post) && YieldSlice(n.Body, yield)
+	_ = YieldNode(n.Init, yield) &&
+		YieldNode(n.Cond, yield) &&
+		YieldNode(n.Post, yield) &&
+		YieldSlice(n.Body, yield)
 }
 
 func (n *ForStmt) IsWhile() bool {

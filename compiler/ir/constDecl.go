@@ -7,7 +7,6 @@ import (
 
 // ConstDecl is the declaration for a single constant.
 type ConstDecl struct {
-
 	// Comment for this constant.
 	Comment string
 
@@ -35,10 +34,7 @@ func (n *ConstDecl) String() string {
 	return toString(n.ConstObj) + ` = ` + toString(n.ConstObj.Val())
 }
 
+func (n *ConstDecl) ChildCount() int { return len(n.Directives) }
 func (n *ConstDecl) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Directives, yield)
-}
-
-func (n *ConstDecl) ChildCount() int {
-	return CountSlice(n.Directives)
 }
