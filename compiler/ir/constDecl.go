@@ -38,3 +38,7 @@ func (n *ConstDecl) String() string {
 func (n *ConstDecl) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Directives, yield)
 }
+
+func (n *ConstDecl) ChildCount() int {
+	return CountSlice(n.Directives)
+}

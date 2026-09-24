@@ -36,7 +36,11 @@ func (n *CommClause) String() string {
 }
 
 func (n *CommClause) Children(yield func(Node) bool) {
-	_ = yield(n.Comm) && YieldSlice(n.Body, yield)
+	_ = YieldNode(n.Comm, yield) && YieldSlice(n.Body, yield)
+}
+
+func (n *CommClause) ChildCount() int {
+	return CountNode(n.Comm) + CountSlice(n.Body)
 }
 
 // IsDefault indicates if this is the default case for the switch.

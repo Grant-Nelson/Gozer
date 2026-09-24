@@ -70,6 +70,10 @@ func (n *Block) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.Body, yield)
 }
 
+func (n *Block) ChildCount() int {
+	return CountSlice(n.Body)
+}
+
 // LastStmt gets the last statement in the block or nil if empty.
 func (n *Block) LastStmt() Stmt {
 	if max := len(n.Body) - 1; max >= 0 {

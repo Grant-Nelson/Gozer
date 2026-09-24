@@ -6,7 +6,6 @@ import (
 	"go/types"
 	"maps"
 	"slices"
-	"strings"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
@@ -37,8 +36,8 @@ func (s objectSet) equal(o objectSet) bool {
 
 func compareObject(a, b types.Object) int {
 	return cmp.Or(
-		int(a.Pos())-int(b.Pos()),
-		strings.Compare(a.Name(), b.Name()),
+		cmp.Compare(a.Pos(), b.Pos()),
+		cmp.Compare(a.Name(), b.Name()),
 	)
 }
 
@@ -56,6 +55,13 @@ func orderedObjects(s objectSet) []types.Object {
 func computeUseDef(stmts []ir.Stmt) (use, def objectSet) {
 	use = newObjectSet()
 	def = newObjectSet()
+
+	for n := range ir.WalkNodes(e).OfType[*ir.VarRef]() {
+		if obj := n.Object(); !def.has(obj) {
+			use.add(obj)
+		}
+	}
+
 	for _, s := range stmts {
 		// TODO: SEE IF THIS CAN USE `WalkNodes`
 		visitStmtIdents(s, use, def)
@@ -130,7 +136,7 @@ func visitStmtIdents(s ir.Stmt, use, def objectSet) {
 
 // visitExprIdents walks an expression and records identifier reads
 // into use (unless they have already been defined locally).
-func visitExprIdents(e ir.Expr, use, def objectSet) {
+func visitExprIdents(e ir.Node, use, def objectSet) {
 	if e == nil {
 		return
 	}
@@ -144,22 +150,14 @@ func visitExprIdents(e ir.Expr, use, def objectSet) {
 // markLhsDef marks an LHS expression as defining or redefining variables.
 // Non-identifier LHS expressions (e.g. *p, a[i], s.f) contribute reads
 // of their target.
-func markLhsDef(e ir.Expr, use, def objectSet) {
-	id, ok := e.(*ir.Ident)
-	if !ok {
+func markLhsDef(e ir.Node, use, def objectSet) {
+	switch v := e.(type) {
+	case *ir.VarDecl:
+		def.add(v.Object())
+	case *ir.VarRef:
+		def.add(v.Object())
+	default:
 		visitExprIdents(e, use, def)
-		return
-	}
-	if obj := info.Defs[id]; obj != nil {
-		if _, isVar := obj.(*types.Var); isVar {
-			def.add(obj)
-		}
-		return
-	}
-	if obj := info.Uses[id]; obj != nil {
-		if _, isVar := obj.(*types.Var); isVar {
-			def.add(obj)
-		}
 	}
 }
 

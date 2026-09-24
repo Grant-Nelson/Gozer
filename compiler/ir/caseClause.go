@@ -42,5 +42,9 @@ func (n *CaseClause) Children(yield func(Node) bool) {
 	_ = YieldSlice(n.List, yield) && YieldSlice(n.Body, yield)
 }
 
+func (n *CaseClause) ChildCount() int {
+	return CountSlice(n.List) + CountSlice(n.Body)
+}
+
 // IsDefault indicates if this is the default case for the switch.
 func (n *CaseClause) IsDefault() bool { return len(n.List) == 0 }

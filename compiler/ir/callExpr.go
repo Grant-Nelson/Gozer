@@ -45,5 +45,9 @@ func (n *CallExpr) String() string {
 }
 
 func (n *CallExpr) Children(yield func(Node) bool) {
-	_ = yield(n.Fun) && YieldSlice(n.Args, yield) && yield(n.Follow)
+	_ = YieldNode(n.Fun, yield) && YieldSlice(n.Args, yield) && YieldNode(n.Follow, yield)
+}
+
+func (n *CallExpr) ChildCount() int {
+	return CountNode(n.Fun) + CountSlice(n.Args) + CountNode(n.Follow)
 }

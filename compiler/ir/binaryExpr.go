@@ -41,5 +41,9 @@ func (n *BinaryExpr) String() string {
 }
 
 func (n *BinaryExpr) Children(yield func(Node) bool) {
-	_ = yield(n.X) && yield(n.Y)
+	_ = YieldNode(n.X, yield) && YieldNode(n.Y, yield)
+}
+
+func (n *BinaryExpr) ChildCount() int {
+	return CountNode(n.X) + CountNode(n.Y)
 }

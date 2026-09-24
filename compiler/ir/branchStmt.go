@@ -43,5 +43,9 @@ func (n *BranchStmt) String() string {
 }
 
 func (n *BranchStmt) Children(yield func(Node) bool) {
-	_ = yield(n.Label)
+	_ = YieldNode(n.Label, yield)
+}
+
+func (n *BranchStmt) ChildCount() int {
+	return CountNode(n.Label)
 }
