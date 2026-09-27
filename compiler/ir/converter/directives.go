@@ -137,6 +137,7 @@ func (c *converter) fromBoolFuncDirective(d *ast.Directive, target ir.Node, setB
 	if fn, ok := target.(*ir.FuncDef); ok {
 		assert.EmptyStr(d.Args)
 		setBool(fn)
+		return
 	}
 	c.addFault(faults.New(`expected directive to be on a function declaration`).
 		With(`tool`, d.Tool).

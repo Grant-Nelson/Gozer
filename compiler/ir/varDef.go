@@ -35,12 +35,17 @@ func (*VarDef) StmtNode() {}
 func (n *VarDef) Pos() token.Pos       { return n.VarObj.Pos() }
 func (n *VarDef) Type() types.Type     { return n.VarObj.Type() }
 func (n *VarDef) Object() types.Object { return n.VarObj }
+func (n *VarDef) Blank() bool          { return n.VarObj.Name() == `_` }
 
 func (n *VarDef) String() string {
-	if n.Value == nil {
-		return `decl ` + toString(n.VarObj)
+	result := `_`
+	if !n.Blank() {
+		result = `def ` + toString(n.VarObj)
 	}
-	return `decl ` + toString(n.VarObj) + ` = ` + toString(n.Value)
+	if n.Value != nil {
+		result += ` = ` + toString(n.Value)
+	}
+	return result
 }
 
 func (n *VarDef) ChildCount() int { return 1 + len(n.Directives) }
