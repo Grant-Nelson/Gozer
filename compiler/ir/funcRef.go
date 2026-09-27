@@ -22,10 +22,12 @@ type FuncRef struct {
 
 var (
 	_ Expr = (*FuncRef)(nil)
+	_ Stmt = (*FuncRef)(nil)
 	_ Ref  = (*FuncRef)(nil)
 )
 
 func (*FuncRef) ExprNode() {}
+func (*FuncRef) StmtNode() {}
 func (*FuncRef) RefNode()  {}
 
 func (n *FuncRef) Pos() token.Pos       { return n.RefPos }

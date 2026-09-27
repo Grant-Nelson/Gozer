@@ -27,19 +27,19 @@ type Package struct {
 	Sizes types.Sizes
 
 	// Imports are the packages that are imported by this package.
-	Imports []*ImportDecl
+	Imports []*ImportDef
 
 	// Types is the collection of types for this package.
-	Types []*TypeDecl
+	Types []*TypeDef
 
 	// Consts is the collection of const values for this package.
-	Consts []*ConstDecl
+	Consts []*ConstDef
 
 	// Vars is the collection of variables for this package.
-	Vars []*VarDecl
+	Vars []*VarDef
 
 	// Funcs is the collection of functions for this package.
-	Funcs []*FuncDecl
+	Funcs []*FuncDef
 }
 
 var (

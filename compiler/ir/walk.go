@@ -56,34 +56,61 @@ func YieldSlice[T NodeConstraint, S ~[]T](s S, yield func(Node) bool) bool {
 type WalkStep struct {
 	Node Node
 
-	// By setting skip to true, the children of Node will not be walked.
+	// SkipAllChildren can be set to true so that the children of the current
+	// Node will not be walked.
 	// This will be defaulted to false for each node. To stop all iteration,
 	// return false from the iterator or break/return from the for-range.
-	Skip bool
+	SkipChildren bool
+
+	// preSkips are skips that have been added via SkipChild.
+	preSkips map[Node]bool
 }
 
-func WalkNodes(roots ...Node) iterator.Iterator[Node] {
+// Skip will add a node to skip before being yielded.
+//
+// This can be used to skip any node but typically is for skipping
+// a few children but not all children.
+// This is designed to handle a case similar to handling a node
+// with two children and one child should be handled in this walk
+// but the other child should have a custom walk.
+// If both children should be skipped, then use `SkipChildren`.
+//
+// This will only skip the node once in the case where the node
+// is reachable from multiple directions.
+func (s *WalkStep) Skip(n Node) {
+	s.preSkips[n] = true
+}
+
+func WalkNodes[T Node](roots ...T) iterator.Iterator[Node] {
 	return Walk(roots...).Select(func(s *WalkStep) Node { return s.Node })
 }
 
-func Walk(roots ...Node) iterator.Iterator[*WalkStep] {
-	return walkStack(stack.New[Node]().Push(roots...))
+func Walk[T Node](roots ...T) iterator.Iterator[*WalkStep] {
+	s := stack.New[Node]()
+	s.Grow(len(roots))
+	s.PushSeq(iterator.Iterate(roots...).OfType[Node]())
+	return walkStack(s)
 }
 
 func walkStack(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
 	if s.Empty() {
 		return iterator.Empty[*WalkStep]()
 	}
-	step := &WalkStep{}
+	preSkips := map[Node]bool{}
+	step := &WalkStep{preSkips: preSkips}
 	return func(yield func(*WalkStep) bool) {
 		for !s.Empty() {
 			node := s.Pop()
+			if preSkips[node] {
+				delete(preSkips, node)
+				continue
+			}
 			step.Node = node
-			step.Skip = false
+			step.SkipChildren = false
 			if !yield(step) {
 				return
 			}
-			if !step.Skip {
+			if !step.SkipChildren {
 				if p, ok := node.(Parent); ok {
 					s.Grow(p.ChildCount())
 					s.PushSeq(p.Children)

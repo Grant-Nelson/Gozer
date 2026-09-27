@@ -38,9 +38,9 @@ func (c *converter) FromUnaryOp(t token.Token, pos token.Pos) unaryOp.UnaryOp {
 	case token.XOR:
 		return unaryOp.BitwiseInvert
 	case token.INC:
-		return unaryOp.Increment
+		return unaryOp.PreInc
 	case token.DEC:
-		return unaryOp.Decrement
+		return unaryOp.PreDec
 	case token.NOT:
 		return unaryOp.Not
 	default:
@@ -53,6 +53,8 @@ func (c *converter) FromUnaryOp(t token.Token, pos token.Pos) unaryOp.UnaryOp {
 
 func (c *converter) FromBinaryOp(t token.Token, pos token.Pos) binaryOp.BinaryOp {
 	switch t {
+	case token.ASSIGN, token.DEFINE:
+		return binaryOp.Assign
 	case token.ADD:
 		return binaryOp.Add
 	case token.SUB:
@@ -113,10 +115,6 @@ func (c *converter) FromBinaryOp(t token.Token, pos token.Pos) binaryOp.BinaryOp
 		return binaryOp.GreaterThan
 	case token.GEQ:
 		return binaryOp.GreaterThanOrEqual
-	case token.ASSIGN:
-		return binaryOp.Assign
-	case token.DEFINE:
-		return binaryOp.Define
 	default:
 		c.addFault(faults.New(`unexpected token for a binary op`).
 			WithF(`token`, `%q`, t.String()).

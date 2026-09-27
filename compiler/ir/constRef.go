@@ -13,10 +13,12 @@ type ConstRef struct {
 
 var (
 	_ Expr = (*ConstRef)(nil)
+	_ Stmt = (*ConstRef)(nil)
 	_ Ref  = (*ConstRef)(nil)
 )
 
 func (*ConstRef) ExprNode() {}
+func (*ConstRef) StmtNode() {}
 func (*ConstRef) RefNode()  {}
 
 func (n *ConstRef) Pos() token.Pos       { return n.RefPos }

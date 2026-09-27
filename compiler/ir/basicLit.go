@@ -15,9 +15,13 @@ type BasicLit struct {
 	TypeAndValue *types.TypeAndValue
 }
 
-var _ Expr = (*BasicLit)(nil)
+var (
+	_ Expr = (*BasicLit)(nil)
+	_ Stmt = (*BasicLit)(nil)
+)
 
-func (n *BasicLit) ExprNode() {}
+func (*BasicLit) ExprNode() {}
+func (*BasicLit) StmtNode() {}
 
 func (n *BasicLit) Pos() token.Pos   { return n.ValuePos }
 func (n *BasicLit) Type() types.Type { return n.TypeAndValue.Type }

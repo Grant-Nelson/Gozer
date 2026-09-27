@@ -107,25 +107,32 @@ func (c *converter) FromAssignStmt(s *ast.AssignStmt) ir.Stmt {
 	if s == nil {
 		return nil
 	}
-	if len(s.Lhs) == 1 && len(s.Rhs) == 1 {
-		lhs := c.FromExpr(s.Lhs[0])
-		rhs := c.FromExpr(s.Rhs[0])
 
-		var typ types.Type
-		if lhs != nil {
-			typ = lhs.Type()
-		} else if rhs != nil {
-			typ = rhs.Type()
+	lhs := c.FromExprSlice(s.Lhs)
+	rhs := c.FromExprSlice(s.Rhs)
+	if len(lhs) == 1 && len(rhs) == 1 {
+		op := c.FromBinaryOp(s.Tok, s.TokPos)
+		if !op.IsAssignment() {
+			c.addFault(faults.From(`unexpected token for a single-assignment`).
+				With(`token`, s.Tok).
+				With(`pos`, c.pos(s.Pos())))
 		}
 
-		b := &ir.BinaryExpr{
-			X:          lhs,
+		x, y := lhs[0], rhs[0]
+		var typ types.Type
+		if x != nil {
+			typ = x.Type()
+		} else if y != nil {
+			typ = y.Type()
+		}
+
+		return &ir.BinaryExpr{
+			X:          x,
 			OpPos:      s.TokPos,
-			Op:         c.FromBinaryOp(s.Tok, s.TokPos),
-			Y:          rhs,
+			Op:         op,
+			Y:          y,
 			ResultType: typ,
 		}
-		return &ir.ExprStmt{X: b}
 	}
 
 	switch s.Tok {
@@ -137,9 +144,8 @@ func (c *converter) FromAssignStmt(s *ast.AssignStmt) ir.Stmt {
 	}
 	return &ir.MultiAssignStmt{
 		TokPos: s.TokPos,
-		Lhs:    c.FromExprSlice(s.Lhs),
-		Define: s.Tok == token.DEFINE,
-		Rhs:    c.FromExprSlice(s.Rhs),
+		Lhs:    lhs,
+		Rhs:    rhs,
 	}
 }
 
@@ -248,25 +254,21 @@ func (c *converter) FromDeferStmt(s *ast.DeferStmt) *ir.DeferStmt {
 	}
 }
 
-func (c *converter) FromExprStmt(s *ast.ExprStmt) *ir.ExprStmt {
+func (c *converter) FromExprStmt(s *ast.ExprStmt) ir.Expr {
 	if s == nil {
 		return nil
 	}
-	return &ir.ExprStmt{
-		X: c.FromExpr(s.X),
-	}
+	return c.FromExpr(s.X)
 }
 
-func (c *converter) FromIncDecStmt(s *ast.IncDecStmt) *ir.ExprStmt {
+func (c *converter) FromIncDecStmt(s *ast.IncDecStmt) ir.Expr {
 	if s == nil {
 		return nil
 	}
-	return &ir.ExprStmt{
-		X: &ir.UnaryExpr{
-			OpPos: s.Pos(),
-			Op:    c.FromUnaryOp(s.Tok, s.TokPos),
-			X:     c.FromExpr(s.X),
-		},
+	return &ir.UnaryExpr{
+		OpPos: s.Pos(),
+		Op:    c.FromUnaryOp(s.Tok, s.TokPos),
+		X:     c.FromExpr(s.X),
 	}
 }
 

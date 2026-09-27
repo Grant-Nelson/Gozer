@@ -10,9 +10,13 @@ type TypeExpr struct {
 	TypeRef types.Type
 }
 
-var _ Expr = (*TypeExpr)(nil)
+var (
+	_ Expr = (*TypeExpr)(nil)
+	_ Stmt = (*TypeExpr)(nil)
+)
 
-func (n *TypeExpr) ExprNode() {}
+func (*TypeExpr) ExprNode() {}
+func (*TypeExpr) StmtNode() {}
 
 func (n *TypeExpr) Pos() token.Pos   { return n.TypePos }
 func (n *TypeExpr) Type() types.Type { return n.TypeRef }

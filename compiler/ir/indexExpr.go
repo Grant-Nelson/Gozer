@@ -22,10 +22,12 @@ type IndexExpr struct {
 
 var (
 	_ Expr   = (*IndexExpr)(nil)
+	_ Stmt   = (*IndexExpr)(nil)
 	_ Parent = (*IndexExpr)(nil)
 )
 
-func (n *IndexExpr) ExprNode() {}
+func (*IndexExpr) ExprNode() {}
+func (*IndexExpr) StmtNode() {}
 
 func (n *IndexExpr) Pos() token.Pos   { return n.LeftPos }
 func (n *IndexExpr) Type() types.Type { return n.ResultType }

@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// FuncDecl represents a named function declaration.
-type FuncDecl struct {
+// FuncDef represents a named function declaration.
+type FuncDef struct {
 	// Comment for this function declaration.
 	Comment string
 
@@ -51,30 +51,36 @@ type FuncDecl struct {
 }
 
 var (
-	_ Stmt   = (*FuncDecl)(nil)
-	_ Decl   = (*FuncDecl)(nil)
-	_ Parent = (*FuncDecl)(nil)
+	_ Def    = (*FuncDef)(nil)
+	_ Stmt   = (*FuncDef)(nil)
+	_ Parent = (*FuncDef)(nil)
 )
 
-func (*FuncDecl) StmtNode() {}
-func (*FuncDecl) DeclNode() {}
+func (*FuncDef) DefNode()  {}
+func (*FuncDef) StmtNode() {}
 
-func (fn *FuncDecl) Pos() token.Pos       { return fn.FuncObj.Pos() }
-func (fn *FuncDecl) Type() types.Type     { return fn.Func.Signature }
-func (fn *FuncDecl) Object() types.Object { return fn.FuncObj }
+func (fn *FuncDef) Pos() token.Pos       { return fn.FuncObj.Pos() }
+func (fn *FuncDef) Type() types.Type     { return fn.Func.Signature }
+func (fn *FuncDef) Object() types.Object { return fn.FuncObj }
 
-func (fn *FuncDecl) String() string {
+func (fn *FuncDef) String() string {
 	flags := ``
 	if fn.Atomic {
 		flags = `<atomic> `
+	}
+	if fn.NoInline {
+		flags = `<no inline> `
+	}
+	if fn.NoRace {
+		flags = `<no race> `
 	}
 	sig := fn.FuncObj.Signature().String()
 	sig, _ = strings.CutPrefix(sig, `func`)
 	return `func ` + fn.FuncObj.FullName() + ` ` + sig + ` ` + flags + toString(fn.Func)
 }
 
-func (fn *FuncDecl) ChildCount() int { return 1 + len(fn.Directives) }
-func (fn *FuncDecl) Children(yield func(Node) bool) {
+func (fn *FuncDef) ChildCount() int { return 1 + len(fn.Directives) }
+func (fn *FuncDef) Children(yield func(Node) bool) {
 	_ = YieldSlice(fn.Directives, yield) &&
 		YieldNode(fn.Func, yield)
 }

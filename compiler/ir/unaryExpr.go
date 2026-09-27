@@ -24,16 +24,18 @@ type UnaryExpr struct {
 
 var (
 	_ Expr   = (*UnaryExpr)(nil)
+	_ Stmt   = (*UnaryExpr)(nil)
 	_ Parent = (*UnaryExpr)(nil)
 )
 
 func (*UnaryExpr) ExprNode() {}
+func (*UnaryExpr) StmtNode() {}
 
 func (n *UnaryExpr) Pos() token.Pos   { return n.OpPos }
 func (n *UnaryExpr) Type() types.Type { return n.ResultType }
 
 func (n *UnaryExpr) String() string {
-	if n.Op == unaryOp.Increment || n.Op == unaryOp.Decrement {
+	if n.Op == unaryOp.PostInc || n.Op == unaryOp.PostDec {
 		return paren(n.X) + toString(n.Op)
 	}
 	return toString(n.Op) + paren(n.X)

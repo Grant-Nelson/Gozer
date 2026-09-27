@@ -21,12 +21,10 @@ type LabeledStmt struct {
 
 var (
 	_ Stmt   = (*LabeledStmt)(nil)
-	_ Decl   = (*LabeledStmt)(nil)
 	_ Parent = (*LabeledStmt)(nil)
 )
 
 func (*LabeledStmt) StmtNode() {}
-func (*LabeledStmt) DeclNode() {}
 
 func (n *LabeledStmt) Pos() token.Pos       { return n.LabelObj.Pos() }
 func (n *LabeledStmt) Type() types.Type     { return n.LabelObj.Type() }

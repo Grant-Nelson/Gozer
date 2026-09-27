@@ -12,10 +12,12 @@ type VarRef struct {
 
 var (
 	_ Expr = (*VarRef)(nil)
+	_ Stmt = (*VarRef)(nil)
 	_ Ref  = (*VarRef)(nil)
 )
 
 func (*VarRef) ExprNode() {}
+func (*VarRef) StmtNode() {}
 func (*VarRef) RefNode()  {}
 
 func (n *VarRef) Pos() token.Pos       { return n.RefPos }

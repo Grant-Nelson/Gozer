@@ -27,10 +27,12 @@ type BinaryExpr struct {
 
 var (
 	_ Expr   = (*BinaryExpr)(nil)
+	_ Stmt   = (*BinaryExpr)(nil)
 	_ Parent = (*BinaryExpr)(nil)
 )
 
 func (*BinaryExpr) ExprNode() {}
+func (*BinaryExpr) StmtNode() {}
 
 func (n *BinaryExpr) Pos() token.Pos   { return n.OpPos }
 func (n *BinaryExpr) Type() types.Type { return n.ResultType }

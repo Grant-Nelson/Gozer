@@ -22,10 +22,12 @@ type SelectorExpr struct {
 
 var (
 	_ Expr   = (*SelectorExpr)(nil)
+	_ Stmt   = (*SelectorExpr)(nil)
 	_ Parent = (*SelectorExpr)(nil)
 )
 
-func (n *SelectorExpr) ExprNode() {}
+func (*SelectorExpr) ExprNode() {}
+func (*SelectorExpr) StmtNode() {}
 
 func (n *SelectorExpr) Pos() token.Pos   { return n.SelPos }
 func (n *SelectorExpr) Type() types.Type { return n.SelType }

@@ -18,10 +18,12 @@ type FuncLit struct {
 
 var (
 	_ Expr   = (*FuncLit)(nil)
+	_ Stmt   = (*FuncLit)(nil)
 	_ Parent = (*FuncLit)(nil)
 )
 
 func (fn *FuncLit) ExprNode() {}
+func (fn *FuncLit) StmtNode() {}
 
 func (fn *FuncLit) Pos() token.Pos   { return fn.Func.Pos() }
 func (fn *FuncLit) Type() types.Type { return fn.Func.Signature }

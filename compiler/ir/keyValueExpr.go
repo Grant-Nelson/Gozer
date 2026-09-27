@@ -14,10 +14,13 @@ type KeyValueExpr struct {
 
 var (
 	_ Expr   = (*KeyValueExpr)(nil)
+	_ Stmt   = (*KeyValueExpr)(nil)
 	_ Parent = (*KeyValueExpr)(nil)
 )
 
-func (n *KeyValueExpr) ExprNode()        {}
+func (*KeyValueExpr) ExprNode() {}
+func (*KeyValueExpr) StmtNode() {}
+
 func (n *KeyValueExpr) Pos() token.Pos   { return n.Key.Pos() }
 func (n *KeyValueExpr) Type() types.Type { return nil }
 

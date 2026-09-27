@@ -13,10 +13,12 @@ type TypeLit struct {
 
 var (
 	_ Expr   = (*TypeLit)(nil)
+	_ Stmt   = (*TypeLit)(nil)
 	_ Parent = (*TypeLit)(nil)
 )
 
-func (n *TypeLit) ExprNode() {}
+func (*TypeLit) ExprNode() {}
+func (*TypeLit) StmtNode() {}
 
 func (n *TypeLit) Pos() token.Pos   { return n.TypePos }
 func (n *TypeLit) Type() types.Type { return n.TypeRef }

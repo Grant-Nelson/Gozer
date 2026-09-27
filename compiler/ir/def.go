@@ -2,10 +2,10 @@ package ir
 
 import "go/types"
 
-type Decl interface {
-	Node
+type Def interface {
+	Stmt
 
-	DeclNode()
+	DefNode()
 
 	Type() types.Type
 

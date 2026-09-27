@@ -12,10 +12,12 @@ type BuiltinRef struct {
 
 var (
 	_ Expr = (*BuiltinRef)(nil)
+	_ Stmt = (*BuiltinRef)(nil)
 	_ Ref  = (*BuiltinRef)(nil)
 )
 
 func (*BuiltinRef) ExprNode() {}
+func (*BuiltinRef) StmtNode() {}
 func (*BuiltinRef) RefNode()  {}
 
 func (n *BuiltinRef) Pos() token.Pos       { return n.RefPos }

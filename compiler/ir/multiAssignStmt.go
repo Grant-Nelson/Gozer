@@ -12,10 +12,6 @@ type MultiAssignStmt struct {
 	// variables being assigned or defined.
 	Lhs []Expr
 
-	// Define is set true if the variables are being created via this assignment
-	// or set false if the variables exist and are being overwritten.
-	Define bool
-
 	// Rhs are the right hand side for the values to assign to the left hand side.
 	Rhs []Expr
 }
@@ -30,11 +26,7 @@ func (*MultiAssignStmt) StmtNode() {}
 func (n *MultiAssignStmt) Pos() token.Pos { return n.TokPos }
 
 func (n *MultiAssignStmt) String() string {
-	def := ` = `
-	if n.Define {
-		def = ` := `
-	}
-	return csvString(n.Lhs) + def + csvString(n.Rhs)
+	return csvString(n.Lhs) + ` = ` + csvString(n.Rhs)
 }
 
 func (n *MultiAssignStmt) ChildCount() int { return len(n.Lhs) + len(n.Rhs) }

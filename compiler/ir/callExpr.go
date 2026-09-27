@@ -28,10 +28,12 @@ type CallExpr struct {
 
 var (
 	_ Expr   = (*CallExpr)(nil)
+	_ Stmt   = (*CallExpr)(nil)
 	_ Parent = (*CallExpr)(nil)
 )
 
 func (*CallExpr) ExprNode() {}
+func (*CallExpr) StmtNode() {}
 
 func (n *CallExpr) Pos() token.Pos   { return n.LeftParenPos }
 func (n *CallExpr) Type() types.Type { return n.ResultType }

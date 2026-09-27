@@ -24,10 +24,13 @@ type IndexListExpr struct {
 
 var (
 	_ Expr   = (*IndexListExpr)(nil)
+	_ Stmt   = (*IndexListExpr)(nil)
 	_ Parent = (*IndexListExpr)(nil)
 )
 
-func (n *IndexListExpr) ExprNode()        {}
+func (*IndexListExpr) ExprNode() {}
+func (*IndexListExpr) StmtNode() {}
+
 func (n *IndexListExpr) Pos() token.Pos   { return n.LeftPos }
 func (n *IndexListExpr) Type() types.Type { return n.ResultType }
 

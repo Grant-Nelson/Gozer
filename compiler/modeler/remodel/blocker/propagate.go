@@ -1,29 +1,32 @@
 package blocker
 
 import (
-	"cmp"
 	"go/token"
 	"go/types"
 	"maps"
-	"slices"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
 
 // objectSet is a set of types.Objects.
-type objectSet map[types.Object]bool
+//
+// The value is an monotonically incrementing value (i.e. the length
+// of the map plus one). The values must be unique and continuous.
+// Those values are used to get the order of the keys in the order
+// the keys were added to the set.
+type objectSet map[types.Object]int
 
 func newObjectSet() objectSet { return objectSet{} }
 
 func (s objectSet) add(o types.Object) {
 	if o != nil {
-		s[o] = true
+		s[o] = len(s) + 1
 	}
 }
 
 func (s objectSet) has(o types.Object) bool {
-	return s[o]
+	return s[o] > 0
 }
 
 func (s objectSet) clone() objectSet {
@@ -34,135 +37,59 @@ func (s objectSet) equal(o objectSet) bool {
 	return maps.Equal(s, o)
 }
 
-func compareObject(a, b types.Object) int {
-	return cmp.Or(
-		cmp.Compare(a.Pos(), b.Pos()),
-		cmp.Compare(a.Name(), b.Name()),
-	)
-}
-
 // orderedObjects returns a deterministically ordered slice of the objects.
-// Ordered by declaration position then by name.
+// Ordered by the order that the objects were added to the set.
 func orderedObjects(s objectSet) []types.Object {
-	out := slices.Collect(maps.Keys(s))
-	slices.SortFunc(out, compareObject)
+	out := make([]types.Object, len(s))
+	for k, v := range s {
+		out[v] = k
+	}
 	return out
 }
 
-// computeUseDef walks the given statements in evaluation order and
-// computes the set of objects used (read before being defined locally)
+// computeRefDef walks the given statements in evaluation order and
+// computes the set of objects referenced (read before being defined locally)
 // and defined (assigned to or declared) within them.
-func computeUseDef(stmts []ir.Stmt) (use, def objectSet) {
-	use = newObjectSet()
-	def = newObjectSet()
+func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
+	ref = newObjectSet() // referenced (reads)
+	def = newObjectSet() // defined (writes)
 
-	for n := range ir.WalkNodes(e).OfType[*ir.VarRef]() {
+	addRead := func(n *ir.VarRef) {
 		if obj := n.Object(); !def.has(obj) {
-			use.add(obj)
+			ref.add(obj)
 		}
 	}
 
-	for _, s := range stmts {
-		// TODO: SEE IF THIS CAN USE `WalkNodes`
-		visitStmtIdents(s, use, def)
-	}
-	return use, def
-}
-
-// visitStmtIdents walks a statement, populating use and def in
-// evaluation order.
-func visitStmtIdents(s ir.Stmt, use, def objectSet) {
-	if s == nil {
-		return
-	}
-	switch s := s.(type) {
-	case *ir.AssignStmt:
-		for _, e := range s.Rhs {
-			visitExprIdents(e, use, def)
+	addWrite := func(n ir.Expr, w *ir.WalkStep) {
+		switch v := n.(type) {
+		case *ir.VarDef:
+			def.add(v.Object())
+			w.Skip(v)
+		case *ir.VarRef:
+			def.add(v.Object())
+			w.Skip(v)
 		}
-		// For compound assigns the LHS is also read before being written.
-		if s.Tok != token.ASSIGN && s.Tok != token.DEFINE {
-			for _, e := range s.Lhs {
-				visitExprIdents(e, use, def)
+	}
+
+	for w := range ir.Walk(s...) {
+		switch n := w.Node.(type) {
+		case *ir.VarRef:
+			addRead(n)
+		case *ir.MultiAssignStmt:
+			for _, ln := range n.Lhs {
+				addWrite(ln, w)
+			}
+		case *ir.BinaryExpr:
+			if n.Op.IsAssignment() {
+				addWrite(n.X, w)
 			}
 		}
-		for _, e := range s.Lhs {
-			markLhsDef(e, use, def)
-		}
-	case *ir.ExprStmt:
-		visitExprIdents(s.X, use, def)
-	case *ir.SendStmt:
-		visitExprIdents(s.Chan, use, def)
-		visitExprIdents(s.Value, use, def)
-	case *ir.ReturnStmt:
-		for _, e := range s.Results {
-			visitExprIdents(e, use, def)
-		}
-	case *ir.IfStmt:
-		visitStmtIdents(s.Init, use, def)
-		visitExprIdents(s.Cond, use, def)
-		for _, b := range s.Body {
-			visitStmtIdents(b, use, def)
-		}
-		for _, b := range s.Else {
-			visitStmtIdents(b, use, def)
-		}
-	case *ir.StmtListStmt:
-		for _, b := range s.List {
-			visitStmtIdents(b, use, def)
-		}
-	case *ir.ForStmt:
-		visitStmtIdents(s.Init, use, def)
-		visitExprIdents(s.Cond, use, def)
-		for _, b := range s.Body {
-			visitStmtIdents(b, use, def)
-		}
-		visitStmtIdents(s.Post, use, def)
-	case *ir.LabeledStmt:
-		visitStmtIdents(s.Stmt, use, def)
-	case *ir.FuncCallStmt:
-		visitExprIdents(s.Fun, use, def)
-		for _, e := range s.Args {
-			visitExprIdents(e, use, def)
-		}
-		// Follow.Args are synthesized by the blocker and intentionally skipped;
-		// they will be rederived from the successor's Params.
-	case *ir.GotoBlockStmt, *ir.BranchStmt, *ir.DeclStmt:
-		// GotoBlockStmt.Block.Args are synthesized by the blocker and
-		// intentionally skipped. BranchStmt has no variable refs.
-		// DeclStmt is deferred for now.
 	}
+	return
 }
 
-// visitExprIdents walks an expression and records identifier reads
-// into use (unless they have already been defined locally).
-func visitExprIdents(e ir.Node, use, def objectSet) {
-	if e == nil {
-		return
-	}
-	for n := range ir.WalkNodes(e).OfType[*ir.VarRef]() {
-		if obj := n.Object(); !def.has(obj) {
-			use.add(obj)
-		}
-	}
-}
-
-// markLhsDef marks an LHS expression as defining or redefining variables.
-// Non-identifier LHS expressions (e.g. *p, a[i], s.f) contribute reads
-// of their target.
-func markLhsDef(e ir.Node, use, def objectSet) {
-	switch v := e.(type) {
-	case *ir.VarDecl:
-		def.add(v.Object())
-	case *ir.VarRef:
-		def.add(v.Object())
-	default:
-		visitExprIdents(e, use, def)
-	}
-}
-
-// successors returns the unique successor blocks reachable from b by
-// any GotoBlockStmt or FuncCallStmt.Follow anywhere in its body.
+// successors returns the unique successor blocks reachable from the given block
+// by any GotoBlockStmt, FuncCallStmt.Follow, etc anywhere in its body.
 func successors(b *ir.Block) []*ir.Block {
 	seen := map[*ir.Block]bool{}
 	var out []*ir.Block

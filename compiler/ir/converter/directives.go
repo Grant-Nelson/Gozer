@@ -61,13 +61,13 @@ func (c *converter) fromGoDirective(d *ast.Directive, target ir.Node) ir.Directi
 	case `linkname`:
 		return c.fromLinkName(d)
 	case `nosplit`:
-		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDecl) { fn.Atomic = true })
+		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDef) { fn.Atomic = true })
 		return nil
 	case `norace`:
-		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDecl) { fn.NoRace = true })
+		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDef) { fn.NoRace = true })
 		return nil
 	case `noinline`:
-		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDecl) { fn.NoInline = true })
+		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDef) { fn.NoInline = true })
 		return nil
 	case `wasmimport`:
 		// TODO: Look into leveraging or add to ignored directives
@@ -88,8 +88,11 @@ func (c *converter) fromGoDirective(d *ast.Directive, target ir.Node) ir.Directi
 
 func (c *converter) fromGozerDirective(d *ast.Directive, target ir.Node) ir.Directive {
 	switch d.Name {
+	case `add`, `delete`, `deleteAll`, `replace`, `replaceSig`, `rename`, `replaceRecv`, `ignore`:
+		// Ignore any remaining augmenter directives
+		return nil
 	case `atomic`:
-		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDecl) { fn.Atomic = true })
+		c.fromBoolFuncDirective(d, target, func(fn *ir.FuncDef) { fn.Atomic = true })
 		return nil
 	default:
 		c.addFault(faults.New(`unexpected gozer directive`).
@@ -130,8 +133,8 @@ func (c *converter) fromLinkName(d *ast.Directive) *ir.LinkName {
 	return ln
 }
 
-func (c *converter) fromBoolFuncDirective(d *ast.Directive, target ir.Node, setBool func(fn *ir.FuncDecl)) {
-	if fn, ok := target.(*ir.FuncDecl); ok {
+func (c *converter) fromBoolFuncDirective(d *ast.Directive, target ir.Node, setBool func(fn *ir.FuncDef)) {
+	if fn, ok := target.(*ir.FuncDef); ok {
 		assert.EmptyStr(d.Args)
 		setBool(fn)
 	}

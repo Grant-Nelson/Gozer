@@ -23,9 +23,9 @@ type LinkName struct {
 
 var _ Directive = (*LinkName)(nil)
 
-func (n *LinkName) Pos() token.Pos { return n.LinkPos }
+func (*LinkName) DirectiveNode() {}
 
-func (n *LinkName) DirectiveNode() {}
+func (n *LinkName) Pos() token.Pos { return n.LinkPos }
 
 func (n *LinkName) String() string {
 	return n.LocalName + ` => ` + n.RemotePath + `.` + n.RemoteName

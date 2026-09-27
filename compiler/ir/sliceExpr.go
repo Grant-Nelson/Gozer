@@ -33,10 +33,12 @@ type SliceExpr struct {
 
 var (
 	_ Expr   = (*SliceExpr)(nil)
+	_ Stmt   = (*SliceExpr)(nil)
 	_ Parent = (*SliceExpr)(nil)
 )
 
-func (n *SliceExpr) ExprNode() {}
+func (*SliceExpr) ExprNode() {}
+func (*SliceExpr) StmtNode() {}
 
 func (n *SliceExpr) Pos() token.Pos   { return n.LeftPos }
 func (n *SliceExpr) Type() types.Type { return n.ResultType }

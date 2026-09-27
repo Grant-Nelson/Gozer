@@ -22,10 +22,12 @@ type TypeAssertExpr struct {
 
 var (
 	_ Expr   = (*TypeAssertExpr)(nil)
+	_ Stmt   = (*TypeAssertExpr)(nil)
 	_ Parent = (*TypeAssertExpr)(nil)
 )
 
 func (*TypeAssertExpr) ExprNode() {}
+func (*TypeAssertExpr) StmtNode() {}
 
 func (n *TypeAssertExpr) Pos() token.Pos   { return n.LparenPos }
 func (n *TypeAssertExpr) Type() types.Type { return n.ResultType }

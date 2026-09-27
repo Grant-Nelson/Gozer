@@ -20,10 +20,12 @@ type TypeRef struct {
 
 var (
 	_ Expr = (*TypeRef)(nil)
+	_ Stmt = (*TypeRef)(nil)
 	_ Ref  = (*TypeRef)(nil)
 )
 
 func (*TypeRef) ExprNode() {}
+func (*TypeRef) StmtNode() {}
 func (*TypeRef) RefNode()  {}
 
 func (n *TypeRef) Pos() token.Pos       { return n.RefPos }

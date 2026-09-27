@@ -124,11 +124,8 @@ func (c *converter) fromIdentDef(e *ast.Ident, obj types.Object) ir.Expr {
 	}
 }
 
-func (c *converter) fromIdentDefVar(e *ast.Ident, obj *types.Var) *ir.VarRef {
-	return &ir.VarRef{
-		RefPos: e.NamePos,
-		VarObj: obj,
-	}
+func (c *converter) fromIdentDefVar(e *ast.Ident, obj *types.Var) *ir.VarDef {
+	return &ir.VarDef{VarObj: obj}
 }
 
 func (c *converter) fromIdentUses(e *ast.Ident, obj types.Object) ir.Expr {
@@ -159,19 +156,19 @@ func (c *converter) fromIdentUses(e *ast.Ident, obj types.Object) ir.Expr {
 
 func (c *converter) fromIdentUsesPkgName(e *ast.Ident, obj *types.PkgName) *ir.ImportRef {
 	pkgPath := obj.Pkg().Path()
-	var imp *ir.ImportDecl
+	var imp *ir.ImportDef
 	if c.Imports != nil {
 		imp = c.Imports[pkgPath]
 	}
 	if imp == nil {
-		imp = &ir.ImportDecl{PkgObj: obj}
+		imp = &ir.ImportDef{PkgObj: obj}
 		if c.Imports != nil {
 			c.Imports[pkgPath] = imp
 		}
 	}
 	return &ir.ImportRef{
-		RefPos:     e.NamePos,
-		ImportDecl: imp,
+		RefPos:    e.NamePos,
+		ImportDef: imp,
 	}
 }
 

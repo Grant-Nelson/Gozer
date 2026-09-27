@@ -33,7 +33,7 @@ type converter struct {
 	FileSet   *token.FileSet
 	Info      *types.Info
 	Errors    *faults.ErrGroup
-	Imports   map[string]*ir.ImportDecl
+	Imports   map[string]*ir.ImportDef
 	LinkNames map[token.Pos]*ir.LinkName
 }
 
@@ -58,19 +58,19 @@ func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
 		Sizes:   pkg.TypesSizes,
 	}
 
-	c.Imports = map[string]*ir.ImportDecl{}
+	c.Imports = map[string]*ir.ImportDef{}
 	defer func() { c.Imports = nil }()
 
 	for _, f := range pkg.Syntax {
 		for _, stmt := range c.ExpandStmt(c.FromFile(f)) {
 			switch stmt := stmt.(type) {
-			case *ir.ConstDecl:
+			case *ir.ConstDef:
 				p.Consts = append(p.Consts, stmt)
-			case *ir.VarDecl:
+			case *ir.VarDef:
 				p.Vars = append(p.Vars, stmt)
-			case *ir.FuncDecl:
+			case *ir.FuncDef:
 				p.Funcs = append(p.Funcs, stmt)
-			case *ir.TypeDecl:
+			case *ir.TypeDef:
 				p.Types = append(p.Types, stmt)
 			default:
 				c.addFault(faults.New(`unexpected AST node type`).
@@ -83,7 +83,7 @@ func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
 
 	paths := slices.Collect(maps.Keys(c.Imports))
 	slices.Sort(paths)
-	imports := make([]*ir.ImportDecl, len(paths))
+	imports := make([]*ir.ImportDef, len(paths))
 	for i, path := range paths {
 		imports[i] = c.Imports[path]
 	}
@@ -171,7 +171,7 @@ func (c *converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 	return c.SimplifyStmt(ss)
 }
 
-func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDecl {
+func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDef {
 	obj, ok := c.Info.Defs[s.Name]
 	if !ok {
 		c.addFault(faults.New(`expected a def for a TypeSpec to exist`).
@@ -187,7 +187,7 @@ func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDecl {
 			With(`id`, s.Name.Name))
 	}
 
-	td := &ir.TypeDecl{TypeObj: typ}
+	td := &ir.TypeDef{TypeObj: typ}
 	if s.Doc != nil {
 		td.Comment = s.Doc.Text()
 		td.Directives = c.FromCommentGroup(s.Doc, td)
@@ -213,7 +213,7 @@ func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
 				With(`id`, n.Name))
 		}
 
-		cd := &ir.ConstDecl{ConstObj: tc}
+		cd := &ir.ConstDef{ConstObj: tc}
 		if s.Doc != nil {
 			cd.Comment = s.Doc.Text()
 			cd.Directives = c.FromCommentGroup(s.Doc, cd)
@@ -241,7 +241,7 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 				With(`id`, n.Name))
 		}
 
-		vd := &ir.VarDecl{VarObj: tv}
+		vd := &ir.VarDef{VarObj: tv}
 		if len(s.Values) > i {
 			vd.Value = c.FromExpr(s.Values[i])
 		}
@@ -254,7 +254,7 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 	return c.SimplifyStmt(ss)
 }
 
-func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDecl {
+func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDef {
 	if df == nil {
 		return nil
 	}
@@ -274,7 +274,7 @@ func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDecl {
 			With(`pos`, c.pos(df.Pos())))
 	}
 
-	fn := &ir.FuncDecl{
+	fn := &ir.FuncDef{
 		FuncObj: fnObj,
 		Func: &ir.Func{
 			FuncPos:   df.Type.Func,
