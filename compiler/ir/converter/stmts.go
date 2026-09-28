@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"go/types"
 
+	"github.com/Grant-Nelson/Gozer/avail/assert"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
@@ -416,32 +417,46 @@ func (c *converter) ExpandParams(ft *ast.FuncType) []*ir.Param {
 	if ft == nil {
 		return nil
 	}
-	return c.ExpandFieldList(ft.Params)
+	return c.ExpandFieldList(ft.Params, `parameter`)
 }
 
 func (c *converter) ExpandResults(ft *ast.FuncType) []*ir.Param {
 	if ft == nil {
 		return nil
 	}
-	return c.ExpandFieldList(ft.Results)
+	return c.ExpandFieldList(ft.Results, `result`)
 }
 
-func (c *converter) ExpandFieldList(fl *ast.FieldList) []*ir.Param {
+func (c *converter) ExpandFieldList(fl *ast.FieldList, kind string) []*ir.Param {
 	if fl == nil || len(fl.List) <= 0 {
 		return nil
 	}
 	params := make([]*ir.Param, 0, len(fl.List))
 	for _, field := range fl.List {
-		// If field.Names is nil then this is an unnamed field
-		// that should be skipped over when defining block params.
-		for _, name := range field.Names {
-			if name == nil {
-				continue
+		for _, id := range field.Names {
+			// If field.Names is nil then this is an unnamed field.
+			// TODO: Need to handle nil fields
+			assert.NotNil(id)
+
+			obj, ok := c.Info.Defs[id]
+			if !ok {
+				c.addFault(faults.From(`expected a def object for a `+kind).
+					With(`param`, id.Name).
+					With(`index`, len(params)).
+					With(`pos`, c.pos(id.Pos())))
+			}
+
+			po, ok := obj.(*types.Var)
+			if !ok {
+				c.addFault(faults.From(`unexpected object type for a `+kind).
+					With(`object`, obj).
+					WithF(`type`, `%T`, obj).
+					With(`index`, len(params)).
+					With(`pos`, c.pos(id.Pos())))
 			}
 
 			param := &ir.Param{
-				Name: name.Name,
-				Type: c.exprType(field.Type),
+				ParamObj: po,
 			}
 			params = append(params, param)
 		}

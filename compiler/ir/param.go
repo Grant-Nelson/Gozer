@@ -1,27 +1,27 @@
 package ir
 
-import "go/types"
+import (
+	"go/token"
+	"go/types"
+	"strings"
+)
 
-// Parameter represents a single variable that can be passed into a block.
+// Parameter represents a single parameter that can be passed into a block.
 type Param struct {
-	// Name is the identifier for this parameter.
-	//
-	// This identifier needs to have a types.Info entry to get the object.
-	//
-	// Unnamed parameters (parameter lists which only contain types) have
-	// a nil name. This is not allowed here since these are only for blocks.
-	// The function call to kick off the first block in a function will
-	// only pass named parameters into the block. The function will keep
-	// the unnamed parameters so that its signature remained the same as
-	// it was defined in the AST.
-	Name string
-
-	// Type is the resolved type for this parameter.
-	//
-	// Used as a fallback when Expr is nil. The blocker sets this when
-	// synthesizing block params for variables defined inside the function
-	// body.
-	Type types.Type
+	// ParamObj is the object for this parameter.
+	// This may be synthesized if the parameter was not named.
+	ParamObj *types.Var
 }
 
-func (p *Param) String() string { return p.Name + ` ` + toString(p.Type) }
+var _ Node = (*Param)(nil)
+
+func (n *Param) Pos() token.Pos       { return n.ParamObj.Pos() }
+func (n *Param) Type() types.Type     { return n.ParamObj.Type() }
+func (n *Param) Object() types.Object { return n.ParamObj }
+func (n *Param) Blank() bool          { return n.ParamObj.Name() == `_` }
+
+func (n *Param) String() string {
+	result := toString(n.ParamObj)
+	result, _ = strings.CutPrefix(result, `var `)
+	return result
+}

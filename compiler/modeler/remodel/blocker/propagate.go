@@ -60,7 +60,7 @@ func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
 		}
 	}
 
-	addWrite := func(n ir.Expr, w *ir.WalkStep) {
+	addWrite := func(w *ir.WalkStep, n ir.Expr) {
 		switch v := n.(type) {
 		case *ir.VarDef:
 			def.add(v.Object())
@@ -77,11 +77,11 @@ func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
 			addRead(n)
 		case *ir.MultiAssignStmt:
 			for _, ln := range n.Lhs {
-				addWrite(ln, w)
+				addWrite(w, ln)
 			}
 		case *ir.BinaryExpr:
 			if n.Op.IsAssignment() {
-				addWrite(n.X, w)
+				addWrite(w, n.X)
 			}
 		}
 	}
@@ -95,11 +95,10 @@ func successors(b *ir.Block) []*ir.Block {
 	var out []*ir.Block
 	forEachJumpTarget(b, func(ref *ir.BlockRef, _ token.Pos) {
 		target := ref.Block
-		if target == nil || seen[target] {
-			return
+		if target != nil && !seen[target] {
+			seen[target] = true
+			out = append(out, target)
 		}
-		seen[target] = true
-		out = append(out, target)
 	})
 	return out
 }
@@ -150,25 +149,6 @@ func paramObjectSet(params []*ir.Param) objectSet {
 		}
 	}
 	return out
-}
-
-// makeParam creates a synthetic block parameter for the given object.
-// The synthetic identifier is registered in info.Defs.
-func makeParam(obj types.Object) *ir.Param {
-	id := &ir.Ident{Name: obj.Name()}
-	info.Defs[id] = obj
-	return &ir.Param{
-		Name: id,
-		Type: obj.Type(),
-	}
-}
-
-// makeArg creates a synthetic argument expression referring to the given
-// object. The synthetic identifier is registered in info.Uses.
-func makeArg(obj types.Object, srcPos token.Pos) ir.Expr {
-	id := &ir.Ident{NamePos: srcPos, Name: obj.Name()}
-	info.Uses[id] = obj
-	return id
 }
 
 // propagateParams runs the live-variable analysis on the function's
