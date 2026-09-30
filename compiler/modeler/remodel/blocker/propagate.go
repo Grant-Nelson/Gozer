@@ -107,35 +107,37 @@ func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
 		return
 	}
 
-	useMap := make(map[*ir.Block]objectSet, len(fn.Blocks))
-	defMap := make(map[*ir.Block]objectSet, len(fn.Blocks))
-	sucMap := make(map[*ir.Block][]*ir.Block, len(fn.Blocks))
-	liveIn := make(map[*ir.Block]objectSet, len(fn.Blocks))
+	blocks := make(map[*ir.Block]int, len(fn.Blocks))
+	refMap := make([]objectSet, len(fn.Blocks))
+	defMap := make([]objectSet, len(fn.Blocks))
+	sucMap := make([][]*ir.Block, len(fn.Blocks))
+	liveIn := make([]objectSet, len(fn.Blocks))
 
-	for _, b := range fn.Blocks {
-		use, def := computeRefDef(b.Body)
-		useMap[b] = use
-		defMap[b] = def
-		sucMap[b] = successors(b)
-		liveIn[b] = use.clone()
+	for i, b := range fn.Blocks {
+		blocks[b] = i
+		ref, def := computeRefDef(b.Body)
+		refMap[i] = ref
+		defMap[i] = def
+		sucMap[i] = successors(b)
+		liveIn[i] = ref.clone()
 	}
 
 	// Fixed-point: live_in(B) = use(B) ∪ (∪ live_in(S) for S ∈ successors(B)) − def(B)
 	for changed := true; changed; {
 		changed = false
 		for i := len(fn.Blocks) - 1; i >= 0; i-- {
-			b := fn.Blocks[i]
-			def := defMap[b]
-			newIn := useMap[b].clone()
-			for _, s := range sucMap[b] {
-				for o := range liveIn[s] {
+			def := defMap[i]
+			newIn := refMap[i].clone()
+			for _, s := range sucMap[i] {
+				suc := blocks[s]
+				for o := range liveIn[suc] {
 					if !def.has(o) {
 						newIn.add(o)
 					}
 				}
 			}
-			if !newIn.equal(liveIn[b]) {
-				liveIn[b] = newIn
+			if !newIn.equal(liveIn[i]) {
+				liveIn[i] = newIn
 				changed = true
 			}
 		}
