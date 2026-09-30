@@ -109,25 +109,25 @@ func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
 
 	useMap := make(map[*ir.Block]objectSet, len(fn.Blocks))
 	defMap := make(map[*ir.Block]objectSet, len(fn.Blocks))
-	succMap := make(map[*ir.Block][]*ir.Block, len(fn.Blocks))
+	sucMap := make(map[*ir.Block][]*ir.Block, len(fn.Blocks))
 	liveIn := make(map[*ir.Block]objectSet, len(fn.Blocks))
 
 	for _, b := range fn.Blocks {
-		use, def := computeUseDef(b.Body)
+		use, def := computeRefDef(b.Body)
 		useMap[b] = use
 		defMap[b] = def
-		succMap[b] = successors(b)
+		sucMap[b] = successors(b)
 		liveIn[b] = use.clone()
 	}
 
-	// Fixed-point: live_in(B) = use(B) ∪ (∪ live_in(S) for S ∈ succ(B)) − def(B)
+	// Fixed-point: live_in(B) = use(B) ∪ (∪ live_in(S) for S ∈ successors(B)) − def(B)
 	for changed := true; changed; {
 		changed = false
 		for i := len(fn.Blocks) - 1; i >= 0; i-- {
 			b := fn.Blocks[i]
 			def := defMap[b]
 			newIn := useMap[b].clone()
-			for _, s := range succMap[b] {
+			for _, s := range sucMap[b] {
 				for o := range liveIn[s] {
 					if !def.has(o) {
 						newIn.add(o)
