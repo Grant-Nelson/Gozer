@@ -412,10 +412,10 @@ func NotZero[T comparable](it Iterator[T]) Iterator[T] {
 	}
 }
 
-// Dedup will only return unique values and skip over any values that were
+// Unique will only return unique values and skip over any values that were
 // already seen. This uses the values of a key in a map to determine if the
 // value has been seen before.
-func Dedup[T comparable](it Iterator[T]) Iterator[T] {
+func Unique[T comparable](it Iterator[T]) Iterator[T] {
 	return func(yield func(T) bool) {
 		seen := map[T]struct{}{}
 		for v := range it {

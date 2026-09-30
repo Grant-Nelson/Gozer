@@ -56,29 +56,11 @@ func YieldSlice[T NodeConstraint, S ~[]T](s S, yield func(Node) bool) bool {
 type WalkStep struct {
 	Node Node
 
-	// SkipAllChildren can be set to true so that the children of the current
+	// Skip can be set to true so that the children of the current
 	// Node will not be walked.
 	// This will be defaulted to false for each node. To stop all iteration,
 	// return false from the iterator or break/return from the for-range.
-	SkipChildren bool
-
-	// preSkips are skips that have been added via SkipChild.
-	preSkips map[Node]bool
-}
-
-// Skip will add a node to skip before being yielded.
-//
-// This can be used to skip any node but typically is for skipping
-// a few children but not all children.
-// This is designed to handle a case similar to handling a node
-// with two children and one child should be handled in this walk
-// but the other child should have a custom walk.
-// If both children should be skipped, then use `SkipChildren`.
-//
-// This will only skip the node once in the case where the node
-// is reachable from multiple directions.
-func (s *WalkStep) Skip(n Node) {
-	s.preSkips[n] = true
+	Skip bool
 }
 
 func WalkNodes[T Node](roots ...T) iterator.Iterator[Node] {
@@ -96,21 +78,16 @@ func walkStack(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
 	if s.Empty() {
 		return iterator.Empty[*WalkStep]()
 	}
-	preSkips := map[Node]bool{}
-	step := &WalkStep{preSkips: preSkips}
+	step := &WalkStep{}
 	return func(yield func(*WalkStep) bool) {
 		for !s.Empty() {
 			node := s.Pop()
-			if preSkips[node] {
-				delete(preSkips, node)
-				continue
-			}
 			step.Node = node
-			step.SkipChildren = false
+			step.Skip = false
 			if !yield(step) {
 				return
 			}
-			if !step.SkipChildren {
+			if !step.Skip {
 				if p, ok := node.(Parent); ok {
 					s.Grow(p.ChildCount())
 					s.PushSeq(p.Children)

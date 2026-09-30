@@ -6,6 +6,7 @@ import (
 	"maps"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
 
@@ -64,10 +65,8 @@ func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
 		switch v := n.(type) {
 		case *ir.VarDef:
 			def.add(v.Object())
-			w.Skip(v)
 		case *ir.VarRef:
 			def.add(v.Object())
-			w.Skip(v)
 		}
 	}
 
@@ -91,64 +90,12 @@ func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
 // successors returns the unique successor blocks reachable from the given block
 // by any GotoBlockStmt, FuncCallStmt.Follow, etc anywhere in its body.
 func successors(b *ir.Block) []*ir.Block {
-	seen := map[*ir.Block]bool{}
-	var out []*ir.Block
-	forEachJumpTarget(b, func(ref *ir.BlockRef, _ token.Pos) {
-		target := ref.Block
-		if target != nil && !seen[target] {
-			seen[target] = true
-			out = append(out, target)
-		}
-	})
-	return out
-}
-
-// forEachJumpTarget invokes fn for every BlockRef appearing in b's body,
-// recursing into nested statements.
-func forEachJumpTarget(b *ir.Block, fn func(ref *ir.BlockRef, srcPos token.Pos)) {
-	walkBlockRefs(b.Body, fn)
-}
-
-// TODO: SEE IF THIS CAN USE `WalkNodes`
-func walkBlockRefs(stmts []ir.Stmt, fn func(ref *ir.BlockRef, srcPos token.Pos)) {
-	for _, s := range stmts {
-		switch s := s.(type) {
-		case *ir.GotoBlockStmt:
-			if s.Block != nil {
-				fn(s.Block, s.SrcPos)
-			}
-		case *ir.FuncCallStmt:
-			if s.Follow != nil {
-				fn(s.Follow, s.Pos())
-			}
-		case *ir.IfStmt:
-			walkBlockRefs(s.Body, fn)
-			walkBlockRefs(s.Else, fn)
-		case *ir.StmtListStmt:
-			walkBlockRefs(s.List, fn)
-		case *ir.ForStmt:
-			walkBlockRefs(s.Body, fn)
-		case *ir.LabeledStmt:
-			if s.Stmt != nil {
-				walkBlockRefs([]ir.Stmt{s.Stmt}, fn)
-			}
-		}
-	}
-}
-
-// paramObjectSet returns the set of types.Objects referred to by the
-// given block params.
-func paramObjectSet(params []*ir.Param) objectSet {
-	out := newObjectSet()
-	for _, p := range params {
-		if p.Name == nil {
-			continue
-		}
-		if obj := info.ObjectOf(p.Name); obj != nil {
-			out.add(obj)
-		}
-	}
-	return out
+	return iterator.Unique(
+		iterator.NotZero(
+			ir.WalkNodes(b).OfType[*ir.BlockRef]().
+				Select(func(ref *ir.BlockRef) *ir.Block { return ref.Block }),
+		),
+	).ToSlice()
 }
 
 // propagateParams runs the live-variable analysis on the function's
