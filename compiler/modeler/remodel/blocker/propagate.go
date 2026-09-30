@@ -8,6 +8,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/binaryOp"
 )
 
 // objectSet is a set of types.Objects.
@@ -56,6 +57,10 @@ func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
 	def = newObjectSet() // defined (writes)
 
 	addRead := func(n *ir.VarRef) {
+		// For a reference, we don't want to add a reference if the variable
+		// was defined in this block or assigned, however if the variable was
+		// referenced before the definition then we still want to keep it as
+		// a reference.
 		if obj := n.Object(); !def.has(obj) {
 			ref.add(obj)
 		}
@@ -79,7 +84,9 @@ func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
 				addWrite(w, ln)
 			}
 		case *ir.BinaryExpr:
-			if n.Op.IsAssignment() {
+			if n.Op == binaryOp.Assign {
+				// Treat `x = y` as a write to `x` but other assignments
+				// of `x`, e.g. `x += y`, as a reference to `x`.
 				addWrite(w, n.X)
 			}
 		}
@@ -103,7 +110,7 @@ func successors(b *ir.Block) []*ir.Block {
 // block receives exactly the variables it needs (transitively through
 // its successors).
 func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
-	if fn == nil || len(fn.Blocks) == 0 {
+	if fn == nil || len(fn.Blocks) <= 0 {
 		return
 	}
 
