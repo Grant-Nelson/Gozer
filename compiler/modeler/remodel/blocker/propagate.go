@@ -21,10 +21,15 @@ type objectSet map[types.Object]int
 
 func newObjectSet() objectSet { return objectSet{} }
 
-func (s objectSet) add(o types.Object) {
+func (s objectSet) add(o types.Object) bool {
 	if o != nil {
+		if _, has := s[o]; has {
+			return false
+		}
 		s[o] = len(s) + 1
+		return true
 	}
+	return false
 }
 
 func (s objectSet) has(o types.Object) bool {
@@ -129,23 +134,19 @@ func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
 		liveIn[i] = ref.clone()
 	}
 
-	// Fixed-point: live_in(B) = use(B) ∪ (∪ live_in(S) for S ∈ successors(B)) − def(B)
+	// Fixed-point: liveIn(B) = ref(B) ∪ (∪ liveIn(S) for S ∈ successors(B)) − def(B)
 	for changed := true; changed; {
 		changed = false
 		for i := len(fn.Blocks) - 1; i >= 0; i-- {
 			def := defMap[i]
-			newIn := refMap[i].clone()
+			ref := refMap[i]
 			for _, s := range sucMap[i] {
 				suc := blocks[s]
 				for o := range liveIn[suc] {
 					if !def.has(o) {
-						newIn.add(o)
+						changed = ref.add(o) || changed
 					}
 				}
-			}
-			if !newIn.equal(liveIn[i]) {
-				liveIn[i] = newIn
-				changed = true
 			}
 		}
 	}
