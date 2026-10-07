@@ -1,9 +1,7 @@
 package blocker
 
 import (
-	"go/token"
 	"go/types"
-	"maps"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/iterator"
@@ -11,72 +9,62 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/binaryOp"
 )
 
-// objectSet is a set of types.Objects.
+// varSet is a set of `*types.Var`'s`.
 //
 // The value is an monotonically incrementing value (i.e. the length
 // of the map plus one). The values must be unique and continuous.
 // Those values are used to get the order of the keys in the order
 // the keys were added to the set.
-type objectSet map[types.Object]int
+type varSet map[*types.Var]int
 
-func newObjectSet() objectSet { return objectSet{} }
-
-func (s objectSet) add(o types.Object) bool {
-	if o != nil {
-		if _, has := s[o]; has {
-			return false
+func (s varSet) add(v *types.Var) bool {
+	if v != nil {
+		if _, has := s[v]; !has {
+			s[v] = len(s) + 1
+			return true
 		}
-		s[o] = len(s) + 1
-		return true
 	}
 	return false
 }
 
-func (s objectSet) has(o types.Object) bool {
-	return s[o] > 0
+func (s varSet) has(v *types.Var) bool {
+	_, ok := s[v]
+	return ok
 }
 
-func (s objectSet) clone() objectSet {
-	return maps.Clone(s)
-}
-
-func (s objectSet) equal(o objectSet) bool {
-	return maps.Equal(s, o)
-}
-
-// orderedObjects returns a deterministically ordered slice of the objects.
-// Ordered by the order that the objects were added to the set.
-func orderedObjects(s objectSet) []types.Object {
-	out := make([]types.Object, len(s))
-	for k, v := range s {
-		out[v] = k
+// orderedVars returns a deterministically ordered slice of the vars.
+// Ordered by the order that the vars were added to the set.
+func orderedVars(s varSet) []*types.Var {
+	out := make([]*types.Var, len(s))
+	for v, i := range s {
+		out[i] = v
 	}
 	return out
 }
 
 // computeRefDef walks the given statements in evaluation order and
-// computes the set of objects referenced (read before being defined locally)
+// computes the set of vars referenced (read before being defined locally)
 // and defined (assigned to or declared) within them.
-func computeRefDef(s []ir.Stmt) (ref, def objectSet) {
-	ref = newObjectSet() // referenced (reads)
-	def = newObjectSet() // defined (writes)
+func computeRefDef(s []ir.Stmt) (ref, def varSet) {
+	ref = varSet{} // referenced (reads)
+	def = varSet{} // defined (writes)
 
-	addRead := func(n *ir.VarRef) {
+	addRead := func(v *ir.VarRef) {
 		// For a reference, we don't want to add a reference if the variable
 		// was defined in this block or assigned, however if the variable was
 		// referenced before the definition then we still want to keep it as
 		// a reference.
-		if obj := n.Object(); !def.has(obj) {
-			ref.add(obj)
+		if !def.has(v.VarObj) {
+			ref.add(v.VarObj)
 		}
 	}
 
 	addWrite := func(w *ir.WalkStep, n ir.Expr) {
 		switch v := n.(type) {
 		case *ir.VarDef:
-			def.add(v.Object())
+			def.add(v.VarObj)
 		case *ir.VarRef:
-			def.add(v.Object())
+			def.add(v.VarObj)
 		}
 	}
 
@@ -119,79 +107,83 @@ func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
 		return
 	}
 
-	blocks := make(map[*ir.Block]int, len(fn.Blocks))
-	refMap := make([]objectSet, len(fn.Blocks))
-	defMap := make([]objectSet, len(fn.Blocks))
-	sucMap := make([][]*ir.Block, len(fn.Blocks))
-	liveIn := make([]objectSet, len(fn.Blocks))
-
-	for i, b := range fn.Blocks {
-		blocks[b] = i
-		ref, def := computeRefDef(b.Body)
-		refMap[i] = ref
-		defMap[i] = def
-		sucMap[i] = successors(b)
-		liveIn[i] = ref.clone()
+	type blockInfo struct {
+		block *ir.Block
+		index int
+		ref   varSet
+		def   varSet
+		suc   []*ir.Block
 	}
 
-	// Fixed-point: liveIn(B) = ref(B) ∪ (∪ liveIn(S) for S ∈ successors(B)) − def(B)
+	infoByBlock := make(map[*ir.Block]*blockInfo, len(fn.Blocks))
+	infoByIndex := make([]*blockInfo, len(fn.Blocks))
+	for i, b := range fn.Blocks {
+		ref, def := computeRefDef(b.Body)
+		info := &blockInfo{
+			block: b,
+			index: i,
+			ref:   ref,
+			def:   def,
+			suc:   successors(b),
+		}
+		infoByBlock[b] = info
+		infoByIndex[i] = info
+	}
+
 	for changed := true; changed; {
 		changed = false
-		for i := len(fn.Blocks) - 1; i >= 0; i-- {
-			def := defMap[i]
-			ref := refMap[i]
-			for _, s := range sucMap[i] {
-				suc := blocks[s]
-				for o := range liveIn[suc] {
-					if !def.has(o) {
-						changed = ref.add(o) || changed
+		for _, info := range infoByIndex {
+			for _, s := range info.suc {
+				suc := infoByBlock[s]
+				for o := range suc.ref {
+					if !info.def.has(o) {
+						changed = info.ref.add(o) || changed
 					}
 				}
 			}
 		}
 	}
 
-	// Replace Params for every non-initial block from liveIn.
-	for i, b := range fn.Blocks {
-		if i == 0 {
-			// Initial block params are the function's external interface.
-			// Flag any extra live-in object as a free variable since
-			// closures aren't yet supported.
-			existing := paramObjectSet(b.Params)
-			for o := range liveIn[b] {
-				if !existing.has(o) {
-					errGroup.Add(faults.New(`function block has free variable not declared as parameter`).
-						With(`function`, fn.Name).
-						With(`variable`, o.Name()))
+	/*
+		for i, b := range fn.Blocks {
+			if i == 0 {
+				// Initial block params are the function's external interface.
+				existing := paramObjectSet(b.Params)
+				for o := range liveIn[b] {
+					if !existing.has(o) {
+						errGroup.Add(faults.New(`function block has free variable not declared as parameter`).
+							With(`function`, fn.Name).
+							With(`variable`, o.Name()))
+					}
 				}
+				continue
 			}
-			continue
+			ordered := orderedVars(liveIn[b])
+			newParams := make([]*ir.Param, 0, len(ordered))
+			for _, o := range ordered {
+				newParams = append(newParams, makeParam(o))
+			}
+			b.Params = newParams
 		}
-		ordered := orderedObjects(liveIn[b])
-		newParams := make([]*ir.Param, 0, len(ordered))
-		for _, o := range ordered {
-			newParams = append(newParams, makeParam(o))
-		}
-		b.Params = newParams
-	}
 
-	// Rebuild Args at every jump site so each ref matches its target's Params.
-	for _, b := range fn.Blocks {
-		forEachJumpTarget(b, func(ref *ir.BlockRef, srcPos token.Pos) {
-			target := ref.Block
-			if target == nil {
-				ref.Args = nil
-				return
-			}
-			newArgs := make([]ir.Expr, 0, len(target.Params))
-			for _, p := range target.Params {
-				obj := info.ObjectOf(p.Name)
-				if obj == nil {
-					continue
+		// Rebuild Args at every jump site so each ref matches its target's Params.
+		for _, b := range fn.Blocks {
+			forEachJumpTarget(b, func(ref *ir.BlockRef, srcPos token.Pos) {
+				target := ref.Block
+				if target == nil {
+					ref.Args = nil
+					return
 				}
-				newArgs = append(newArgs, makeArg(obj, srcPos))
-			}
-			ref.Args = newArgs
-		})
-	}
+				newArgs := make([]ir.Expr, 0, len(target.Params))
+				for _, p := range target.Params {
+					obj := info.ObjectOf(p.Name)
+					if obj == nil {
+						continue
+					}
+					newArgs = append(newArgs, makeArg(obj, srcPos))
+				}
+				ref.Args = newArgs
+			})
+		}
+	*/
 }

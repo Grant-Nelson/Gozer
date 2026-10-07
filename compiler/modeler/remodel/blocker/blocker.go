@@ -44,7 +44,7 @@ func (bb *blockBuilder) PackageDone() (bool, error) { return true, nil }
 type funcBlockBuilder struct {
 	errGroup *faults.ErrGroup
 	pkg      *project.Package
-	fn       *ir.FuncDecl
+	fn       *ir.FuncDef
 	curBlock *ir.Block
 
 	forRangeItType types.Type
@@ -70,7 +70,7 @@ func (bb *blockBuilder) Remodel() (bool, error) {
 	return true, nil
 }
 
-func (bb *blockBuilder) remodelFunc(fn *ir.FuncDecl) (con bool, err error) {
+func (bb *blockBuilder) remodelFunc(fn *ir.FuncDef) (con bool, err error) {
 	bb.errGroup.Recover(&err)
 	if fn.Atomic {
 		return true, nil
@@ -99,17 +99,24 @@ func (bb *blockBuilder) remodelFunc(fn *ir.FuncDecl) (con bool, err error) {
 			With(`function`, fn.FuncObj.FullName()))
 	}
 
-	// TODO: FIX by moving to end after blocks have been broken out.
-	// At this point we don't know if the blocks will loop forever and never
-	// have a return statement or if the return is handled differently.
-	//if !ir.IsFlowControlStatement(fn.Blocks[0].LastStmt()) {
-	//	fn.Blocks[0].Body = append(fn.Blocks[0].Body, &ir.ReturnStmt{})
-	//}
-
 	for blockIndex := 0; blockIndex < len(fn.Func.Blocks); blockIndex++ {
 		fbb.remodelBlock(fn.Func.Blocks[blockIndex])
 	}
+
+	// TODO: Fix determining parameters
 	propagateParams(fn.Func, bb.errGroup)
+
+	// TODO: Make sure that if a block doesn't have a flow control at the
+	// end of the statements that the schedular handles the end of the block
+	// as a return with no values. If a block has no return statement and
+	// the function does have return values, we need to handle synthesizing
+	// the missing return values or fail validation.
+
+	// TODO: Need to handle reducing and simplifying blocks, such as when
+	// a block is only a single flow control statement, that flow control
+	// statement can be moved to replace all flow control statements that
+	// goto that single flow control statement block.
+
 	return true, bb.errGroup.FullOrNil()
 }
 
@@ -164,8 +171,8 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 		fbb.remodelBranchStmt(s)
 	case *ir.IfStmt:
 		fbb.remodelIfStmt(s)
-	case *ir.ExprStmt:
-		fbb.remodelExprStmt(s)
+	case *ir.BinaryExpr:
+		fbb.remodelBinaryExpr(s)
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
 			With(`pos`, fbb.pos(s.Pos())).
@@ -194,33 +201,9 @@ func (fbb *funcBlockBuilder) splitCurBlock(nextBlk *ir.Block) (ir.Stmt, *ir.Goto
 	fbb.curStmtList = slices.Clone(fbb.curStmtList[:fbb.stmtIndex])
 	gotoLabel := ir.NewGotoBlockStmt(stmt.Pos(), nextBlk)
 
-	// Approximate Params/Args for nextBlk by scanning the moved statements.
-	// This is refined to the precise set by propagateParams at the end of
-	// RemodelFunc once the full control-flow graph is known.
-	fbb.approximateSplitParams(nextBlk, gotoLabel)
-
 	fbb.curStmtList = append(fbb.curStmtList, gotoLabel)
 	fbb.stmtIndex--
 	return stmt, gotoLabel
-}
-
-// approximateSplitParams populates nextBlk.Params and gotoLabel.Block.Args
-// from a local scan of nextBlk's body. The propagateParams pass replaces
-// these with the exact live-variable set once the CFG is complete.
-func (fbb *funcBlockBuilder) approximateSplitParams(nextBlk *ir.Block, gotoLabel *ir.GotoBlockStmt) {
-	use, _ := computeUseDef(nextBlk.Body)
-	if len(use) == 0 {
-		return
-	}
-	ordered := orderedObjects(use)
-	params := make([]*ir.Param, 0, len(ordered))
-	args := make([]ir.Expr, 0, len(ordered))
-	for _, o := range ordered {
-		params = append(params, makeParam(o))
-		args = append(args, makeArg(o, gotoLabel.SrcPos))
-	}
-	nextBlk.Params = append(nextBlk.Params, params...)
-	gotoLabel.Block.Args = append(gotoLabel.Block.Args, args...)
 }
 
 // remodelLabeledStmt processes a label statement.
@@ -241,7 +224,7 @@ func (fbb *funcBlockBuilder) approximateSplitParams(nextBlk *ir.Block, gotoLabel
 func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 	// Check if a block was preemptively created by prior code
 	// that is jumping forward to this block.
-	nextBlk, ok := fbb.labelBlock[s.Label.Pos()]
+	nextBlk, ok := fbb.labelBlock[s.Pos()]
 	if ok {
 		if len(nextBlk.Body) > 0 {
 			fbb.errGroup.Add(faults.New(`preemptive label block is already populated`).
@@ -249,13 +232,13 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 				With(`statements`, len(nextBlk.Body)).
 				With(`label block`, nextBlk).
 				With(`current block`, fbb.curBlock).
-				With(`label`, s.Label.String()))
+				With(`label`, s.LabelObj.String()))
 			return
 		}
 	} else {
 		// Create a new block for the code reachable from the label.
-		nextBlk = fbb.fn.NewBlock(`Label `+s.Label.String(), nil, nil)
-		fbb.labelBlock[s.Label.Pos()] = nextBlk
+		nextBlk = fbb.fn.Func.NewBlock(`Label `+s.Name(), nil, nil)
+		fbb.labelBlock[s.Pos()] = nextBlk
 	}
 
 	// Put the statement that the label is attached to, if there is one, as the
@@ -297,20 +280,20 @@ func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
 	}
 
 	// Create a block for the body of the for-loop.
-	bodyBlk := fbb.fn.NewBlock(labelName+`For-loop Body`, nil, nil)
+	bodyBlk := fbb.fn.Func.NewBlock(labelName+`For-loop Body`, nil, nil)
 	fbb.blockPos[bodyBlk] = s.Pos()
 
 	// Create a block to run post or jump to on continue.
 	// If there is no post then just use the body block as the post block.
 	postBlk := bodyBlk
 	if s.Post != nil {
-		postBlk = fbb.fn.NewBlock(labelName+`For-loop Post`, []ir.Stmt{s.Post}, nil)
+		postBlk = fbb.fn.Func.NewBlock(labelName+`For-loop Post`, []ir.Stmt{s.Post}, nil)
 		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
 	}
 	fbb.continueBlock[s.Pos()] = postBlk
 
 	// Split current block to make room for for-loop.
-	afterBlk := fbb.fn.NewBlock(labelName+`After For-loop`, nil, nil)
+	afterBlk := fbb.fn.Func.NewBlock(labelName+`After For-loop`, nil, nil)
 	_, curJump := fbb.splitCurBlock(afterBlk)
 	curJump.Block.Block = bodyBlk
 	fbb.breakBlock[s.Pos()] = afterBlk
@@ -406,7 +389,7 @@ func (fbb *funcBlockBuilder) remodelGotoBranchStmt(s *ir.BranchStmt) {
 		// Store this block with the label location so that any jumps to
 		// this label can look up the block for this label and the actual
 		// label can fill it out.
-		blk = fbb.fn.NewBlock(`Label `+s.Label.String(), nil, nil)
+		blk = fbb.fn.Func.NewBlock(`Label `+s.Label.String(), nil, nil)
 		fbb.labelBlock[obj.Pos()] = blk
 	}
 
@@ -513,7 +496,7 @@ func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 	fbb.remodelStmtSlice(s.Else)
 }
 
-func (fbb *funcBlockBuilder) remodelExprStmt(s *ir.ExprStmt) {
+func (fbb *funcBlockBuilder) remodelBinaryExpr(s *ir.BinaryExpr) {
 	// TODO: Handle single assignment
 	//fbb.remodelExpr(s, nil, s.X)
 }
@@ -599,7 +582,7 @@ func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, stack []ir.Expr, e 
 
 func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ir.Expr, e *ir.CallExpr) {
 	if len(stack) <= 0 {
-		follow := fbb.fn.NewBlock(`follow call`, nil, nil)
+		follow := fbb.fn.Func.NewBlock(`follow call`, nil, nil)
 		_, gotoFollow := fbb.splitCurBlock(follow)
 		// Replace the goto with a call
 		fbb.curStmtList[fbb.stmtIndex+1] = &ir.FuncCallStmt{

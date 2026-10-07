@@ -33,8 +33,11 @@ type FuncDef struct {
 
 	// NoInline indicates the `//go:noinline` was attached to this function,
 	// meaning that calls to the function should not be inlined, overriding
-	// the usual optimization rules. This is typically only needed for special
-	// runtime functions or when debugging the compiler.
+	// the usual optimization rules. This is typically only set via directive
+	// for special runtime functions or when debugging the compiler.
+	// Functions will be scanned to determine which ones can be inlined and
+	// all others will set this to true to indicate that the function can not
+	// be used inline.
 	NoInline bool
 
 	// NoRace indicates the `//go:norace` was attached to this function,
