@@ -35,7 +35,7 @@ make adjustments as needed, and decide how to stage and commit the work.
 ## Project Summary
 
 **Gozer** is a Go-to-other-languages transpiler. It enables writing code once
-in Go and transpiling it to target languages (currently TypeScript).
+in Go and transpiling it to target languages (e.g. TypeScript).
 The transpiled code supports pseudo-multithreaded execution in single-threaded
 environments via a scheduler and block-based execution model.
 
@@ -43,7 +43,9 @@ environments via a scheduler and block-based execution model.
 
 - **Blocks**: Functions are decomposed into statement blocks that can be scheduled cooperatively
 - **Scheduler**: Controls pseudo-multithreaded execution by swapping between blocks
-- **Atomic Functions**: Functions marked `//gozer:atomic` run without scheduler interruption
+- **Atomic Functions**: Functions marked as `atomic` run without scheduler interruption
+- **Inline Functions**: functions marked as `inline` will have the body inserted
+  in place of the call to that function.
 
 ## Architecture: Phased Pipeline
 

@@ -7,3 +7,7 @@ type FlowCtrl interface {
 	// FlowCtrlNode is an empty method used for duck-typing flow control node.
 	FlowCtrlNode()
 }
+
+// IsFlowControlStatement determines if the given node is a FlowCtrl node,
+// such as a return or branch.
+func IsFlowCtrl(n Node) bool { return Is[FlowCtrl](n) }

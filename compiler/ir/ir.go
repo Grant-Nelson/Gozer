@@ -8,6 +8,12 @@ import (
 	"sync"
 )
 
+// Is determines if the given value is of the given type.
+func Is[T any](v any) bool {
+	_, ok := v.(T)
+	return ok
+}
+
 const (
 	indentStr = `  `
 	nlStr     = "\n"

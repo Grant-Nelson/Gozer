@@ -1,4 +1,4 @@
-//go:build testApp
+//go:build fixture
 
 // This tests is a simple test of recursive function calls.
 //

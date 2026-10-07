@@ -126,6 +126,8 @@ func (f *Fault) With(key string, value any) *Fault {
 	case error:
 		f.inner = append(f.inner, t)
 		f.data[key] = t
+	case fmt.Stringer:
+		f.data[key] = t.String()
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, complex64, complex128,

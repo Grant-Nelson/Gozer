@@ -1,12 +1,14 @@
-# Test Apps
+# Fixtures
 
-These are small test applications used to perform integration test
+The fixtures are small test applications used to perform integration tests.
+They "fix" the code to prevent regressions by confirming that the fixture
+returns the same value for (typically) Go as the transpiled code.
 
 ## Adding A Test App
 
 1. Create a new folder for the test app
 2. Add a main.go file to that folder
-3. Add the build constraint `//go:build testApp` to all *.go files
+3. Add the build constraint `//go:build fixture` to all *.go files
 4. Additional build constraints for different Go versions may be added
 5. To check an expected output (TODO: once a test runner is finished)
    add a comment block starting with `// Output:` at the end of the main.go.
@@ -28,5 +30,7 @@ To run these test apps manually:
 
 Example:
 
-- On windows: `go build -o gozer .\main.go ; .\gozer.exe build -v .\testApps\fib\main.go`
-- On mac/linux: `go build -o gozer main.go && gozer build -v ./testApp/fib/main.go`
+> TODO: These commands need to be updated to include the build flag
+
+- On windows: `go build -o gozer .\main.go ; .\gozer.exe build -v .\fixture\fib\main.go`
+- On mac/linux: `go build -o gozer main.go && gozer build -v ./fixture/fib/main.go`

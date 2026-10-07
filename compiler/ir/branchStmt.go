@@ -32,8 +32,11 @@ func (*BranchStmt) RefNode()      {}
 func (*BranchStmt) FlowCtrlNode() {}
 
 func (n *BranchStmt) Pos() token.Pos       { return n.TokPos }
-func (n *BranchStmt) Type() types.Type     { return n.Label.Type() }
 func (n *BranchStmt) Object() types.Object { return n.Label }
+
+// Type returns the Label's type and, since the Labels don't have a type,
+// this will always return the Invalid type.
+func (n *BranchStmt) Type() types.Type { return n.Label.Type() }
 
 func (n *BranchStmt) String() string {
 	if n.Label == nil {

@@ -19,6 +19,12 @@ ideas while prototyping and designing Gozer.
 - [exp002](./exp002/): This experiment includes calling another method and
   returning from the method.
 
+- [exp003](./exp003/): This experiment runs several for-ranges with outputs
+  to demonstrate the underlying mechanics that Go uses when running for-ranges.
+  Run with `go run -tags=experiment main.go` from `exp003` directory.
+  The printed output contains the information used to determine the claims
+  written into the experiment as comments.
+
 ## List of Experiments that may be done
 
 - An experiment to add to include defer, recover, and panic.
