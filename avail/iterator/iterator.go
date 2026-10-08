@@ -15,7 +15,7 @@ import (
 type Iterator[T any] iter.Seq[T]
 
 // Iterate will create an iterator for all the given values.
-func Iterate[T any](values ...T) Iterator[T] {
+func Iterate[T any](values []T) Iterator[T] {
 	return Iterator[T](slices.Values(values))
 }
 

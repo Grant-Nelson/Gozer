@@ -1,7 +1,6 @@
 package blocker
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 	"slices"
@@ -196,8 +195,8 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 }
 
 func (fbb *funcBlockBuilder) remodelMultiAssignStmt(s *ir.MultiAssignStmt) {
-	fbb.remodelExprSlice(s, nil, s.Lhs)
-	fbb.remodelExprSlice(s, nil, s.Rhs)
+	//fbb.remodelExprSlice(s, nil, s.Lhs)
+	//fbb.remodelExprSlice(s, nil, s.Rhs)
 }
 
 // splitCurBlock will break the current block into two parts.
@@ -402,7 +401,7 @@ func (fbb *funcBlockBuilder) remodelRangeStmt(s *ir.RangeStmt) {
 }
 
 func (fbb *funcBlockBuilder) remodelReturnStmt(s *ir.ReturnStmt) {
-	fbb.remodelExprSlice(s, nil, s.Results)
+	//fbb.remodelExprSlice(s, nil, s.Results)
 }
 
 func (fbb *funcBlockBuilder) remodelBranchStmt(s *ir.BranchStmt) {
@@ -503,7 +502,7 @@ func (fbb *funcBlockBuilder) remodelContinueBranchStmt(s *ir.BranchStmt) {
 	if !ok || blk == nil {
 		fbb.errGroup.Add(faults.New(`failed to find continue block for a pos`).
 			With(`block pos`, fbb.pos(pos)).
-			With(`branch`, s.Tok.String()).
+			With(`branch`, s.Kind.String()).
 			WithF(`type`, `%T`, s).
 			With(`pos`, fbb.pos(s.Pos())))
 		return
@@ -521,7 +520,7 @@ func (fbb *funcBlockBuilder) remodelFallThroughBranchStmt(s *ir.BranchStmt) {
 	if s.Label != nil {
 		fbb.errGroup.Add(faults.New(`unexpected label on a fall through branch statement`).
 			With(`pos`, fbb.pos(s.Pos())).
-			With(`branch`, s.Tok.String()).
+			With(`branch`, s.Kind.String()).
 			WithF(`type`, `%T`, s))
 	}
 
@@ -540,10 +539,11 @@ func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
 }
 
 func (fbb *funcBlockBuilder) remodelBinaryExpr(s *ir.BinaryExpr) {
-	// TODO: Handle single assignment
+	// TODO: Handle single assignment, logical AND, and logical OR
 	// fbb.remodelExpr(s, nil, s.X)
 }
 
+/*
 func (fbb *funcBlockBuilder) remodelExprSlice(s ir.Stmt, stack []ir.Expr, es []ir.Expr) {
 	for _, e := range es {
 		fbb.remodelExpr(s, stack, e)
@@ -552,7 +552,7 @@ func (fbb *funcBlockBuilder) remodelExprSlice(s ir.Stmt, stack []ir.Expr, es []i
 
 func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, stack []ir.Expr, e ir.Expr) {
 	switch e := e.(type) {
-	case nil, *ir.BadExpr, *ir.Ident, *ir.BasicLit:
+	case nil, *ir.BasicLit:
 		// Do Nothing
 		return
 	case *ir.StarExpr:
@@ -647,3 +647,4 @@ func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ir.Expr, e *ir.C
 
 	crumb.DropMsg(`Unimplemented`) // TODO: Implement
 }
+*/

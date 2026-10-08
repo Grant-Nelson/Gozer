@@ -21,7 +21,7 @@ func (c *converter) FromStmtSlice(ss []ast.Stmt) []ir.Stmt {
 
 func (c *converter) SimplifyStmt(s ir.Stmt) ir.Stmt {
 	if b, ok := s.(*ir.StmtListStmt); ok {
-		b.List = iterator.NotZero(iterator.Iterate(c.ExpandStmtSlice(b.List)...)).ToSlice()
+		b.List = iterator.NotZero(iterator.Iterate(c.ExpandStmtSlice(b.List))).ToSlice()
 		switch len(b.List) {
 		case 0:
 			return nil
@@ -37,7 +37,7 @@ func (c *converter) SimplifyStmt(s ir.Stmt) ir.Stmt {
 func (c *converter) ExpandStmtSlice(ss []ir.Stmt) []ir.Stmt {
 	st := make([]ir.Stmt, 0, len(ss))
 	for _, s := range ss {
-		for x := range iterator.NotZero(iterator.Iterate(c.ExpandStmt(s)...)) {
+		for x := range iterator.NotZero(iterator.Iterate(c.ExpandStmt(s))) {
 			st = append(st, x)
 		}
 	}

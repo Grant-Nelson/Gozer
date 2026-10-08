@@ -1,7 +1,6 @@
 package blocker
 
 import (
-	"go/ast"
 	"go/token"
 	"slices"
 	"strings"
@@ -11,7 +10,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/converter"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
 	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
@@ -607,6 +606,7 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 	fileName := `blockTestFunc.go`
 	dirPath := `/`
 
+	// Parse the input code
 	fileSrc := strings.Join(lines, "\n")
 	fileSet := token.NewFileSet()
 	packageCfg := &packages.Config{
@@ -622,6 +622,7 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 		t.Fatalf(`failed to parse function for blocker test: %v`, err)
 	}
 
+	// Create a new project
 	proj := project.New(fileSet, roots)
 	errGroup := faults.NewErrGroup(10)
 	proj.CollectErrors(errGroup)
@@ -629,14 +630,18 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 		t.Fatalf(`errors in project: %v`, err)
 	}
 
+	// Convert the project into IR
 	if len(proj.Roots) > 1 {
 		t.Fatalf(`expected only one root package but got %d`, len(proj.Roots))
 	}
 	pkg := proj.Roots[0]
-	pkg.Ir = &ir.Package{
-		Info:    pkg.Ast.TypesInfo,
-		FileSet: pkg.Ast.Fset,
+	irp, err := converter.ConvertPackage(pkg.Ast, errGroup)
+	if err != nil {
+		t.Fatalf(`error converting to IR: %v`, err)
 	}
+	pkg.Ir = irp
+
+	// Perform the blocker remodeling
 	blocker := New(&Config{
 		ErrGroup: errGroup,
 	})
@@ -644,23 +649,14 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 	if err != nil {
 		t.Fatalf(`error starting blocker: %v`, err)
 	}
-
-	brm := rm.(remodel.RemodelFuncExt)
-	for _, file := range pkg.Ast.Syntax {
-		ast.Inspect(file, func(n ast.Node) bool {
-			if fnDecl, ok := n.(*ast.FuncDecl); ok {
-				fn := pkg.Ir.NewFunc(fnDecl)
-				if _, err := brm.RemodelFunc(fn); err != nil {
-					t.Errorf(`error updating function: %v`, err)
-				}
-			}
-			return true
-		})
+	if _, err := rm.Remodel(); err != nil {
+		t.Errorf(`error remodeling blocker: %v`, err)
 	}
-	if _, err := rm.PackageDone(); err != nil {
+	if _, err := rm.(remodel.ProjectDoneExt).PackageDone(); err != nil {
 		t.Errorf(`error ending blocker: %v`, err)
 	}
 
+	// Check for any stashed errors
 	if err := errGroup.AnyOrNil(); err != nil {
 		t.Errorf(`errors blocker: %v`, err)
 	}

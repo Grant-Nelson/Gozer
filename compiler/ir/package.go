@@ -77,3 +77,12 @@ func (p *Package) Children(yield func(Node) bool) {
 		YieldSlice(p.Vars, yield) &&
 		YieldSlice(p.Funcs, yield)
 }
+
+func (p *Package) FindFunc(name string) *FuncDef {
+	for _, fn := range p.Funcs {
+		if fn.Name() == name {
+			return fn
+		}
+	}
+	return nil
+}

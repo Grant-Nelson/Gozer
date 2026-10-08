@@ -65,6 +65,7 @@ func (*FuncDef) StmtNode() {}
 func (fn *FuncDef) Pos() token.Pos       { return fn.FuncObj.Pos() }
 func (fn *FuncDef) Type() types.Type     { return fn.Func.Signature }
 func (fn *FuncDef) Object() types.Object { return fn.FuncObj }
+func (fn *FuncDef) Name() string         { return fn.FuncObj.Name() }
 
 func (fn *FuncDef) String() string {
 	flags := ``
