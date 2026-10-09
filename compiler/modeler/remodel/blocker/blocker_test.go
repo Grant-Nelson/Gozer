@@ -2,6 +2,7 @@ package blocker
 
 import (
 	"go/token"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -29,16 +30,16 @@ func Test_Blocker_Label_ForwardJump(t *testing.T) {
 		`}`)
 	got := stringForFunc(t, pkg, `doThing`)
 	diffString(t, got, lines(
-		`func doThing {`,
+		`func $.doThing (i int) int {`,
 		`  block 0 (i int)<initial> {`,
-		`    if i > 10 {`,
+		`    if ((ref var i int) > 10) {`,
 		`      goto(block 1, [i])`,
 		`    }`,
-		`    i+=10`,
+		`    (ref var i int) += 10`,
 		`    goto(block 1, [i])`,
 		`  }`,
-		`  block 1 (i int)<Label Finished> {`,
-		`    return i`,
+		`  block 1 (i int)<label Finished> {`,
+		`    return ref var i int`,
 		`  }`,
 		`}`))
 }
@@ -597,14 +598,23 @@ func stringForFunc(t *testing.T, pkg *project.Package, funcName string) string {
 	if fn == nil {
 		t.Fatalf(`failed to find function`)
 	}
-	return fn.String()
+	str := fn.String()
+	str = strings.ReplaceAll(str, `command-line-arguments`, `$`)
+	return str
 }
 
 func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 	t.Helper()
 
-	fileName := `blockTestFunc.go`
-	dirPath := `/`
+	const (
+		fileName = `blockTestFunc.go`
+		dirPath  = `/`
+		fullPath = dirPath + fileName
+	)
+	absFilePath, err := filepath.Abs(fullPath)
+	if err != nil {
+		t.Fatalf(`failed to get absolute fake path for %q`, fullPath)
+	}
 
 	// Parse the input code
 	fileSrc := strings.Join(lines, "\n")
@@ -614,7 +624,7 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 		Mode: packages.LoadAllSyntax,
 		Fset: fileSet,
 		Overlay: map[string][]byte{
-			dirPath + fileName: []byte(fileSrc),
+			absFilePath: []byte(fileSrc),
 		},
 	}
 	roots, err := packages.Load(packageCfg, fileName)
@@ -627,7 +637,7 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 	errGroup := faults.NewErrGroup(10)
 	proj.CollectErrors(errGroup)
 	if err := errGroup.AnyOrNil(); err != nil {
-		t.Fatalf(`errors in project: %v`, err)
+		t.Fatalf(`errors in parsed project: %v`, err)
 	}
 
 	// Convert the project into IR

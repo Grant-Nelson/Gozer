@@ -250,7 +250,7 @@ func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
 		}
 	} else {
 		// Create a new block for the code reachable from the label.
-		nextBlk = fbb.fn.Func.NewBlock(`Label `+s.Name(), nil, nil)
+		nextBlk = fbb.fn.Func.NewBlock(s.Name(), nil, nil)
 		fbb.labelBlock[s.Pos()] = nextBlk
 	}
 
@@ -438,7 +438,7 @@ func (fbb *funcBlockBuilder) remodelGotoBranchStmt(s *ir.BranchStmt) {
 		// Store this block with the label location so that any jumps to
 		// this label can look up the block for this label and the actual
 		// label can fill it out.
-		blk = fbb.fn.Func.NewBlock(`Label `+s.Label.String(), nil, nil)
+		blk = fbb.fn.Func.NewBlock(s.Label.String(), nil, nil)
 		fbb.labelBlock[s.Label.Pos()] = blk
 	}
 

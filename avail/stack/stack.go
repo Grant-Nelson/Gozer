@@ -227,6 +227,9 @@ func (s *stackImp[T]) PushSeq(it iterator.Iterator[T]) Stack[T] {
 		count++
 		cur = cur.prev
 	}
+	if count <= 0 {
+		return s
+	}
 	last.prev = s.top
 	s.top = s.tombs
 	s.tombs = cur
