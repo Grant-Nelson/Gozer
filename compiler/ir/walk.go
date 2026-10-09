@@ -71,10 +71,10 @@ func Walk[T Node](roots ...T) iterator.Iterator[*WalkStep] {
 	s := stack.New[Node]()
 	s.Grow(len(roots))
 	s.PushSeq(iterator.Iterate(roots).OfType[Node]())
-	return walkStack(s)
+	return WalkStack(s)
 }
 
-func walkStack(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
+func WalkStack(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
 	if s.Empty() {
 		return iterator.Empty[*WalkStep]()
 	}

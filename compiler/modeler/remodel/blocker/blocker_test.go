@@ -58,16 +58,16 @@ func Test_Blocker_Label_BackwardJump(t *testing.T) {
 		`}`)
 	got := stringForFunc(t, pkg, `doThing`)
 	diffString(t, got, lines(
-		`func doThing {`,
+		`func $.doThing (i int) int {`,
 		`  block 0 (i int)<initial> {`,
 		`    goto(block 1, [i])`,
 		`  }`,
 		`  block 1 (i int)<Label Loop> {`,
-		`    ++i`,
-		`    if i < 10 {`,
+		`    ++(ref var i int)`,
+		`    if ((ref var i int) < 10) {`,
 		`      goto(block 1, [i])`,
 		`    }`,
-		`    return i`,
+		`    return ref var i int`,
 		`  }`,
 		`}`))
 }
