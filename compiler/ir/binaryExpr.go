@@ -9,7 +9,7 @@ import (
 
 // BinaryExpr is a node that represents a binary expression.
 type BinaryExpr struct {
-	// X is the left operand.
+	// X is the left operand (lhs).
 	X Expr
 
 	// OpPos is the position of the operator.
@@ -18,7 +18,7 @@ type BinaryExpr struct {
 	// Op is the binary operator token (e.g. +, -, *, /, ==, <, &&, ||).
 	Op binaryOp.BinaryOp
 
-	// Y is the right operand.
+	// Y is the right operand (rhs).
 	Y Expr
 
 	// ResultType is the type resulting from this binary expression.

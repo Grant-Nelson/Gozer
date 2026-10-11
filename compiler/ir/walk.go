@@ -74,14 +74,10 @@ func Walk[T Node](roots ...T) iterator.Iterator[*WalkStep] {
 	return WalkStack(s)
 }
 
-func WalkStack(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
-	if s.Empty() {
-		return iterator.Empty[*WalkStep]()
-	}
-	step := &WalkStep{}
+func WalkStack(roots stack.Stack[Node]) iterator.Iterator[*WalkStep] {
 	return func(yield func(*WalkStep) bool) {
-		for !s.Empty() {
-			node := s.Pop()
+		step := &WalkStep{}
+		for node := range roots.PopAll() {
 			step.Node = node
 			step.Skip = false
 			if !yield(step) {
@@ -89,8 +85,8 @@ func WalkStack(s stack.Stack[Node]) iterator.Iterator[*WalkStep] {
 			}
 			if !step.Skip {
 				if p, ok := node.(Parent); ok {
-					s.Grow(p.ChildCount())
-					s.PushSeq(p.Children)
+					roots.Grow(p.ChildCount())
+					roots.PushSeq(p.Children)
 				}
 			}
 		}

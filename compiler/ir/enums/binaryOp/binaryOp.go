@@ -1,6 +1,6 @@
 package binaryOp
 
-type BinaryOp int
+type BinaryOp uint8
 
 const (
 	Invalid = 0

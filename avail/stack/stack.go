@@ -32,7 +32,12 @@ type Stack[T any] interface {
 	// Iterate will walk through the stack's values from the top
 	// to the bottom. The iteration may not return all the values
 	// correctly if the stack is mutated during iteration.
+	// This will not remove any values from the stack.
 	Iterate() iterator.Iterator[T]
+
+	// PopAll will pop and yield the values from the stack until
+	// the stack is empty.
+	PopAll() iterator.Iterator[T]
 
 	// Pop will remove one value from the top of te stack and return it.
 	// If the stack is empty, this will return the zero T value.
@@ -131,6 +136,16 @@ func (s *stackImp[T]) Iterate() iterator.Iterator[T] {
 	return func(yield func(T) bool) {
 		for n := s.top; n != nil; n = n.prev {
 			if !yield(n.value) {
+				return
+			}
+		}
+	}
+}
+
+func (s *stackImp[T]) PopAll() iterator.Iterator[T] {
+	return func(yield func(T) bool) {
+		for !s.Empty() {
+			if !yield(s.Pop()) {
 				return
 			}
 		}

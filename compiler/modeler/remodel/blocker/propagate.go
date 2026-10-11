@@ -32,9 +32,9 @@ func (s varSet) has(v *types.Var) bool {
 	return ok
 }
 
-// orderedVars returns a deterministically ordered slice of the vars.
+// toSlice returns a deterministically ordered slice of the vars.
 // Ordered by the order that the vars were added to the set.
-func orderedVars(s varSet) []*types.Var {
+func (s varSet) toSlice() []*types.Var {
 	out := make([]*types.Var, len(s))
 	for v, i := range s {
 		out[i] = v
@@ -42,49 +42,76 @@ func orderedVars(s varSet) []*types.Var {
 	return out
 }
 
-// computeRefDef walks the given statements in evaluation order and
+type refDef struct {
+	ref varSet // referenced (reads)
+	def varSet // defined (writes)
+}
+
+func newRefDef() *refDef {
+	return &refDef{
+		ref: varSet{},
+		def: varSet{},
+	}
+}
+
+func (rd *refDef) addRead(v *ir.VarRef) {
+	// For a reference, we don't want to add a reference if the variable
+	// was defined in this block or assigned, however if the variable was
+	// referenced before the definition then we still want to keep it as
+	// a reference.
+	if !rd.def.has(v.VarObj) {
+		rd.ref.add(v.VarObj)
+	}
+}
+
+func (rd *refDef) addWrite(n ir.Expr) {
+	switch v := n.(type) {
+	case *ir.VarDef:
+		rd.def.add(v.VarObj)
+	case *ir.VarRef:
+		rd.def.add(v.VarObj)
+	}
+	// otherwise, continue so that this expression is walked and
+	// the variables are treated as a read since it is like
+	// `*s=`, `s[i]=`, or `s.value=`.
+}
+
+// compute walks the given statements in evaluation order and
 // computes the set of vars referenced (read before being defined locally)
 // and defined (assigned to or declared) within them.
-func computeRefDef(s []ir.Stmt) (ref, def varSet) {
-	ref = varSet{} // referenced (reads)
-	def = varSet{} // defined (writes)
-
-	addRead := func(v *ir.VarRef) {
-		// For a reference, we don't want to add a reference if the variable
-		// was defined in this block or assigned, however if the variable was
-		// referenced before the definition then we still want to keep it as
-		// a reference.
-		if !def.has(v.VarObj) {
-			ref.add(v.VarObj)
-		}
-	}
-
-	addWrite := func(w *ir.WalkStep, n ir.Expr) {
-		switch v := n.(type) {
-		case *ir.VarDef:
-			def.add(v.VarObj)
-		case *ir.VarRef:
-			def.add(v.VarObj)
-		}
-	}
-
-	for w := range ir.Walk(s...) {
+func (rd *refDef) compute[T ir.Node](roots ...T) {
+	for w := range ir.Walk(roots...) {
 		switch n := w.Node.(type) {
 		case *ir.VarRef:
-			addRead(n)
+			rd.addRead(n)
+
 		case *ir.MultiAssignStmt:
+			// Walk the rhs first to collect references before assignment.
+			w.Skip = true
+			rd.compute(n.Rhs...)
 			for _, ln := range n.Lhs {
-				addWrite(w, ln)
+				rd.addWrite(ln)
 			}
+			rd.compute(n.Lhs...)
+
 		case *ir.BinaryExpr:
-			if n.Op == binaryOp.Assign {
-				// Treat `x = y` as a write to `x` but other assignments
-				// of `x`, e.g. `x += y`, as a reference to `x`.
-				addWrite(w, n.X)
+			if n.Op.IsAssignment() {
+				// Walk the rhs first to collect references before assignment.
+				w.Skip = true
+				rd.compute(n.Y)
+				// Treat `x = y` as a write to `x` but other assignments of `x`,
+				// e.g. `x += y`, as a reference and write to `x`,
+				// the same as if it was `x = x + y`.
+				if n.Op != binaryOp.Assign {
+					if expr, ok := n.X.(*ir.VarRef); ok {
+						rd.addRead(expr)
+					}
+				}
+				rd.addWrite(n.X)
+				rd.compute(n.X)
 			}
 		}
 	}
-	return
 }
 
 // successors returns the unique successor blocks reachable from the given block
@@ -118,12 +145,13 @@ func propagateParams(fn *ir.Func, errGroup *faults.ErrGroup) {
 	infoByBlock := make(map[*ir.Block]*blockInfo, len(fn.Blocks))
 	infoByIndex := make([]*blockInfo, len(fn.Blocks))
 	for i, b := range fn.Blocks {
-		ref, def := computeRefDef(b.Body)
+		rd := newRefDef()
+		rd.compute(b.Body...)
 		info := &blockInfo{
 			block: b,
 			index: i,
-			ref:   ref,
-			def:   def,
+			ref:   rd.ref,
+			def:   rd.def,
 			suc:   successors(b),
 		}
 		infoByBlock[b] = info
