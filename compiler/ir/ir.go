@@ -6,12 +6,45 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/Grant-Nelson/Gozer/compiler/ir/wad"
 )
 
 // Is determines if the given value is of the given type.
 func Is[T any](v any) bool {
 	_, ok := v.(T)
 	return ok
+}
+
+func init() {
+	wad.Register[*BasicLit]()
+	wad.Register[*BinaryExpr]()
+	wad.Register[*Block]()
+	wad.Register[*BlockRef]()
+	wad.Register[*BranchStmt]()
+	wad.Register[*BuiltinRef]()
+	wad.Register[*CallExpr]()
+	wad.Register[*CaseClause]()
+	wad.Register[*CommClause]()
+	wad.Register[*ConstDef]()
+	wad.Register[*ConstRef]()
+	wad.Register[*DeferStmt]()
+	wad.Register[*Directive]()
+	wad.Register[*ForStmt]()
+	wad.Register[*Func]()
+	wad.Register[*FuncDef]()
+	wad.Register[*FuncLit]()
+	wad.Register[*FuncRef]()
+	wad.Register[*GoStmt]()
+	wad.Register[*GotoBlockStmt]()
+	wad.Register[*IfStmt]()
+	wad.Register[*ImportDef]()
+	wad.Register[*ImportRef]()
+	wad.Register[*IndexExpr]()
+	wad.Register[*IndexListExpr]()
+	wad.Register[*InjectStmt]()
+
+	// TODO: Continue adding
 }
 
 const (

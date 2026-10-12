@@ -1,6 +1,6 @@
 package branchKind
 
-type BranchKind int
+type BranchKind uint8
 
 const (
 	Invalid = BranchKind(iota)

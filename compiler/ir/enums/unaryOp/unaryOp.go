@@ -1,6 +1,6 @@
 package unaryOp
 
-type UnaryOp int
+type UnaryOp uint8
 
 const (
 	Invalid       = UnaryOp(iota)
