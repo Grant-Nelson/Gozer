@@ -7,7 +7,7 @@ import (
 
 func Test_Basic(t *testing.T) {
 	buf := &bytes.Buffer{}
-	w := NewWadder(buf)
+	w := NewWriter(buf)
 	w.Int8(12)
 	w.Int16(34)
 	w.Int32(56)
@@ -15,7 +15,9 @@ func Test_Basic(t *testing.T) {
 	w.String(`hello`)
 	w.Float64(0.128)
 
-	u := NewUnWadder(buf)
+	t.Logf(`%v`, buf.Bytes())
+
+	u := NewReader(buf)
 	check(t, u.Int8(), 12, `int8`)
 	check(t, u.Int16(), 34, `int16`)
 	check(t, u.Int32(), 56, `int32`)
