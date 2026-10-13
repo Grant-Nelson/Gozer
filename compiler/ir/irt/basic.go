@@ -2,6 +2,8 @@ package irt
 
 type Basic uint16
 
+var _ Type = Basic(0)
+
 const (
 	Invalid Basic = 0
 
