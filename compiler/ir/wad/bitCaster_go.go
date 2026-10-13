@@ -7,6 +7,11 @@ import (
 	"unsafe"
 )
 
+// bitCaster is the smallest part of the Wad reader/writer.
+//
+// This implementation of it requires pointer casting between types
+// which is known not to work for languages running in an environment
+// where pointer casting is not possible or is very slow.
 type bitCaster struct {
 	buf1       []byte
 	buf2       []byte
@@ -37,16 +42,16 @@ func newBitCaster() *bitCaster {
 	}
 }
 
-func (bc *bitCaster) getUint8(r io.Reader) uint8     { read(r, bc.buf1); return *bc.ptrUint8 }
-func (bc *bitCaster) getUint16(r io.Reader) uint16   { read(r, bc.buf2); return *bc.ptrUint16 }
-func (bc *bitCaster) getUint32(r io.Reader) uint32   { read(r, bc.buf4); return *bc.ptrUint32 }
-func (bc *bitCaster) getUint64(r io.Reader) uint64   { read(r, bc.buf8); return *bc.ptrUint64 }
-func (bc *bitCaster) getFloat32(r io.Reader) float32 { read(r, bc.buf4); return *bc.ptrFloat32 }
-func (bc *bitCaster) getFloat64(r io.Reader) float64 { read(r, bc.buf8); return *bc.ptrFloat64 }
+func (bc *bitCaster) readUint8(r io.Reader) uint8     { read(r, bc.buf1); return *bc.ptrUint8 }
+func (bc *bitCaster) readUint16(r io.Reader) uint16   { read(r, bc.buf2); return *bc.ptrUint16 }
+func (bc *bitCaster) readUint32(r io.Reader) uint32   { read(r, bc.buf4); return *bc.ptrUint32 }
+func (bc *bitCaster) readUint64(r io.Reader) uint64   { read(r, bc.buf8); return *bc.ptrUint64 }
+func (bc *bitCaster) readFloat32(r io.Reader) float32 { read(r, bc.buf4); return *bc.ptrFloat32 }
+func (bc *bitCaster) readFloat64(r io.Reader) float64 { read(r, bc.buf8); return *bc.ptrFloat64 }
 
-func (bc *bitCaster) setUint8(w io.Writer, v uint8)     { *bc.ptrUint8 = v; write(w, bc.buf1) }
-func (bc *bitCaster) setUint16(w io.Writer, v uint16)   { *bc.ptrUint16 = v; write(w, bc.buf2) }
-func (bc *bitCaster) setUint32(w io.Writer, v uint32)   { *bc.ptrUint32 = v; write(w, bc.buf4) }
-func (bc *bitCaster) setUint64(w io.Writer, v uint64)   { *bc.ptrUint64 = v; write(w, bc.buf8) }
-func (bc *bitCaster) setFloat32(w io.Writer, v float32) { *bc.ptrFloat32 = v; write(w, bc.buf4) }
-func (bc *bitCaster) setFloat64(w io.Writer, v float64) { *bc.ptrFloat64 = v; write(w, bc.buf8) }
+func (bc *bitCaster) writeUint8(w io.Writer, v uint8)     { *bc.ptrUint8 = v; write(w, bc.buf1) }
+func (bc *bitCaster) writeUint16(w io.Writer, v uint16)   { *bc.ptrUint16 = v; write(w, bc.buf2) }
+func (bc *bitCaster) writeUint32(w io.Writer, v uint32)   { *bc.ptrUint32 = v; write(w, bc.buf4) }
+func (bc *bitCaster) writeUint64(w io.Writer, v uint64)   { *bc.ptrUint64 = v; write(w, bc.buf8) }
+func (bc *bitCaster) writeFloat32(w io.Writer, v float32) { *bc.ptrFloat32 = v; write(w, bc.buf4) }
+func (bc *bitCaster) writeFloat64(w io.Writer, v float64) { *bc.ptrFloat64 = v; write(w, bc.buf8) }

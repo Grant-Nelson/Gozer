@@ -56,12 +56,12 @@ func (wad *Writer) Int16(v int16)     { wad.Uint16(uint16(v)) }
 func (wad *Writer) Int32(v int32)     { wad.Uint32(uint32(v)) }
 func (wad *Writer) Int64(v int64)     { wad.Uint64(uint64(v)) }
 func (wad *Writer) String(v string)   { wad.Bytes([]byte(v)) }
-func (wad *Writer) Uint8(v uint8)     { wad.bc.setUint8(wad.w, v) }
-func (wad *Writer) Uint16(v uint16)   { wad.bc.setUint16(wad.w, v) }
-func (wad *Writer) Uint32(v uint32)   { wad.bc.setUint32(wad.w, v) }
-func (wad *Writer) Uint64(v uint64)   { wad.bc.setUint64(wad.w, v) }
-func (wad *Writer) Float32(v float32) { wad.bc.setFloat32(wad.w, v) }
-func (wad *Writer) Float64(v float64) { wad.bc.setFloat64(wad.w, v) }
+func (wad *Writer) Uint8(v uint8)     { wad.bc.writeUint8(wad.w, v) }
+func (wad *Writer) Uint16(v uint16)   { wad.bc.writeUint16(wad.w, v) }
+func (wad *Writer) Uint32(v uint32)   { wad.bc.writeUint32(wad.w, v) }
+func (wad *Writer) Uint64(v uint64)   { wad.bc.writeUint64(wad.w, v) }
+func (wad *Writer) Float32(v float32) { wad.bc.writeFloat32(wad.w, v) }
+func (wad *Writer) Float64(v float64) { wad.bc.writeFloat64(wad.w, v) }
 func (wad *Writer) Pos(v token.Pos)   { wad.Int(int(v)) }
 
 func (wad *Writer) Complex64(v complex64) {

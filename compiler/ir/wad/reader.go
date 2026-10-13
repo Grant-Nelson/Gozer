@@ -64,12 +64,12 @@ func (wad *Reader) Int16() int16     { return int16(wad.Uint16()) }
 func (wad *Reader) Int32() int32     { return int32(wad.Uint32()) }
 func (wad *Reader) Int64() int64     { return int64(wad.Uint64()) }
 func (wad *Reader) String() string   { return string(wad.Bytes()) }
-func (wad *Reader) Uint8() uint8     { return wad.bc.getUint8(wad.r) }
-func (wad *Reader) Uint16() uint16   { return wad.bc.getUint16(wad.r) }
-func (wad *Reader) Uint32() uint32   { return wad.bc.getUint32(wad.r) }
-func (wad *Reader) Uint64() uint64   { return wad.bc.getUint64(wad.r) }
-func (wad *Reader) Float32() float32 { return wad.bc.getFloat32(wad.r) }
-func (wad *Reader) Float64() float64 { return wad.bc.getFloat64(wad.r) }
+func (wad *Reader) Uint8() uint8     { return wad.bc.readUint8(wad.r) }
+func (wad *Reader) Uint16() uint16   { return wad.bc.readUint16(wad.r) }
+func (wad *Reader) Uint32() uint32   { return wad.bc.readUint32(wad.r) }
+func (wad *Reader) Uint64() uint64   { return wad.bc.readUint64(wad.r) }
+func (wad *Reader) Float32() float32 { return wad.bc.readFloat32(wad.r) }
+func (wad *Reader) Float64() float64 { return wad.bc.readFloat64(wad.r) }
 func (wad *Reader) Pos() token.Pos   { return token.Pos(wad.Int()) }
 
 func (wad *Reader) Complex64() complex64 {

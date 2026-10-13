@@ -37,7 +37,7 @@ func (r *Registry) Register[T Waddable]() {
 		r.m[name] = index
 		r.c = append(r.c,
 			func() Waddable {
-				var zero T
+				var zero T // TODO: This will not work for a pointer type
 				return zero
 			})
 	}
