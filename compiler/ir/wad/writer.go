@@ -8,20 +8,25 @@ import (
 type Writer struct {
 	w   io.Writer
 	reg *Registry
-	bc  *bitCaster
+	bc  bitCaster
 }
 
 func NewWriter(w io.Writer) *Writer {
-	wad := &Writer{
+	// Write wad header information
+	var flags byte
+	if isUint64 {
+		flags |= 0x01
+	}
+	if isBigEndian {
+		flags |= 0x02
+	}
+	write(w, []byte{version, flags})
+	// Create wad writer
+	return &Writer{
 		w:   w,
 		reg: DefaultRegistry,
-		bc:  newBitCaster(),
+		bc:  newBitCaster(isUint64, isBigEndian),
 	}
-	// Write wad header information
-	wad.Uint8(version)    // wad version
-	wad.Bool(isUint64)    // is uint 64-bits?
-	wad.Bool(isBigEndian) // is big endian?
-	return wad
 }
 
 func (wad *Writer) SetRegistry(reg *Registry) { wad.reg = reg }

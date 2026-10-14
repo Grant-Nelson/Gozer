@@ -8,9 +8,10 @@ import (
 )
 
 type Reader struct {
-	r   io.Reader
-	reg *Registry
-	bc  *bitCaster
+	r        io.Reader
+	reg      *Registry
+	bc       bitCaster
+	isUint64 bool
 }
 
 // NewReader creates a new Wad reader.
@@ -20,39 +21,42 @@ type Reader struct {
 // expected to be read on the same machine as it was written.
 // If the read data doesn't match, then this will panic.
 func NewReader(r io.Reader) *Reader {
-	wad := &Reader{
-		r:   r,
-		reg: DefaultRegistry,
-		bc:  newBitCaster(),
+	// Read wad header information
+	header := []byte{0, 0}
+	read(r, header)
+	if version != header[0] {
+		panic(faults.New(`failed to create wad.Reader for the data's version`).
+			With(`read version`, header[0]).
+			With(`current version`, version))
 	}
-	// Read wad header information and check for match.
-	otherVersion := wad.Uint8() // wad version
-	wasUint64 := wad.Bool()     // is uint 64-bits?
-	wasBigEndian := wad.Bool()  // is big endian?
-	if version != otherVersion || wasUint64 != isUint64 || wasBigEndian != isBigEndian {
-		panic(faults.New(`failed to create wad.Reader with different header`).
-			With(`read version`, version).
-			With(`read uint is 64-bits`, wasUint64).
-			With(`read big endian`, wasBigEndian).
-			With(`current version`, version).
-			With(`current uint is 64-bits`, isUint64).
-			With(`current big endian`, isBigEndian))
+	var needUint64, needBigEndian bool
+	if header[1]&0x01 != 0x00 {
+		needUint64 = true
 	}
-	return wad
+	if header[1]&0x02 != 0x00 {
+		needBigEndian = true
+	}
+	// Create wad reader
+	return &Reader{
+		r:        r,
+		reg:      DefaultRegistry,
+		bc:       newBitCaster(needUint64, needBigEndian),
+		isUint64: needUint64,
+	}
 }
 
 func (wad *Reader) SetRegistry(reg *Registry) { wad.reg = reg }
 func (wad *Reader) Registry() *Registry       { return wad.reg }
 
 func (wad *Reader) Int() int {
-	if isUint64 {
+	if wad.isUint64 {
 		return int(wad.Uint64())
 	}
 	return int(wad.Uint32())
 }
 
 func (wad *Reader) Uint() uint {
-	if isUint64 {
+	if wad.isUint64 {
 		return uint(wad.Uint64())
 	}
 	return uint(wad.Uint32())
