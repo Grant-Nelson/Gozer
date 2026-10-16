@@ -4,7 +4,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/Grant-Nelson/Gozer/compiler/ir/wad"
+	"github.com/Grant-Nelson/Gozer/avail/wad"
 )
 
 // BasicLit is a node that represents a literal of basic type.

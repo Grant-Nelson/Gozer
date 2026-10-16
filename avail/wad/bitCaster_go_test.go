@@ -119,7 +119,7 @@ func Benchmark_Uint64(b *testing.B) {
 	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
 }
 
-func Benchmark_Float32_Native(b *testing.B) {
+func Benchmark_Float32(b *testing.B) {
 	values := make([]float32, valueCount)
 	r := rand.New(rand.NewSource(0))
 	for i := range valueCount {
@@ -143,7 +143,7 @@ func Benchmark_Float32_Native(b *testing.B) {
 	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
 }
 
-func Benchmark_Float64_Native(b *testing.B) {
+func Benchmark_Float64(b *testing.B) {
 	values := make([]float64, valueCount)
 	r := rand.New(rand.NewSource(0))
 	for i := range valueCount {
