@@ -39,14 +39,11 @@ func NewReader(r io.Reader) *Reader {
 	// Create wad reader
 	return &Reader{
 		r:        r,
-		reg:      DefaultRegistry,
+		reg:      NewRegistry(),
 		bc:       newBitCaster(needUint64, needBigEndian),
 		isUint64: needUint64,
 	}
 }
-
-func (wad *Reader) SetRegistry(reg *Registry) { wad.reg = reg }
-func (wad *Reader) Registry() *Registry       { return wad.reg }
 
 func (wad *Reader) Int() int {
 	if wad.isUint64 {
