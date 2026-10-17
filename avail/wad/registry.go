@@ -1,44 +1,77 @@
 package wad
 
 import (
+	"maps"
 	"reflect"
+	"slices"
 	"sync"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 )
 
-var DefaultRegistry = NewRegistry()
+var defaultRegistry = newRegistry()
+
+func Register[P interface {
+	*T
+	Waddable
+}, T any]() {
+	defaultRegistry.Register[P, T]()
+}
+
+func RegisterNP[T Waddable]() {
+	defaultRegistry.RegisterNP[T]()
+}
 
 const maxReg = 0xFFFF
 
 type (
 	Registry struct {
-		lock    sync.RWMutex
-		lookup  map[string]uint16
-		entries []*registerEntry
+		lock      *sync.Mutex
+		lookup    map[string]uint16
+		factories []factory
+		entries   []*registerEntry
 	}
 
 	registerEntry struct {
 		useCount     int
 		nextBatch    int
 		preallocated []Waddable
-		factory      factory
 	}
 
 	factory func(count int) []Waddable
 )
 
-func NewRegistry() *Registry {
+func newRegistry() *Registry {
 	return &Registry{
-		lookup:  map[string]uint16{},
-		entries: []*registerEntry{},
+		lock:   new(sync.Mutex),
+		lookup: make(map[string]uint16),
 	}
 }
 
 func typeName(t reflect.Type) string { return t.PkgPath() + `.` + t.Name() }
 
+func (r *Registry) clone() *Registry {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	entries := make([]*registerEntry, len(r.factories))
+	for i := range entries {
+		entries[i] = new(registerEntry)
+	}
+	return &Registry{
+		lock:      new(sync.Mutex),
+		lookup:    maps.Clone(r.lookup),
+		factories: slices.Clone(r.factories),
+		entries:   entries,
+	}
+}
+
 func (r *Registry) registerFactory[T Waddable](f factory) {
 	name := typeName(reflect.TypeFor[T]())
+
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	if _, has := r.lookup[name]; has {
 		panic(faults.New(`Waddable has already been registered`).
 			With(`id`, name))
@@ -51,16 +84,8 @@ func (r *Registry) registerFactory[T Waddable](f factory) {
 	}
 
 	r.lookup[name] = uint16(index + 1)
-	r.entries = append(r.entries, &registerEntry{
-		factory: f,
-	})
-}
-
-func Register[P interface {
-	*T
-	Waddable
-}, T any]() {
-	DefaultRegistry.Register[P, T]()
+	r.factories = append(r.factories, f)
+	r.entries = append(r.entries, new(registerEntry))
 }
 
 func (r *Registry) Register[P interface {
@@ -77,8 +102,6 @@ func (r *Registry) Register[P interface {
 	})
 }
 
-func RegisterNP[T Waddable]() { DefaultRegistry.RegisterNP[T]() }
-
 func (r *Registry) RegisterNP[T Waddable]() {
 	r.registerFactory[T](func(count int) []Waddable {
 		s := make([]T, count)
@@ -91,22 +114,31 @@ func (r *Registry) RegisterNP[T Waddable]() {
 }
 
 func (r *Registry) toIndex(w Waddable) uint16 {
-	if v := reflect.ValueOf(w); !v.IsNil() {
-		name := typeName(v.Type())
-		if index, ok := r.lookup[name]; ok {
-			r.entries[index].useCount++
-			return index
-		}
-		panic(faults.New(`Unable to write an unregistered Waddable`).
-			With(`type`, name))
+	v := reflect.ValueOf(w)
+	if v.Kind() == reflect.Pointer && v.IsNil() {
+		return 0
 	}
-	return 0
+	name := typeName(v.Type())
+
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	if index, ok := r.lookup[name]; ok {
+		r.entries[index].useCount++
+		return index
+	}
+	panic(faults.New(`Unable to write an unregistered Waddable`).
+		With(`type`, name))
 }
 
 func (r *Registry) fromIndex(i uint16) Waddable {
 	if i <= 0 {
 		return nil
 	}
+
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	if int(i) > len(r.entries) {
 		panic(faults.New(`Unable to read Waddable from registry with given index`).
 			With(`index`, i))
@@ -114,47 +146,38 @@ func (r *Registry) fromIndex(i uint16) Waddable {
 
 	e := r.entries[i-1]
 	e.useCount++
-	return e.getNext()
-}
-
-func (r *Registry) Preallocate[T Waddable](count int) {
-	name := typeName(reflect.TypeFor[T]())
-	if index, ok := r.lookup[name]; ok {
-		r.entries[index].preallocate(count)
-	}
-	panic(faults.New(`can not preallocate an unregistered Waddable`).
-		With(`id`, name))
-}
-
-func (re *registerEntry) reset() {
-	re.useCount = 0
-	re.nextBatch = 0
-	re.preallocated = nil
-}
-
-func (re *registerEntry) preallocate(count int) {
-	if count <= 0 {
-		return
-	}
-	if pre := len(re.preallocated); pre > 0 {
-		re.nextBatch = max(re.nextBatch, count-pre)
-		return
-	}
-	re.preallocated = re.factory(count)
-}
-
-func (re *registerEntry) getNext() Waddable {
-	if count := len(re.preallocated); count > 0 {
-		next := re.preallocated[0]
+	if count := len(e.preallocated); count > 0 {
+		next := e.preallocated[0]
 		if count > 1 {
-			re.preallocated = re.preallocated[1:]
-		} else if re.nextBatch > 0 {
-			re.preallocated = re.factory(re.nextBatch)
-			re.nextBatch = 0
+			e.preallocated = e.preallocated[1:]
+		} else if e.nextBatch > 0 {
+			e.preallocated = r.factories[i-1](e.nextBatch)
+			e.nextBatch = 0
 		} else {
-			re.preallocated = nil
+			e.preallocated = nil
 		}
 		return next
 	}
-	return re.factory(1)[0]
+	return r.factories[i-1](1)[0]
+}
+
+func (r *Registry) Preallocate[T Waddable](count int) {
+	if count <= 0 {
+		return
+	}
+	name := typeName(reflect.TypeFor[T]())
+
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	if index, ok := r.lookup[name]; ok {
+		e := r.entries[index]
+		if pre := len(e.preallocated); pre > 0 {
+			e.nextBatch = max(e.nextBatch, count-pre)
+			return
+		}
+		e.preallocated = r.factories[index](count)
+	}
+	panic(faults.New(`can not preallocate an unregistered Waddable`).
+		With(`id`, name))
 }
