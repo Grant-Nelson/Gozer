@@ -8,10 +8,11 @@ import (
 )
 
 type Reader struct {
-	r        io.Reader
-	reg      *Registry
-	bc       bitCaster
-	isUint64 bool
+	r      io.Reader
+	reg    *Registry
+	bc     bitCaster
+	fnInt  func() int
+	fnUint func() uint
 }
 
 // NewReader creates a new Wad reader.
@@ -36,29 +37,32 @@ func NewReader(r io.Reader) *Reader {
 	if header[1]&0x02 != 0x00 {
 		needBigEndian = true
 	}
+
 	// Create wad reader
-	return &Reader{
-		r:        r,
-		reg:      NewRegistry(),
-		bc:       newBitCaster(needUint64, needBigEndian),
-		isUint64: needUint64,
+	wad := &Reader{
+		r:   r,
+		reg: defaultRegistry.clone(),
+		bc:  newBitCaster(needUint64, needBigEndian),
 	}
+	if needUint64 {
+		wad.fnInt = wad.intVia64
+		wad.fnUint = wad.uintVia64
+	} else {
+		wad.fnInt = wad.intVia32
+		wad.fnUint = wad.uintVia32
+	}
+	return wad
 }
 
-func (wad *Reader) Int() int {
-	if wad.isUint64 {
-		return int(wad.Uint64())
-	}
-	return int(wad.Uint32())
-}
+func (wad *Reader) Registry() *Registry { return wad.reg }
 
-func (wad *Reader) Uint() uint {
-	if wad.isUint64 {
-		return uint(wad.Uint64())
-	}
-	return uint(wad.Uint32())
-}
+func (wad *Reader) intVia32() int   { return int(wad.Uint32()) }
+func (wad *Reader) intVia64() int   { return int(wad.Uint64()) }
+func (wad *Reader) uintVia32() uint { return uint(wad.Uint32()) }
+func (wad *Reader) uintVia64() uint { return uint(wad.Uint64()) }
 
+func (wad *Reader) Int() int         { return wad.fnInt() }
+func (wad *Reader) Uint() uint       { return wad.fnUint() }
 func (wad *Reader) Bool() bool       { return wad.Uint8() > 0 }
 func (wad *Reader) Int8() int8       { return int8(wad.Uint8()) }
 func (wad *Reader) Int16() int16     { return int16(wad.Uint16()) }
@@ -103,4 +107,39 @@ func (wad *Reader) Wad[T Waddable]() T {
 	}
 	t.UnWad(wad)
 	return t
+}
+
+func (wad *Reader) basicSlice[T any](elem func() T) []T {
+	count := wad.Uint32()
+	values := make([]T, count)
+	for i := range count {
+		values[i] = elem()
+	}
+	return values
+}
+
+func (wad *Reader) IntSlice() []int         { return wad.basicSlice(wad.fnInt) }
+func (wad *Reader) UintSlice() []uint       { return wad.basicSlice(wad.fnUint) }
+func (wad *Reader) BoolSlice() []bool       { return wad.basicSlice(wad.Bool) }
+func (wad *Reader) Int8Slice() []int8       { return wad.basicSlice(wad.Int8) }
+func (wad *Reader) Int16Slice() []int16     { return wad.basicSlice(wad.Int16) }
+func (wad *Reader) Int32Slice() []int32     { return wad.basicSlice(wad.Int32) }
+func (wad *Reader) Int64Slice() []int64     { return wad.basicSlice(wad.Int64) }
+func (wad *Reader) StringSlice() []string   { return wad.basicSlice(wad.String) }
+func (wad *Reader) Uint8Slice() []uint8     { return wad.basicSlice(wad.Uint8) }
+func (wad *Reader) Uint16Slice() []uint16   { return wad.basicSlice(wad.Uint16) }
+func (wad *Reader) Uint32Slice() []uint32   { return wad.basicSlice(wad.Uint32) }
+func (wad *Reader) Uint64Slice() []uint64   { return wad.basicSlice(wad.Uint64) }
+func (wad *Reader) Float32Slice() []float32 { return wad.basicSlice(wad.Float32) }
+func (wad *Reader) Float64Slice() []float64 { return wad.basicSlice(wad.Float64) }
+func (wad *Reader) PosSlice() []token.Pos   { return wad.basicSlice(wad.Pos) }
+
+func (wad *Reader) WadSlice[T Waddable, S ~[]T]() S {
+	count := wad.Uint32()
+	values := make(S, count)
+	wad.reg.Preallocate[T](int(count))
+	for i := range count {
+		values[i] = wad.Wad[T]()
+	}
+	return values
 }

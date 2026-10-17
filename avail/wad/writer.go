@@ -6,9 +6,11 @@ import (
 )
 
 type Writer struct {
-	w   io.Writer
-	reg *Registry
-	bc  bitCaster
+	w      io.Writer
+	reg    *Registry
+	bc     bitCaster
+	fnInt  func(int)
+	fnUint func(uint)
 }
 
 func NewWriter(w io.Writer) *Writer {
@@ -21,16 +23,24 @@ func NewWriter(w io.Writer) *Writer {
 		flags |= 0x02
 	}
 	write(w, []byte{version, flags})
+
 	// Create wad writer
-	return &Writer{
+	wad := &Writer{
 		w:   w,
-		reg: DefaultRegistry,
+		reg: defaultRegistry.clone(),
 		bc:  newBitCaster(isUint64, isBigEndian),
 	}
+	if isUint64 {
+		wad.fnInt = wad.intVia64
+		wad.fnUint = wad.uintVia64
+	} else {
+		wad.fnInt = wad.intVia32
+		wad.fnUint = wad.uintVia32
+	}
+	return wad
 }
 
-func (wad *Writer) SetRegistry(reg *Registry) { wad.reg = reg }
-func (wad *Writer) Registry() *Registry       { return wad.reg }
+func (wad *Writer) Registry() *Registry { return wad.reg }
 
 func (wad *Writer) Bool(v bool) {
 	if v {
@@ -40,22 +50,13 @@ func (wad *Writer) Bool(v bool) {
 	}
 }
 
-func (wad *Writer) Int(v int) {
-	if isUint64 {
-		wad.Uint64(uint64(v))
-	} else {
-		wad.Uint32(uint32(v))
-	}
-}
+func (wad *Writer) intVia32(v int)   { wad.Uint32(uint32(v)) }
+func (wad *Writer) intVia64(v int)   { wad.Uint64(uint64(v)) }
+func (wad *Writer) uintVia32(v uint) { wad.Uint32(uint32(v)) }
+func (wad *Writer) uintVia64(v uint) { wad.Uint64(uint64(v)) }
 
-func (wad *Writer) Uint(v uint) {
-	if isUint64 {
-		wad.Uint64(uint64(v))
-	} else {
-		wad.Uint32(uint32(v))
-	}
-}
-
+func (wad *Writer) Int(v int)         { wad.fnInt(v) }
+func (wad *Writer) Uint(v uint)       { wad.fnUint(v) }
 func (wad *Writer) Int8(v int8)       { wad.Uint8(uint8(v)) }
 func (wad *Writer) Int16(v int16)     { wad.Uint16(uint16(v)) }
 func (wad *Writer) Int32(v int32)     { wad.Uint32(uint32(v)) }
@@ -84,10 +85,34 @@ func (wad *Writer) Bytes(v []byte) {
 	write(wad.w, v)
 }
 
-func (wad *Writer) Wad(v Waddable) {
-	i := wad.reg.getIndex(v)
+func (wad *Writer) Wad[T Waddable](v T) {
+	i := wad.reg.toIndex(v)
 	wad.Uint16(i)
 	if i > 0 {
 		v.Wad(wad)
 	}
 }
+
+func (wad *Writer) slice[T any](elem func(T), values []T) {
+	wad.Uint32(uint32(len(values)))
+	for _, v := range values {
+		elem(v)
+	}
+}
+
+func (wad *Writer) IntSlice(v []int)         { wad.slice(wad.fnInt, v) }
+func (wad *Writer) UintSlice(v []uint)       { wad.slice(wad.fnUint, v) }
+func (wad *Writer) Int8Slice(v []int8)       { wad.slice(wad.Int8, v) }
+func (wad *Writer) Int16Slice(v []int16)     { wad.slice(wad.Int16, v) }
+func (wad *Writer) Int32Slice(v []int32)     { wad.slice(wad.Int32, v) }
+func (wad *Writer) Int64Slice(v []int64)     { wad.slice(wad.Int64, v) }
+func (wad *Writer) StringSlice(v []string)   { wad.slice(wad.String, v) }
+func (wad *Writer) Uint8Slice(v []uint8)     { wad.slice(wad.Uint8, v) }
+func (wad *Writer) Uint16Slice(v []uint16)   { wad.slice(wad.Uint16, v) }
+func (wad *Writer) Uint32Slice(v []uint32)   { wad.slice(wad.Uint32, v) }
+func (wad *Writer) Uint64Slice(v []uint64)   { wad.slice(wad.Uint64, v) }
+func (wad *Writer) Float32Slice(v []float32) { wad.slice(wad.Float32, v) }
+func (wad *Writer) Float64Slice(v []float64) { wad.slice(wad.Float64, v) }
+func (wad *Writer) PosSlice(v []token.Pos)   { wad.slice(wad.Pos, v) }
+
+func (wad *Writer) WadSlice[T Waddable, S ~[]T](v S) { wad.slice(wad.Wad, v) }

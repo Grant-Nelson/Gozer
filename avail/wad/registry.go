@@ -161,6 +161,15 @@ func (r *Registry) fromIndex(i uint16) Waddable {
 	return r.factories[i-1](1)[0]
 }
 
+func (r *Registry) preallocateIndex(index uint16, count int) {
+	e := r.entries[index]
+	if pre := len(e.preallocated); pre > 0 {
+		e.nextBatch = max(e.nextBatch, count-pre)
+		return
+	}
+	e.preallocated = r.factories[index](count)
+}
+
 func (r *Registry) Preallocate[T Waddable](count int) {
 	if count <= 0 {
 		return
@@ -171,12 +180,7 @@ func (r *Registry) Preallocate[T Waddable](count int) {
 	defer r.lock.Unlock()
 
 	if index, ok := r.lookup[name]; ok {
-		e := r.entries[index]
-		if pre := len(e.preallocated); pre > 0 {
-			e.nextBatch = max(e.nextBatch, count-pre)
-			return
-		}
-		e.preallocated = r.factories[index](count)
+		r.preallocateIndex(index, count)
 	}
 	panic(faults.New(`can not preallocate an unregistered Waddable`).
 		With(`id`, name))
