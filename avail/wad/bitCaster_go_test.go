@@ -23,6 +23,30 @@ func (bb *bitBuffer) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
+func Benchmark_Uint(b *testing.B) {
+	values := make([]uint, valueCount)
+	r := rand.New(rand.NewSource(0))
+	for i := range valueCount {
+		values[i] = uint(r.Uint64())
+	}
+	bb := newBitBuffer()
+
+	test := func(b *testing.B, bc bitCaster) {
+		for b.Loop() {
+			for _, v := range values {
+				bc.writeUint(bb, v)
+				v2 := bc.readUint(bb)
+				if v != v2 {
+					b.Fatalf(`incorrect value returned in: %d, out: %d`, v, v2)
+				}
+			}
+		}
+	}
+
+	b.Run(`Native`, func(b *testing.B) { test(b, newNativeCaster()) })
+	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isUint64, isBigEndian)) })
+}
+
 func Benchmark_Uint8(b *testing.B) {
 	values := make([]uint8, valueCount)
 	r := rand.New(rand.NewSource(0))
@@ -44,7 +68,7 @@ func Benchmark_Uint8(b *testing.B) {
 	}
 
 	b.Run(`Native`, func(b *testing.B) { test(b, newNativeCaster()) })
-	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
+	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isUint64, isBigEndian)) })
 }
 
 func Benchmark_Uint16(b *testing.B) {
@@ -68,7 +92,7 @@ func Benchmark_Uint16(b *testing.B) {
 	}
 
 	b.Run(`Native`, func(b *testing.B) { test(b, newNativeCaster()) })
-	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
+	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isUint64, isBigEndian)) })
 }
 
 func Benchmark_Uint32(b *testing.B) {
@@ -92,7 +116,7 @@ func Benchmark_Uint32(b *testing.B) {
 	}
 
 	b.Run(`Native`, func(b *testing.B) { test(b, newNativeCaster()) })
-	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
+	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isUint64, isBigEndian)) })
 }
 
 func Benchmark_Uint64(b *testing.B) {
@@ -116,7 +140,7 @@ func Benchmark_Uint64(b *testing.B) {
 	}
 
 	b.Run(`Native`, func(b *testing.B) { test(b, newNativeCaster()) })
-	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
+	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isUint64, isBigEndian)) })
 }
 
 func Benchmark_Float32(b *testing.B) {
@@ -140,7 +164,7 @@ func Benchmark_Float32(b *testing.B) {
 	}
 
 	b.Run(`Native`, func(b *testing.B) { test(b, newNativeCaster()) })
-	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
+	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isUint64, isBigEndian)) })
 }
 
 func Benchmark_Float64(b *testing.B) {
@@ -164,5 +188,5 @@ func Benchmark_Float64(b *testing.B) {
 	}
 
 	b.Run(`Native`, func(b *testing.B) { test(b, newNativeCaster()) })
-	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isBigEndian)) })
+	b.Run(`Default`, func(b *testing.B) { test(b, newDefaultCaster(isUint64, isBigEndian)) })
 }

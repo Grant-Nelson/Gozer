@@ -7,6 +7,7 @@ import (
 )
 
 type bitCaster interface {
+	readUint(r io.Reader) uint
 	readUint8(r io.Reader) uint8
 	readUint16(r io.Reader) uint16
 	readUint32(r io.Reader) uint32
@@ -14,6 +15,7 @@ type bitCaster interface {
 	readFloat32(r io.Reader) float32
 	readFloat64(r io.Reader) float64
 
+	writeUint(w io.Writer, v uint)
 	writeUint8(w io.Writer, v uint8)
 	writeUint16(w io.Writer, v uint16)
 	writeUint32(w io.Writer, v uint32)
@@ -28,30 +30,42 @@ func newBitCaster(needUint64, needBigEndian bool) bitCaster {
 	if newNativeCaster != nil && needUint64 == isUint64 && needBigEndian == isBigEndian {
 		return newNativeCaster()
 	}
-	return newDefaultCaster(needBigEndian)
+	return newDefaultCaster(needUint64, needBigEndian)
 }
 
 type defaultCaster struct {
-	bo   binary.ByteOrder
-	buf1 []byte
-	buf2 []byte
-	buf4 []byte
-	buf8 []byte
+	bo            binary.ByteOrder
+	buf1          []byte
+	buf2          []byte
+	buf4          []byte
+	buf8          []byte
+	bufU          []byte
+	needUint64    bool
+	needBigEndian bool
 }
 
-func newDefaultCaster(needBigEndian bool) bitCaster {
+func newDefaultCaster(needUint64, needBigEndian bool) bitCaster {
 	var bo binary.ByteOrder = binary.LittleEndian
 	if needBigEndian {
 		bo = binary.BigEndian
 	}
 	buf := [8]byte{}
 	return &defaultCaster{
-		bo:   bo,
-		buf1: buf[:1],
-		buf2: buf[:2],
-		buf4: buf[:4],
-		buf8: buf[:8],
+		bo:            bo,
+		buf1:          buf[:1],
+		buf2:          buf[:2],
+		buf4:          buf[:4],
+		buf8:          buf[:8],
+		needUint64:    needUint64,
+		needBigEndian: needBigEndian,
 	}
+}
+
+func (bc *defaultCaster) readUint(r io.Reader) uint {
+	if bc.needUint64 {
+		return uint(bc.readUint64(r))
+	}
+	return uint(bc.readUint32(r))
 }
 
 func (bc *defaultCaster) readUint8(r io.Reader) uint8 {
@@ -80,6 +94,14 @@ func (bc *defaultCaster) readFloat32(r io.Reader) float32 {
 
 func (bc *defaultCaster) readFloat64(r io.Reader) float64 {
 	return math.Float64frombits(bc.readUint64(r))
+}
+
+func (bc *defaultCaster) writeUint(w io.Writer, v uint) {
+	if bc.needUint64 {
+		bc.writeUint64(w, uint64(v))
+		return
+	}
+	bc.writeUint32(w, uint32(v))
 }
 
 func (bc *defaultCaster) writeUint8(w io.Writer, v uint8) {

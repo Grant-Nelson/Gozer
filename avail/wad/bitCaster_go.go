@@ -17,6 +17,8 @@ type nativeCaster struct {
 	buf2       []byte
 	buf4       []byte
 	buf8       []byte
+	bufU       []byte
+	ptrUint    *uint
 	ptrUint8   *uint8
 	ptrUint16  *uint16
 	ptrUint32  *uint32
@@ -30,11 +32,17 @@ func init() { newNativeCaster = createNativeCaster }
 func createNativeCaster() bitCaster {
 	buf := [8]byte{}
 	bufPtr := unsafe.Pointer(&buf[0])
+	bufU := buf[:4]
+	if isUint64 {
+		bufU = buf[:8]
+	}
 	return &nativeCaster{
 		buf1:       buf[:1],
 		buf2:       buf[:2],
 		buf4:       buf[:4],
 		buf8:       buf[:8],
+		bufU:       bufU,
+		ptrUint:    (*uint)(bufPtr),
 		ptrUint8:   (*uint8)(bufPtr),
 		ptrUint16:  (*uint16)(bufPtr),
 		ptrUint32:  (*uint32)(bufPtr),
@@ -44,6 +52,7 @@ func createNativeCaster() bitCaster {
 	}
 }
 
+func (bc *nativeCaster) readUint(r io.Reader) uint       { read(r, bc.bufU); return *bc.ptrUint }
 func (bc *nativeCaster) readUint8(r io.Reader) uint8     { read(r, bc.buf1); return *bc.ptrUint8 }
 func (bc *nativeCaster) readUint16(r io.Reader) uint16   { read(r, bc.buf2); return *bc.ptrUint16 }
 func (bc *nativeCaster) readUint32(r io.Reader) uint32   { read(r, bc.buf4); return *bc.ptrUint32 }
@@ -51,6 +60,7 @@ func (bc *nativeCaster) readUint64(r io.Reader) uint64   { read(r, bc.buf8); ret
 func (bc *nativeCaster) readFloat32(r io.Reader) float32 { read(r, bc.buf4); return *bc.ptrFloat32 }
 func (bc *nativeCaster) readFloat64(r io.Reader) float64 { read(r, bc.buf8); return *bc.ptrFloat64 }
 
+func (bc *nativeCaster) writeUint(w io.Writer, v uint)       { *bc.ptrUint = v; write(w, bc.bufU) }
 func (bc *nativeCaster) writeUint8(w io.Writer, v uint8)     { *bc.ptrUint8 = v; write(w, bc.buf1) }
 func (bc *nativeCaster) writeUint16(w io.Writer, v uint16)   { *bc.ptrUint16 = v; write(w, bc.buf2) }
 func (bc *nativeCaster) writeUint32(w io.Writer, v uint32)   { *bc.ptrUint32 = v; write(w, bc.buf4) }
