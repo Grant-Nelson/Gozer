@@ -9,8 +9,8 @@ import (
 )
 
 type Waddable interface {
-	Wad(w *Writer)
-	UnWad(w *Reader)
+	Wad(*Writer)
+	UnWad(*Reader)
 }
 
 const (

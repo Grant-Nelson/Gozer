@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Grant-Nelson/Gozer/compiler/ir/wad"
+	"github.com/Grant-Nelson/Gozer/avail/wad"
 )
 
 // Is determines if the given value is of the given type.

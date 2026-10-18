@@ -6,31 +6,38 @@ import (
 )
 
 type Writer struct {
-	w      io.Writer
-	reg    *Registry
-	bc     bitCaster
+	w   io.Writer
+	reg *Registry
+	bc  bitCaster
+
+	useUint64    bool
+	useBigEndian bool
+
 	fnInt  func(int)
 	fnUint func(uint)
 }
 
 func NewWriter(w io.Writer) *Writer {
-	// Write wad header information
-	var flags byte
+	header := []byte{version, 0}
 	if isUint64 {
-		flags |= 0x01
+		header[1] |= 0x01
 	}
 	if isBigEndian {
-		flags |= 0x02
+		header[1] |= 0x02
 	}
-	write(w, []byte{version, flags})
+	write(w, header)
+	return newWriterNoHeader(w, isUint64, isBigEndian)
+}
 
-	// Create wad writer
+func newWriterNoHeader(w io.Writer, useUint64, useBigEndian bool) *Writer {
 	wad := &Writer{
-		w:   w,
-		reg: defaultRegistry.clone(),
-		bc:  newBitCaster(isUint64, isBigEndian),
+		w:            w,
+		reg:          defaultRegistry.clone(),
+		bc:           newBitCaster(useUint64, useBigEndian),
+		useUint64:    useUint64,
+		useBigEndian: useBigEndian,
 	}
-	if isUint64 {
+	if useUint64 {
 		wad.fnInt = wad.intVia64
 		wad.fnUint = wad.uintVia64
 	} else {
@@ -81,7 +88,7 @@ func (wad *Writer) Complex128(v complex128) {
 }
 
 func (wad *Writer) Bytes(v []byte) {
-	wad.Int(len(v))
+	wad.Uint32(uint32(len(v)))
 	write(wad.w, v)
 }
 
@@ -107,7 +114,7 @@ func (wad *Writer) Int16Slice(v []int16)     { wad.slice(wad.Int16, v) }
 func (wad *Writer) Int32Slice(v []int32)     { wad.slice(wad.Int32, v) }
 func (wad *Writer) Int64Slice(v []int64)     { wad.slice(wad.Int64, v) }
 func (wad *Writer) StringSlice(v []string)   { wad.slice(wad.String, v) }
-func (wad *Writer) Uint8Slice(v []uint8)     { wad.slice(wad.Uint8, v) }
+func (wad *Writer) Uint8Slice(v []uint8)     { wad.Bytes(v) }
 func (wad *Writer) Uint16Slice(v []uint16)   { wad.slice(wad.Uint16, v) }
 func (wad *Writer) Uint32Slice(v []uint32)   { wad.slice(wad.Uint32, v) }
 func (wad *Writer) Uint64Slice(v []uint64)   { wad.slice(wad.Uint64, v) }

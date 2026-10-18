@@ -22,7 +22,6 @@ type Reader struct {
 // expected to be read on the same machine as it was written.
 // If the read data doesn't match, then this will panic.
 func NewReader(r io.Reader) *Reader {
-	// Read wad header information
 	header := []byte{0, 0}
 	read(r, header)
 	if version != header[0] {
@@ -30,21 +29,18 @@ func NewReader(r io.Reader) *Reader {
 			With(`read version`, header[0]).
 			With(`current version`, version))
 	}
-	var needUint64, needBigEndian bool
-	if header[1]&0x01 != 0x00 {
-		needUint64 = true
-	}
-	if header[1]&0x02 != 0x00 {
-		needBigEndian = true
-	}
+	useUint64 := header[1]&0x01 != 0x00
+	useBigEndian := header[1]&0x02 != 0x00
+	return newReaderNoHeader(r, useUint64, useBigEndian)
+}
 
-	// Create wad reader
+func newReaderNoHeader(r io.Reader, useUint64, useBigEndian bool) *Reader {
 	wad := &Reader{
 		r:   r,
 		reg: defaultRegistry.clone(),
-		bc:  newBitCaster(needUint64, needBigEndian),
+		bc:  newBitCaster(useUint64, useBigEndian),
 	}
-	if needUint64 {
+	if useUint64 {
 		wad.fnInt = wad.intVia64
 		wad.fnUint = wad.uintVia64
 	} else {
@@ -86,7 +82,7 @@ func (wad *Reader) Complex128() complex128 {
 }
 
 func (wad *Reader) Bytes() []byte {
-	length := wad.Int()
+	length := wad.Uint32()
 	data := make([]byte, length)
 	read(wad.r, data)
 	return data
@@ -99,14 +95,15 @@ func (wad *Reader) Wad[T Waddable]() T {
 		return zero
 	}
 	w := wad.reg.fromIndex(i)
-	t, ok := w.(T)
-	if !ok {
-		panic(faults.New(`failed to convert Waddable into expected type`).
-			With(`waddable`, w).
-			WithF(`type`, `%T`, t))
+	if t, ok := w.(T); ok {
+		t.UnWad(wad)
+		return t
 	}
-	t.UnWad(wad)
-	return t
+	var zero T
+	panic(faults.New(`failed to convert Waddable into expected type`).
+		With(`waddable`, w).
+		WithF(`expected`, `%T`, zero).
+		WithF(`type`, `%T`, w))
 }
 
 func (wad *Reader) basicSlice[T any](elem func() T) []T {
@@ -126,7 +123,7 @@ func (wad *Reader) Int16Slice() []int16     { return wad.basicSlice(wad.Int16) }
 func (wad *Reader) Int32Slice() []int32     { return wad.basicSlice(wad.Int32) }
 func (wad *Reader) Int64Slice() []int64     { return wad.basicSlice(wad.Int64) }
 func (wad *Reader) StringSlice() []string   { return wad.basicSlice(wad.String) }
-func (wad *Reader) Uint8Slice() []uint8     { return wad.basicSlice(wad.Uint8) }
+func (wad *Reader) Uint8Slice() []uint8     { return wad.Bytes() }
 func (wad *Reader) Uint16Slice() []uint16   { return wad.basicSlice(wad.Uint16) }
 func (wad *Reader) Uint32Slice() []uint32   { return wad.basicSlice(wad.Uint32) }
 func (wad *Reader) Uint64Slice() []uint64   { return wad.basicSlice(wad.Uint64) }

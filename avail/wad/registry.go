@@ -18,8 +18,8 @@ func Register[P interface {
 	defaultRegistry.Register[P, T]()
 }
 
-func RegisterNP[T Waddable]() {
-	defaultRegistry.RegisterNP[T]()
+func RegisterNonPointer[T Waddable]() {
+	defaultRegistry.RegisterNonPointer[T]()
 }
 
 const maxReg = 0xFFFF
@@ -102,7 +102,7 @@ func (r *Registry) Register[P interface {
 	})
 }
 
-func (r *Registry) RegisterNP[T Waddable]() {
+func (r *Registry) RegisterNonPointer[T Waddable]() {
 	r.registerFactory[T](func(count int) []Waddable {
 		s := make([]T, count)
 		p := make([]Waddable, count)
@@ -161,7 +161,34 @@ func (r *Registry) fromIndex(i uint16) Waddable {
 	return r.factories[i-1](1)[0]
 }
 
-func (r *Registry) preallocateIndex(index uint16, count int) {
+func (r *Registry) getUseCountWithIndex(index uint16) int {
+	if int(index) >= len(r.entries) {
+		panic(faults.New(`can not get the "use count" with an out-of-bounds index`).
+			With(`index`, index).
+			With(`length`, len(r.entries)))
+	}
+	return r.entries[index].useCount
+}
+
+func (r *Registry) GetUseCount[T Waddable]() int {
+	name := typeName(reflect.TypeFor[T]())
+
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	if index, ok := r.lookup[name]; ok {
+		return r.getUseCountWithIndex(index)
+	}
+	panic(faults.New(`can not get the "use count" with an unregistered Waddable`).
+		With(`id`, name))
+}
+
+func (r *Registry) preallocateWithIndex(index uint16, count int) {
+	if int(index) >= len(r.entries) {
+		panic(faults.New(`can not preallocate types with an out-of-bounds index`).
+			With(`index`, index).
+			With(`length`, len(r.entries)))
+	}
 	e := r.entries[index]
 	if pre := len(e.preallocated); pre > 0 {
 		e.nextBatch = max(e.nextBatch, count-pre)
@@ -180,7 +207,8 @@ func (r *Registry) Preallocate[T Waddable](count int) {
 	defer r.lock.Unlock()
 
 	if index, ok := r.lookup[name]; ok {
-		r.preallocateIndex(index, count)
+		r.preallocateWithIndex(index, count)
+		return
 	}
 	panic(faults.New(`can not preallocate an unregistered Waddable`).
 		With(`id`, name))
