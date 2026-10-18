@@ -74,7 +74,7 @@ func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
 				p.Types = append(p.Types, stmt)
 			default:
 				c.addFault(faults.New(`unexpected AST node type`).
-					WithF(`type`, `%T`, stmt).
+					WithTypeOf(`type`, stmt).
 					With(`statement`, stmt).
 					With(`pos`, c.pos(stmt.Pos())))
 			}
@@ -117,7 +117,7 @@ func (c *converter) FromNode(n ast.Node) ir.Node {
 		return c.FromExpr(n)
 	default:
 		c.addFault(faults.New(`unexpected AST node type`).
-			WithF(`type`, `%T`, n).
+			WithTypeOf(`type`, n).
 			With(`pos`, c.pos(n.Pos())))
 		return nil
 	}
@@ -141,7 +141,7 @@ func (c *converter) FromDecl(d ast.Decl) ir.Stmt {
 		return c.FromFuncDecl(d)
 	default:
 		c.addFault(faults.New(`unexpected AST decl node type`).
-			WithF(`type`, `%T`, d).
+			WithTypeOf(`type`, d).
 			With(`pos`, c.pos(d.Pos())))
 		return nil
 	}
@@ -164,7 +164,7 @@ func (c *converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
 			ss.Add(c.FromTypeSpec(s))
 		default:
 			c.addFault(faults.New(`unexpected AST declaration node type`).
-				WithF(`type`, `%T`, s).
+				WithTypeOf(`type`, s).
 				With(`pos`, c.pos(s.Pos())))
 		}
 	}
@@ -182,7 +182,7 @@ func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDef {
 	typ, ok := obj.(*types.TypeName)
 	if !ok {
 		c.addFault(faults.New(`expected the object for the TypeSpec to be a TypeName`).
-			WithF(`type`, `%T`, obj).
+			WithTypeOf(`type`, obj).
 			With(`pos`, c.pos(s.Pos())).
 			With(`id`, s.Name.Name))
 	}
@@ -208,7 +208,7 @@ func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
 		tc, ok := obj.(*types.Const)
 		if !ok {
 			c.addFault(faults.New(`expected the object for the constant ValueSpec to be a Const`).
-				WithF(`type`, `%T`, obj).
+				WithTypeOf(`type`, obj).
 				With(`pos`, c.pos(s.Pos())).
 				With(`id`, n.Name))
 		}
@@ -236,7 +236,7 @@ func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
 		tv, ok := obj.(*types.Var)
 		if !ok {
 			c.addFault(faults.New(`expected the object for the variable TypeSpec to be a Var`).
-				WithF(`type`, `%T`, obj).
+				WithTypeOf(`type`, obj).
 				With(`pos`, c.pos(s.Pos())).
 				With(`id`, n.Name))
 		}
@@ -270,7 +270,7 @@ func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDef {
 	if !ok {
 		c.addFault(faults.From(`unexpected object type for a function declaration`).
 			With(`object`, obj).
-			WithF(`type`, `%T`, obj).
+			WithTypeOf(`type`, obj).
 			With(`pos`, c.pos(df.Pos())))
 	}
 

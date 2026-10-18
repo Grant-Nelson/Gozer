@@ -73,15 +73,20 @@ func (wad *Reader) Bytes() []byte {
 	return data
 }
 
-func (wad *Reader) Wad[T any]() T {
+func (wad *Reader) Wad[T Waddable]() T {
 	i := wad.Uint16()
-	if i == 0 {
+	if i <= 0 {
 		var zero T
 		return zero
 	}
 	w := wad.reg.fromIndex[T](i, 1)[0]
-	w.UnWad(wad)
-	return w
+	if t, ok := w.(T); ok {
+		t.UnWad(wad)
+		return t
+	}
+	panic(faults.New(`unable to cast Waddable to target type`).
+		WithTypeFor[T](`target`).
+		WithTypeOf(`type`, w))
 }
 
 func (wad *Reader) basicSlice[T any](elem func() T) []T {
@@ -111,9 +116,7 @@ func (wad *Reader) PosSlice() []token.Pos   { return wad.basicSlice(wad.Pos) }
 
 func (wad *Reader) WadSlice[T Waddable, S ~[]T]() S {
 	count := wad.Uint32()
-
 	values := make(S, count)
-	wad.reg.Preallocate[T](int(count))
 	for i := range count {
 		values[i] = wad.Wad[T]()
 	}

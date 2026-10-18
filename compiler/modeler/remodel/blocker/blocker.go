@@ -189,7 +189,7 @@ func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
 			With(`pos`, fbb.pos(s.Pos())).
-			WithF(`type`, `%T`, s))
+			WithTypeOf(`type`, s))
 		return
 	}
 }
@@ -418,7 +418,7 @@ func (fbb *funcBlockBuilder) remodelBranchStmt(s *ir.BranchStmt) {
 		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
 			With(`pos`, fbb.pos(s.Pos())).
 			With(`branch`, s.Kind).
-			WithF(`type`, `%T`, s))
+			WithTypeOf(`type`, s))
 		return
 	}
 }
@@ -470,7 +470,7 @@ func (fbb *funcBlockBuilder) findBlockPos(s *ir.BranchStmt) token.Pos {
 	fbb.errGroup.Add(faults.New(`failed to find position for block`).
 		With(`pos`, fbb.pos(s.Pos())).
 		With(`branch`, s.Kind.String()).
-		WithF(`type`, `%T`, s))
+		WithTypeOf(`type`, s))
 	return token.NoPos
 }
 
@@ -483,7 +483,7 @@ func (fbb *funcBlockBuilder) remodelBreakBranchStmt(s *ir.BranchStmt) {
 		fbb.errGroup.Add(faults.New(`failed to find break block for a pos`).
 			With(`block pos`, fbb.pos(pos)).
 			With(`branch`, s.Kind.String()).
-			WithF(`type`, `%T`, s).
+			WithTypeOf(`type`, s).
 			With(`pos`, fbb.pos(s.Pos())))
 		return
 	}
@@ -503,7 +503,7 @@ func (fbb *funcBlockBuilder) remodelContinueBranchStmt(s *ir.BranchStmt) {
 		fbb.errGroup.Add(faults.New(`failed to find continue block for a pos`).
 			With(`block pos`, fbb.pos(pos)).
 			With(`branch`, s.Kind.String()).
-			WithF(`type`, `%T`, s).
+			WithTypeOf(`type`, s).
 			With(`pos`, fbb.pos(s.Pos())))
 		return
 	}
@@ -521,7 +521,7 @@ func (fbb *funcBlockBuilder) remodelFallThroughBranchStmt(s *ir.BranchStmt) {
 		fbb.errGroup.Add(faults.New(`unexpected label on a fall through branch statement`).
 			With(`pos`, fbb.pos(s.Pos())).
 			With(`branch`, s.Kind.String()).
-			WithF(`type`, `%T`, s))
+			WithTypeOf(`type`, s))
 	}
 
 	crumb.DropMsg(`Unimplemented`) // TODO: Implement
@@ -566,7 +566,7 @@ func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, stack []ir.Expr, e ir.Expr) 
 	default:
 		fbb.errGroup.Add(faults.New(`unhandled expression node in blocker`).
 			With(`pos`, fbb.pos(e.Pos())).
-			WithF(`type`, `%T`, e))
+			WithTypeOf(`type`, e))
 		return
 	}
 }
@@ -581,7 +581,7 @@ func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, stack []ir.Expr, e *ir.
 		fbb.errGroup.Add(faults.New(`unhandled unary expression node in blocker`).
 			With(`pos`, fbb.pos(e.Pos())).
 			With(`op`, e.Op.String()).
-			WithF(`type`, `%T`, e))
+			WithTypeOf(`type`, e))
 		return
 	}
 }
@@ -610,7 +610,7 @@ func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ir.Expr, e *ir
 		fbb.errGroup.Add(faults.New(`unhandled binary expression node in blocker`).
 			With(`pos`, fbb.pos(e.Pos())).
 			With(`op`, e.Op.String()).
-			WithF(`type`, `%T`, e))
+			WithTypeOf(`type`, e))
 		return
 	}
 }

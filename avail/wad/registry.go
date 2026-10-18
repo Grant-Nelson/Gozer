@@ -31,7 +31,7 @@ type (
 		factories []factory
 	}
 
-	factory func(count int) any
+	factory func(count int) []Waddable
 )
 
 func newRegistry() *Registry {
@@ -74,10 +74,13 @@ func (r *Registry) registerFactory[T any](f factory) {
 	r.factories = append(r.factories, f)
 }
 
-func (r *Registry) Register[P *T, T any]() {
-	r.registerFactory[P](func(count int) any {
+func (r *Registry) Register[P interface {
+	*T
+	Waddable
+}, T any]() {
+	r.registerFactory[P](func(count int) []Waddable {
 		s := make([]T, count)
-		p := make([]P, count)
+		p := make([]Waddable, count)
 		for i, e := range s {
 			p[i] = P(&e)
 		}
@@ -85,13 +88,18 @@ func (r *Registry) Register[P *T, T any]() {
 	})
 }
 
-func (r *Registry) RegisterNonPointer[T any]() {
-	r.registerFactory[T](func(count int) any {
-		return make([]T, count)
+func (r *Registry) RegisterNonPointer[T Waddable]() {
+	r.registerFactory[T](func(count int) []Waddable {
+		s := make([]T, count)
+		p := make([]Waddable, count)
+		for i, e := range s {
+			p[i] = e
+		}
+		return p
 	})
 }
 
-func (r *Registry) toIndex[T any](w any) uint16 {
+func (r *Registry) toIndex(w Waddable) uint16 {
 	v := reflect.ValueOf(w)
 	if v.Kind() == reflect.Pointer && v.IsNil() {
 		return 0
@@ -108,7 +116,7 @@ func (r *Registry) toIndex[T any](w any) uint16 {
 		With(`type`, name))
 }
 
-func (r *Registry) fromIndex[T any](i uint16, count int) []T {
+func (r *Registry) fromIndex[T any](i uint16, count int) []Waddable {
 	if i <= 0 {
 		return nil
 	}
@@ -121,5 +129,5 @@ func (r *Registry) fromIndex[T any](i uint16, count int) []T {
 			With(`index`, i))
 	}
 
-	return r.factories[i-1](count).([]T)
+	return r.factories[i-1](count)
 }

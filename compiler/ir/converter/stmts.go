@@ -98,7 +98,7 @@ func (c *converter) FromStmt(s ast.Stmt) ir.Stmt {
 		return c.FromRangeStmt(s)
 	default:
 		c.addFault(faults.New(`unexpected AST statement type`).
-			WithF(`type`, `%T`, s).
+			WithTypeOf(`type`, s).
 			With(`pos`, c.pos(s.Pos())))
 		return nil
 	}
@@ -164,7 +164,7 @@ func (c *converter) FromBranchStmt(s *ast.BranchStmt) *ir.BranchStmt {
 			c.addFault(faults.From(`unexpected object type for a branch label`).
 				With(`token`, s.Tok).
 				With(`object`, obj).
-				WithF(`type`, `%T`, obj).
+				WithTypeOf(`type`, obj).
 				With(`pos`, c.pos(s.Pos())))
 		}
 		bs.Label = lbl
@@ -195,7 +195,7 @@ func (c *converter) FromCaseClauseSlice(s *ast.BlockStmt) []*ir.CaseClause {
 		cc, ok := ct.(*ast.CaseClause)
 		if !ok {
 			c.addFault(faults.New(`expected case clause`).
-				WithF(`type`, `%T`, ct).
+				WithTypeOf(`type`, ct).
 				With(`pos`, c.pos(ct.Pos())).
 				With(`index`, i))
 			continue
@@ -228,7 +228,7 @@ func (c *converter) FromCommClauseSlice(s *ast.BlockStmt) []*ir.CommClause {
 		cc, ok := ct.(*ast.CommClause)
 		if !ok {
 			c.addFault(faults.New(`expected comm clause`).
-				WithF(`type`, `%T`, ct).
+				WithTypeOf(`type`, ct).
 				With(`pos`, c.pos(ct.Pos())).
 				With(`index`, i))
 			continue
@@ -325,7 +325,7 @@ func (c *converter) FromLabeledStmt(s *ast.LabeledStmt) *ir.LabeledStmt {
 	if !ok {
 		c.addFault(faults.From(`unexpected object type for a branch label`).
 			With(`object`, obj).
-			WithF(`type`, `%T`, obj).
+			WithTypeOf(`type`, obj).
 			With(`pos`, c.pos(s.Pos())))
 	}
 
@@ -450,7 +450,7 @@ func (c *converter) ExpandFieldList(fl *ast.FieldList, kind string) []*ir.Param 
 			if !ok {
 				c.addFault(faults.From(`unexpected object type for a `+kind).
 					With(`object`, obj).
-					WithF(`type`, `%T`, obj).
+					WithTypeOf(`type`, obj).
 					With(`index`, len(params)).
 					With(`pos`, c.pos(id.Pos())))
 			}

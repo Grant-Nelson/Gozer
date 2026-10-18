@@ -121,6 +121,7 @@ Bar: true => Baz: true
 ```
 
 Key observations:
+
 - `var b Bar` is an untyped nil - comparing to nil returns false, calling methods panics
 - `var f *Foo` is a typed nil - comparing to nil returns false, but methods can be called
 - `b = f` assigns a typed nil to the interface - now `b != nil` is true
@@ -168,6 +169,7 @@ default:
 ```
 
 Transpilation must:
+
 1. Extract the type info from the Go interface
 2. Check if the type implements the target interface (for interface assertions)
 3. Check if the type matches exactly (for concrete type assertions)
@@ -406,7 +408,7 @@ Key observations:
 The basic type dictionaries have the following interfaces for operations:
 
 | Operator Group | Operators | Applies To |
-|:--|:-:|:--|
+| :-- | :-: | :-- |
 | AllTypes | (copy and zero) | all types |
 | Addition / Concatenation | `+` (binary) | strings, integers, floats, complex |
 | Arithmetic | `+` (binary/unary), `-` (binary/unary), `*`, `/` | integers, floats, complex |

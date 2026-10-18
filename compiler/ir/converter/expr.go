@@ -86,7 +86,7 @@ func (c *converter) FromExpr(e ast.Expr) ir.Expr {
 		return c.FromChanType(e)
 	default:
 		c.addFault(faults.New(`unexpected AST expression type`).
-			WithF(`type`, `%T`, e).
+			WithTypeOf(`type`, e).
 			With(`pos`, c.pos(e.Pos())))
 		return nil
 	}
@@ -118,7 +118,7 @@ func (c *converter) fromIdentDef(e *ast.Ident, obj types.Object) ir.Expr {
 		c.addFault(faults.New(`unexpected Def object for a naked identifier in an expression`).
 			With(`id`, e.Name).
 			With(`pos`, c.pos(e.Pos())).
-			WithF(`type`, `%T`, obj).
+			WithTypeOf(`type`, obj).
 			With(`object`, obj))
 		return nil
 	}
@@ -148,7 +148,7 @@ func (c *converter) fromIdentUses(e *ast.Ident, obj types.Object) ir.Expr {
 		c.addFault(faults.New(`unexpected Use object for a naked identifier in an expression`).
 			With(`id`, e.Name).
 			With(`pos`, c.pos(e.Pos())).
-			WithF(`type`, `%T`, obj).
+			WithTypeOf(`type`, obj).
 			With(`object`, obj))
 		return nil
 	}
@@ -248,7 +248,7 @@ func (c *converter) FromFuncLit(e *ast.FuncLit) *ir.FuncLit {
 	sig, ok := t.(*types.Signature)
 	if !ok {
 		c.addFault(faults.New(`expected a signature type for a function lit`).
-			WithF(`type`, `%T`, t).
+			WithTypeOf(`type`, t).
 			With(`t`, t).
 			With(`pos`, c.pos(e.Pos())))
 	}
