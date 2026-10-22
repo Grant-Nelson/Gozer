@@ -8,9 +8,9 @@ import (
 )
 
 type Reader struct {
-	r   io.Reader
-	reg *Registry
-	bc  bitCaster
+	r       io.Reader
+	bc      bitCaster
+	entries []regEntry
 }
 
 // NewReader creates a new Wad reader.
@@ -34,13 +34,11 @@ func NewReader(r io.Reader) *Reader {
 
 func newReaderNoHeader(r io.Reader, useUint64, useBigEndian bool) *Reader {
 	return &Reader{
-		r:   r,
-		reg: defaultRegistry.clone(),
-		bc:  newBitCaster(useUint64, useBigEndian),
+		r:       r,
+		bc:      newBitCaster(useUint64, useBigEndian),
+		entries: regSingleton.cloneEntries(),
 	}
 }
-
-func (wad *Reader) Registry() *Registry { return wad.reg }
 
 func (wad *Reader) Bool() bool       { return wad.Uint8() > 0 }
 func (wad *Reader) Int() int         { return int(wad.Uint()) }
@@ -79,11 +77,17 @@ func (wad *Reader) Wad[T Waddable]() T {
 		var zero T
 		return zero
 	}
-	w := wad.reg.fromIndex[T](i, 1)[0]
+	if int(i) > len(wad.entries) {
+		panic(faults.New(`Unable to read Waddable from registry with given index`).
+			With(`index`, i))
+	}
+
+	w := wad.entries[i-1].read(wad, 1)[0]
 	if t, ok := w.(T); ok {
 		t.UnWad(wad)
 		return t
 	}
+
 	panic(faults.New(`unable to cast Waddable to target type`).
 		WithTypeFor[T](`target`).
 		WithTypeOf(`type`, w))

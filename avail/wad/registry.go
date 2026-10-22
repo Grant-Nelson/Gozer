@@ -9,125 +9,118 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 )
 
-var defaultRegistry = newRegistry()
+var regSingleton = newRegistry()
 
 func Register[P interface {
 	*T
 	Waddable
 }, T any]() {
-	defaultRegistry.Register[P, T]()
+	regSingleton.Register[P, T]()
 }
 
 func RegisterNonPointer[T Waddable]() {
-	defaultRegistry.RegisterNonPointer[T]()
+	regSingleton.RegisterNonPointer[T]()
 }
 
 const maxReg = 0xFFFF
 
-type (
-	Registry struct {
-		lock      *sync.Mutex
-		lookup    map[string]uint16
-		factories []factory
-	}
+type regEntry interface {
+	read(r *Reader, count int) []Waddable
+	write(w *Writer, wad Waddable)
+}
 
-	factory func(count int) []Waddable
-)
+type registry struct {
+	lock    *sync.RWMutex
+	lookup  map[string]uint16
+	entries []regEntry
+}
 
-func newRegistry() *Registry {
-	return &Registry{
-		lock:   new(sync.Mutex),
+func newRegistry() *registry {
+	return &registry{
+		lock:   new(sync.RWMutex),
 		lookup: make(map[string]uint16),
 	}
 }
 
 func typeName(t reflect.Type) string { return t.PkgPath() + `.` + t.Name() }
 
-func (r *Registry) clone() *Registry {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	return &Registry{
-		lock:      new(sync.Mutex),
-		lookup:    maps.Clone(r.lookup),
-		factories: slices.Clone(r.factories),
-	}
+func (reg *registry) cloneEntries() []regEntry {
+	reg.lock.Lock()
+	defer reg.lock.Unlock()
+	return slices.Clone(reg.entries)
 }
 
-func (r *Registry) registerFactory[T any](f factory) {
+func (reg *registry) cloneEntriesWithLookup() (map[string]uint16, []regEntry) {
+	reg.lock.Lock()
+	defer reg.lock.Unlock()
+	return maps.Clone(reg.lookup), slices.Clone(reg.entries)
+}
+
+func (reg *registry) registerEntry[T any](entry regEntry) {
 	name := typeName(reflect.TypeFor[T]())
 
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	reg.lock.Lock()
+	defer reg.lock.Unlock()
 
-	if _, has := r.lookup[name]; has {
+	if _, has := reg.lookup[name]; has {
 		panic(faults.New(`Waddable has already been registered`).
 			With(`id`, name))
 	}
 
-	index := len(r.factories)
+	index := len(reg.entries)
 	if index >= maxReg {
 		panic(faults.New(`too many Waddables have been registered`).
 			With(`maximum`, maxReg))
 	}
 
-	r.lookup[name] = uint16(index + 1)
-	r.factories = append(r.factories, f)
+	reg.lookup[name] = uint16(index + 1)
+	reg.entries = append(reg.entries, entry)
 }
 
-func (r *Registry) Register[P interface {
+type ptrRegEntry[P interface {
+	*T
+	Waddable
+}, T any] struct{}
+
+func (ptrRegEntry[P, T]) read(r *Reader, count int) []Waddable {
+	s := make([]T, count)
+	p := make([]Waddable, count)
+	for i, e := range s {
+		wad := P(&e)
+		wad.UnWad(r)
+		p[i] = wad
+	}
+	return p
+}
+
+func (ptrRegEntry[P, T]) write(w *Writer, wad Waddable) {
+	wad.Wad(w)
+}
+
+func (reg *registry) Register[P interface {
 	*T
 	Waddable
 }, T any]() {
-	r.registerFactory[P](func(count int) []Waddable {
-		s := make([]T, count)
-		p := make([]Waddable, count)
-		for i, e := range s {
-			p[i] = P(&e)
-		}
-		return p
-	})
+	reg.registerEntry[P](ptrRegEntry[P, T]{})
 }
 
-func (r *Registry) RegisterNonPointer[T Waddable]() {
-	r.registerFactory[T](func(count int) []Waddable {
-		s := make([]T, count)
-		p := make([]Waddable, count)
-		for i, e := range s {
-			p[i] = e
-		}
-		return p
-	})
+type nonPtrRegEntry[T Waddable] struct{}
+
+func (nonPtrRegEntry[T]) read(r *Reader, count int) []Waddable {
+	s := make([]T, count)
+	p := make([]Waddable, count)
+	for i, e := range s {
+		wad := Waddable(e)
+		wad.UnWad(r)
+		p[i] = wad
+	}
+	return p
 }
 
-func (r *Registry) toIndex(w Waddable) uint16 {
-	v := reflect.ValueOf(w)
-	if v.Kind() == reflect.Pointer && v.IsNil() {
-		return 0
-	}
-	name := typeName(v.Type())
-
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
-	if index, ok := r.lookup[name]; ok {
-		return index
-	}
-	panic(faults.New(`Unable to write an unregistered Waddable`).
-		With(`type`, name))
+func (nonPtrRegEntry[T]) write(w *Writer, wad Waddable) {
+	wad.Wad(w)
 }
 
-func (r *Registry) fromIndex[T any](i uint16, count int) []Waddable {
-	if i <= 0 {
-		return nil
-	}
-
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
-	if int(i) > len(r.factories) {
-		panic(faults.New(`Unable to read Waddable from registry with given index`).
-			With(`index`, i))
-	}
-
-	return r.factories[i-1](count)
+func (reg *registry) RegisterNonPointer[T Waddable]() {
+	reg.registerEntry[T](nonPtrRegEntry[T]{})
 }

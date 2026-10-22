@@ -3,12 +3,16 @@ package wad
 import (
 	"go/token"
 	"io"
+	"reflect"
+
+	"github.com/Grant-Nelson/Gozer/avail/faults"
 )
 
 type Writer struct {
-	w   io.Writer
-	reg *Registry
-	bc  bitCaster
+	w       io.Writer
+	bc      bitCaster
+	lookup  map[string]uint16
+	entries []regEntry
 }
 
 func NewWriter(w io.Writer) *Writer {
@@ -24,14 +28,14 @@ func NewWriter(w io.Writer) *Writer {
 }
 
 func newWriterNoHeader(w io.Writer, useUint64, useBigEndian bool) *Writer {
+	lookup, entries := regSingleton.cloneEntriesWithLookup()
 	return &Writer{
-		w:   w,
-		reg: defaultRegistry.clone(),
-		bc:  newBitCaster(useUint64, useBigEndian),
+		w:       w,
+		bc:      newBitCaster(useUint64, useBigEndian),
+		lookup:  lookup,
+		entries: entries,
 	}
 }
-
-func (wad *Writer) Registry() *Registry { return wad.reg }
 
 func (wad *Writer) Bool(v bool) {
 	if v {
@@ -77,11 +81,21 @@ func (wad *Writer) Bytes(v []byte) {
 }
 
 func (wad *Writer) Wad[T Waddable](v T) {
-	i := wad.reg.toIndex(v)
-	wad.Uint16(i)
-	if i > 0 {
-		v.Wad(wad)
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Pointer && rv.IsNil() {
+		wad.Uint16(0)
+		return
 	}
+
+	name := typeName(rv.Type())
+	if index, ok := wad.lookup[name]; ok {
+		wad.Uint16(index)
+		wad.entries[index].write(wad, v)
+		return
+	}
+
+	panic(faults.New(`Unable to write an unregistered Waddable`).
+		With(`type`, name))
 }
 
 func (wad *Writer) slice[T any](elem func(T), values []T) {
