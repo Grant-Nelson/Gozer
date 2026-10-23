@@ -84,7 +84,7 @@ func (wad *Writer) Wad[T any](v T) {
 	name := typeName(rv.Type())
 	if index, ok := wad.regLookup[name]; ok {
 		wad.bc.writeUint16(wad.w, index)
-		wad.regWriters[index](wad, v)
+		wad.regWriters[index-1](wad, v)
 		return
 	}
 

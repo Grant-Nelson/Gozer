@@ -1,6 +1,7 @@
 package wad
 
 import (
+	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -38,7 +39,9 @@ func newRegistry() *registry {
 }
 
 func typeName(t reflect.Type) string {
-	return t.PkgPath() + `.` + t.Name()
+	name := t.String()
+	fmt.Printf("Name: %s\n", name)
+	return name
 }
 
 func (reg *registry) cloneReaders() []ReadFn {
