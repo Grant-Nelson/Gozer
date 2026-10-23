@@ -1,0 +1,58 @@
+package ir
+
+import "go/token"
+
+// RangeStmt is a node that represents a for statement with a range clause.
+type RangeStmt struct {
+	// ForPos is a position of "for" keyword
+	ForPos token.Pos
+
+	// Key is the first value from the range. May be nil.
+	Key Expr
+
+	// Value is the second value from the range. May be nil.
+	Value Expr
+
+	// Define is set true if the key and value are being created via this assignment
+	// or set false if the variables exist and are being overwritten.
+	// This has no affect if key and value.
+	Define bool
+
+	// X is the value being ranged over
+	X Expr
+
+	// Body is the statements in the body of the loop.
+	Body []Stmt
+}
+
+var (
+	_ Stmt   = (*RangeStmt)(nil)
+	_ Parent = (*RangeStmt)(nil)
+)
+
+func (*RangeStmt) StmtNode() {}
+
+func (n *RangeStmt) Pos() token.Pos { return n.ForPos }
+
+func (n *RangeStmt) String() string {
+	def := `=`
+	if n.Define {
+		def = `:=`
+	}
+	head := ``
+	if n.Value != nil {
+		head = paren(n.Key) + `, ` + paren(n.Value) + ` ` + def + ` `
+	} else if n.Key != nil {
+		head = paren(n.Key) + ` ` + def + ` `
+	}
+	return `for (` + head + `range ` + paren(n.X) + `)` + bodyString(n.Body)
+}
+
+func (n *RangeStmt) ChildCount() int { return 3 + len(n.Body) }
+
+func (n *RangeStmt) Children(yield func(Node) bool) {
+	_ = YieldNode(n.Key, yield) &&
+		YieldNode(n.Value, yield) &&
+		YieldNode(n.X, yield) &&
+		YieldSlice(n.Body, yield)
+}

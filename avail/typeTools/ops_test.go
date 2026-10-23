@@ -1,0 +1,355 @@
+package typeTools
+
+import (
+	"go/token"
+	"go/types"
+	"strings"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+
+	"github.com/Grant-Nelson/Gozer/avail/astTools"
+)
+
+func lines(lines ...string) string { return strings.Join(lines, "\n") }
+
+func checkOps(t *testing.T, expr, exp string) {
+	t.Helper()
+	checkOpsWithFile(t, "package t\n", token.NoPos, expr, exp)
+}
+
+func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp string) {
+	t.Helper()
+
+	ps, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
+	if err != nil {
+		t.Errorf(`Failed to parse package: %v`, err)
+		return
+	}
+
+	if !pos.IsValid() {
+		pos = ps.Syntax[0].FileEnd - 1
+	}
+
+	tv, err := types.Eval(ps.Fset, ps.Types, pos, expr)
+	if err != nil {
+		t.Errorf(`Failed to parse expression: %v`, err)
+		return
+	}
+
+	got := Ops(tv.Type).String()
+	got = strings.ReplaceAll(got, `command-line-arguments`, `$`)
+
+	if diff := cmp.Diff(exp, got); len(diff) > 0 {
+		diff = strings.TrimSpace(diff)
+		diff = strings.ReplaceAll(diff, "\n", "\n    ")
+		t.Errorf("Unexpected results:\ntype: %s\ndiff: %s\ngot: %q\nexp: %q",
+			tv.Type.String(), diff, got, exp)
+	}
+}
+
+func Test_Ops_Arrays(t *testing.T) {
+	checkOps(t, `[3]int`,
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+
+	checkOps(t, `[...]byte{1, 2, 3}`,
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
+}
+
+func Test_Ops_PointersToArrays(t *testing.T) {
+	checkOps(t, `&[3]int{1,2,3}`,
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+
+	checkOps(t, `*[3]int`,
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+
+	checkOps(t, `*[3]byte`,
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
+
+	checkOps(t, `(*int)(nil)`,
+		`IsNil|Comparable|Orderable|Ref`)
+
+	checkOps(t, `**[3]byte`,
+		`IsNil|Comparable|Orderable|Ref`)
+
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`type Foo [3]int`,
+	), token.NoPos, `new(Foo)`,
+		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+}
+
+func Test_Ops_Slices(t *testing.T) {
+	checkOps(t, `[]int`,
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+
+	checkOps(t, `[]*float64`,
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:*float64, Slice:[]*float64, Range1:int, Range2:*float64 }`)
+
+	checkOps(t, `[]byte`,
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
+
+	checkOps(t, `*[]byte`,
+		`IsNil|Comparable|Orderable|Ref`)
+
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`type Bar struct{ v int }`,
+		`type Foo []*Bar`,
+	), token.NoPos, `Foo`,
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:*$.Bar, Slice:$.Foo, Range1:int, Range2:*$.Bar }`)
+}
+
+func Test_Ops_BooleanTypes(t *testing.T) {
+	checkOps(t, `bool`, `Comparable|Ref`)
+	checkOps(t, `false`, `Comparable|Ref`)
+
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`type Foo bool`,
+	), token.NoPos, `Foo`,
+		`Comparable|Ref`)
+}
+
+func Test_Ops_IntegerTypes(t *testing.T) {
+	checkOps(t, `int`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:int }`)
+
+	checkOps(t, `uint`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:uint }`)
+
+	checkOps(t, `int64`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:int64 }`)
+
+	checkOps(t, `42`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:untyped int }`)
+}
+
+func Test_Ops_FloatTypes(t *testing.T) {
+	checkOps(t, `float32`,
+		`Add|Arith|Comparable|Orderable|Ref|Complex`+
+			`{ Complex:complex64 }`)
+
+	checkOps(t, `float64`,
+		`Add|Arith|Comparable|Orderable|Ref|Complex`+
+			`{ Complex:complex128 }`)
+
+	checkOps(t, `1.42`,
+		`Add|Arith|Comparable|Orderable|Ref|Complex`+
+			`{ Complex:untyped complex }`)
+}
+
+func Test_Ops_ComplexTypes(t *testing.T) {
+	checkOps(t, `complex128`,
+		`Add|Arith|Comparable|Ref|RealImag`+
+			`{ RealImag:float64 }`)
+
+	checkOps(t, `complex64`,
+		`Add|Arith|Comparable|Ref|RealImag`+
+			`{ RealImag:float32 }`)
+
+	checkOps(t, `1.42+6.2i`,
+		`Add|Arith|Comparable|Ref|RealImag`+
+			`{ RealImag:untyped float }`)
+
+	checkOps(t, `interface{float64|complex128}`,
+		`Add|Arith|Comparable|Ref`)
+}
+
+func Test_Ops_StringTypes(t *testing.T) {
+	checkOps(t, `string`,
+		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range|Range2`+
+			`{ Key:untyped int, Elem:uint8, Slice:string, Range1:int, Range2:rune }`)
+
+	checkOps(t, `"Hello"`,
+		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range|Range2`+
+			`{ Key:untyped int, Elem:uint8, Slice:untyped string, Range1:int, Range2:rune }`)
+
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`type Foo string`,
+	), token.NoPos, `Foo`,
+		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range|Range2`+
+			`{ Key:untyped int, Elem:uint8, Slice:$.Foo, Range1:int, Range2:rune }`)
+}
+
+func Test_Ops_RuneTypes(t *testing.T) {
+	checkOps(t, `rune`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:rune }`)
+
+	checkOps(t, `'☺'`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:untyped rune }`)
+}
+
+func Test_Ops_PointersTypes(t *testing.T) {
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`import "unsafe"`,
+		`var x = 10`,
+		`var p = unsafe.Pointer(&x)`,
+	), token.NoPos, `p`,
+		`IsNil|Comparable|Orderable|Ref`)
+
+	checkOps(t, `nil`, `IsNil|Ref`)
+}
+
+func Test_Ops_ChanTypes(t *testing.T) {
+	checkOps(t, `chan int`,
+		`Len|Cap|IsNil|Comparable|Range|Recv|Send`+
+			`{ Range1:int }`)
+
+	checkOps(t, `make(chan int, 3)`,
+		`Len|Cap|IsNil|Comparable|Range|Recv|Send`+
+			`{ Range1:int }`)
+
+	checkOps(t, `new(chan int)`,
+		`IsNil|Comparable|Orderable|Ref`)
+
+	checkOps(t, `chan<- int`,
+		`Len|Cap|IsNil|Comparable|Send`)
+
+	checkOps(t, `<-chan int`,
+		`Len|Cap|IsNil|Comparable|Range|Recv`+
+			`{ Range1:int }`)
+}
+
+func Test_Ops_UnionsTypes_Basics(t *testing.T) {
+	checkOps(t, `interface{String() string}`, `IsNil`)
+
+	checkOps(t, `interface{int|uint}`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:{int | uint} }`)
+
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`func Foo[T int|uint](t T) {`,
+		`	println(t)`,
+		`}`,
+	), token.Pos(40), `t`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:{int | uint} }`)
+
+	checkOps(t, `interface{int64|float64}`,
+		`Add|Arith|Comparable|Orderable|Ref`)
+
+	checkOps(t, `interface{String() string; int|uint}`,
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range`+
+			`{ Range1:{int | uint} }`)
+}
+
+func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
+	checkOps(t, `interface{~[]byte|~string}`,
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:{~[]byte | ~string}, Range1:int, Range2:{byte | rune} }`)
+
+	checkOps(t, `interface{~[]byte|string}`,
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:{~[]byte | string}, Range1:int, Range2:{byte | rune} }`)
+
+	checkOps(t, `interface{[]byte|~string}`,
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:{[]byte | ~string}, Range1:int, Range2:{byte | rune} }`)
+
+	checkOps(t, `interface{[]byte|string}`,
+		`Len|Ref|GetIndex|Slice|Range|Range2`+
+			`{ Key:untyped int, Elem:byte, Slice:{[]byte | string}, Range1:int, Range2:{byte | rune} }`)
+}
+
+func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
+	// From https://cs.opensource.google/go/x/exp/+/e88cd736:typeparams/normalize.go;l=66
+	// > In this example, the structural type restriction of P is ~string|int: A|B
+	// > expands to ~string|~[]byte|int|string, which reduces to ~string|~[]byte|int,
+	// > which when intersected with C (~string|~int) yields ~string|int.
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`type A interface{ ~string|~[]byte }`,
+		`type B interface{ int|string }`,
+		`type C interface { ~string|~int }`,
+		`type P interface{ A|B; C }`, // ~string|int
+	), token.Pos(45), `P`,
+		`Add|Comparable|Orderable|Ref|Range`+
+			`{ Range1:int }`)
+}
+
+func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
+	checkOps(t, `interface{~[][]byte|~[]string}`,
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:{[]byte | string}, Slice:{~[][]byte | ~[]string}, Range1:int, Range2:{[]byte | string} }`)
+
+	checkOps(t, `interface{~[]int|~[3]int}`,
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
+
+	checkOps(t, `interface{~[]int|~*[3]int}`,
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
+
+	checkOps(t, `interface{~[]byte|~[]int}`,
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+			`{ Key:untyped int, Elem:{byte | int}, Slice:{~[]byte | ~[]int}, Range1:int, Range2:{byte | int} }`)
+}
+
+func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
+	//checkOpsWithFile(t, lines(
+	//	`package t`,
+	//	`func Foo[T any, S ~[]T](s S) {`,
+	//	`	println(s)`,
+	//	`}`,
+	//), token.Pos(45), `s`,
+	//	`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range|Range2`+
+	//		`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
+
+	// TODO: This loses the type because of `typeparams.NormalTerms`.
+	//       Create a custom version of `NormalTerms` and/or a custom type system.
+	checkOpsWithFile(t, lines(
+		`package t`,
+		`func Foo[T any, S ~[]T | ~map[int]T](s S) {`,
+		`	println(s)`,
+		`}`,
+	), token.Pos(65), `s`,
+		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|Range|Range2`+
+			`{ Key:int, Elem:T, Range1:int, Range2:T }`)
+}
+
+func Test_Ops_FunctionsTypes(t *testing.T) {
+	// TODO: Create a test to check c.Walk has the correct value
+	//
+	//	package main
+	//
+	//	import "fmt"
+	//
+	//	type Cat struct{ lives int }
+	//
+	//	func (c *Cat) Walk(y func(int) bool) {
+	//		for i := range c.lives {
+	//			if !y(i) {
+	//				return
+	//			}
+	//		}
+	//	}
+	//
+	//	func main() {
+	//		c := &Cat{lives: 3}
+	//		for i := range c.Walk {
+	//			fmt.Println(i)
+	//		}
+	//	}
+}
+
+// TODO: Check comparable

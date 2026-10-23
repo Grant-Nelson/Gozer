@@ -5,13 +5,13 @@ import (
 	"os"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/project"
-	"github.com/Grant-Nelson/Gozer/project/loader"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/pkgDropper"
-	"github.com/Grant-Nelson/Gozer/project/loader/mods/typeChecker"
-	"github.com/Grant-Nelson/Gozer/project/modeler"
-	"github.com/Grant-Nelson/Gozer/project/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/loader"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/pkgDropper"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/typeChecker"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 type typeScriptTarget struct{}

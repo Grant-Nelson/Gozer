@@ -1,0 +1,299 @@
+package converter
+
+import (
+	"go/ast"
+	"go/token"
+	"go/types"
+	"maps"
+	"slices"
+
+	"golang.org/x/tools/go/packages"
+
+	"github.com/Grant-Nelson/Gozer/avail/assert"
+	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
+)
+
+func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Package, err error) {
+	defer errGroup.Recover(&err)
+
+	assert.NotNil(pkg)
+	assert.NotNil(pkg.TypesInfo)
+	assert.NotNil(pkg.Fset)
+
+	c := &converter{
+		FileSet: pkg.Fset,
+		Info:    pkg.TypesInfo,
+		Errors:  errGroup,
+	}
+	return c.FromPackage(pkg), nil
+}
+
+type converter struct {
+	FileSet   *token.FileSet
+	Info      *types.Info
+	Errors    *faults.ErrGroup
+	Imports   map[string]*ir.ImportDef
+	LinkNames map[token.Pos]*ir.LinkName
+}
+
+func (c *converter) pos(p token.Pos) string {
+	return c.FileSet.Position(p).String()
+}
+
+func (c *converter) addFault(f *faults.Fault) {
+	if c == nil || c.Errors == nil {
+		panic(f)
+	}
+	if err := c.Errors.Add(f); err != nil {
+		panic(err)
+	}
+}
+
+func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
+	p := &ir.Package{
+		Name:    pkg.Name,
+		Path:    pkg.PkgPath,
+		FileSet: pkg.Fset,
+		Sizes:   pkg.TypesSizes,
+	}
+
+	c.Imports = map[string]*ir.ImportDef{}
+	defer func() { c.Imports = nil }()
+
+	for _, f := range pkg.Syntax {
+		for _, stmt := range c.ExpandStmt(c.FromFile(f)) {
+			switch stmt := stmt.(type) {
+			case *ir.ConstDef:
+				p.Consts = append(p.Consts, stmt)
+			case *ir.VarDef:
+				p.Vars = append(p.Vars, stmt)
+			case *ir.FuncDef:
+				p.Funcs = append(p.Funcs, stmt)
+			case *ir.TypeDef:
+				p.Types = append(p.Types, stmt)
+			default:
+				c.addFault(faults.New(`unexpected AST node type`).
+					WithTypeOf(`type`, stmt).
+					With(`statement`, stmt).
+					With(`pos`, c.pos(stmt.Pos())))
+			}
+		}
+	}
+
+	paths := slices.Collect(maps.Keys(c.Imports))
+	slices.Sort(paths)
+	imports := make([]*ir.ImportDef, len(paths))
+	for i, path := range paths {
+		imports[i] = c.Imports[path]
+	}
+	p.Imports = imports
+
+	// TODO: Handle Comments / Directives
+	// TODO: Handle InitOrder
+
+	return p
+}
+
+func (c *converter) FromNodeSlice(ns []ast.Node) []ir.Node {
+	result := make([]ir.Node, 0, len(ns))
+	for _, n := range ns {
+		result = append(result, c.FromNode(n))
+	}
+	return result
+}
+
+func (c *converter) FromNode(n ast.Node) ir.Node {
+	switch n := n.(type) {
+	case nil:
+		return nil
+	case *ast.File:
+		return c.FromFile(n)
+	case ast.Decl:
+		return c.FromDecl(n)
+	case ast.Stmt:
+		return c.FromStmt(n)
+	case ast.Expr:
+		return c.FromExpr(n)
+	default:
+		c.addFault(faults.New(`unexpected AST node type`).
+			WithTypeOf(`type`, n).
+			With(`pos`, c.pos(n.Pos())))
+		return nil
+	}
+}
+
+func (c *converter) FromFile(f *ast.File) ir.Stmt {
+	ss := &ir.StmtListStmt{}
+	for _, d := range f.Decls {
+		ss.Add(c.FromDecl(d))
+	}
+	return c.SimplifyStmt(ss)
+}
+
+func (c *converter) FromDecl(d ast.Decl) ir.Stmt {
+	switch d := d.(type) {
+	case nil, *ast.BadDecl:
+		return nil
+	case *ast.GenDecl:
+		return c.FromGenDecl(d)
+	case *ast.FuncDecl:
+		return c.FromFuncDecl(d)
+	default:
+		c.addFault(faults.New(`unexpected AST decl node type`).
+			WithTypeOf(`type`, d).
+			With(`pos`, c.pos(d.Pos())))
+		return nil
+	}
+}
+
+func (c *converter) FromGenDecl(d *ast.GenDecl) ir.Stmt {
+	constant := d.Tok == token.CONST
+	ss := &ir.StmtListStmt{}
+	for _, s := range d.Specs {
+		switch s := s.(type) {
+		case *ast.ImportSpec:
+			// Ignore
+		case *ast.ValueSpec:
+			if constant {
+				ss.Add(c.FromConstSpec(s))
+			} else {
+				ss.Add(c.FromVarSpec(s))
+			}
+		case *ast.TypeSpec:
+			ss.Add(c.FromTypeSpec(s))
+		default:
+			c.addFault(faults.New(`unexpected AST declaration node type`).
+				WithTypeOf(`type`, s).
+				With(`pos`, c.pos(s.Pos())))
+		}
+	}
+	return c.SimplifyStmt(ss)
+}
+
+func (c *converter) FromTypeSpec(s *ast.TypeSpec) *ir.TypeDef {
+	obj, ok := c.Info.Defs[s.Name]
+	if !ok {
+		c.addFault(faults.New(`expected a def for a TypeSpec to exist`).
+			With(`pos`, c.pos(s.Pos())).
+			With(`id`, s.Name.Name))
+	}
+
+	typ, ok := obj.(*types.TypeName)
+	if !ok {
+		c.addFault(faults.New(`expected the object for the TypeSpec to be a TypeName`).
+			WithTypeOf(`type`, obj).
+			With(`pos`, c.pos(s.Pos())).
+			With(`id`, s.Name.Name))
+	}
+
+	td := &ir.TypeDef{TypeObj: typ}
+	if s.Doc != nil {
+		td.Comment = s.Doc.Text()
+		td.Directives = c.FromCommentGroup(s.Doc, td)
+	}
+	return td
+}
+
+func (c *converter) FromConstSpec(s *ast.ValueSpec) ir.Stmt {
+	ss := &ir.StmtListStmt{}
+	for _, n := range s.Names {
+		obj, ok := c.Info.Defs[n]
+		if !ok {
+			c.addFault(faults.New(`expected a def for a constant ValueSpec to exist`).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
+		}
+
+		tc, ok := obj.(*types.Const)
+		if !ok {
+			c.addFault(faults.New(`expected the object for the constant ValueSpec to be a Const`).
+				WithTypeOf(`type`, obj).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
+		}
+
+		cd := &ir.ConstDef{ConstObj: tc}
+		if s.Doc != nil {
+			cd.Comment = s.Doc.Text()
+			cd.Directives = c.FromCommentGroup(s.Doc, cd)
+		}
+		ss.Add(cd)
+	}
+	return c.SimplifyStmt(ss)
+}
+
+func (c *converter) FromVarSpec(s *ast.ValueSpec) ir.Stmt {
+	ss := &ir.StmtListStmt{}
+	for i, n := range s.Names {
+		obj, ok := c.Info.Defs[n]
+		if !ok {
+			c.addFault(faults.New(`expected a def for a variable ValueSpec to exist`).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
+		}
+
+		tv, ok := obj.(*types.Var)
+		if !ok {
+			c.addFault(faults.New(`expected the object for the variable TypeSpec to be a Var`).
+				WithTypeOf(`type`, obj).
+				With(`pos`, c.pos(s.Pos())).
+				With(`id`, n.Name))
+		}
+
+		vd := &ir.VarDef{VarObj: tv}
+		if len(s.Values) > i {
+			vd.Value = c.FromExpr(s.Values[i])
+		}
+		if s.Doc != nil {
+			vd.Comment = s.Doc.Text()
+			vd.Directives = c.FromCommentGroup(s.Doc, vd)
+		}
+		ss.Add(vd)
+	}
+	return c.SimplifyStmt(ss)
+}
+
+func (c *converter) FromFuncDecl(df *ast.FuncDecl) *ir.FuncDef {
+	if df == nil {
+		return nil
+	}
+
+	obj, ok := c.Info.Defs[df.Name]
+	if !ok {
+		c.addFault(faults.From(`expected a def object for a function declaration`).
+			With(`label`, df.Name).
+			With(`pos`, c.pos(df.Pos())))
+	}
+
+	fnObj, ok := obj.(*types.Func)
+	if !ok {
+		c.addFault(faults.From(`unexpected object type for a function declaration`).
+			With(`object`, obj).
+			WithTypeOf(`type`, obj).
+			With(`pos`, c.pos(df.Pos())))
+	}
+
+	fn := &ir.FuncDef{
+		FuncObj: fnObj,
+		Func: &ir.Func{
+			FuncPos:   df.Type.Func,
+			Signature: fnObj.Signature(),
+		},
+	}
+	if df.Doc != nil {
+		fn.Comment = df.Doc.Text()
+		fn.Directives = c.FromCommentGroup(df.Doc, fn)
+	}
+	c.setInitialBlock(fn.Func, df.Body, df.Type)
+	return fn
+}
+
+// setInitialBlock creates an initial block, populate it with current statements, add params.
+// Named return values are appended after input params so they are in scope
+// for the function body just like declared locals.
+func (c *converter) setInitialBlock(fn *ir.Func, fnBody *ast.BlockStmt, fnType *ast.FuncType) *ir.Block {
+	body := c.ExpandStmt(c.FromBlockStmt(fnBody))
+	params := append(c.ExpandParams(fnType), c.ExpandResults(fnType)...)
+	return fn.NewBlock(`initial`, body, params)
+}

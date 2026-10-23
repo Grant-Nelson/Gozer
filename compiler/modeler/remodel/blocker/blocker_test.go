@@ -1,0 +1,674 @@
+package blocker
+
+import (
+	"go/token"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"golang.org/x/tools/go/packages"
+
+	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/converter"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
+)
+
+func Test_Blocker_Label_ForwardJump(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	if i > 10 {`,
+		`		goto Finished`,
+		`	}`,
+		`	i += 10`,
+		`Finished:`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func $.doThing (i int) int {`,
+		`  block 0 (i int)<initial> {`,
+		`    if ((ref var i int) > 10) {`,
+		`      goto(block 1, [i])`,
+		`    }`,
+		`    (ref var i int) += 10`,
+		`    goto(block 1, [i])`,
+		`  }`,
+		`  block 1 (i int)<label Finished> {`,
+		`    return ref var i int`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Label_BackwardJump(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`Loop:`,
+		`   i++`,
+		`	if i < 10 {`,
+		`		goto Loop`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func $.doThing (i int) int {`,
+		`  block 0 (i int)<initial> {`,
+		`    goto(block 1, [i])`,
+		`  }`,
+		`  block 1 (i int)<Label Loop> {`,
+		`    ++(ref var i int)`,
+		`    if ((ref var i int) < 10) {`,
+		`      goto(block 1, [i])`,
+		`    }`,
+		`    return ref var i int`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Label_JumpToIf(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`Loop:`,
+		`	if i < 10 {`,
+		`       i++`,
+		`		goto Loop`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 (i int)<initial> {`,
+		`    goto(block 1, [i])`,
+		`  }`,
+		`  block 1 (i int)<Label Loop> {`,
+		`    if i < 10 {`,
+		`      ++i`,
+		`      goto(block 1, [i])`,
+		`    }`,
+		`    return i`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Label_BreakFor(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`ForLoop:`,
+		`   for j := 0; j < 10; j++ {`,
+		`       i++`,
+		`		if i > 10 {`,
+		`			break ForLoop`,
+		`       }`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 (i int)<initial> {`,
+		`    goto(block 1, [i])`,
+		`  }`,
+		`  block 1 (i int)<Label ForLoop> {`,
+		`    j:=0`,
+		`    goto(block 2, [i, j])`,
+		`  }`,
+		`  block 2 (i int, j int)<ForLoop: For-loop Body> {`,
+		`    if !(j < 10) {`,
+		`      goto(block 4, [i])`,
+		`    }`,
+		`    ++i`,
+		`    if i > 10 {`,
+		`      goto(block 4, [i])`,
+		`    }`,
+		`    goto(block 3, [i, j])`,
+		`  }`,
+		`  block 3 (i int, j int)<ForLoop: For-loop Post> {`,
+		`    ++j`,
+		`    goto(block 2, [i, j])`,
+		`  }`,
+		`  block 4 (i int)<ForLoop: After For-loop> {`,
+		`    return i`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Label_JumpForwardMiddleAndBack(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	if i < 3 {`,
+		`		goto ForLoop`,
+		`	}`,
+		`	i *= 2`,
+		`ForLoop:`,
+		`	for j := 0; j < 5; j++ {`,
+		`		if i > 10 {`,
+		`			break ForLoop`,
+		`		}`,
+		`		i++`,
+		`	}`,
+		`	if i < 3 {`,
+		`		goto ForLoop`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 (i int)<initial> {`,
+		`    if i < 3 {`,
+		`      goto(block 1, [i])`,
+		`    }`,
+		`    i*=2`,
+		`    goto(block 1, [i])`,
+		`  }`,
+		`  block 1 (i int)<Label ForLoop> {`,
+		`    j:=0`,
+		`    goto(block 2, [i, j])`,
+		`  }`,
+		`  block 2 (i int, j int)<ForLoop: For-loop Body> {`,
+		`    if !(j < 5) {`,
+		`      goto(block 4, [i])`,
+		`    }`,
+		`    if i > 10 {`,
+		`      goto(block 4, [i])`,
+		`    }`,
+		`    ++i`,
+		`    goto(block 3, [i, j])`,
+		`  }`,
+		`  block 3 (i int, j int)<ForLoop: For-loop Post> {`,
+		`    ++j`,
+		`    goto(block 2, [i, j])`,
+		`  }`,
+		`  block 4 (i int)<ForLoop: After For-loop> {`,
+		`    if i < 3 {`,
+		`      goto(block 1, [i])`,
+		`    }`,
+		`    return i`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Label_WhileLoop(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`Loop:`,
+		`	for {`,
+		`		if i < 10 {`,
+		`       	i++`,
+		`			continue Loop`,
+		`		}`,
+		`		break Loop`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 (i int)<initial> {`,
+		`    goto(block 1, [i])`,
+		`  }`,
+		`  block 1 (i int)<Label Loop> {`,
+		`    goto(block 2, [i])`,
+		`  }`,
+		`  block 2 (i int)<Loop: For-loop Body> {`,
+		`    if i < 10 {`,
+		`      ++i`,
+		`      goto(block 2, [i])`, // No post so jump to top of block
+		`    }`,
+		`    goto(block 3, [i])`, // Skip adding jump to top of block because of break
+		`  }`,
+		`  block 3 (i int)<Loop: After For-loop> {`,
+		`    return i`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Label_NestedFor(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(k int) int {`,
+		`OuterLoop:`,
+		`	for i := 0; i < 10; i++ {`,
+		`InnerLoop:`,
+		`		for j := 3; j >=0; j-- {`,
+		`       	k++`,
+		`			if k < 3 {`,
+		`				continue InnerLoop`,
+		`			}`,
+		`			if k > 10 {`,
+		`				break OuterLoop`,
+		`			}`,
+		`			continue OuterLoop`,
+		`		}`,
+		`	}`,
+		`	return k`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <Label OuterLoop> {`,
+		`    i:=0`,
+		`    goto(block 2)`,
+		`  }`,
+		`  block 2 <OuterLoop: For-loop Body> {`,
+		`    if !(i < 10) {`,
+		`      goto(block 4)`,
+		`    }`,
+		`    goto(block 5)`,
+		`  }`,
+		`  block 3 <OuterLoop: For-loop Post> {`,
+		`    ++i`,
+		`    goto(block 2)`,
+		`  }`,
+		`  block 4 <OuterLoop: After For-loop> {`,
+		`    return k`,
+		`  }`,
+		`  block 5 <Label InnerLoop> {`,
+		`    j:=3`,
+		`    goto(block 6)`,
+		`  }`,
+		`  block 6 <InnerLoop: For-loop Body> {`,
+		`    if !(j >= 0) {`,
+		`      goto(block 8)`,
+		`    }`,
+		`    ++k`,
+		`    if k < 3 {`,
+		`      goto(block 7)`,
+		`    }`,
+		`    if k > 10 {`,
+		`      goto(block 4)`,
+		`    }`,
+		`    goto(block 3)`,
+		`  }`,
+		`  block 7 <InnerLoop: For-loop Post> {`,
+		`    --j`,
+		`    goto(block 6)`,
+		`  }`,
+		`  block 8 <InnerLoop: After For-loop> {`,
+		`    goto(block 3)`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ForLoop_While(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	for i < 10 {`,
+		`       i++`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <For-loop Body> {`,
+		`    if !(i < 10) {`,
+		`      goto(block 2)`,
+		`    }`,
+		`    ++i`,
+		`    goto(block 1)`, // No post so jump to top of loop.
+		`  }`,
+		`  block 2 <After For-loop> {`,
+		`    return i`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ForLoop_Nested(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(k int) int {`,
+		`	for i := 0; i < 10; i++ {`,
+		`		for j := 0; j < 12; j++ {`,
+		`			k += j`,
+		`			if k < 100 {`,
+		`				continue`,
+		`			}`,
+		`       }`,
+		`	}`,
+		`   return k`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    i:=0`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 1 <For-loop Body> {`,
+		`    if !(i < 10) {`,
+		`      goto(block 3)`,
+		`    }`,
+		`    j:=0`,
+		`    goto(block 4)`,
+		`  }`,
+		`  block 2 <For-loop Post> {`,
+		`    ++i`,
+		`    goto(block 1)`,
+		`  }`,
+		`  block 3 <After For-loop> {`,
+		`    return k`,
+		`  }`,
+		`  block 4 <For-loop Body> {`,
+		`    if !(j < 12) {`,
+		`      goto(block 6)`,
+		`    }`,
+		`    k+=j`,
+		`    if k < 100 {`,
+		`      goto(block 5)`,
+		`    }`,
+		`    goto(block 5)`,
+		`  }`,
+		`  block 5 <For-loop Post> {`,
+		`    ++j`,
+		`    goto(block 4)`,
+		`  }`,
+		`  block 6 <After For-loop> {`,
+		`    goto(block 2)`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ImplicitReturns(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i *int) {`,
+		`	*i += 10`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    *i+=10`,
+		`    return`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ImplicitReturns_TerminatingIf(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	if i > 10 {`,
+		`		return 1`,
+		`	} else {`,
+		`		return -1`,
+		`	}`, // No implicit return added
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		`    if i > 10 {`,
+		`      return 1`,
+		`    } else {`,
+		`      return -1`,
+		`    }`,
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ImplicitReturns_TerminatingFor(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	for {`,
+		`		if i > 10 {`,
+		`			return 1`,
+		`		}`,
+		`		i++`,
+		`	}`, // No implicit return added
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		// TODO: FINISH
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ImplicitReturns_TerminatingSwitch(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`	switch i {`,
+		`	case 1:`,
+		`		return 101`,
+		`	default:`,
+		`		return 202`,
+		`	}`, // No implicit return added
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		// TODO: FINISH (also check Cup-o-Go's terminator talk)
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_ForRange(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func doThing(i int) int {`,
+		`ForLoop:`,
+		`   for j := range 3 {`,
+		`       i *= j`,
+		`	}`,
+		`	return i`,
+		`}`)
+	got := stringForFunc(t, pkg, `doThing`)
+	diffString(t, got, lines(
+		`func doThing {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_AB(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fnB(a, b int) int {`,
+		`	return a+b`,
+		`}`,
+		`func fnA(n int) int {`,
+		`	return fnB(n, 1)`,
+		`}`)
+	got := stringForFunc(t, pkg, `fnA`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_ABInBinary(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fnB(a, b int) int {`,
+		`	return a+b`,
+		`}`,
+		`func fnA(n int) int {`,
+		`	return fnB(n, 1) + 1`,
+		`}`)
+	got := stringForFunc(t, pkg, `fnA`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_ABWithDefine(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fnB(a, b int) int {`,
+		`	return a+b`,
+		`}`,
+		`func fnA(n int) int {`,
+		`	x := fnB(n, 1)`,
+		`	return x + 1`,
+		`}`)
+	got := stringForFunc(t, pkg, `fnA`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+func Test_Blocker_Call_Recursive(t *testing.T) {
+	pkg := blockIrcFunc(t,
+		`package main`,
+		``,
+		`func fib(n int) int {`,
+		`	if n <= 1 {`,
+		`		return n;`,
+		`	}`,
+		`	return fib(n - 1) + fib(n - 2);`,
+		`}`)
+	got := stringForFunc(t, pkg, `fib`)
+	diffString(t, got, lines(
+		`func fib {`,
+		`  block 0 <initial> {`,
+		// TODO: Finish
+		`  }`,
+		`}`))
+}
+
+// TODO: Method calls with multiple returns
+// TODO: Handle Panics
+// TODO: Check switches with fallthrough and break.
+// TODO: Check that expressions in for-loops, for-ranges, etc are being remodelled.
+
+func diffString(t *testing.T, got, exp string) {
+	t.Helper()
+	gotLines := slices.Collect(strings.Lines(got))
+	expLines := slices.Collect(strings.Lines(exp))
+	if diff := cmp.Diff(expLines, gotLines); len(diff) > 0 {
+		t.Errorf("unexpected result (-want, +got):\n%s", diff)
+	}
+}
+
+func lines(lines ...string) string {
+	return strings.Join(lines, "\n")
+}
+
+func stringForFunc(t *testing.T, pkg *project.Package, funcName string) string {
+	fn := pkg.Ir.FindFunc(funcName)
+	if fn == nil {
+		t.Fatalf(`failed to find function`)
+	}
+	str := fn.String()
+	str = strings.ReplaceAll(str, `command-line-arguments`, `$`)
+	return str
+}
+
+func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
+	t.Helper()
+
+	const (
+		fileName = `blockTestFunc.go`
+		dirPath  = `/`
+		fullPath = dirPath + fileName
+	)
+	absFilePath, err := filepath.Abs(fullPath)
+	if err != nil {
+		t.Fatalf(`failed to get absolute fake path for %q`, fullPath)
+	}
+
+	// Parse the input code
+	fileSrc := strings.Join(lines, "\n")
+	fileSet := token.NewFileSet()
+	packageCfg := &packages.Config{
+		Dir:  dirPath,
+		Mode: packages.LoadAllSyntax,
+		Fset: fileSet,
+		Overlay: map[string][]byte{
+			absFilePath: []byte(fileSrc),
+		},
+	}
+	roots, err := packages.Load(packageCfg, fileName)
+	if err != nil {
+		t.Fatalf(`failed to parse function for blocker test: %v`, err)
+	}
+
+	// Create a new project
+	proj := project.New(fileSet, roots)
+	errGroup := faults.NewErrGroup(10)
+	proj.CollectErrors(errGroup)
+	if err := errGroup.AnyOrNil(); err != nil {
+		t.Fatalf(`errors in parsed project: %v`, err)
+	}
+
+	// Convert the project into IR
+	if len(proj.Roots) > 1 {
+		t.Fatalf(`expected only one root package but got %d`, len(proj.Roots))
+	}
+	pkg := proj.Roots[0]
+	irp, err := converter.ConvertPackage(pkg.Ast, errGroup)
+	if err != nil {
+		t.Fatalf(`error converting to IR: %v`, err)
+	}
+	pkg.Ir = irp
+
+	// Perform the blocker remodeling
+	blocker := New(&Config{
+		ErrGroup: errGroup,
+	})
+	_, rm, err := blocker.StartPackage(pkg)
+	if err != nil {
+		t.Fatalf(`error starting blocker: %v`, err)
+	}
+	if _, err := rm.Remodel(); err != nil {
+		t.Errorf(`error remodeling blocker: %v`, err)
+	}
+	if _, err := rm.(remodel.ProjectDoneExt).PackageDone(); err != nil {
+		t.Errorf(`error ending blocker: %v`, err)
+	}
+
+	// Check for any stashed errors
+	if err := errGroup.AnyOrNil(); err != nil {
+		t.Errorf(`errors blocker: %v`, err)
+	}
+	return pkg
+}

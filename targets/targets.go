@@ -6,7 +6,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
-	"github.com/Grant-Nelson/Gozer/project"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
 
 const (

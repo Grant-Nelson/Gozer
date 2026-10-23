@@ -1,0 +1,36 @@
+package ir
+
+import "go/token"
+
+// MultiAssignStmt is a node that represents an assignment or
+// a short variable declaration.
+type MultiAssignStmt struct {
+	// TokPos is the position for the assignment token, `=` or `:=`.
+	TokPos token.Pos
+
+	// Lhs are the left hand side of the assignment for the
+	// variables being assigned or defined.
+	Lhs []Expr
+
+	// Rhs are the right hand side for the values to assign to the left hand side.
+	Rhs []Expr
+}
+
+var (
+	_ Stmt   = (*MultiAssignStmt)(nil)
+	_ Parent = (*MultiAssignStmt)(nil)
+)
+
+func (*MultiAssignStmt) StmtNode() {}
+
+func (n *MultiAssignStmt) Pos() token.Pos { return n.TokPos }
+
+func (n *MultiAssignStmt) String() string {
+	return csvString(n.Lhs) + ` = ` + csvString(n.Rhs)
+}
+
+func (n *MultiAssignStmt) ChildCount() int { return len(n.Lhs) + len(n.Rhs) }
+
+func (n *MultiAssignStmt) Children(yield func(Node) bool) {
+	_ = YieldSlice(n.Lhs, yield) && YieldSlice(n.Rhs, yield)
+}

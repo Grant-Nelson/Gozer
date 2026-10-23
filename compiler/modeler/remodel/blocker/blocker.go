@@ -1,0 +1,650 @@
+package blocker
+
+import (
+	"go/token"
+	"go/types"
+	"slices"
+
+	"github.com/Grant-Nelson/Gozer/avail/crumb"
+	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/compiler/ir"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/branchKind"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/unaryOp"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/project"
+)
+
+type Config struct {
+	// ErrGroup is used to collect multiple errors.
+	ErrGroup *faults.ErrGroup
+}
+
+func New(cfg *Config) remodel.RemodelFactory {
+	return &blocker{errGroup: cfg.ErrGroup}
+}
+
+type blocker struct {
+	errGroup *faults.ErrGroup
+}
+
+func (b *blocker) StartPackage(pkg *project.Package) (bool, remodel.Remodeler, error) {
+	bb := &blockBuilder{
+		errGroup: b.errGroup,
+		pkg:      pkg,
+	}
+	return true, bb, nil
+}
+
+type blockBuilder struct {
+	errGroup *faults.ErrGroup
+	pkg      *project.Package
+}
+
+func (bb *blockBuilder) PackageDone() (bool, error) { return true, nil }
+
+type funcBlockBuilder struct {
+	errGroup *faults.ErrGroup
+	pkg      *project.Package
+	fn       *ir.FuncDef
+	curBlock *ir.Block
+
+	forRangeItType types.Type
+
+	stmtIndex   int
+	curStmtList []ir.Stmt
+
+	labelBlock    map[token.Pos]*ir.Block
+	labelToStmt   map[token.Pos]token.Pos
+	stmtLabelName map[token.Pos]string
+	continueBlock map[token.Pos]*ir.Block
+	breakBlock    map[token.Pos]*ir.Block
+	blockPos      map[*ir.Block]token.Pos
+}
+
+func (bb *blockBuilder) Remodel() (bool, error) {
+	for _, fn := range bb.pkg.Ir.Funcs {
+		cont, err := bb.remodelFunc(fn)
+		if err != nil || !cont {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (bb *blockBuilder) remodelFunc(fn *ir.FuncDef) (con bool, err error) {
+	bb.errGroup.Recover(&err)
+	if fn.Atomic {
+		return true, nil
+	}
+
+	fbb := &funcBlockBuilder{
+		errGroup: bb.errGroup,
+		pkg:      bb.pkg,
+		fn:       fn,
+
+		labelBlock:    map[token.Pos]*ir.Block{},
+		labelToStmt:   map[token.Pos]token.Pos{},
+		stmtLabelName: map[token.Pos]string{},
+		continueBlock: map[token.Pos]*ir.Block{},
+		breakBlock:    map[token.Pos]*ir.Block{},
+		blockPos:      map[*ir.Block]token.Pos{},
+	}
+
+	if len(fn.Func.Blocks) <= 0 {
+		return true, bb.errGroup.Add(faults.New(`function has no blocks`).
+			With(`function`, fn.FuncObj.FullName()))
+	}
+	if len(fn.Func.Blocks) > 1 {
+		return true, bb.errGroup.Add(faults.New(`function already has multiple blocks`).
+			With(`count`, len(fn.Func.Blocks)).
+			With(`function`, fn.FuncObj.FullName()))
+	}
+
+	// TODO: Need to determine if a statement needs to be broken up for flow
+	// control. For example, some switch statements may remain unbroken up
+	// or some of the cases can remain unbroken up. Same with if-statements.
+	// However, if the if-statement has something like a method call
+	// in the conditional, then the if-statement conditional needs to be
+	// broken up, and if flow control is needed for the body, then the
+	// body needs to be broken up too. Otherwise, leave the statement as is.
+	// Any kind of looping or labels will always be broken up.
+
+	for blockIndex := 0; blockIndex < len(fn.Func.Blocks); blockIndex++ {
+		fbb.remodelBlock(fn.Func.Blocks[blockIndex])
+	}
+
+	// TODO: Fix determining parameters
+	propagateParams(fn.Func, bb.errGroup)
+
+	// TODO: Make sure that if a block doesn't have a flow control at the
+	// end of the statements that the schedular handles the end of the block
+	// as a return with no values. If a block has no return statement and
+	// the function does have return values, we need to handle synthesizing
+	// the missing return values or fail validation.
+
+	// TODO: Need to handle reducing and simplifying blocks, such as when
+	// a block is only a single flow control statement, that flow control
+	// statement can be moved to replace all flow control statements that
+	// goto that single flow control statement block.
+
+	// TODO: Need to check that all label blocks have been filled out
+	// and aren't simply stubs, meaning the actual label wasn't created.
+
+	return true, bb.errGroup.FullOrNil()
+}
+
+func (fbb *funcBlockBuilder) pos(p token.Pos) token.Position {
+	return fbb.pkg.Position(p)
+}
+
+func (fbb *funcBlockBuilder) remodelBlock(b *ir.Block) {
+	fbb.curBlock = b
+	fbb.curStmtList = fbb.curBlock.Body
+	defer func() {
+		fbb.curBlock.Body = fbb.curStmtList
+		fbb.curStmtList = nil
+		fbb.curBlock = nil
+	}()
+	for fbb.stmtIndex = 0; fbb.stmtIndex < len(fbb.curStmtList); fbb.stmtIndex++ {
+		fbb.remodelStmt(fbb.curStmtList[fbb.stmtIndex])
+	}
+}
+
+func (fbb *funcBlockBuilder) remodelStmtSlice(ss []ir.Stmt) {
+	priorStmtIndex := fbb.stmtIndex
+	priorStmtList := fbb.curStmtList
+	defer func() {
+		fbb.stmtIndex = priorStmtIndex
+		fbb.curStmtList = priorStmtList
+	}()
+	fbb.curStmtList = ss
+	for fbb.stmtIndex = 0; fbb.stmtIndex < len(fbb.curStmtList); fbb.stmtIndex++ {
+		fbb.remodelStmt(fbb.curStmtList[fbb.stmtIndex])
+	}
+}
+
+// remodelStmt remodels a statement to extract statements that cause
+// flow-control changes so that blocks can be built for a scheduler.
+// See: https://go.dev/ref/spec#Terminating_statements
+func (fbb *funcBlockBuilder) remodelStmt(s ir.Stmt) {
+	switch s := s.(type) {
+	case *ir.GotoBlockStmt:
+		// Do Nothing
+	case *ir.LabeledStmt:
+		fbb.remodelLabeledStmt(s)
+	case *ir.ForStmt:
+		fbb.remodelForStmt(s)
+	case *ir.RangeStmt:
+		fbb.remodelRangeStmt(s)
+	case *ir.MultiAssignStmt:
+		fbb.remodelMultiAssignStmt(s)
+	case *ir.ReturnStmt:
+		fbb.remodelReturnStmt(s)
+	case *ir.BranchStmt:
+		fbb.remodelBranchStmt(s)
+	case *ir.IfStmt:
+		fbb.remodelIfStmt(s)
+	case *ir.BinaryExpr:
+		fbb.remodelBinaryExpr(s)
+	default:
+		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
+			With(`pos`, fbb.pos(s.Pos())).
+			WithTypeOf(`type`, s))
+		return
+	}
+}
+
+func (fbb *funcBlockBuilder) remodelMultiAssignStmt(s *ir.MultiAssignStmt) {
+	//fbb.remodelExprSlice(s, nil, s.Lhs)
+	//fbb.remodelExprSlice(s, nil, s.Rhs)
+}
+
+// splitCurBlock will break the current block into two parts.
+// The current block is cut so that the current statement and everything after
+// is removed. All the statements after the current statement are added to
+// the next block. The current statement is not in either block but returned.
+// A goto is added from the current block that jumps unconditionally to the
+// next block. The goto is also returned so that it can be redirected.
+// Lastly the current statement index is backed up since the current
+// statement has been removed.
+func (fbb *funcBlockBuilder) splitCurBlock(nextBlk *ir.Block) (ir.Stmt, *ir.GotoBlockStmt) {
+	stmt := fbb.curStmtList[fbb.stmtIndex]
+	nextBlk.Body = append(nextBlk.Body, fbb.curStmtList[fbb.stmtIndex+1:]...)
+
+	fbb.curStmtList = slices.Clone(fbb.curStmtList[:fbb.stmtIndex])
+	gotoLabel := ir.NewGotoBlockStmt(stmt.Pos(), nextBlk)
+
+	fbb.curStmtList = append(fbb.curStmtList, gotoLabel)
+	fbb.stmtIndex--
+	return stmt, gotoLabel
+}
+
+// remodelLabeledStmt processes a label statement.
+// A label can be jumped to so the code reachable from the label
+// needs to be put into it's own block.
+//
+//	+--[Cur]-----------+     +--[Cur]-----------+
+//	|    ...           |     |     ...          |
+//	|   stmt k-1       |     | > stmt k-1       |
+//	| > stmt k (label) | ==> |   goto Next      |
+//	|   stmt k+1       |     +------------------+
+//	|    ...           |     +--[Next]----------+
+//	+------------------+     |   stmt k+1       |
+//	                         |   ...            |
+//	                         +------------------+
+//
+// See: https://go.dev/ref/spec#Labeled_statements
+func (fbb *funcBlockBuilder) remodelLabeledStmt(s *ir.LabeledStmt) {
+	// Check if a block was preemptively created by prior code
+	// that is jumping forward to this block.
+	nextBlk, ok := fbb.labelBlock[s.Pos()]
+	if ok {
+		if len(nextBlk.Body) > 0 {
+			fbb.errGroup.Add(faults.New(`preemptive label block is already populated`).
+				With(`pos`, fbb.pos(s.Pos())).
+				With(`statements`, len(nextBlk.Body)).
+				With(`label block`, nextBlk).
+				With(`current block`, fbb.curBlock).
+				With(`label`, s.LabelObj.String()))
+			return
+		}
+	} else {
+		// Create a new block for the code reachable from the label.
+		nextBlk = fbb.fn.Func.NewBlock(s.Name(), nil, nil)
+		fbb.labelBlock[s.Pos()] = nextBlk
+	}
+
+	// Put the statement that the label is attached to, if there is one, as the
+	// first statement in the block, then move all following statements from
+	// the current block into the next block.
+	if s.Stmt != nil {
+		nextBlk.Body = append(nextBlk.Body, s.Stmt)
+		fbb.labelToStmt[s.Pos()] = s.Stmt.Pos()
+		fbb.stmtLabelName[s.Stmt.Pos()] = s.Name()
+	}
+	fbb.splitCurBlock(nextBlk)
+}
+
+// remodelForStmt remodels a for-loop (without a range) into blocks.
+// If there is no "for-post" then the Body will goto itself instead of Post.
+//
+//	+--[Cur]-----------------+     +--[Cur]-----------------+
+//	|    ...                 |     |     ...                |
+//	|   stmt k-1             |     | > stmt k-1             |
+//	| > stmt k (for)         | ==> |   for-init...          |
+//	|   stmt k+1             |     |   goto Body            |
+//	|    ...                 |     +------------------------+
+//	+------------------------+     +--[Body]----------------+
+//	                               |   if !cond: goto After |
+//	                               |   for-body...          |
+//	                               |   goto Post or Body    |
+//	                               +------------------------+
+//	                               +--[Post]----------------+
+//	                               |   for-post...          |
+//	                               |   goto Body            |
+//	                               +------------------------+
+//	                               +--[After]---------------+
+//	                               |   stmt k+1             |
+//	                               |   ...                  |
+//	                               +------------------------+
+func (fbb *funcBlockBuilder) remodelForStmt(s *ir.ForStmt) {
+	var labelName string
+	if name, ok := fbb.stmtLabelName[s.Pos()]; ok {
+		labelName = name + `: `
+	}
+
+	// Create a block for the body of the for-loop.
+	bodyBlk := fbb.fn.Func.NewBlock(labelName+`For-loop Body`, nil, nil)
+	fbb.blockPos[bodyBlk] = s.Pos()
+
+	// Create a block to run post or jump to on continue.
+	// If there is no post then just use the body block as the post block.
+	// There can be no post block if this is for-loop acts like a while-loop.
+	postBlk := bodyBlk
+	if s.Post != nil {
+		postBlk = fbb.fn.Func.NewBlock(labelName+`For-loop Post`, []ir.Stmt{s.Post}, nil)
+		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
+	}
+	fbb.continueBlock[s.Pos()] = postBlk
+
+	// Split current block to make room for for-loop.
+	afterBlk := fbb.fn.Func.NewBlock(labelName+`After For-loop`, nil, nil)
+	_, curJump := fbb.splitCurBlock(afterBlk)
+	curJump.Block.Block = bodyBlk
+	fbb.breakBlock[s.Pos()] = afterBlk
+
+	// Insert the for-loop initialization into the current block before the jump.
+	if s.Init != nil {
+		index := len(fbb.curStmtList) - 1
+		fbb.curStmtList = slices.Insert(fbb.curStmtList, index, s.Init)
+		s.Init = nil
+	}
+
+	// Fill out the body for the for-loop including the conditional exit.
+	if s.Cond != nil {
+		ifCond := &ir.IfStmt{Cond: &ir.UnaryExpr{
+			OpPos: s.Cond.Pos(),
+			Op:    unaryOp.Not,
+			X:     s.Cond,
+		}}
+		ifCond.Body = append(ifCond.Body, ir.NewGotoBlockStmt(s.Cond.Pos(), afterBlk))
+		bodyBlk.Body = append(bodyBlk.Body, ifCond)
+	}
+	bodyBlk.Body = append(bodyBlk.Body, s.Body...)
+	if !ir.IsFlowCtrl(bodyBlk.LastStmt()) {
+		bodyBlk.Body = append(bodyBlk.Body, ir.NewGotoBlockStmt(s.Pos(), postBlk))
+	}
+	if !ir.IsFlowCtrl(postBlk.LastStmt()) {
+		postBlk.Body = append(postBlk.Body, ir.NewGotoBlockStmt(s.Pos(), bodyBlk))
+	}
+}
+
+// remodelRangeStmt remodels a for-range into blocks.
+//
+// Ranges are actually iterators with complex control flow.
+// When exiting a for-range with a return from the body, the iterators
+// will receive the exit request and get a change to clean up same
+// as a `break`. The iterators can also recover from a panic.
+//
+// The body will be turned into a function literal with a closure in the
+// current function. The function literal will take one or two arguments
+// based on the iterator's yield function and will return a boolean.
+//
+// A `continue` in the body (only top-level for the for-range)
+// must be turned into `return true`. A `break` in the body must be
+// turned into a `return false`. A `goto` and `return` will set
+// a variable in the body's closure, $ret, to indicate how to handle
+// the for-range is finished. If a `return`, then a schedular return with
+// the results to return is put in `$ret`. If a `goto`, then a schedular
+// goto value is put in `$ret`. A schedular goto will also handle labelled
+// flow control, e.g. `break <label>`, when the label is not on the
+// current for-range. If the iteration ended with a `break` or by hitting
+// the end of the iteration, then `$ret` will be unset meaning to simply
+// continue in the After block.
+//
+//	+--[Cur]-----------------+     +--[Cur]-----------------------+
+//	|    ...                 |     |     ...                      |
+//	|   stmt k-1             |     | > stmt k-1                   |
+//	| > stmt k (for range) { | ==> |   Body := make func lit      |
+//	|      ...               |     |   call(X, Body)              |
+//	|   }                    |     |   return Body.$ret           |
+//	|   stmt k+1             |     +------------------------------+
+//	|    ...                 |     +--[Body]----------------------+
+//	+------------------------+     | ...                          |
+//	                               +------------------------------+
+//	                               +--[After]---------------------+
+//	                               |   if Body.$ret: do Body.$ret |
+//	                               |   stmt k+1                   |
+//	                               |   ...                        |
+//	                               +------------------------------+
+func (fbb *funcBlockBuilder) remodelRangeStmt(s *ir.RangeStmt) {
+	/*
+		var labelName string
+		if name, ok := fbb.stmtLabelName[s.Pos()]; ok {
+			labelName = name + `: `
+		}
+
+		// Create a block for the body of the for-range.
+		bodyBlk := fbb.fn.NewBlock(labelName + `For-range Body`)
+		fbb.blockPos[bodyBlk] = s.Pos()
+		fbb.continueBlock[s.Pos()] = bodyBlk
+
+		// Split current block to make room for for-range.
+		afterBlk := fbb.fn.NewBlock(labelName + `After For-range`)
+		_, curJump := fbb.splitCurBlock(afterBlk)
+		curJump.Block.Block = bodyBlk
+		fbb.breakBlock[s.Pos()] = afterBlk
+	*/
+
+	// TODO: Finish
+	panic(faults.New(`unimplemented`))
+}
+
+func (fbb *funcBlockBuilder) remodelReturnStmt(s *ir.ReturnStmt) {
+	//fbb.remodelExprSlice(s, nil, s.Results)
+}
+
+func (fbb *funcBlockBuilder) remodelBranchStmt(s *ir.BranchStmt) {
+	switch s.Kind {
+	case branchKind.Goto:
+		fbb.remodelGotoBranchStmt(s)
+	case branchKind.Break:
+		fbb.remodelBreakBranchStmt(s)
+	case branchKind.Continue:
+		fbb.remodelContinueBranchStmt(s)
+	case branchKind.Fallthrough:
+		fbb.remodelFallThroughBranchStmt(s)
+	default:
+		fbb.errGroup.Add(faults.New(`unhandled statement node in blocker`).
+			With(`pos`, fbb.pos(s.Pos())).
+			With(`branch`, s.Kind).
+			WithTypeOf(`type`, s))
+		return
+	}
+}
+
+// remodelGotoBranchStmt handles a "goto" flow-control statement.
+// See: https://go.dev/ref/spec#Goto_statements
+func (fbb *funcBlockBuilder) remodelGotoBranchStmt(s *ir.BranchStmt) {
+	if s.Label == nil {
+		fbb.errGroup.Add(faults.New(`goto branch statement does not have a label`).
+			With(`pos`, fbb.pos(s.Pos())))
+		return
+	}
+
+	blk, ok := fbb.labelBlock[s.Label.Pos()]
+	if !ok {
+		// Create a preliminary block for the label that this branch goes to.
+		// Store this block with the label location so that any jumps to
+		// this label can look up the block for this label and the actual
+		// label can fill it out.
+		blk = fbb.fn.Func.NewBlock(s.Label.String(), nil, nil)
+		fbb.labelBlock[s.Label.Pos()] = blk
+	}
+
+	// Replace the branch statement with a goto block flow control
+	// to jump to the label's block.
+	fbb.curStmtList[fbb.stmtIndex] = ir.NewGotoBlockStmt(s.Pos(), blk)
+	fbb.stmtIndex--
+}
+
+// findBlockPos attempts to determine the block that the given branch affects.
+// The returned value is the position of the block that can be used to look
+// up branching information for the block.
+func (fbb *funcBlockBuilder) findBlockPos(s *ir.BranchStmt) token.Pos {
+	if s.Label != nil {
+		if stmtPos, ok := fbb.labelToStmt[s.Label.Pos()]; ok {
+			return stmtPos
+		}
+		fbb.errGroup.Add(faults.New(`failed to find statement position for label position`).
+			With(`label pos`, s.Label.Pos()).
+			With(`label`, s.Label.String()).
+			With(`pos`, fbb.pos(s.Pos())).
+			With(`branch`, s.Kind.String()))
+		return token.NoPos
+	}
+
+	if pos, ok := fbb.blockPos[fbb.curBlock]; ok {
+		return pos
+	}
+	fbb.errGroup.Add(faults.New(`failed to find position for block`).
+		With(`pos`, fbb.pos(s.Pos())).
+		With(`branch`, s.Kind.String()).
+		WithTypeOf(`type`, s))
+	return token.NoPos
+}
+
+// remodelBreakBranchStmt handles a "break" flow-control statement.
+// See: https://go.dev/ref/spec#Break_statements
+func (fbb *funcBlockBuilder) remodelBreakBranchStmt(s *ir.BranchStmt) {
+	pos := fbb.findBlockPos(s)
+	blk, ok := fbb.breakBlock[pos]
+	if !ok || blk == nil {
+		fbb.errGroup.Add(faults.New(`failed to find break block for a pos`).
+			With(`block pos`, fbb.pos(pos)).
+			With(`branch`, s.Kind.String()).
+			WithTypeOf(`type`, s).
+			With(`pos`, fbb.pos(s.Pos())))
+		return
+	}
+
+	// Replace the branch statement with a goto block flow control
+	// to jump to after the for-loop, switch, or other statement.
+	fbb.curStmtList[fbb.stmtIndex] = ir.NewGotoBlockStmt(s.Pos(), blk)
+	fbb.stmtIndex--
+}
+
+// remodelContinueBranchStmt handles a "continue" flow-control statement.
+// See: https://go.dev/ref/spec#Continue_statements
+func (fbb *funcBlockBuilder) remodelContinueBranchStmt(s *ir.BranchStmt) {
+	pos := fbb.findBlockPos(s)
+	blk, ok := fbb.continueBlock[pos]
+	if !ok || blk == nil {
+		fbb.errGroup.Add(faults.New(`failed to find continue block for a pos`).
+			With(`block pos`, fbb.pos(pos)).
+			With(`branch`, s.Kind.String()).
+			WithTypeOf(`type`, s).
+			With(`pos`, fbb.pos(s.Pos())))
+		return
+	}
+
+	// Replace the branch statement with a goto block flow control
+	// to jump to after the for-loop.
+	fbb.curStmtList[fbb.stmtIndex] = ir.NewGotoBlockStmt(s.Pos(), blk)
+	fbb.stmtIndex--
+}
+
+// remodelFallThroughBranchStmt handles a "fallthrough" flow-control statement.
+// See: https://go.dev/ref/spec#Fallthrough_statements
+func (fbb *funcBlockBuilder) remodelFallThroughBranchStmt(s *ir.BranchStmt) {
+	if s.Label != nil {
+		fbb.errGroup.Add(faults.New(`unexpected label on a fall through branch statement`).
+			With(`pos`, fbb.pos(s.Pos())).
+			With(`branch`, s.Kind.String()).
+			WithTypeOf(`type`, s))
+	}
+
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
+}
+
+func (fbb *funcBlockBuilder) remodelIfStmt(s *ir.IfStmt) {
+	if s.Init != nil {
+		fbb.curStmtList = slices.Insert(fbb.curStmtList, fbb.stmtIndex, s.Init)
+		s.Init = nil
+		fbb.stmtIndex--
+	}
+	// fbb.remodelExpr(s, nil, s.Cond)
+	fbb.remodelStmtSlice(s.Body)
+	fbb.remodelStmtSlice(s.Else)
+}
+
+func (fbb *funcBlockBuilder) remodelBinaryExpr(s *ir.BinaryExpr) {
+	// TODO: Handle single assignment, logical AND, and logical OR
+	// fbb.remodelExpr(s, nil, s.X)
+}
+
+/*
+func (fbb *funcBlockBuilder) remodelExprSlice(s ir.Stmt, stack []ir.Expr, es []ir.Expr) {
+	for _, e := range es {
+		fbb.remodelExpr(s, stack, e)
+	}
+}
+
+func (fbb *funcBlockBuilder) remodelExpr(s ir.Stmt, stack []ir.Expr, e ir.Expr) {
+	switch e := e.(type) {
+	case nil, *ir.BasicLit:
+		// Do Nothing
+		return
+	case *ir.StarExpr:
+		fbb.remodelExpr(s, append(stack, e), e.X)
+	case *ir.UnaryExpr:
+		fbb.remodelUnaryExpr(s, stack, e)
+	case *ir.BinaryExpr:
+		fbb.remodelBinaryExpr(s, stack, e)
+	case *ir.CallExpr:
+		fbb.remodelCallExpr(s, stack, e)
+	default:
+		fbb.errGroup.Add(faults.New(`unhandled expression node in blocker`).
+			With(`pos`, fbb.pos(e.Pos())).
+			WithTypeOf(`type`, e))
+		return
+	}
+}
+
+func (fbb *funcBlockBuilder) remodelUnaryExpr(s ir.Stmt, stack []ir.Expr, e *ir.UnaryExpr) {
+	switch e.Op {
+	case token.INC, token.DEC, token.ADD, token.SUB, token.NOT, token.XOR, token.MUL, token.AND:
+		fbb.remodelExpr(s, append(stack, e), e.X)
+	case token.ARROW:
+		fbb.remodelReceiveExpr(s, stack, e)
+	default:
+		fbb.errGroup.Add(faults.New(`unhandled unary expression node in blocker`).
+			With(`pos`, fbb.pos(e.Pos())).
+			With(`op`, e.Op.String()).
+			WithTypeOf(`type`, e))
+		return
+	}
+}
+
+// remodelReceiveExpr handles a unary expression for receiving a value from a channel.
+// See: https://go.dev/ref/spec#Receive_operator
+func (fbb *funcBlockBuilder) remodelReceiveExpr(s ir.Stmt, stack []ir.Expr, e *ir.UnaryExpr) {
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
+}
+
+func (fbb *funcBlockBuilder) remodelBinaryExpr(s ir.Stmt, stack []ir.Expr, e *ir.BinaryExpr) {
+	switch e.Op {
+	case token.ADD, token.SUB, token.MUL, token.QUO, token.REM, token.AND, token.OR,
+		token.XOR, token.SHL, token.SHR, token.AND_NOT, token.ADD_ASSIGN,
+		token.SUB_ASSIGN, token.MUL_ASSIGN, token.QUO_ASSIGN, token.REM_ASSIGN,
+		token.AND_ASSIGN, token.OR_ASSIGN, token.XOR_ASSIGN, token.SHL_ASSIGN,
+		token.SHR_ASSIGN, token.AND_NOT_ASSIGN, token.EQL, token.LSS, token.GTR,
+		token.NEQ, token.LEQ, token.GEQ:
+		fbb.remodelExpr(s, append(stack, e), e.X)
+		fbb.remodelExpr(s, append(stack, e), e.Y)
+	case token.LAND:
+		fbb.remodelLogicalAndExpr(s, stack, e)
+	case token.LOR:
+		fbb.remodelLogicalOrExpr(s, stack, e)
+	default:
+		fbb.errGroup.Add(faults.New(`unhandled binary expression node in blocker`).
+			With(`pos`, fbb.pos(e.Pos())).
+			With(`op`, e.Op.String()).
+			WithTypeOf(`type`, e))
+		return
+	}
+}
+
+func (fbb *funcBlockBuilder) remodelLogicalAndExpr(s ir.Stmt, stack []ir.Expr, e *ir.BinaryExpr) {
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
+}
+
+func (fbb *funcBlockBuilder) remodelLogicalOrExpr(s ir.Stmt, stack []ir.Expr, e *ir.BinaryExpr) {
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
+}
+
+func (fbb *funcBlockBuilder) remodelCallExpr(s ir.Stmt, stack []ir.Expr, e *ir.CallExpr) {
+	if len(stack) <= 0 {
+		follow := fbb.fn.Func.NewBlock(`follow call`, nil, nil)
+		_, gotoFollow := fbb.splitCurBlock(follow)
+		// Replace the goto with a call
+		fbb.curStmtList[fbb.stmtIndex+1] = &ir.FuncCallStmt{
+			// Ast:    e,
+			Fun:    e.Fun,
+			Args:   e.Args,
+			Follow: gotoFollow.Block,
+		}
+
+		// TODO: Add assignment or return to follow
+		return
+	}
+
+	fmt.Printf("(Stmt) %T\n", s) // TODO: Remove
+	for i, sx := range stack {   // TODO: Remove
+		fmt.Printf("(%d) %T\n", i+1, sx) // TODO: Remove
+	} // TODO: Remove
+	// ast.Print(token.NewFileSet(), e) // TODO: Remove
+
+	crumb.DropMsg(`Unimplemented`) // TODO: Implement
+}
+*/

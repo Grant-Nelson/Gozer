@@ -2,41 +2,49 @@ package astTools
 
 import (
 	"go/ast"
-	"strings"
+	"go/token"
+	"slices"
+
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 )
 
-// Directives finds all the directives with the given prefix.
-func Directives(comments []*ast.Comment, prefix string) map[string][]string {
-	prefix = `//` + prefix + `:`
-	result := map[string][]string{}
-	for _, c := range comments {
-		if tail, ok := strings.CutPrefix(c.Text, prefix); ok {
-			var key, value string
-			if i := strings.Index(tail, ` `); i > 0 {
-				key = strings.TrimSpace(tail[:i])
-				value = strings.TrimSpace(tail[i:])
-			} else {
-				key = tail
-				value = ``
+func Directives(comments []*ast.Comment) iterator.Iterator[*ast.Directive] {
+	return func(yield func(*ast.Directive) bool) {
+		for _, cm := range comments {
+			if cm != nil {
+				d := DirectivesFromComment(cm)
+				if d != nil && !yield(d) {
+					return
+				}
 			}
-			result[key] = append(result[key], value)
 		}
 	}
-	return result
 }
 
-func RemoveDirectives(cg *ast.CommentGroup, prefix string) {
-	if cg == nil || len(cg.List) <= 0 {
+func DirectivesFromGroup(cg *ast.CommentGroup) iterator.Iterator[*ast.Directive] {
+	if cg == nil {
+		return iterator.Empty[*ast.Directive]()
+	}
+	return Directives(cg.List)
+}
+
+func DirectivesFromComment(cm *ast.Comment) *ast.Directive {
+	if d, ok := ast.ParseDirective(cm.Pos(), cm.Text); ok {
+		return &d
+	}
+	return nil
+}
+
+func RemoveDirectives(cg *ast.CommentGroup, directives ...*ast.Directive) {
+	if cg == nil || len(cg.List) <= 0 || len(directives) <= 0 {
 		return
 	}
-	prefix = `//` + prefix + `:`
-	result := make([]*ast.Comment, 0, len(cg.List))
-	for _, c := range cg.List {
-		if !strings.HasPrefix(c.Text, prefix) {
-			result = append(result, c)
-		}
+	pos := map[token.Pos]bool{}
+	for _, d := range directives {
+		pos[d.Pos()] = true
 	}
-	cg.List = result
+	cg.List = slices.DeleteFunc(cg.List,
+		func(c *ast.Comment) bool { return pos[c.Pos()] })
 }
 
 func CommentsAttachedToNode(n ast.Node) []*ast.CommentGroup {

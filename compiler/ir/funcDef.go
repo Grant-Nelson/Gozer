@@ -1,0 +1,90 @@
+package ir
+
+import (
+	"go/token"
+	"go/types"
+	"strings"
+)
+
+// FuncDef represents a named function declaration.
+type FuncDef struct {
+	// Comment for this function declaration.
+	Comment string
+
+	// Directives attached to this function declaration.
+	Directives []Directive
+
+	// Atomic indicates that this function should NOT be broken up into
+	// flow control blocks, meaning that the scheduler running in one real
+	// thread environment should not swap goroutines.
+	//
+	// Atomic is based on the directive `//gozer:atomic` or `//go:nosplit`
+	// However, the function may still not be atomic if it contains blocking
+	// calls such as a send, receive, sleep, or lock. Calling a function
+	// on an interface that is not pinned to a package could be blocking so
+	// is treated as always blocking. That goes for calling a function on
+	// a generic type as well.
+	//
+	// For a target language like typescript, calling a non-atomic function
+	// from an atomic function will have a signature mismatch since the parameters
+	// and returns from a non-atomic function will have parameters and returns
+	// specifically designed for the schedular to call.
+	Atomic bool
+
+	// NoInline indicates the `//go:noinline` was attached to this function,
+	// meaning that calls to the function should not be inlined, overriding
+	// the usual optimization rules. This is typically only set via directive
+	// for special runtime functions or when debugging the compiler.
+	// Functions will be scanned to determine which ones can be inlined and
+	// all others will set this to true to indicate that the function can not
+	// be used inline.
+	NoInline bool
+
+	// NoRace indicates the `//go:norace` was attached to this function,
+	// meaning that the function's memory accesses must be ignored by the race
+	// detector. This is most commonly used in low-level code invoked at times
+	// when it is unsafe to call into the race detector runtime.
+	NoRace bool
+
+	// FuncObj is the object with the type information for the function.
+	FuncObj *types.Func
+
+	// Func is the function definition.
+	Func *Func
+}
+
+var (
+	_ Def    = (*FuncDef)(nil)
+	_ Stmt   = (*FuncDef)(nil)
+	_ Parent = (*FuncDef)(nil)
+)
+
+func (*FuncDef) DefNode()  {}
+func (*FuncDef) StmtNode() {}
+
+func (fn *FuncDef) Pos() token.Pos       { return fn.FuncObj.Pos() }
+func (fn *FuncDef) Type() types.Type     { return fn.Func.Signature }
+func (fn *FuncDef) Object() types.Object { return fn.FuncObj }
+func (fn *FuncDef) Name() string         { return fn.FuncObj.Name() }
+
+func (fn *FuncDef) String() string {
+	flags := ``
+	if fn.Atomic {
+		flags = `<atomic> `
+	}
+	if fn.NoInline {
+		flags = `<no inline> `
+	}
+	if fn.NoRace {
+		flags = `<no race> `
+	}
+	sig := fn.FuncObj.Signature().String()
+	sig, _ = strings.CutPrefix(sig, `func`)
+	return `func ` + fn.FuncObj.FullName() + ` ` + sig + ` ` + flags + toString(fn.Func)
+}
+
+func (fn *FuncDef) ChildCount() int { return 1 + len(fn.Directives) }
+func (fn *FuncDef) Children(yield func(Node) bool) {
+	_ = YieldSlice(fn.Directives, yield) &&
+		YieldNode(fn.Func, yield)
+}

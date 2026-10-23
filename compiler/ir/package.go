@@ -1,0 +1,88 @@
+package ir
+
+import (
+	"go/token"
+	"go/types"
+)
+
+// Package is the IR for a whole package.
+type Package struct {
+	// FileSet is the information about the source files from the AST.
+	FileSet *token.FileSet
+
+	// Name is the short name for this package.
+	Name string
+
+	// Path is the path that would be used to import this package.
+	Path string
+
+	// Comment for this function declaration.
+	Comment string
+
+	// Directives attached to the package.
+	Directives []Directive
+
+	// Sizes are the sizes for the architecture.
+	// For example TS and JS will have 32-bit `int`, `uint`, and `uintptr`.
+	Sizes types.Sizes
+
+	// Imports are the packages that are imported by this package.
+	Imports []*ImportDef
+
+	// Types is the collection of types for this package.
+	Types []*TypeDef
+
+	// Consts is the collection of const values for this package.
+	Consts []*ConstDef
+
+	// Vars is the collection of variables for this package.
+	Vars []*VarDef
+
+	// Funcs is the collection of functions for this package.
+	Funcs []*FuncDef
+}
+
+var (
+	_ Node   = (*Package)(nil)
+	_ Parent = (*Package)(nil)
+)
+
+func (p *Package) Pos() token.Pos { return token.NoPos }
+
+func (p *Package) String() string {
+	result := `package{` + nlStr
+	if len(p.Name) > 0 {
+		result += indentStr + `Name: ` + p.Name + nlStr
+	}
+	if len(p.Path) > 0 && p.Path != `command-line-arguments` {
+		result += indentStr + `Path: ` + p.Path + nlStr
+	}
+	result += groupString(`Imports`, p.Imports)
+	result += groupString(`Types`, p.Types)
+	result += groupString(`Consts`, p.Consts)
+	result += groupString(`Vars`, p.Vars)
+	result += groupString(`Funcs`, p.Funcs)
+	return result + `}`
+}
+
+func (p *Package) ChildCount() int {
+	return len(p.Directives) + len(p.Types) +
+		len(p.Consts) + len(p.Vars) + len(p.Funcs)
+}
+
+func (p *Package) Children(yield func(Node) bool) {
+	_ = YieldSlice(p.Directives, yield) &&
+		YieldSlice(p.Types, yield) &&
+		YieldSlice(p.Consts, yield) &&
+		YieldSlice(p.Vars, yield) &&
+		YieldSlice(p.Funcs, yield)
+}
+
+func (p *Package) FindFunc(name string) *FuncDef {
+	for _, fn := range p.Funcs {
+		if fn.Name() == name {
+			return fn
+		}
+	}
+	return nil
+}

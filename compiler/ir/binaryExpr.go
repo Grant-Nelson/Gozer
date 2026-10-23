@@ -1,0 +1,47 @@
+package ir
+
+import (
+	"go/token"
+	"go/types"
+
+	"github.com/Grant-Nelson/Gozer/compiler/ir/enums/binaryOp"
+)
+
+// BinaryExpr is a node that represents a binary expression.
+type BinaryExpr struct {
+	// X is the left operand (lhs).
+	X Expr
+
+	// OpPos is the position of the operator.
+	OpPos token.Pos
+
+	// Op is the binary operator token (e.g. +, -, *, /, ==, <, &&, ||).
+	Op binaryOp.BinaryOp
+
+	// Y is the right operand (rhs).
+	Y Expr
+
+	// ResultType is the type resulting from this binary expression.
+	ResultType types.Type
+}
+
+var (
+	_ Expr   = (*BinaryExpr)(nil)
+	_ Stmt   = (*BinaryExpr)(nil)
+	_ Parent = (*BinaryExpr)(nil)
+)
+
+func (*BinaryExpr) ExprNode() {}
+func (*BinaryExpr) StmtNode() {}
+
+func (n *BinaryExpr) Pos() token.Pos   { return n.OpPos }
+func (n *BinaryExpr) Type() types.Type { return n.ResultType }
+
+func (n *BinaryExpr) String() string {
+	return paren(n.X) + ` ` + toString(n.Op) + ` ` + paren(n.Y)
+}
+
+func (n *BinaryExpr) ChildCount() int { return 2 }
+func (n *BinaryExpr) Children(yield func(Node) bool) {
+	_ = YieldNode(n.X, yield) && YieldNode(n.Y, yield)
+}

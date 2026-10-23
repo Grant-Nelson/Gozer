@@ -3,7 +3,6 @@ package faults
 import (
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -126,6 +125,8 @@ func (f *Fault) With(key string, value any) *Fault {
 	case error:
 		f.inner = append(f.inner, t)
 		f.data[key] = t
+	case fmt.Stringer:
+		f.data[key] = t.String()
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, complex64, complex128,
@@ -137,8 +138,9 @@ func (f *Fault) With(key string, value any) *Fault {
 	return f
 }
 
-func (f *Fault) WithNonZero(key string, value any) *Fault {
-	if f != nil && !reflect.ValueOf(value).IsZero() {
+func (f *Fault) WithNonZero[T comparable](key string, value T) *Fault {
+	var zero T
+	if value != zero {
 		return f.With(key, value)
 	}
 	return f
@@ -146,6 +148,15 @@ func (f *Fault) WithNonZero(key string, value any) *Fault {
 
 func (f *Fault) WithF(key, format string, args ...any) *Fault {
 	return f.With(key, fmt.Sprintf(format, args...))
+}
+
+func (f *Fault) WithTypeFor[T any](key string) *Fault {
+	var zero T
+	return f.WithTypeOf(key, zero)
+}
+
+func (f *Fault) WithTypeOf[T any](key string, value T) *Fault {
+	return f.WithF(key, `%T`, value)
 }
 
 func (f *Fault) Error() string {

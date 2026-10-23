@@ -4,6 +4,10 @@ import "cmp"
 
 type Predicate[T any] func(T) bool
 
+func True[T any](t T) bool { return true }
+
+func False[T any](t T) bool { return false }
+
 func Not[T any](p Predicate[T]) Predicate[T] {
 	return func(t T) bool { return !p(t) }
 }
@@ -34,6 +38,13 @@ func IsType[TOut, TIn any]() Predicate[TIn] {
 	return func(t TIn) bool {
 		_, ok := any(t).(TOut)
 		return ok
+	}
+}
+
+func IsNotType[TOut, TIn any]() Predicate[TIn] {
+	return func(t TIn) bool {
+		_, ok := any(t).(TOut)
+		return !ok
 	}
 }
 
