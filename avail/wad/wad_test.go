@@ -78,7 +78,7 @@ func Test_Waddables(t *testing.T) {
 	r := newReaderNoHeader(buf, isUint64, isBigEndian, reg)
 	p2 := r.Wad[*person]()
 
-	check(t, p2, p, `person`)
+	check(t, *p2, *p, `person`)
 }
 
 func check[T comparable](t *testing.T, get, want T, name string) {
