@@ -9,10 +9,10 @@ import (
 )
 
 type Writer struct {
-	w       io.Writer
-	bc      bitCaster
-	lookup  map[string]uint16
-	entries []regEntry
+	w          io.Writer
+	bc         bitCaster
+	regLookup  map[string]uint16
+	regWriters []WriteFn
 }
 
 func NewWriter(w io.Writer) *Writer {
@@ -24,37 +24,31 @@ func NewWriter(w io.Writer) *Writer {
 		header[1] |= 0x02
 	}
 	write(w, header)
-	return newWriterNoHeader(w, isUint64, isBigEndian)
+	return newWriterNoHeader(w, isUint64, isBigEndian, regSingleton)
 }
 
-func newWriterNoHeader(w io.Writer, useUint64, useBigEndian bool) *Writer {
-	lookup, entries := regSingleton.cloneEntriesWithLookup()
-	return &Writer{
-		w:       w,
-		bc:      newBitCaster(useUint64, useBigEndian),
-		lookup:  lookup,
-		entries: entries,
+func newWriterNoHeader(w io.Writer, useUint64, useBigEndian bool, reg *registry) *Writer {
+	wad := &Writer{
+		w:  w,
+		bc: newBitCaster(useUint64, useBigEndian),
 	}
+	wad.regLookup, wad.regWriters = reg.cloneWriters()
+	return wad
 }
 
 func (wad *Writer) Bool(v bool) {
 	if v {
-		wad.Uint8(0xFF)
+		wad.bc.writeUint8(wad.w, 0xFF)
 	} else {
-		wad.Uint8(0x00)
+		wad.bc.writeUint8(wad.w, 0x00)
 	}
 }
 
-func (wad *Writer) intVia32(v int)   { wad.Uint32(uint32(v)) }
-func (wad *Writer) intVia64(v int)   { wad.Uint64(uint64(v)) }
-func (wad *Writer) uintVia32(v uint) { wad.Uint32(uint32(v)) }
-func (wad *Writer) uintVia64(v uint) { wad.Uint64(uint64(v)) }
-
-func (wad *Writer) Int(v int)         { wad.Uint(uint(v)) }
-func (wad *Writer) Int8(v int8)       { wad.Uint8(uint8(v)) }
-func (wad *Writer) Int16(v int16)     { wad.Uint16(uint16(v)) }
-func (wad *Writer) Int32(v int32)     { wad.Uint32(uint32(v)) }
-func (wad *Writer) Int64(v int64)     { wad.Uint64(uint64(v)) }
+func (wad *Writer) Int(v int)         { wad.bc.writeUint(wad.w, uint(v)) }
+func (wad *Writer) Int8(v int8)       { wad.bc.writeUint8(wad.w, uint8(v)) }
+func (wad *Writer) Int16(v int16)     { wad.bc.writeUint16(wad.w, uint16(v)) }
+func (wad *Writer) Int32(v int32)     { wad.bc.writeUint32(wad.w, uint32(v)) }
+func (wad *Writer) Int64(v int64)     { wad.bc.writeUint64(wad.w, uint64(v)) }
 func (wad *Writer) String(v string)   { wad.Bytes([]byte(v)) }
 func (wad *Writer) Uint(v uint)       { wad.bc.writeUint(wad.w, v) }
 func (wad *Writer) Uint8(v uint8)     { wad.bc.writeUint8(wad.w, v) }
@@ -66,31 +60,31 @@ func (wad *Writer) Float64(v float64) { wad.bc.writeFloat64(wad.w, v) }
 func (wad *Writer) Pos(v token.Pos)   { wad.Int(int(v)) }
 
 func (wad *Writer) Complex64(v complex64) {
-	wad.Float32(real(v))
-	wad.Float32(imag(v))
+	wad.bc.writeFloat32(wad.w, real(v))
+	wad.bc.writeFloat32(wad.w, imag(v))
 }
 
 func (wad *Writer) Complex128(v complex128) {
-	wad.Float64(real(v))
-	wad.Float64(imag(v))
+	wad.bc.writeFloat64(wad.w, real(v))
+	wad.bc.writeFloat64(wad.w, imag(v))
 }
 
 func (wad *Writer) Bytes(v []byte) {
-	wad.Uint32(uint32(len(v)))
+	wad.bc.writeUint32(wad.w, uint32(len(v)))
 	write(wad.w, v)
 }
 
-func (wad *Writer) Wad[T Waddable](v T) {
+func (wad *Writer) Wad[T any](v T) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() == reflect.Pointer && rv.IsNil() {
-		wad.Uint16(0)
+		wad.bc.writeUint16(wad.w, 0)
 		return
 	}
 
 	name := typeName(rv.Type())
-	if index, ok := wad.lookup[name]; ok {
-		wad.Uint16(index)
-		wad.entries[index].write(wad, v)
+	if index, ok := wad.regLookup[name]; ok {
+		wad.bc.writeUint16(wad.w, index)
+		wad.regWriters[index](wad, v)
 		return
 	}
 
@@ -99,7 +93,7 @@ func (wad *Writer) Wad[T Waddable](v T) {
 }
 
 func (wad *Writer) slice[T any](elem func(T), values []T) {
-	wad.Uint32(uint32(len(values)))
+	wad.bc.writeUint32(wad.w, uint32(len(values)))
 	for _, v := range values {
 		elem(v)
 	}
@@ -120,4 +114,4 @@ func (wad *Writer) Float32Slice(v []float32) { wad.slice(wad.Float32, v) }
 func (wad *Writer) Float64Slice(v []float64) { wad.slice(wad.Float64, v) }
 func (wad *Writer) PosSlice(v []token.Pos)   { wad.slice(wad.Pos, v) }
 
-func (wad *Writer) WadSlice[T Waddable, S ~[]T](v S) { wad.slice(wad.Wad, v) }
+func (wad *Writer) WadSlice[T any, S ~[]T](v S) { wad.slice(wad.Wad, v) }

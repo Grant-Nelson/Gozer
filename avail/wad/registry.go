@@ -18,21 +18,16 @@ func Register[P interface {
 	regSingleton.Register[P, T]()
 }
 
-func RegisterNonPointer[T Waddable]() {
-	regSingleton.RegisterNonPointer[T]()
-}
-
 const maxReg = 0xFFFF
 
-type regEntry interface {
-	read(r *Reader, count int) []Waddable
-	write(w *Writer, wad Waddable)
-}
+type ReadFn func(*Reader) any
+type WriteFn func(*Writer, any)
 
 type registry struct {
 	lock    *sync.RWMutex
 	lookup  map[string]uint16
-	entries []regEntry
+	readers []ReadFn
+	writers []WriteFn
 }
 
 func newRegistry() *registry {
@@ -42,21 +37,23 @@ func newRegistry() *registry {
 	}
 }
 
-func typeName(t reflect.Type) string { return t.PkgPath() + `.` + t.Name() }
-
-func (reg *registry) cloneEntries() []regEntry {
-	reg.lock.Lock()
-	defer reg.lock.Unlock()
-	return slices.Clone(reg.entries)
+func typeName(t reflect.Type) string {
+	return t.PkgPath() + `.` + t.Name()
 }
 
-func (reg *registry) cloneEntriesWithLookup() (map[string]uint16, []regEntry) {
+func (reg *registry) cloneReaders() []ReadFn {
 	reg.lock.Lock()
 	defer reg.lock.Unlock()
-	return maps.Clone(reg.lookup), slices.Clone(reg.entries)
+	return slices.Clone(reg.readers)
 }
 
-func (reg *registry) registerEntry[T any](entry regEntry) {
+func (reg *registry) cloneWriters() (map[string]uint16, []WriteFn) {
+	reg.lock.Lock()
+	defer reg.lock.Unlock()
+	return maps.Clone(reg.lookup), slices.Clone(reg.writers)
+}
+
+func (reg *registry) RegisterCustom[T any](reader ReadFn, writer WriteFn) {
 	name := typeName(reflect.TypeFor[T]())
 
 	reg.lock.Lock()
@@ -67,60 +64,40 @@ func (reg *registry) registerEntry[T any](entry regEntry) {
 			With(`id`, name))
 	}
 
-	index := len(reg.entries)
+	index := len(reg.readers)
 	if index >= maxReg {
 		panic(faults.New(`too many Waddables have been registered`).
 			With(`maximum`, maxReg))
 	}
 
 	reg.lookup[name] = uint16(index + 1)
-	reg.entries = append(reg.entries, entry)
-}
-
-type ptrRegEntry[P interface {
-	*T
-	Waddable
-}, T any] struct{}
-
-func (ptrRegEntry[P, T]) read(r *Reader, count int) []Waddable {
-	s := make([]T, count)
-	p := make([]Waddable, count)
-	for i, e := range s {
-		wad := P(&e)
-		wad.UnWad(r)
-		p[i] = wad
-	}
-	return p
-}
-
-func (ptrRegEntry[P, T]) write(w *Writer, wad Waddable) {
-	wad.Wad(w)
+	reg.readers = append(reg.readers, reader)
+	reg.writers = append(reg.writers, writer)
 }
 
 func (reg *registry) Register[P interface {
 	*T
 	Waddable
 }, T any]() {
-	reg.registerEntry[P](ptrRegEntry[P, T]{})
-}
+	reg.RegisterCustom[P](
+		func(r *Reader) any {
+			p := P(new(T))
+			p.UnWad(r)
+			return p
+		},
+		func(w *Writer, value any) {
+			value.(P).Wad(w)
+		})
 
-type nonPtrRegEntry[T Waddable] struct{}
-
-func (nonPtrRegEntry[T]) read(r *Reader, count int) []Waddable {
-	s := make([]T, count)
-	p := make([]Waddable, count)
-	for i, e := range s {
-		wad := Waddable(e)
-		wad.UnWad(r)
-		p[i] = wad
-	}
-	return p
-}
-
-func (nonPtrRegEntry[T]) write(w *Writer, wad Waddable) {
-	wad.Wad(w)
-}
-
-func (reg *registry) RegisterNonPointer[T Waddable]() {
-	reg.registerEntry[T](nonPtrRegEntry[T]{})
+	reg.RegisterCustom[T](
+		func(r *Reader) any {
+			p := P(new(T))
+			p.UnWad(r)
+			return *p
+		},
+		func(w *Writer, value any) {
+			e := value.(T)
+			p := P(&e)
+			p.Wad(w)
+		})
 }
