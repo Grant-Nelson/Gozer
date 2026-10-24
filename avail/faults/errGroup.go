@@ -2,6 +2,7 @@ package faults
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -38,23 +39,23 @@ func (g *ErrGroup) Error() string {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
+	buf := &strings.Builder{}
 	count := len(g.errs)
 	switch count {
 	case 0:
-		return `no errors`
+		buf.WriteString(`no errors`)
 	case 1:
-		return g.errs[0].Error()
+		buf.WriteString(g.errs[0].Error())
 	default:
-		buf := &strings.Builder{}
 		buf.WriteString("multiple errors:")
 		for i, err := range g.errs {
 			fmt.Fprintf(buf, "\n%d. %s", i+1, err.Error())
 		}
-		if g.remainder > 0 {
-			fmt.Fprintf(buf, "\n%d. too many errors (%d discarded)", count+1, g.remainder)
-		}
-		return buf.String()
 	}
+	if g.remainder > 0 {
+		fmt.Fprintf(buf, "\n%d. too many errors (%d discarded)", count+1, g.remainder)
+	}
+	return buf.String()
 }
 
 // Unwrap returns all the errors in this group.
@@ -66,7 +67,7 @@ func (g *ErrGroup) Unwrap() []error {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	max := len(g.errs) - 1
+	max := len(g.errs)
 	return g.errs[:max:max]
 }
 
@@ -96,7 +97,7 @@ func (g *ErrGroup) Full() bool {
 	return g.limit > 0 && len(g.errs) >= g.limit
 }
 
-// Empty indicates if there has been one or more errors collected.
+// Empty indicates if there has been zero errors collected.
 func (g *ErrGroup) Empty() bool {
 	return g.Count() <= 0
 }
@@ -111,21 +112,17 @@ func (g *ErrGroup) AnyOrNil() error {
 
 // FullOrNil will return this error if full or nil otherwise.
 func (g *ErrGroup) FullOrNil() error {
-	if !g.Full() {
+	if g == nil || !g.Full() {
 		return nil
 	}
 	return g
 }
 
+// crunch modifies the errors slice in place by removing any error
+// which is nil, and returns the modified slice.
+// This will set nil errors between the new length and the original length.
 func crunch(errs []error) []error {
-	count, dest := len(errs), 0
-	for src := range count {
-		if errs[src] != nil {
-			errs[dest], errs[src] = errs[src], errs[dest]
-			dest++
-		}
-	}
-	return errs[:dest]
+	return slices.DeleteFunc(errs, func(e error) bool { return e == nil })
 }
 
 func expand(skip *ErrGroup, errs []error) []error {

@@ -2,8 +2,10 @@ package faults
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -77,18 +79,26 @@ func (f *Fault) SetLoc(file string, lineNo int) *Fault {
 	return f
 }
 
+// SetCurLoc will set the current location to this fault.
+//
+// This will attempt to find the calling location by filtering based
+// on path suffixes so some paths will not show up.
+// This will return true if a location is found, otherwise it will
+// give up after 10 attempts, will set an empty file path and return false.
 func (f *Fault) SetCurLoc() bool {
 	if f == nil {
 		return false
 	}
 	f.file = ``
 	f.lineNo = 0
-	for i := range 10 {
+
+	const maxAttempts = 10
+	for i := range maxAttempts {
 		if _, file, line, ok := runtime.Caller(i); ok {
 			dir := filepath.ToSlash(filepath.Dir(file))
 			if strings.HasSuffix(dir, `/avail/faults`) ||
 				strings.HasSuffix(dir, `/runtime`) ||
-				strings.HasSuffix(dir, `/assert`) {
+				strings.HasSuffix(dir, `/avail/assert`) {
 				continue
 			}
 
@@ -163,20 +173,55 @@ func (f *Fault) Error() string {
 	if f == nil {
 		return `nil`
 	}
-	msg := f.msg
-	if len(f.file) > 0 {
-		msg = fmt.Sprintf(`%s @ %s`, msg, f.file)
-		if f.lineNo >= 0 {
-			msg = fmt.Sprintf(`%s:%d`, msg, f.lineNo)
+
+	const indent = "\t"
+
+	buf := &strings.Builder{}
+	write := func(s string) {
+		if _, err := buf.WriteString(s); err != nil {
+			panic(err)
 		}
 	}
-	parts := make([]string, 0, len(f.data)+1)
-	parts = append(parts, msg)
-	for k, v := range f.data {
-		parts = append(parts, fmt.Sprintf("\t%s: %v", k, v))
+
+	if len(f.msg) > 0 {
+		write(f.msg)
+	} else {
+		write(`nonspecific error`)
 	}
-	sort.Strings(parts[1:])
-	return strings.Join(parts, "\n")
+	if len(f.file) > 0 {
+		write(fmt.Sprintf(` @ %s`, f.file))
+		if f.lineNo >= 0 {
+			write(fmt.Sprintf(`:%d`, f.lineNo))
+		}
+	}
+
+	dataError := map[error]bool{}
+	keys := slices.Collect(maps.Keys(f.data))
+	sort.Strings(keys)
+	keyWidth := 0
+	for _, k := range keys {
+		keyWidth = max(keyWidth, len(k))
+	}
+	spacing := strings.Repeat(` `, keyWidth+2)
+	for _, k := range keys {
+		v := f.data[k]
+		if e, ok := v.(error); ok {
+			dataError[e] = true
+		}
+
+		val := fmt.Sprint(v)
+		val = strings.ReplaceAll(val, "\n", "\n"+indent+spacing)
+		key := k + `: `
+		key += strings.Repeat(" ", keyWidth-len(key))
+		write("\n" + indent + key + val)
+	}
+
+	for _, in := range f.inner {
+		if !dataError[in] {
+			write("\n" + indent + in.Error())
+		}
+	}
+	return buf.String()
 }
 
 func (f *Fault) String() string {

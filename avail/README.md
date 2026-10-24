@@ -27,24 +27,6 @@
 
 I told an agent to do a quick review of things that could be problems and this is what it found.
 
-### faults
-
-- `ErrGroup.Unwrap`: `g.errs[:max:max]` with `max = len-1` drops the last error and panics on an empty group. This also makes
-  `expand` lose the last error whenever groups are merged.
-- `ErrGroup.Full()` returns true for a nil group, so `FullOrNil()` on a nil group returns a typed-nil `*ErrGroup` as a non-nil
-  `error`.
-- `crunch` reorders the caller's slice in place, because a variadic call with `errs...` shares the caller's backing array.
-- `expand` drops the merged group's `remainder` (its discarded count).
-- The zero value `ErrGroup{}` panics because `lock` is a nil pointer. The same applies to `logger.Logger`.
-- `Error()` with exactly one error and `remainder > 0` omits the "discarded" note.
-- The `Empty` doc comment says the opposite of what the function does.
-- `Fault.Error()` never renders the inner errors, so `From(*ErrGroup)` produces just "error group" and all the detail is lost.
-- `SetCurLoc` skips any directory ending in `/assert` or `/runtime`, which includes third-party packages such as testify's `assert`.
-  It also skips the faults package's own tests, and it gives up after 10 frames.
-- In `Recover`, the location is the deferred call site, not where the panic happened.
-- `With` puts errors into `data`, which are printed with `%v`, so multi-line errors break the tab-indented layout. `bool` and named
-  numeric types get stringified while built-in numerics don't.
-
 ### iterator
 
 - `Limit`: it yields before checking `count`, so `Limit(n)` returns n+1 values.
