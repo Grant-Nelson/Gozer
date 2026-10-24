@@ -15,10 +15,8 @@ type Reader struct {
 
 // NewReader creates a new Wad reader.
 //
-// The Reader currently requires the uint size and endianness match.
-// This is because this is created for building a cache that is
-// expected to be read on the same machine as it was written.
-// If the read data doesn't match, then this will panic.
+// When reading a Wad file, the calls to the Wad must match
+// the same order as they were written.
 func NewReader(r io.Reader) *Reader {
 	header := []byte{0, 0}
 	read(r, header)
