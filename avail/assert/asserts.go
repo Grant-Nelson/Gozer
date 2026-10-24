@@ -36,7 +36,7 @@ var ErrAssert = errors.New(`assert failed`)
 // Eq asserts that `a` and `b` are equal, otherwise panics.
 func Eq[T comparable](a, b T) {
 	if Enabled() && !(a == b) {
-		panic(faults.New(`%w equality check`, ErrAssert).
+		panic(faults.New(`failed equality check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`first`, a).
 			With(`second`, b))
@@ -48,7 +48,7 @@ func Neq[T comparable](a, b T) {
 	// Note: The `!(a op b)` for the comparable and orderable is
 	// to handle NaN correctly when T is a float32 or float64.
 	if Enabled() && !(a != b) {
-		panic(faults.New(`%w non-equality check`, ErrAssert).
+		panic(faults.New(`failed non-equality check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`first`, a).
 			With(`second`, b))
@@ -58,7 +58,7 @@ func Neq[T comparable](a, b T) {
 // Lt asserts that `a` is less than `b`, otherwise panics.
 func Lt[T cmp.Ordered](a, b T) {
 	if Enabled() && !(a < b) {
-		panic(faults.New(`%w less-than check`, ErrAssert).
+		panic(faults.New(`failed less-than check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`first`, a).
 			With(`second`, b))
@@ -68,7 +68,7 @@ func Lt[T cmp.Ordered](a, b T) {
 // Gt asserts that `a` is greater than `b`, otherwise panics.
 func Gt[T cmp.Ordered](a, b T) {
 	if Enabled() && !(a > b) {
-		panic(faults.New(`%w greater-than check`, ErrAssert).
+		panic(faults.New(`failed greater-than check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`first`, a).
 			With(`second`, b))
@@ -78,7 +78,7 @@ func Gt[T cmp.Ordered](a, b T) {
 // Leq asserts that `a` is less than or equal to `b`, otherwise panics.
 func Leq[T cmp.Ordered](a, b T) {
 	if Enabled() && !(a <= b) {
-		panic(faults.New(`%w less-than-or-equal check`, ErrAssert).
+		panic(faults.New(`failed less-than-or-equal check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`first`, a).
 			With(`second`, b))
@@ -88,7 +88,7 @@ func Leq[T cmp.Ordered](a, b T) {
 // Geq asserts that `a` is greater than or equal to `b`, otherwise panics.
 func Geq[T cmp.Ordered](a, b T) {
 	if Enabled() && !(a >= b) {
-		panic(faults.New(`%w greater-than-or-equal check`, ErrAssert).
+		panic(faults.New(`failed greater-than-or-equal check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`first`, a).
 			With(`second`, b))
@@ -96,9 +96,10 @@ func Geq[T cmp.Ordered](a, b T) {
 }
 
 // Range asserts that `a` is between `low` and `high` inclusively, otherwise panics.
+// If `low` is greater than `high`, then this assert will not work correctly.
 func Range[T cmp.Ordered](a, low, high T) {
 	if Enabled() && !(a >= low && a <= high) {
-		panic(faults.New(`%w range check`, ErrAssert).
+		panic(faults.New(`failed range check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`value`, a).
 			With(`low`, low).
@@ -107,9 +108,10 @@ func Range[T cmp.Ordered](a, low, high T) {
 }
 
 // Epsilon asserts that `a` is less than `epsilon` away from zero, otherwise panics.
+// `epsilon` should be greater than zero.
 func Epsilon[T ~float32 | ~float64](a, epsilon T) {
 	if Enabled() && !(math.Abs(float64(a)) < float64(epsilon)) {
-		panic(faults.New(`%w epsilon check`, ErrAssert).
+		panic(faults.New(`failed epsilon check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`value`, a).
 			With(`epsilon`, epsilon))
@@ -119,7 +121,7 @@ func Epsilon[T ~float32 | ~float64](a, epsilon T) {
 // Inf asserts that `a` is an infinite value, otherwise panics.
 func Inf[T ~float32 | ~float64](a T) {
 	if Enabled() && !math.IsInf(float64(a), 0) {
-		panic(faults.New(`%w infinite check`, ErrAssert).
+		panic(faults.New(`failed infinite check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`value`, a))
 	}
@@ -128,7 +130,7 @@ func Inf[T ~float32 | ~float64](a T) {
 // NotInf asserts that `a` is not an infinite value, otherwise panics.
 func NotInf[T ~float32 | ~float64](a T) {
 	if Enabled() && math.IsInf(float64(a), 0) {
-		panic(faults.New(`%w not infinite check`, ErrAssert).
+		panic(faults.New(`failed not infinite check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`value`, a))
 	}
@@ -137,7 +139,7 @@ func NotInf[T ~float32 | ~float64](a T) {
 // NaN asserts that `a` is not a number (NaN), otherwise panics.
 func NaN[T ~float32 | ~float64](a T) {
 	if Enabled() && !math.IsNaN(float64(a)) {
-		panic(faults.New(`%w NaN check`, ErrAssert).
+		panic(faults.New(`failed NaN check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`value`, a))
 	}
@@ -146,7 +148,7 @@ func NaN[T ~float32 | ~float64](a T) {
 // NotNaN asserts that `a` is a number (not NaN), otherwise panics.
 func NotNaN[T ~float32 | ~float64](a T) {
 	if Enabled() && math.IsNaN(float64(a)) {
-		panic(faults.New(`%w not NaN check`, ErrAssert).
+		panic(faults.New(`failed not NaN check`, ErrAssert).
 			WithTypeFor[T](`type`).
 			With(`value`, a))
 	}
@@ -155,7 +157,7 @@ func NotNaN[T ~float32 | ~float64](a T) {
 // Nil asserts that the pointer `a` is nil, otherwise panics.
 func Nil[T any, P ~*T](p P) {
 	if Enabled() && p != nil {
-		panic(faults.New(`%w must be nil check`, ErrAssert).
+		panic(faults.New(`failed must be nil check`, ErrAssert).
 			WithTypeFor[P](`type`).
 			With(`value`, p))
 	}
@@ -164,7 +166,7 @@ func Nil[T any, P ~*T](p P) {
 // NotNil asserts that the pointer `a` is not nil, otherwise panics.
 func NotNil[T any, P ~*T](p P) {
 	if Enabled() && p == nil {
-		panic(faults.New(`%w not nil check`, ErrAssert).
+		panic(faults.New(`failed not nil check`, ErrAssert).
 			WithTypeFor[P](`type`))
 	}
 }
@@ -174,7 +176,7 @@ func Zero[T comparable](a T) {
 	if Enabled() {
 		var zero T
 		if a != zero {
-			panic(faults.New(`%w must be zero check`, ErrAssert).
+			panic(faults.New(`failed must be zero check`, ErrAssert).
 				WithTypeFor[T](`type`).
 				With(`value`, a))
 		}
@@ -186,7 +188,7 @@ func Nonzero[T comparable](a T) {
 	if Enabled() {
 		var zero T
 		if a == zero {
-			panic(faults.New(`%w not zero check`, ErrAssert).
+			panic(faults.New(`failed not zero check`, ErrAssert).
 				WithTypeFor[T](`type`).
 				With(`value`, a))
 		}
@@ -198,21 +200,21 @@ func Nonzero[T comparable](a T) {
 // If asserts are disabled, then `a` will not be run.
 func Fn(a func() bool) {
 	if Enabled() && !a() {
-		panic(faults.New(`%w function check`, ErrAssert))
+		panic(faults.New(`failed function check`, ErrAssert))
 	}
 }
 
 // True asserts that `a` is true, otherwise panics.
 func True(a bool) {
 	if Enabled() && !a {
-		panic(faults.New(`%w true check`, ErrAssert))
+		panic(faults.New(`failed true check`, ErrAssert))
 	}
 }
 
 // False asserts that `a` is false, otherwise panics.
 func False(a bool) {
 	if Enabled() && a {
-		panic(faults.New(`%w false check`, ErrAssert))
+		panic(faults.New(`failed false check`, ErrAssert))
 	}
 }
 
@@ -220,7 +222,7 @@ func False(a bool) {
 func EmptyStr[T ~string](s T) {
 	if Enabled() {
 		if ln := len(s); ln != 0 {
-			panic(faults.New(`%w empty string check`, ErrAssert).
+			panic(faults.New(`failed empty string check`, ErrAssert).
 				WithTypeFor[T](`type`).
 				With(`length`, ln))
 		}
@@ -231,7 +233,7 @@ func EmptyStr[T ~string](s T) {
 func NotEmptyStr[T ~string](s T) {
 	if Enabled() {
 		if ln := len(s); ln == 0 {
-			panic(faults.New(`%w not empty string check`, ErrAssert).
+			panic(faults.New(`failed not empty string check`, ErrAssert).
 				WithTypeFor[T](`type`).
 				With(`length`, ln))
 		}
@@ -239,10 +241,11 @@ func NotEmptyStr[T ~string](s T) {
 }
 
 // StrRange asserts that `s` has a length between `low` and `high` inclusively, otherwise panics.
+// If `low` is greater than `high`, then this assert will not work correctly.
 func StrRange[T ~string](s T, low, high int) {
 	if Enabled() {
 		if ln := len(s); ln < low || ln > high {
-			panic(faults.New(`%w string length range check`, ErrAssert).
+			panic(faults.New(`failed string length range check`, ErrAssert).
 				WithTypeFor[T](`type`).
 				With(`length`, ln).
 				With(`low`, low).
@@ -255,7 +258,7 @@ func StrRange[T ~string](s T, low, high int) {
 func EmptySlice[T any, S ~[]T](s S) {
 	if Enabled() {
 		if ln := len(s); ln != 0 {
-			panic(faults.New(`%w empty slice check`, ErrAssert).
+			panic(faults.New(`failed empty slice check`, ErrAssert).
 				WithTypeFor[S](`type`).
 				With(`length`, ln))
 		}
@@ -266,7 +269,7 @@ func EmptySlice[T any, S ~[]T](s S) {
 func NotEmptySlice[T any, S ~[]T](s S) {
 	if Enabled() {
 		if ln := len(s); ln == 0 {
-			panic(faults.New(`%w not empty slice check`, ErrAssert).
+			panic(faults.New(`failed not empty slice check`, ErrAssert).
 				WithTypeFor[S](`type`).
 				With(`length`, ln))
 		}
@@ -274,10 +277,11 @@ func NotEmptySlice[T any, S ~[]T](s S) {
 }
 
 // SliceRange asserts that `s` has a length between `low` and `high` inclusively, otherwise panics.
+// If `low` is greater than `high`, then this assert will not work correctly.
 func SliceRange[T any, S ~[]T](s S, low, high int) {
 	if Enabled() {
 		if ln := len(s); ln < low || ln > high {
-			panic(faults.New(`%w slice length range check`, ErrAssert).
+			panic(faults.New(`failed slice length range check`, ErrAssert).
 				WithTypeFor[S](`type`).
 				With(`length`, ln).
 				With(`low`, low).
@@ -290,7 +294,7 @@ func SliceRange[T any, S ~[]T](s S, low, high int) {
 func EmptyMap[K comparable, V any, M ~map[K]V](m M) {
 	if Enabled() {
 		if ln := len(m); ln != 0 {
-			panic(faults.New(`%w empty map check`, ErrAssert).
+			panic(faults.New(`failed empty map check`, ErrAssert).
 				WithTypeFor[M](`type`).
 				With(`length`, ln))
 		}
@@ -301,7 +305,7 @@ func EmptyMap[K comparable, V any, M ~map[K]V](m M) {
 func NotEmptyMap[K comparable, V any, M ~map[K]V](m M) {
 	if Enabled() {
 		if ln := len(m); ln == 0 {
-			panic(faults.New(`%w not empty map check`, ErrAssert).
+			panic(faults.New(`failed not empty map check`, ErrAssert).
 				WithTypeFor[M](`type`).
 				With(`length`, ln))
 		}
@@ -309,10 +313,11 @@ func NotEmptyMap[K comparable, V any, M ~map[K]V](m M) {
 }
 
 // MapRange asserts that `m` has a length between `low` and `high` inclusively, otherwise panics.
+// If `low` is greater than `high`, then this assert will not work correctly.
 func MapRange[K comparable, V any, M ~map[K]V](m M, low, high int) {
 	if Enabled() {
 		if ln := len(m); ln < low || ln > high {
-			panic(faults.New(`%w map length range check`, ErrAssert).
+			panic(faults.New(`failed map length range check`, ErrAssert).
 				WithTypeFor[M](`type`).
 				With(`length`, ln).
 				With(`low`, low).

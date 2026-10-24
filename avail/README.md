@@ -27,14 +27,6 @@
 
 I told an agent to do a quick review of things that could be problems and this is what it found.
 
-### assert
-
-- `faults.New` doesn't format its message, so every assert message literally contains `%w` (for example, "%w equality check").
-- `Zero` and `Nonzero` report "must be nil check" and "not nil check" (copy-paste).
-- The ordered checks (`Lt`, `Gt`, `Leq`, `Geq`, `Range`) all pass silently when a value is NaN.
-- `Range`, `StrRange`, `SliceRange` and `MapRange` don't validate that `low <= high`.
-- The comment refers to `disableAsserts`, but the constant is `enableAsserts`.
-
 ### faults
 
 - `ErrGroup.Unwrap`: `g.errs[:max:max]` with `max = len-1` drops the last error and panics on an empty group. This also makes
