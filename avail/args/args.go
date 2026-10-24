@@ -15,7 +15,7 @@
 // `arg:"help"` on a string field. The string field must be set to the
 // string to show for help.
 //
-//	type example struct {
+//	var example = &struct {
 //		Help string `arg:"help"`
 //	}{
 //		Help: "This is the help message to print at the top of the help output",
@@ -67,7 +67,7 @@
 //     and may not contain spaces, or start with a dash or number.
 //     If the name is empty, the field's name is used.
 //     Multiple names can be defined with a bar (|) separator, e.g. `t|test`.
-//     Tool names are case-sensitive.
+//     Tool names are case sensitive.
 //   - The tool's description may be empty.
 //     The description is used for the help output.
 //
@@ -132,7 +132,7 @@
 //
 // By default the positional argument is required, unless variadic that is
 // defaulted to optional and may only be optional. To make the positional
-// argument optional, use the tag `arg:"optional,pos,<description>"`.
+// argument optional, use the tag `arg:"optional,pos,<name>,<description>"`.
 // Once an optional positional argument is used, all following positional
 // arguments must also be optional.
 //

@@ -83,7 +83,7 @@ func (p *parser) printHelp() {
 	for _, helpField := range p.form.Help {
 		helpText := p.val.FieldByIndex(helpField.Index).String()
 		if len(helpText) > 0 {
-			p.printf(helpText)
+			p.printf(`%s`, helpText)
 		}
 	}
 	p.printHelpForTools()
@@ -242,7 +242,7 @@ func (p *parser) clearUnset() {
 func (p *parser) clearField(field reflect.StructField) {
 	val := p.getField(field)
 	switch val.Kind() {
-	case reflect.Ptr, reflect.Slice:
+	case reflect.Pointer, reflect.Slice:
 		val.Set(reflect.Zero(val.Type()))
 	}
 }
@@ -284,7 +284,7 @@ func (p *parser) parseTool(name string, tool *toolForm) bool {
 	p.clearUnset()
 
 	val := p.getField(tool.Field)
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
 		}
@@ -297,6 +297,7 @@ func (p *parser) parseTool(name string, tool *toolForm) bool {
 	p.usedTool = map[*toolForm]bool{}
 	p.atPos = 0
 	p.val = val
+	p.firstVar = true
 	return true
 }
 
@@ -348,7 +349,7 @@ func (p *parser) parseFlag(name string) bool {
 
 		p.errorf(`%q flag requires a value.`, name)
 		if flag.Field.Type.Kind() == reflect.String {
-			p.errorf(`If the intended string value starts with a dash, escape the value: -%s %q`, name, value)
+			p.errorf(`If the intended string value starts with a dash, escape the value: -%s '%q'`, name, value)
 		}
 		p.printHelpHint()
 		return false
@@ -469,6 +470,7 @@ func (p *parser) setBoolValue(val reflect.Value, name string, value string) bool
 }
 
 func (p *parser) setIntValue(val reflect.Value, name string, value string, bitSize int, min, max int64) bool {
+	value = strings.TrimSpace(value)
 	n, err := strconv.ParseInt(value, 0, bitSize)
 	if err != nil {
 		if errors.Is(err, strconv.ErrRange) {
@@ -508,10 +510,11 @@ func (p *parser) setUintValue(val reflect.Value, name string, value string, bitS
 }
 
 func (p *parser) setFloatValue(val reflect.Value, name string, value string, bitSize int) bool {
+	value = strings.TrimSpace(value)
 	n, err := strconv.ParseFloat(value, bitSize)
 	if err != nil {
 		if errors.Is(err, strconv.ErrRange) {
-			p.errorf(`Unsigned integer value for %s is out of range for a float %d: %s`, name, bitSize, value)
+			p.errorf(`Float value for %s is out of range for a float %d: %s`, name, bitSize, value)
 			p.printHelpHint()
 			return false
 		}

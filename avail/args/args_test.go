@@ -36,6 +36,15 @@ func TestEmpty_Form(t *testing.T) {
 	parsePanic(t, &intS, `cat`, ErrNotStructPointer.with(`got pointer to int`))
 }
 
+func TestEmpty_DrainForm(t *testing.T) {
+	var s struct {
+		Rest []string
+	}
+	if !Parse(&s) {
+		t.Error(`expected Parse to return true`)
+	}
+}
+
 func TestEmpty_Skips(t *testing.T) {
 	s := &struct {
 		unexported bool
@@ -114,7 +123,7 @@ func TestFlags_Args(t *testing.T) {
 		`Use "cat -h" to print help.`)
 	parseFail(t, newS(), `cat -i -x`,
 		`"i" flag requires a value.`,
-		`If the intended string value starts with a dash, escape the value: -i "-x"`,
+		`If the intended string value starts with a dash, escape the value: -i '"-x"'`,
 		`Use "cat -h" to print help.`)
 
 	parseHelp(t, newS(), `cat -h`,
@@ -306,7 +315,7 @@ func TestFlags_Types(t *testing.T) {
 		`Invalid float value for Float64: 1.0.0`,
 		`Use "cat -h" to print help.`)
 	parseFail(t, s, `cat -Float64 1.0e1000000`,
-		`Unsigned integer value for Float64 is out of range for a float 64: 1.0e1000000`,
+		`Float value for Float64 is out of range for a float 64: 1.0e1000000`,
 		`Use "cat -h" to print help.`)
 	parsePass(t, s, `cat -Float64 -1e+12`)
 	equal(t, s.Float64, -1e12)
@@ -362,6 +371,11 @@ func TestFlags_BadForm(t *testing.T) {
 		X []int `arg:"flag,,"`
 	}{}
 	parsePanic(t, s7, `cat`, ErrFlagTagWrongType.with(`[]int`))
+
+	expectPanic(t, func() {
+		var s int
+		_ = getForm(reflect.TypeOf(s))
+	}, ErrExpectedStructType.with(`int`))
 }
 
 func TestFlags_Form(t *testing.T) {
@@ -998,20 +1012,27 @@ func parseHelp(t *testing.T, s any, args string, lines ...string) {
 	equal(t, bufErr.String(), ``)
 }
 
-func parsePanic(t *testing.T, s any, args string, exp error) {
+func expectPanic(t *testing.T, fn func(), exp error) {
 	t.Helper()
-	bufOut := &strings.Builder{}
-	bufErr := &strings.Builder{}
 	defer func() {
 		t.Helper()
 		if r := recover(); r != nil {
 			equal(t, r.(error).Error(), exp.Error())
-			equal(t, bufOut.String(), ``)
-			equal(t, bufErr.String(), ``)
 		}
 	}()
-	ParseArgs(s, strings.Fields(args), bufOut, bufErr)
+	fn()
 	t.Fatal(`expected panic`)
+}
+
+func parsePanic(t *testing.T, s any, args string, exp error) {
+	t.Helper()
+	bufOut := &strings.Builder{}
+	bufErr := &strings.Builder{}
+	expectPanic(t, func() {
+		ParseArgs(s, strings.Fields(args), bufOut, bufErr)
+	}, exp)
+	equal(t, bufOut.String(), ``)
+	equal(t, bufErr.String(), ``)
 }
 
 func formatValue(value any) string {

@@ -72,7 +72,7 @@ func (b formBuilder) takeFirst(tag string) (string, string) {
 	if len(parts) == 1 {
 		return strings.TrimSpace(parts[0]), ``
 	}
-	return strings.TrimSpace(parts[0]), parts[1]
+	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 }
 
 func (b formBuilder) isStructType(t reflect.Type) bool {
@@ -103,13 +103,14 @@ func (b formBuilder) isValidName(name string) bool {
 		!unicode.IsDigit(rune(name[0]))
 }
 
-func (b *formBuilder) ReadStruct(st reflect.Type) *form {
-	if f, ok := b.allForms[st]; ok {
+func (b *formBuilder) ReadStruct(t reflect.Type) *form {
+	if f, ok := b.allForms[t]; ok {
 		return f
 	}
 
-	if st.Kind() == reflect.Pointer {
-		st = st.Elem()
+	st := t
+	if t.Kind() == reflect.Pointer {
+		st = t.Elem()
 	}
 	if st.Kind() != reflect.Struct {
 		panic(ErrExpectedStructType.with(`%v`, st.Kind()))
@@ -119,9 +120,9 @@ func (b *formBuilder) ReadStruct(st reflect.Type) *form {
 		Tools: map[string]*toolForm{},
 		Flags: map[string]*flagForm{},
 	}
-	b.allForms[st] = f
-	for i := range st.NumField() {
-		b.ReadField(f, st.Field(i))
+	b.allForms[t] = f
+	for field := range st.Fields() {
+		b.ReadField(f, field)
 	}
 	return f
 }

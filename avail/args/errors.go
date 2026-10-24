@@ -40,7 +40,7 @@ func (err ArgsError) Error() string {
 }
 
 func (err ArgsError) Unwrap() error {
-	return errors.Unwrap(err.inner)
+	return err.inner
 }
 
 func (err ArgsError) with(format string, a ...any) ArgsError {

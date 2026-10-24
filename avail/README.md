@@ -27,30 +27,6 @@
 
 I told an agent to do a quick review of things that could be problems and this is what it found.
 
-### args
-
-- `form.go` `ReadStruct`: the cache is checked with the pointer type but stored under the element type, so a pointer-to-struct
-  tool never hits the cache. A recursive tool like `Sub *T` recurses forever, even though the docs say recursive tools are
-  allowed.
-- `parser.go` `parseTool`: `firstVar` isn't reset when switching into a tool. If the parent's variadic got any values, the tool's
-  variadic appends onto its defaults instead of replacing them, and it isn't cleared when no values are given.
-- `errors.go` `Unwrap`: it returns `errors.Unwrap(err.inner)`. When `with` is called with a `%w` in the format (as `printf` and `errorf`
-  do), the inner error wraps two errors, `errors.Unwrap` returns nil, and `errors.Is(e, ErrWriteOutFailure)` fails. It should
-  return `err.inner` directly.
-- `printHelp`: `p.printf(helpText)` uses the user's help text as a format string, so any `%` in it gets mangled.
-- `setFloatValue`: the range error message says "Unsigned integer value" (copy-paste).
-- A bool flag consumes a following positional that happens to parse as a bool. For example, `-v 1 file` treats `1` as the flag's
-  value.
-- A positional value that equals a tool name is always treated as the tool, and there's no way to escape it.
-- The "escape the value" hint prints `-name "-value"`, but the shell strips those quotes. The user actually needs `'"-value"'`.
-- `setValue` always unquotes, so a value that really contains surrounding quotes can't be passed through as-is.
-- `ParseArgs` returns false for both "help printed" and "invalid args", so the caller can't pick an exit code. It also panics
-  on write failure, which the docs don't mention.
-- `takeFirst` doesn't trim the description, so it keeps any leading space.
-- `setUintValue` trims whitespace but `setIntValue` and `setFloatValue` don't.
-- Doc issues: the optional positional example `arg:"optional,pos,<description>"` is missing the name; the flag section says
-  "Tool names are case-sensitive"; the `}{` help example isn't valid Go.
-
 ### assert
 
 - `faults.New` doesn't format its message, so every assert message literally contains `%w` (for example, "%w equality check").
