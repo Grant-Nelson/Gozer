@@ -12,13 +12,13 @@ type PositionResolver interface {
 	Position(token.Pos) token.Position
 }
 
-// PackageName is the name of the package this file belongs too.
+// PackageName is the name of the package this file belongs to.
 func PackageName(f *ast.File) string {
 	return f.Name.Name
 }
 
-// PackagePath is the path of the package this file belongs too.
-// This is the directly containing the file and may not always
+// PackagePath is the path of the package this file belongs to.
+// This is the directory containing the file and may not always
 // match the import path.
 // The node should typically be an *ast.File but may be any node in that file.
 func PackagePath(pr PositionResolver, n ast.Node) string {

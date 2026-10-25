@@ -48,6 +48,7 @@ func newNodeWithStackIteratorValue(stack []ast.Node, node ast.Node, closing bool
 // Nodes iterates through all the nodes in the file.
 // It moves depth first and returns a nil Node when a node is being
 // closed and all of its children have been iterated.
+// No nil Node is returned for a skipped node.
 func Nodes(node ast.Node) iterator.Iterator[*NodeIteratorValue] {
 	return func(yield func(v *NodeIteratorValue) bool) {
 		defer func() {
@@ -78,25 +79,41 @@ func NodesWithStack(node ast.Node) iterator.Iterator[*NodeWithStackIteratorValue
 		}()
 
 		stack := []ast.Node{}
+		push := func(n ast.Node) {
+			stack = append(stack, n)
+		}
+		pop := func() ast.Node {
+			var close ast.Node
+			if high := len(stack) - 1; high >= 0 {
+				close = stack[high]
+				stack[high] = nil
+				stack = stack[:high]
+			}
+			return close
+		}
+
 		ast.Inspect(node, func(n ast.Node) bool {
-			var v *NodeWithStackIteratorValue
-			if n != nil {
-				stack = append(stack, n)
-				v = newNodeWithStackIteratorValue(stack, n, false)
-			} else {
-				var close ast.Node
-				if high := len(stack) - 1; high >= 0 {
-					close = stack[high]
-					stack[high] = nil
-					stack = stack[:high]
+			if n == nil {
+				close := pop()
+				v := newNodeWithStackIteratorValue(stack, close, true)
+				if !yield(v) {
+					panic(errEndInspect)
 				}
-				v = newNodeWithStackIteratorValue(stack, close, true)
+				return true
 			}
 
+			push(n)
+			v := newNodeWithStackIteratorValue(stack, n, false)
 			if !yield(v) {
 				panic(errEndInspect)
 			}
-			return !v.Skip
+			if v.Skip {
+				// the n == nil path for popping the stack is skipped by ast.Inspect
+				// when `false` is returned, so pop the value from the stack now.
+				_ = pop()
+				return false
+			}
+			return true
 		})
 	}
 }

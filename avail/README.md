@@ -25,27 +25,6 @@
 
 ## Agent's Review
 
-### source
-
-- `PathRebase` uses a raw string prefix, so `/a/b` also matches `/a/bc/x`. With an empty `oldBase`, it concatenates with no
-  separator.
-- `Skipper` and `Override` match uncleaned paths, so `./a` and `a` are treated as different.
-- `ToReader` passes an `io.Reader` through without any close semantics, while reading files fully into memory.
-- Doc typos: "id" should be "is", "te" should be "the".
-
-### astTools
-
-- `NodesWithStack`: when `Skip` is set, `ast.Inspect` never calls `f(nil)` for that node, so it's never popped and the stack is
-  corrupted from then on. `Nodes` has the same missing close event, which contradicts its doc.
-- `Idents` mutates the shared `ds.Node` for each name in a `ValueSpec`. Values the caller kept from earlier names all end up
-  pointing at the last ident, and `Start`/`End` change meaning.
-- `Idents` yields the quoted import path instead of the import's name. It also yields method names and `init` as if they were
-  package-level identifiers, and filters `_` only for values.
-- `ParsePackage`: empty `inputFiles` means no patterns, which loads the current directory's package. The working directory is
-  captured once from the process, and error strings are capitalized.
-- `RemoveDirectives` matches by `Pos`, so synthetic comments at `NoPos` all match each other.
-- Doc typos: "belongs too" should be "belongs to", "the directly containing" should be "the directory containing".
-
 ### typeTools
 
 - `ops.go` still has `crumb.DropMsg` calls throughout, so every call prints to stdout.

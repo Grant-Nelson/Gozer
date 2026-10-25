@@ -10,10 +10,12 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+// wd gets the working directory. This is called once
+// since the working directory should remain the same during a run.
 var wd = sync.OnceValue(func() string {
 	dir, err := filepath.Abs(`./`)
 	if err != nil {
-		panic(fmt.Errorf(`Error getting working directory: %w`, err))
+		panic(fmt.Errorf(`error getting working directory: %w`, err))
 	}
 	return dir
 })
@@ -22,6 +24,9 @@ func workingPath(path string) string {
 	return filepath.Join(wd(), path)
 }
 
+// ParsePackage is a helper function for quickly parsing a package.
+// This is typically used for unit-tests. If `inputFiles` is empty,
+// then the working directly is read by default.
 func ParsePackage(inputFiles, extraFiles map[string]string) (*packages.Package, error) {
 	patterns := make([]string, 0, len(inputFiles))
 	overlay := make(map[string][]byte, len(inputFiles)+len(extraFiles))

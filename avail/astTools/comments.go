@@ -35,6 +35,11 @@ func DirectivesFromComment(cm *ast.Comment) *ast.Directive {
 	return nil
 }
 
+// RemoveDirectives removes all the directives passed into it.
+//
+// The directives are matched by `Pos`, meaning this will not work
+// for synthetic directives that have `NoPos` since all `NoPos` would
+// be removed when trying to remove any one of them.
 func RemoveDirectives(cg *ast.CommentGroup, directives ...*ast.Directive) {
 	if cg == nil || len(cg.List) <= 0 || len(directives) <= 0 {
 		return
