@@ -25,43 +25,6 @@
 
 ## Agent's Review
 
-I told an agent to do a quick review of things that could be problems and this is what it found.
-
-### iterator
-
-- `Limit`: it yields before checking `count`, so `Limit(n)` returns n+1 values.
-- `LessThan`: off by one. It returns true when the count is exactly `count`, so it behaves like less-than-or-equal.
-- `Zip`: when both iterators are exhausted, or only the second has values left, the loop never exits. Neither `stop1` nor `stop2`
-  is called when `yield` returns false; they should be deferred.
-- `Expand`: the constraint `TIn iter.Seq[TOut]` only matches exactly `iter.Seq[TOut]`, so `Iterator[Iterator[T]]` can't be used. It
-  needs `~func(func(TOut) bool)`.
-- The `SkipWhile` doc says "until the predicate returns true", but the code skips while it returns true.
-- `Reduce` and `Aggregate` call `r(next, acc)`, which is the reverse of the documented "first and second value" order and matters
-  for non-commutative functions. `Reduce` also can't signal an empty sequence.
-- Doc names don't match: "Index" for `Indexed`, "ToStringF" for `ToStringsF`, "Appends" for `Append`.
-
-### stack
-
-- `Trim` doesn't actually free memory while any live node shares a chunk with the tombs, because nodes are slices of one
-  allocated array.
-- `Pop` and `Peek` can't distinguish an empty stack from a stored zero value.
-- `PushSeq` corrupts the stack if the sequence reads or mutates the same stack (for example, `s.PushSeq(s.PopAll())`).
-- `Push(a, b)` gives a different order than `PushOne(a).PushOne(b)`, and the "reverse order" wording in the doc is ambiguous.
-
-### logger
-
-- Indentation is shared state, so concurrent `LogGroup` and `Indent` calls from different goroutines produce wrong indentation
-  even though the writes are locked.
-- Calling the returned dedent or group-end function twice dedents twice.
-- Blank lines get the prefix, which leaves trailing whitespace.
-- Write errors are ignored.
-
-### crumb
-
-- `Out` is typed `*os.File`, so crumbs can't be redirected to an arbitrary `io.Writer` as the package doc suggests.
-- `runtime.FuncForPC` gives the wrong function name for inlined callers; `runtime.CallersFrames` handles that correctly.
-- Typos: "there way" should be "their way", "an it" should be "and it".
-
 ### source
 
 - `PathRebase` uses a raw string prefix, so `/a/b` also matches `/a/bc/x`. With an empty `oldBase`, it concatenates with no

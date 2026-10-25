@@ -1,12 +1,12 @@
 // This package contains bread crumbs. Hansel and Gretel dropped bread crumbs
-// to help them find there way back. The bread crumbs indicate where they
+// to help them find their way back. The bread crumbs indicate where they
 // had been. This package is the same idea but for tracing code.
 //
 // While debugging, sometimes stepping through code isn't very useful
 // if you don't know where you should put a break or stepping through the code
 // isn't possible. In those cases leaving crumbs will help you narrow down
 // where the code has flown. You drop crumbs around the code you're debugging
-// an it will output the location whenever a crumb is reached.
+// and it will output the location whenever a crumb is reached.
 // Some devs will do this by dropping in a something like `println("Flag 1")`,
 // `println("Flag 2.A.x")`, `println(">> Boom!")`, etc. The crumbs is
 // a similar idea except that it will output the file path and function name.
@@ -22,6 +22,7 @@ package crumb
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
@@ -37,7 +38,7 @@ var Disable = false
 
 // Out is the output to write the crumbs to. Defaults to standard output.
 // If Out is nil, the crumb will be skipped the same as if crumbs were disabled.
-var Out = os.Stdout
+var Out io.Writer = os.Stdout
 
 // Drop puts a "bread crumb" at the location this is called at
 // such that it will print the location of the method calling
@@ -49,7 +50,7 @@ func Drop() {
 		return
 	}
 	fmt.Fprintf(Out, "%s%s\n", prefix, Location(1, true))
-	Out.Sync()
+	flush()
 }
 
 // DropMsg puts a "bread crumb" at the location this is called at
@@ -63,11 +64,26 @@ func DropMsg(format string, args ...any) {
 		return
 	}
 	if msg := fmt.Sprintf(format, args...); len(msg) > 0 {
-		fmt.Fprintf(Out, "%s%s: %s\n", prefix, Location(1, true), msg)
+		check(fmt.Fprintf(Out, "%s%s: %s\n", prefix, Location(1, true), msg))
 	} else {
-		fmt.Fprintf(Out, "%s%s\n", prefix, Location(1, true))
+		check(fmt.Fprintf(Out, "%s%s\n", prefix, Location(1, true)))
 	}
-	Out.Sync()
+	flush()
+}
+
+func check(_ int, err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// flush will try to flush the output if the writer has `Sync`.
+func flush() {
+	if s, ok := Out.(interface{ Sync() error }); ok {
+		if err := s.Sync(); err != nil {
+			panic(err)
+		}
+	}
 }
 
 // Location gets the location that a bread crumb would output.

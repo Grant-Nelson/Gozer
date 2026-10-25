@@ -22,6 +22,11 @@ type Stack[T any] interface {
 	Grow(capacity int) Stack[T]
 
 	// Trim removes any excess capacity.
+	//
+	// This also copies the stack into a new allocation of nodes
+	// so that large allocated node footprints tha are only partially
+	// used when `Trim` is called can be garbage collected.
+	//
 	// Returns this stack so calls can be chained.
 	Trim() Stack[T]
 
@@ -52,13 +57,22 @@ type Stack[T any] interface {
 	PushOne(value T) Stack[T]
 
 	// Push will put these values into the stack in reverse order so that
-	// the next pop will get the top value first.
+	// the next pop will get the first value from the parameters first.
+	//
+	// The reverse order means that `Push(a, b)` will first pop `a` then `b`,
+	// where as `PushOne(a).PushOne(b)` will first pop `b` then `a` in normal order
+	// of a stack where last in is first out.
+	//
 	// Returns this stack so calls can be chained.
 	Push(values ...T) Stack[T]
 
 	// PushSeq will put the values into the stack in reverse order such that
 	// the next pop will get the first value that was read from the sequence.
 	// Returns this stack so calls can be chained.
+	//
+	// This modifies the stack while reading the iterator so do not modify
+	// this stack during iteration. For example do not do something as silly
+	// as `s.PushSeq(s.PopAll())` since that will corrupt the stack.
 	PushSeq(s iterator.Iterator[T]) Stack[T]
 }
 
@@ -110,6 +124,16 @@ func (s *stackImp[T]) grow(totalTombCount int) {
 func (s *stackImp[T]) Trim() Stack[T] {
 	s.tombs = nil
 	s.tombCount = 0
+	if s.count > 0 {
+		top := allocateNodes[T](s.count, nil)
+		src, dest := s.top, top
+		for range s.count {
+			dest.value = src.value
+			src = src.prev
+			dest = dest.prev
+		}
+		s.top = top
+	}
 	return s
 }
 

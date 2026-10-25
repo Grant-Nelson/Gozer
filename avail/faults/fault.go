@@ -175,23 +175,19 @@ func (f *Fault) Error() string {
 	}
 
 	const indent = "\t"
+	const nl = "\n"
 
 	buf := &strings.Builder{}
-	write := func(s string) {
-		if _, err := buf.WriteString(s); err != nil {
-			panic(err)
-		}
-	}
-
 	if len(f.msg) > 0 {
-		write(f.msg)
+		check(buf.WriteString(f.msg))
 	} else {
-		write(`nonspecific error`)
+		check(buf.WriteString(`nonspecific error`))
 	}
 	if len(f.file) > 0 {
-		write(fmt.Sprintf(` @ %s`, f.file))
+		check(buf.WriteString(` @ `))
+		check(buf.WriteString(f.file))
 		if f.lineNo >= 0 {
-			write(fmt.Sprintf(`:%d`, f.lineNo))
+			check(fmt.Fprintf(buf, `:%d`, f.lineNo))
 		}
 	}
 
@@ -202,23 +198,34 @@ func (f *Fault) Error() string {
 	for _, k := range keys {
 		keyWidth = max(keyWidth, len(k))
 	}
-	spacing := strings.Repeat(` `, keyWidth+2)
+	spacing := indent + strings.Repeat(` `, keyWidth+2)
 	for _, k := range keys {
 		v := f.data[k]
 		if e, ok := v.(error); ok {
 			dataError[e] = true
 		}
+		check(buf.WriteString(nl))
+		check(buf.WriteString(indent))
+		check(buf.WriteString(k))
+		check(buf.WriteString(`: `))
+		check(buf.WriteString(strings.Repeat(` `, keyWidth-len(k)-2)))
 
-		val := fmt.Sprint(v)
-		val = strings.ReplaceAll(val, "\n", "\n"+indent+spacing)
-		key := k + `: `
-		key += strings.Repeat(" ", keyWidth-len(key))
-		write("\n" + indent + key + val)
+		firstLine := true
+		for line := range strings.Lines(fmt.Sprint(v)) {
+			if firstLine {
+				firstLine = false
+			} else {
+				check(buf.WriteString(spacing))
+			}
+			check(buf.WriteString(line))
+		}
 	}
 
 	for _, in := range f.inner {
 		if !dataError[in] {
-			write("\n" + indent + in.Error())
+			check(buf.WriteString(nl))
+			check(buf.WriteString(indent))
+			check(buf.WriteString(in.Error()))
 		}
 	}
 	return buf.String()
@@ -226,4 +233,10 @@ func (f *Fault) Error() string {
 
 func (f *Fault) String() string {
 	return f.Error()
+}
+
+func check(_ int, err error) {
+	if err != nil {
+		panic(err)
+	}
 }

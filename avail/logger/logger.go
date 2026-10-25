@@ -37,6 +37,17 @@ func New(verbose bool, out io.Writer) *Logger {
 	}
 }
 
+// gainLock will mutex lock the logger and return the unlock function
+// so that `defer imp.gainLock()()` can be used to lock the function.
+//
+// The lock is intended to protect the logger from race conditions, however,
+// the logger has a shared indentation so calling from different go-routines (threads)
+// will still produce wrong intents. Create multiple loggers if the threads
+// are outputting to two different outputs. If they are outputting to the same
+// out, then jumping back and forth between different indents for different
+// threads is not great, so there is no attempt to have non-shared indents.
+// If the consumer is using multiple threads, then it is up to them to figure out
+// how to make the logs look reasonable and not the responsibility of the logger.
 func (imp *Logger) gainLock() func() {
 	imp.lock.Lock()
 	return imp.lock.Unlock
@@ -50,14 +61,32 @@ func (imp *Logger) setIndent(delta int) {
 func (imp *Logger) output(text string) {
 	count := len(text)
 	if count <= 0 {
-		fmt.Fprint(imp.out, imp.prefix, "\n")
+		check(fmt.Fprint(imp.out, imp.prefix, "\n"))
+		imp.flush()
 		return
 	}
+
 	for ln := range strings.Lines(text) {
-		fmt.Fprint(imp.out, imp.prefix, ln)
+		check(fmt.Fprint(imp.out, imp.prefix, ln))
 	}
 	if text[count-1] != '\n' {
-		fmt.Fprint(imp.out, "\n")
+		check(fmt.Fprint(imp.out, "\n"))
+	}
+	imp.flush()
+}
+
+func check(_ int, err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// flush will try to flush the output if the writer has `Sync`.
+func (imp *Logger) flush() {
+	if s, ok := imp.out.(interface{ Sync() error }); ok {
+		if err := s.Sync(); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -83,7 +112,7 @@ func (imp *Logger) Println(v ...any) {
 }
 
 // Indent will indent all the following logs.
-// This returns the Dedent method to allow, `defer log.Indent()()`.
+// This returns the `Dedent` method to allow, `defer log.Indent()()`.
 func (imp *Logger) Indent() func() {
 	if imp != nil {
 		defer imp.gainLock()()
@@ -103,6 +132,7 @@ func (imp *Logger) Dedent() {
 // LogGroup logs the start of a group and indicate the end of the
 // group when the returned function is called.
 // Example: `defer log.LogGroup("Reading %q", filename)()`
+// The returned function is only intended to be called once.
 func (imp *Logger) LogGroup(format string, args ...any) func() {
 	if imp == nil {
 		return func() {}
