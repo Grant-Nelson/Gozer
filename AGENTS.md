@@ -7,7 +7,7 @@ This document provides context for AI agents working on the Gozer codebase.
 **Agents must NOT modify version control or create remote resources.**
 
 All changes must be reviewed by the developer before being committed.
-Agents are prohibited from running:
+Agents are prohibited from running when running local on the developer's machine:
 
 - `git add` - Do not stage changes
 - `git commit` - Do not create commits

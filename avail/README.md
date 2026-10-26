@@ -25,29 +25,6 @@
 
 ## Agent's Review
 
-### typeTools
-
-- `ops.go` still has `crumb.DropMsg` calls throughout, so every call prints to stdout.
-- `unionTermsOps`: `Ops: ops` sits in the same composite literal as the `adj(...)` calls that modify `ops`. The evaluation order
-  isn't specified, so the removals done by `adj` are probably lost.
-- `mapTypeOps`: `Range2` is set to `Key()` instead of `Elem()`, and it includes `Cap`, which maps don't support.
-- `arrayTypeOps` includes `IsNil` and `Make` and is missing `Comparable`. `structTypeOps` includes `IsNil`.
-- `pointerTypeOps` and `unsafePointerTypeOps` include `Orderable`, but Go pointers aren't ordered.
-- `chanTypeOps` is missing `Make` and `Ref`. Several other types are also missing `Ref`: interfaces, structs, and the
-  comparable-only cases.
-- `signatureTypeOps`: the Seq2 case gives `Range2` without `Range`, which contradicts the `Op` docs. `func(func() bool)` isn't
-  handled.
-- The `comparable` constraint, which has no terms, falls through to an empty `OpTypes`, so `Comparable` is lost.
-- `floatTypeOps` sets `Complex` redundantly before the switch.
-- In `is.go`, `Is[T]` and `IsPtrOf` don't call `Underlying()` or `types.Unalias`, but `IsBool` and its siblings do. So `IsSlice` returns
-  false for a named or aliased slice while `IsUint8` sees through it.
-- `Deref` returns nil for a non-pointer instead of the type itself.
-- `anyType` panics with `GODEBUG=gotypesalias=0`, because the cast to `*types.Alias` fails.
-- `typeOp`: `Add = 1 << iota` starts at bit 1, so bit 0 is unused but still inside `mask`. `Op(1).Valid()` is true and its `String()`
-  is "".
-- `typeOp` docs: `=>` should be `>=` in `Orderable`; the types for `new` in `Ref` are reversed; `Valid` mentions a `RealImag` op that
-  doesn't exist.
-
 ### wad
 
 - `read` uses `r.Read`, not `io.ReadFull`. Short reads (from `bufio`, gzip, network streams) corrupt the stream. It also panics when
@@ -66,7 +43,3 @@
   fault on architectures that require alignment.
 - `defaultCaster.bufU` is never used.
 - `Pos` is written and read without its `FileSet`, so it's only meaningful within the same process.
-
-### predicate
-
-- `InRange` doesn't check `min <= max`, and the ordering predicates are always false for NaN.

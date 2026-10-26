@@ -1,6 +1,9 @@
 package predicate
 
-import "cmp"
+import (
+	"cmp"
+	"math"
+)
 
 type Predicate[T any] func(T) bool
 
@@ -48,6 +51,22 @@ func IsNotType[TOut, TIn any]() Predicate[TIn] {
 	}
 }
 
+func IsInf[T ~float32 | ~float64]() Predicate[T] {
+	return func(t T) bool { return math.IsInf(float64(t), 0) }
+}
+
+func IsNotInf[T ~float32 | ~float64]() Predicate[T] {
+	return func(t T) bool { return !math.IsInf(float64(t), 0) }
+}
+
+func IsNaN[T ~float32 | ~float64]() Predicate[T] {
+	return func(t T) bool { return math.IsNaN(float64(t)) }
+}
+
+func IsNotNaN[T ~float32 | ~float64]() Predicate[T] {
+	return func(t T) bool { return !math.IsNaN(float64(t)) }
+}
+
 func IsZero[T comparable]() Predicate[T] {
 	var zero T
 	return func(t T) bool { return t == zero }
@@ -74,6 +93,8 @@ func LessOrEqual[T cmp.Ordered](v T) Predicate[T] {
 	return func(t T) bool { return t <= v }
 }
 
+// InRange checks that the value is between the given min and max values inclusively.
+// If `min` is greater than `max`, then this predicate will not work correctly.
 func InRange[T cmp.Ordered](min, max T) Predicate[T] {
 	return func(t T) bool { return t >= min && t <= max }
 }

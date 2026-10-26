@@ -3,7 +3,7 @@ package typeTools
 import "go/types"
 
 func Is[T types.Type](t types.Type) bool {
-	_, ok := t.(T)
+	_, ok := t.Underlying().(T)
 	return ok
 }
 
@@ -58,7 +58,7 @@ func IsNumeric(t types.Type) bool   { return BasicInfo(t)&types.IsNumeric != 0 }
 func IsConstType(t types.Type) bool { return BasicInfo(t)&types.IsConstType != 0 }
 
 func IsPtrOf[T types.Type](t types.Type) bool {
-	b, ok := t.(*types.Pointer)
+	b, ok := t.Underlying().(*types.Pointer)
 	return ok && Is[T](b.Elem())
 }
 
@@ -68,6 +68,6 @@ func IsSlicePtr(t types.Type) bool  { return IsPtrOf[*types.Slice](t) }
 func IsStructPtr(t types.Type) bool { return IsPtrOf[*types.Struct](t) }
 
 func IsByteSlice(t types.Type) bool {
-	s, ok := t.(*types.Slice)
+	s, ok := t.Underlying().(*types.Slice)
 	return ok && IsUint8(s.Elem())
 }

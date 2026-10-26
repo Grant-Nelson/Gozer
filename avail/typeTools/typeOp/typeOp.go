@@ -10,21 +10,21 @@ type Op uint64
 const (
 	// None is the base for all operators and still have operations.
 	//
-	//	| Operator          | Types    | Comment                                              |
-	//	|-------------------|----------|------------------------------------------------------|
-	//	| `zero() => x`     | `x T`    | creates a new zero value of this type                |
-	//	| `new() => x`      | `x *T`   | creates a new zero value and returns a pointer to it |
-	//	| `shallow(x) => y` | `x, y T` | shallow copy of value                                |
+	//	| Operator         | Types    | Comment                                              |
+	//	|------------------|----------|------------------------------------------------------|
+	//	| `x = zero()`     | `x T`    | creates a new zero value of this type                |
+	//	| `x = new()`      | `x *T`   | creates a new zero value and returns a pointer to it |
+	//	| `x = shallow(y)` | `x, y T` | shallow copy of value                                |
 	None Op = 0
 
 	// Add indicates that addition (numeric) or concatenation (string)
 	// operations are available.
 	//
-	//	| Operator        | Types       | Comment                           |
-	//	|-----------------|-------------|-----------------------------------|
-	//	| `(x + y) => z`  | `x, y, z T` | addition / concatenation          |
-	//	| `(x += y) => z` | `x, y, z T` | in place addition / concatenation |
-	Add Op = 1 << iota
+	//	| Operator       | Types       | Comment                           |
+	//	|----------------|-------------|-----------------------------------|
+	//	| `x = (y + z)`  | `x, y, z T` | addition / concatenation          |
+	//	| `x = (y += z)` | `x, y, z T` | in place addition / concatenation |
+	Add Op = 1 << (iota - 1)
 
 	// Arith indicates that arithmetic operations are available.
 	// Arithmetic operations should always have additions operations too.
@@ -114,7 +114,7 @@ const (
 	//	| `x = y < z`  | `x bool, y, z T` | determines the value is less than another                |
 	//	| `x = y <= z` | `x bool, y, z T` | determines the value is less than or equal to another    |
 	//	| `x = y > z`  | `x bool, y, z T` | determines the value is greater than another             |
-	//	| `x = y => z` | `x bool, y, z T` | determines the value is greater than or equal to another |
+	//	| `x = y >= z` | `x bool, y, z T` | determines the value is greater than or equal to another |
 	Orderable
 
 	// Ref indicates that referencing operations are available.
@@ -122,7 +122,7 @@ const (
 	//	| Operator     | Types       | Comment                                            |
 	//	|--------------|-------------|----------------------------------------------------|
 	//	| `x = &y`     | `x *T, y T` | creates a pointer to the given value               |
-	//	| `x = new(y)` | `x T, y *T` | creates a pointer to a new copy of the given value |
+	//	| `x = new(y)` | `x *T, y T` | creates a pointer to a new copy of the given value |
 	Ref
 
 	// Make indicates that make operations are available.
@@ -204,20 +204,29 @@ const (
 	//  | `x = y[z:w:v]` | `x []E, y T, z, w, v untyped int` | creates a slice of the type with capacity |
 	Slice3
 
-	// Range indicates that zero or one result range operations are available.
-	// Range operations should always have index getter operations and the length operation.
+	// Range0 indicates that zero result range operations are available.
+	//
+	// This is for integer types, slices, arrays, maps, and `func(func()bool)` functions.
+	// There are different functions for operating with zero results, and
+	// one or two result so that some types can use a faster method for iteration.
+	//
+	//	| Operator      | Types | Comment                                    |
+	//	|---------------|-------|--------------------------------------------|
+	//	| `for range x` | `x T` | iterates the type's length number of times |
+	Range0
+
+	// Range1 indicates that one result range operations are available.
+	// Range1 operators should always also have a Range0 too.
+	// Range1 operations should always have index getter operations and the length operation.
 	// This is for integer types, slices, arrays, maps, and `iter.Seq[K]` functions.
-	// There are different functions for operating with zero results and
-	// one result so that some types can use a faster method for iteration.
 	//
 	//	| Operator          | Types      | Comment                                    |
 	//	|-------------------|------------|--------------------------------------------|
-	//	| `for range x`     | `x T`      | iterates the type's length number of times |
 	//	| `for x = range y` | `x K, y T` | iterates over all the indices or keys      |
-	Range
+	Range1
 
 	// Range2 indicates that a two result range operation is available.
-	// Range2 operations should always have zero or one result range operations.
+	// Range2 operators should always also have a Range0 and Range1 too.
 	// This is for slices, arrays, maps, and `iter.Seq2[K, V]` functions, but not integers.
 	//
 	//	| Operator             | Types           | Comment                                           |
@@ -271,7 +280,7 @@ const (
 )
 
 // Valid will indicate if the ops is a combination of valid type operators,
-// but does not check for conflicts such as Complex|RealImag (which should be exclusive)
+// but does not check for conflicts such as Complex|Float (which should be exclusive)
 // nor SetIndex without a GetIndex (which should be inclusive).
 // This just checks if the Op is not in the valid space of the Op enumerator.
 func (op Op) Valid() bool { return op&mask == op }
@@ -326,7 +335,7 @@ func (op Op) NeedsSliceType() bool { return op.Any(Slice | Slice3) }
 // have the same type as the integer being ranged over.
 // If the type is equivalent to `iter.Seq[T]` then this will be the type `T`
 // as given in the function, e.g. `func(yield func(x int) bool)` is `int`.
-func (op Op) NeedsRange1Type() bool { return op.Any(Range | Range2) }
+func (op Op) NeedsRange1Type() bool { return op.Any(Range1 | Range2) }
 
 // NeedsRange2Type indicates that the second type in a range operation is needed.
 //
@@ -369,7 +378,8 @@ func (op Op) String() string {
 	add(RefIndex, `RefIndex`)
 	add(Slice, `Slice`)
 	add(Slice3, `Slice3`)
-	add(Range, `Range`)
+	add(Range0, `Range0`)
+	add(Range1, `Range1`)
 	add(Range2, `Range2`)
 	add(Recv, `Recv`)
 	add(Send, `Send`)

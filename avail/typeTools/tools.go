@@ -20,6 +20,8 @@ func BasicInfo(t types.Type) types.BasicInfo {
 	return 0
 }
 
+// Deref will get the element type if the given type is a pointer,
+// otherwise it will return nil since only pointers may be dereferenced.
 func Deref(t types.Type) types.Type {
 	if b, ok := t.Underlying().(*types.Pointer); ok {
 		return b.Elem()
@@ -40,7 +42,7 @@ func namedType[T types.Type](exp string) func() T {
 var (
 	runeType      = sync.OnceValue(namedType[*types.Basic](`rune`))
 	byteType      = sync.OnceValue(namedType[*types.Basic](`byte`))
-	anyType       = sync.OnceValue(namedType[*types.Alias](`any`))
+	anyType       = sync.OnceValue(namedType[types.Type](`any`))
 	byteSliceType = sync.OnceValue(namedType[*types.Slice](`[]byte`))
 )
 
@@ -48,6 +50,6 @@ func RuneType() *types.Basic { return runeType() }
 
 func ByteType() *types.Basic { return byteType() }
 
-func AnyType() *types.Alias { return anyType() }
+func AnyType() types.Type { return anyType() }
 
 func ByteSliceType() *types.Slice { return byteSliceType() }
