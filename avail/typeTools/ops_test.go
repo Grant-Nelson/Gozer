@@ -50,38 +50,38 @@ func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp strin
 
 func Test_Ops_Arrays(t *testing.T) {
 	checkOps(t, `[3]int`,
-		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `[...]byte{1, 2, 3}`,
-		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 }
 
 func Test_Ops_PointersToArrays(t *testing.T) {
 	checkOps(t, `&[3]int{1,2,3}`,
-		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `*[3]int`,
-		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `*[3]byte`,
-		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 
 	checkOps(t, `(*int)(nil)`,
-		`IsNil|Comparable|Orderable|Ref`)
+		`IsNil|Comparable|Ref`)
 
 	checkOps(t, `**[3]byte`,
-		`IsNil|Comparable|Orderable|Ref`)
+		`IsNil|Comparable|Ref`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
 		`type Foo [3]int`,
 	), token.NoPos, `new(Foo)`,
-		`Len|IsNil|Comparable|Orderable|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 }
 
@@ -99,7 +99,7 @@ func Test_Ops_Slices(t *testing.T) {
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 
 	checkOps(t, `*[]byte`,
-		`IsNil|Comparable|Orderable|Ref`)
+		`IsNil|Comparable|Ref`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
@@ -141,30 +141,30 @@ func Test_Ops_IntegerTypes(t *testing.T) {
 
 func Test_Ops_FloatTypes(t *testing.T) {
 	checkOps(t, `float32`,
-		`Add|Arith|Comparable|Orderable|Ref|Complex`+
+		`Add|Arith|Comparable|Orderable|Ref|Float`+
 			`{ Complex:complex64 }`)
 
 	checkOps(t, `float64`,
-		`Add|Arith|Comparable|Orderable|Ref|Complex`+
+		`Add|Arith|Comparable|Orderable|Ref|Float`+
 			`{ Complex:complex128 }`)
 
 	checkOps(t, `1.42`,
-		`Add|Arith|Comparable|Orderable|Ref|Complex`+
+		`Add|Arith|Comparable|Orderable|Ref|Float`+
 			`{ Complex:untyped complex }`)
 }
 
 func Test_Ops_ComplexTypes(t *testing.T) {
 	checkOps(t, `complex128`,
-		`Add|Arith|Comparable|Ref|RealImag`+
-			`{ RealImag:float64 }`)
+		`Add|Arith|Comparable|Ref|Complex`+
+			`{ Float:float64 }`)
 
 	checkOps(t, `complex64`,
-		`Add|Arith|Comparable|Ref|RealImag`+
-			`{ RealImag:float32 }`)
+		`Add|Arith|Comparable|Ref|Complex`+
+			`{ Float:float32 }`)
 
 	checkOps(t, `1.42+6.2i`,
-		`Add|Arith|Comparable|Ref|RealImag`+
-			`{ RealImag:untyped float }`)
+		`Add|Arith|Comparable|Ref|Complex`+
+			`{ Float:untyped float }`)
 
 	checkOps(t, `interface{float64|complex128}`,
 		`Add|Arith|Comparable|Ref`)
@@ -204,33 +204,33 @@ func Test_Ops_PointersTypes(t *testing.T) {
 		`var x = 10`,
 		`var p = unsafe.Pointer(&x)`,
 	), token.NoPos, `p`,
-		`IsNil|Comparable|Orderable|Ref`)
+		`IsNil|Comparable|Ref`)
 
 	checkOps(t, `nil`, `IsNil|Ref`)
 }
 
 func Test_Ops_ChanTypes(t *testing.T) {
 	checkOps(t, `chan int`,
-		`Len|Cap|IsNil|Comparable|Range0|Range1|Recv|Send`+
+		`Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv|Send`+
 			`{ Range1:int }`)
 
 	checkOps(t, `make(chan int, 3)`,
-		`Len|Cap|IsNil|Comparable|Range0|Range1|Recv|Send`+
+		`Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv|Send`+
 			`{ Range1:int }`)
 
 	checkOps(t, `new(chan int)`,
-		`IsNil|Comparable|Orderable|Ref`)
+		`IsNil|Comparable|Ref`)
 
 	checkOps(t, `chan<- int`,
-		`Len|Cap|IsNil|Comparable|Send`)
+		`Len|Cap|IsNil|Comparable|Ref|Make|Send`)
 
 	checkOps(t, `<-chan int`,
-		`Len|Cap|IsNil|Comparable|Range0|Range1|Recv`+
+		`Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv`+
 			`{ Range1:int }`)
 }
 
 func Test_Ops_UnionsTypes_Basics(t *testing.T) {
-	checkOps(t, `interface{String() string}`, `IsNil`)
+	checkOps(t, `interface{String() string}`, `IsNil|Ref`)
 
 	checkOps(t, `interface{int|uint}`,
 		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
@@ -293,16 +293,20 @@ func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 			`{ Key:untyped int, Elem:{[]byte | string}, Slice:{~[][]byte | ~[]string}, Range1:int, Range2:{[]byte | string} }`)
 
 	checkOps(t, `interface{~[]int|~[3]int}`,
-		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `interface{~[]int|~*[3]int}`,
-		`Len|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|IsNil|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `interface{~[]byte|~[]int}`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:{byte | int}, Slice:{~[]byte | ~[]int}, Range1:int, Range2:{byte | int} }`)
+
+	checkOps(t, `interface{~[]int|~[3]*int}`,
+		`Len|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+			`{ Key:untyped int, Elem:{int | *int}, Slice:{~[]int | []*int}, Range1:int, Range2:{int | *int} }`)
 }
 
 func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
@@ -323,7 +327,7 @@ func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 		`	println(s)`,
 		`}`,
 	), token.Pos(65), `s`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|Range0|Range1|Range2`+
+		`Len|IsNil|Ref|Make|GetIndex|SetIndex|Range0|Range1|Range2`+
 			`{ Key:int, Elem:T, Range1:int, Range2:T }`)
 }
 

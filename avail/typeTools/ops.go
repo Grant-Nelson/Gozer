@@ -375,7 +375,7 @@ func innerUnionType(name string, terms []OpTypes, getType func(OpTypes) types.Ty
 	}
 
 	it := types.NewUnion(ts)
-	t2, err := typeparams.NormalTerms(it)
+	t2, err := typeparams.NormalTerms(it) // < FIX?
 	if err != nil {
 		panic(faults.New(`failed to determine inner op type`, err).
 			With(`union`, it))
