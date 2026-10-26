@@ -341,7 +341,8 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 
 	adj := func(name string, adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
 		if ops.Any(adjOps) {
-			if result := innerUnionType(name, terms, getType); result != nil {
+			// if result := innerUnionType(name, terms, getType); result != nil {
+			if result := commonType(terms, getType); result != nil {
 				return result
 			}
 			ops &^= adjOps
@@ -363,6 +364,7 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 	return ot
 }
 
+/*
 func innerUnionType(name string, terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
 	ts := make([]*types.Term, 0, len(terms))
 	for _, term := range terms {
@@ -390,4 +392,14 @@ func innerUnionType(name string, terms []OpTypes, getType func(OpTypes) types.Ty
 		}
 	}
 	return types.NewUnion(t2)
+}*/
+
+func commonType(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
+	first := getType(terms[0])
+	for _, term := range terms[1:] {
+		if t := getType(term); t == nil || !types.Identical(first, t) {
+			return nil
+		}
+	}
+	return first
 }
