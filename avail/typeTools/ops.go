@@ -101,7 +101,7 @@ func getOps(orig, t types.Type) OpTypes {
 
 func arrayTypeOps(t2 *types.Array) OpTypes {
 	return OpTypes{
-		Ops: typeOp.Comparable | typeOp.GetIndex | typeOp.Len |
+		Ops: typeOp.Cap | typeOp.Comparable | typeOp.GetIndex | typeOp.Len |
 			typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref |
 			typeOp.RefIndex | typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
 		Key:    types.Typ[types.UntypedInt],
@@ -138,11 +138,11 @@ func booleanTypeOps() OpTypes {
 	return OpTypes{Ops: typeOp.Comparable | typeOp.Ref}
 }
 
-func integerTypeOps(t2 *types.Basic) OpTypes {
+func integerTypeOps(orig types.Type) OpTypes {
 	return OpTypes{
 		Ops: typeOp.Add | typeOp.Arith | typeOp.Bitwise | typeOp.Comparable |
 			typeOp.Mod | typeOp.Orderable | typeOp.Range0 | typeOp.Range1 | typeOp.Ref,
-		Range1: t2,
+		Range1: orig,
 	}
 }
 
@@ -324,6 +324,13 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 		return getOps(orig, t2[0].Type())
 	}
 
+	// Range, make, and (other than for []byte|string) slicing are only
+	// permitted when every term has the same underlying type, so in that
+	// case the union behaves exactly like that single type.
+	if under := sharedUnderlying(t2); under != nil {
+		return getOps(orig, under)
+	}
+
 	terms := make([]OpTypes, len(t2))
 	ops := typeOp.None
 	for i, t := range t2 {
@@ -335,64 +342,62 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 			ops &= u.Ops
 		}
 	}
+
+	// Go never allows these on a type parameter whose terms have different
+	// underlying types, and never allows real, imag, or complex on any
+	// type parameter.
+	// TODO: Double check this
+	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Make
+	//| typeOp.Complex | typeOp.Float
 	if ops == typeOp.None {
 		return OpTypes{}
 	}
 
-	adj := func(name string, adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
-		if ops.Any(adjOps) {
-			// if result := innerUnionType(name, terms, getType); result != nil {
-			if result := commonType(terms, getType); result != nil {
-				return result
-			}
-			ops &^= adjOps
+	pick := func(adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
+		if !ops.Any(adjOps) {
+			return nil
 		}
+		if t := commonType(terms, getType); t != nil {
+			return t
+		}
+		ops &^= adjOps
 		return nil
 	}
 
-	ot := OpTypes{
-		Key:     adj(`Key`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
-		Elem:    adj(`Elem`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
-		Complex: adj(`Complex`, typeOp.Float, func(op OpTypes) types.Type { return op.Complex }),
-		Float:   adj(`Float`, typeOp.Complex, func(op OpTypes) types.Type { return op.Float }),
-		Slice:   adj(`Slice`, typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice }),
-		Range1:  adj(`Range1`, typeOp.Range1|typeOp.Range2, func(op OpTypes) types.Type { return op.Range1 }),
-		Range2:  adj(`Range2`, typeOp.Range2, func(op OpTypes) types.Type { return op.Range2 }),
-	}
+	/*
+		ot := OpTypes{
+			Key:     pick(`Key`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
+			Elem:    pick(`Elem`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
+			Complex: pick(`Complex`, typeOp.Float, func(op OpTypes) types.Type { return op.Complex }),
+			Float:   pick(`Float`, typeOp.Complex, func(op OpTypes) types.Type { return op.Float }),
+			Slice:   pick(`Slice`, typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice }),
+			Range1:  pick(`Range1`, typeOp.Range1|typeOp.Range2, func(op OpTypes) types.Type { return op.Range1 }),
+			Range2:  pick(`Range2`, typeOp.Range2, func(op OpTypes) types.Type { return op.Range2 }),
+		}
+	*/
+
+	// Key must be picked before Elem since a mismatched key (e.g. a map mixed
+	// with a slice, `untyped int` vs `int`) removes the index ops.
+	indexOps := typeOp.GetIndex | typeOp.RefIndex | typeOp.SetIndex
+	ot := OpTypes{}
+	ot.Key = pick(indexOps, func(op OpTypes) types.Type { return op.Key })
+	ot.Elem = pick(indexOps, func(op OpTypes) types.Type { return op.Elem })
+	ot.Slice = pick(typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice })
+
 	// set the result ops to the ops value after adj has modified it.
 	ot.Ops = ops
 	return ot
 }
 
-/*
-func innerUnionType(name string, terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
-	ts := make([]*types.Term, 0, len(terms))
-	for _, term := range terms {
-		t := getType(term)
-		if u, ok := t.(*types.Union); ok {
-			ts = slices.AppendSeq(ts, u.Terms())
-		} else {
-			ts = append(ts, types.NewTerm(false, t))
+func sharedUnderlying(t2 []*types.Term) types.Type {
+	under := t2[0].Type().Underlying()
+	for _, t := range t2[1:] {
+		if !types.Identical(under, t.Type().Underlying()) {
+			return nil
 		}
 	}
-
-	it := types.NewUnion(ts)
-	t2, err := typeparams.NormalTerms(it) // < FIX?
-	if err != nil {
-		panic(faults.New(`failed to determine inner op type`, err).
-			With(`union`, it))
-	}
-
-	switch len(t2) {
-	case 0:
-		return anyType()
-	case 1:
-		if !t2[0].Tilde() {
-			return t2[0].Type()
-		}
-	}
-	return types.NewUnion(t2)
-}*/
+	return under
+}
 
 func commonType(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
 	first := getType(terms[0])
