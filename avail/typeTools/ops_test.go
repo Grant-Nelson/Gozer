@@ -37,7 +37,7 @@ func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
 	t.Helper()
 
 	prime := "package main\n" +
-		"func Foo[" + typeParams + "](x X) {\n" +
+		"func Foo[" + typeParams + "](x X, i int) {\n" +
 		"	" + body + "\n" +
 		"}\n" +
 		"func main() {}\n"
@@ -394,11 +394,22 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 
 // TODO: Check comparable
 
-func Test_Ops_Go_Allows(t *testing.T) {
+func Test_Ops_Go_Allowance_SliceAndMap(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~[]T | ~map[int]T`,
 		`_ = x == nil`,
 		`Ok`)
+	checkOpsAllowed(t,
+		`T any, X ~[]T | ~map[int]T`,
+		`var t T = x[0]; _ = t`,
+		`cannot index x (variable of type X constrained by ~[]T | ~map[int]T)`)
+	checkOpsAllowed(t,
+		`T any, X ~[]T | ~map[int]T`,
+		`clear(x)`,
+		`Ok`)
+}
+
+func Test_Ops_Go_Allowance_SliceAndArray(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~[]T | ~[4]T`,
 		`var t T = x[0]; x[1] = t; _ = len(x)`,
@@ -412,25 +423,81 @@ func Test_Ops_Go_Allows(t *testing.T) {
 		`var t T = x[0]; _ = &x[0]`,
 		`declared and not used: t`)
 	checkOpsAllowed(t,
+		`T any, X ~[]T | ~*[4]T`,
+		`var y []T = x[1:2]; _ = y`,
+		`cannot slice x (variable of type X constrained by ~[]T | ~*[4]T): []T and *[4]T have different underlying types`)
+	checkOpsAllowed(t,
+		`T any, X ~[]T | ~[4]T`,
+		`var y []T = x[1:2]; _ = y`,
+		`cannot slice x (variable of type X constrained by ~[]T | ~[4]T): []T and [4]T have different underlying types`)
+	checkOpsAllowed(t,
+		`T any, X ~[]T | ~[3]T`,
+		`_ = cap(x)`,
+		`Ok`)
+	checkOpsAllowed(t,
+		`T any, X ~[]T | ~[3]T | ~*[3]T`,
+		`var t T = x[i]; x[i] = t; _ = &x[i]`,
+		`Ok`)
+}
+
+func Test_Ops_Go_Allowance_SliceAndString(t *testing.T) {
+	checkOpsAllowed(t,
 		`T any, X ~[]byte | ~string`,
 		`var b byte = x[0]; _ = x[1:2]`,
 		`declared and not used: b`)
 	checkOpsAllowed(t,
 		`T any, X ~[]byte | ~string`,
-		`for i, v := range x { _, _ = i, v }`,
+		`for j, v := range x { _, _ = j, v }`,
 		`cannot range over x (variable of type X constrained by ~[]byte | ~string): []byte and string have different underlying types`)
+	checkOpsAllowed(t,
+		`X ~[]byte | ~string`,
+		`var y X = x[1:2]; _ = y`,
+		`Ok`)
+	checkOpsAllowed(t,
+		`X ~string | ~[]byte`,
+		`var y X = x + x; _ = y`,
+		`invalid operation: operator + not defined on x (variable of type X constrained by ~string | ~[]byte)`)
+	checkOpsAllowed(t,
+		`X ~[]byte | ~string | ~[4]byte`,
+		`var b byte = x[i]; _ = b`,
+		`Ok`)
+	checkOpsAllowed(t,
+		`X ~[]byte | ~string`,
+		`x[i] = 1`,
+		`cannot assign to x[i] (neither addressable nor a map index expression)`)
+	checkOpsAllowed(t,
+		`X ~[]byte | ~string`,
+		`_ = &x[i]`,
+		`invalid operation: cannot take address of x[i] (value of type byte)`)
+	checkOpsAllowed(t,
+		`X ~[]byte | ~string`,
+		`var y X = x[1:2:3]; _ = y`,
+		`invalid operation: 3-index slice of string`)
+	checkOpsAllowed(t,
+		`X ~[]byte | ~string`,
+		`_ = len(x); _ = cap(x)`,
+		`invalid argument: x (variable of type X constrained by ~[]byte | ~string) for built-in cap`)
+	checkOpsAllowed(t,
+		`X ~string | ~[]byte`,
+		`var y X = x[i:]; _ = y`,
+		`Ok`)
+}
+
+func Test_Ops_Go_Allowance_SliceAndSlice(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~[]int | ~[]int8`,
 		`_ = x[0]`,
 		`cannot index x (variable of type X constrained by ~[]int | ~[]int8)`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~map[int]T`,
-		`var t T = x[0]`,
-		`cannot index x (variable of type X constrained by ~[]T | ~map[int]T)`)
+}
+
+func Test_Ops_Go_Allowance_MapAndMap(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~map[int]T | ~map[int]T`,
 		`for k, v := range x { _, _ = k, v }`,
 		`overlapping terms ~map[int]T and ~map[int]T`)
+}
+
+func Test_Ops_Go_Allowance_BasicAndBasic(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~int | ~float64`,
 		`_ = x + 1`,
@@ -463,6 +530,9 @@ func Test_Ops_Go_Allows(t *testing.T) {
 		`X ~int | ~int8`,
 		`for i := range 10 { var y X = i; _ = y }`,
 		`cannot use i (variable of type int) as X value in variable declaration`)
+}
+
+func Test_Ops_Go_Allowance_Complex(t *testing.T) {
 	checkOpsAllowed(t,
 		`X ~complex64 | ~complex128`,
 		`_ = real(x)`,
@@ -470,7 +540,8 @@ func Test_Ops_Go_Allows(t *testing.T) {
 	checkOpsAllowed(t,
 		`X ~complex64`,
 		`var f float32 = real(x); _ = f`,
-		`x (variable of type X constrained by ~complex64) not supported as argument to built-in real for go1.18 (see go.dev/issue/50937)`)
+		"x (variable of type X constrained by ~complex64) not supported as argument to built-in real for go1.18 (see go.dev/issue/50937)\n"+
+			"cannot use real(x) (value of type X constrained by interface{~float32}) as float32 value in variable declaration")
 	checkOpsAllowed(t,
 		`X ~float32 | ~float64`,
 		`_ = complex(x, x)`,
@@ -478,59 +549,8 @@ func Test_Ops_Go_Allows(t *testing.T) {
 	checkOpsAllowed(t,
 		`X ~float32`,
 		`var c complex64 = complex(x, x); _ = c`,
-		`x (variable of type X constrained by ~float32) not supported as argument to built-in complex for go1.18 (see go.dev/issue/50937)`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`var y X = x[1:2]; _ = y`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~[]T | ~*[4]T`,
-		`var y []T = x[1:2]; _ = y`,
-		`cannot slice x (variable of type X constrained by ~[]T | ~*[4]T): []T and *[4]T have different underlying types`)
-	checkOpsAllowed(t,
-		`X ~[]T | ~[4]T`,
-		`var y []T = x[1:2]; _ = y`,
-		`cannot slice x (variable of type X constrained by ~[]T | ~[4]T): []T and [4]T have different underlying types`)
-	checkOpsAllowed(t,
-		`X ~string | ~[]byte`,
-		`var y X = x + x; _ = y`,
-		`invalid operation: operator + not defined on x (variable of type X constrained by ~string | ~[]byte)`)
-	checkOpsAllowed(t,
-		`X ~[]T | ~map[int]T`,
-		`clear(x)`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~[]T | ~[3]T | ~*[3]T`,
-		`var t T = x[i]; x[i] = t; _ = &x[i]`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string | ~[4]byte`,
-		`var b byte = x[i]; _ = b`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`x[i] = 1`,
-		`cannot assign to x[i] (neither addressable nor a map index expression)`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`_ = &x[i]`,
-		`invalid operation: cannot take address of x[i] (value of type byte)`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`var y X = x[1:2:3]; _ = y`,
-		`invalid operation: 3-index slice of string`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`_ = len(x); _ = cap(x)`,
-		`invalid argument: x (variable of type X constrained by ~[]byte | ~string) for built-in cap`)
-	checkOpsAllowed(t,
-		`X ~[]T | ~[3]T`,
-		`_ = cap(x)`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~string | ~[]byte`,
-		`var y X = x[i:]; _ = y`,
-		`Ok`)
+		"x (variable of type X constrained by ~float32) not supported as argument to built-in complex for go1.18 (see go.dev/issue/50937)\n"+
+			"cannot use complex(x, x) (value of type X constrained by interface{~complex64}) as complex64 value in variable declaration")
 }
 
 //==============================================================================================
