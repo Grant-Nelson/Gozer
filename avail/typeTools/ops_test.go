@@ -412,7 +412,7 @@ func Test_Ops_Go_Allowance_SliceAndMap(t *testing.T) {
 func Test_Ops_Go_Allowance_SliceAndArray(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~[]T | ~[4]T`,
-		`var t T = x[0]; x[1] = t; _ = len(x)`,
+		`var t T = x[0]; x[1] = t; _, _ = len(x)`,
 		`Ok`)
 	checkOpsAllowed(t,
 		`T any, X ~[]T | ~[4]T`,
@@ -485,9 +485,17 @@ func Test_Ops_Go_Allowance_SliceAndString(t *testing.T) {
 
 func Test_Ops_Go_Allowance_SliceAndSlice(t *testing.T) {
 	checkOpsAllowed(t,
-		`T any, X ~[]int | ~[]int8`,
-		`_ = x[0]`,
+		`X ~[]int | ~[]int8`,
+		`_ = x[i]`,
 		`cannot index x (variable of type X constrained by ~[]int | ~[]int8)`)
+	checkOpsAllowed(t,
+		`X ~[]int | ~[]int8`,
+		`_, _ = len(x), cap(x)`,
+		`Ok`)
+	checkOpsAllowed(t,
+		`X ~[]int | ~[]int8`,
+		`_ = x == nil`,
+		`Ok`)
 }
 
 func Test_Ops_Go_Allowance_MapAndMap(t *testing.T) {
@@ -495,6 +503,37 @@ func Test_Ops_Go_Allowance_MapAndMap(t *testing.T) {
 		`T any, X ~map[int]T | ~map[int]T`,
 		`for k, v := range x { _, _ = k, v }`,
 		`overlapping terms ~map[int]T and ~map[int]T`)
+	checkOpsAllowed(t,
+		`T any, X ~map[int8]T | ~map[int16]T`,
+		`for k, v := range x { _, _ = k, v }`,
+		`cannot range over x (variable of type X constrained by ~map[int8]T | ~map[int16]T): `+
+			`map[int8]T and map[int16]T have different underlying types`)
+	checkOpsAllowed(t,
+		`X ~map[int][]byte | ~map[int]string`,
+		`_ = x[i]`,
+		`cannot index x (variable of type X constrained by ~map[int][]byte | ~map[int]string)`)
+	checkOpsAllowed(t,
+		`T ~string, X ~map[T]int`,
+		`for k, v := range x { _, _ = k, v }`,
+		`Ok`)
+	checkOpsAllowed(t,
+		`T ~[]byte, X ~map[T]int`,
+		`for k, v := range x { _, _ = k, v }`,
+		`invalid map key type T (missing comparable constraint)`)
+	checkOpsAllowed(t,
+		`T ~[]byte | ~string, X ~map[T]int`,
+		`for k, v := range x { _, _ = k, v }`,
+		`invalid map key type T (missing comparable constraint)`)
+	checkOpsAllowed(t,
+		`T interface{~[]byte | ~string; comparable}, X ~map[T]int`,
+		`for k, v := range x { _, _ = k, v }`,
+		// This seems like it would require `~string` and `~[]byte` with
+		// `comparable` would be impossible. Seems like this shouldn't be allowed.
+		`Ok`)
+	checkOpsAllowed(t,
+		`T interface{~[]byte; comparable}, X ~map[T]int`,
+		`for k, v := range x { _, _ = k, v }`,
+		`invalid map key type T (missing comparable constraint)`)
 }
 
 func Test_Ops_Go_Allowance_BasicAndBasic(t *testing.T) {
