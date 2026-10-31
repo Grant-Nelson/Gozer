@@ -33,15 +33,10 @@ func removePaths(s string) string {
 	return buf.String()
 }
 
-func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
+func checkOpsTrial(t *testing.T, code, exp string) {
 	t.Helper()
 
-	prime := "package main\n" +
-		"func Foo[" + typeParams + "](x X, i int) {\n" +
-		"	" + body + "\n" +
-		"}\n" +
-		"func main() {}\n"
-
+	prime := "package main\n" + code + "\n"
 	got := `Ok`
 	_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
 	if err != nil {
@@ -51,9 +46,17 @@ func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
 	if diff := cmp.Diff(exp, got); len(diff) > 0 {
 		diff = strings.TrimSpace(diff)
 		diff = strings.ReplaceAll(diff, "\n", "\n    ")
-		t.Errorf("Unexpected results:\ntype params: %s\nbody:        %s\ndiff: %s\ngot: %q\nexp: %q",
-			typeParams, body, diff, got, exp)
+		t.Errorf("Unexpected results:\ncode: %s\ndiff: %s\ngot: %q\nexp: %q",
+			code, diff, got, exp)
 	}
+}
+
+func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
+	t.Helper()
+	checkOpsTrial(t,
+		"func Foo["+typeParams+"](x X, i int) {\n"+
+			"	"+body+"\n"+
+			"}", exp)
 }
 
 func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp string) {
@@ -591,119 +594,3 @@ func Test_Ops_Go_Allowance_Complex(t *testing.T) {
 		"x (variable of type X constrained by ~float32) not supported as argument to built-in complex for go1.18 (see go.dev/issue/50937)\n"+
 			"cannot use complex(x, x) (value of type X constrained by interface{~complex64}) as complex64 value in variable declaration")
 }
-
-//==============================================================================================
-// Meaning of the above confirmations:
-//
-//	┌──────────────────────────┬──────────────────────────┬────────────────────────────────────┐
-//	│ Constraint               │ Allowed                  │ Rejected                           │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~[]T | ~map[int]T        │ len, == nil              │ indexing, range, make              │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~[]T | ~[4]T             │ indexing, set index, len │ range (different underlying types) │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~[]T | ~*[4]T            │ indexing, &x[0]          │                                    │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~[]byte | ~string        │ x[0] as byte, slicing    │ range                              │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~[]int | ~[]int8         │                          │ indexing (element types differ)    │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~map[int]T | ~map[int8]T │                          │ indexing, range (key types differ) │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~uint8 | ~int16          │ x + 200                  │ x + 300                            │
-//	├──────────────────────────┼──────────────────────────┼────────────────────────────────────┤
-//	│ ~int | ~float64          │ x + 1                    │ x + 1.5, %                         │
-//	└──────────────────────────┴──────────────────────────┴────────────────────────────────────┘
-//
-// The rules behind this:
-//   - Indexing: every type in the set must have an identical element type.
-//     If any type is a map, all of them must be maps with identical key types.
-//   - Range and make: every type in the set must have the identical underlying type.
-//   - Untyped constants: a constant is accepted only if it can be represented in every type in the set.
-//
-// Try to encode the per-operation rules in unionTermsOps instead of one generic intersect-then-combine pass:
-//
-//   - Range and make should require all terms to share one underlying type;
-//     checking the underlying types before collecting results is enough.
-//
-//   - Indexing should require a common Elem.
-//
-//   - For Key, if any term is a map, require all terms to be maps with a common key. Otherwise Key stays untyped int.
-//
-//     Why this works. I ran a few more compiler checks, and they all came back the same way. Wherever an operation returns a type,
-//     either the terms agree on that type or Go rejects the code:
-//
-//   - Indexing (x[i], set, &x[i]): every term needs an identical element type. If any term is a map, all terms must be maps with
-//     an identical key type. Otherwise the key is an integer, and your castIn handles constants.
-//
-//   - Range and make: every term needs the identical underlying type. This includes integers: ranging over ~int | ~int8 is
-//     rejected, but ranging over ~int is allowed.
-//
-//   - Slicing: every term needs the identical underlying type. The one exception is ~[]byte | ~string, which is allowed and
-//     returns X itself.
-//
-//   - real, imag and complex: never allowed on a type parameter, even with a single term (see go.dev/issue/50937
-//     (https://go.dev/issue/50937)).
-//
-//   - Operations that don't return a new type, like +, ==, len, == nil and clear, are where your dict.add approach applies. The
-//     code compiles, so you only need the set of operations every term supports.
-//
-//     How I'd restructure unionTermsOps:
-//
-//     1. All terms share one underlying type. If you strip the tildes, this covers ~[]T and also A | B where both are defined as
-//     []T. Return getOps(orig, thatUnderlying) and treat it like a single type. Range, make and slicing are only ever valid in
-//     this case.
-//     2. The underlying types differ.
-//
-//   - Intersect the operation bits.
-//
-//   - Clear Range, Make, Complex and Float unconditionally.
-//
-//   - Clear Slice unless the terms are exactly []byte and string, in which case Slice is orig.
-//
-//   - For indexing, keep Elem if it's identical across all terms (using types.Identical), otherwise clear the index
-//     operations.
-//
-//   - Set Key to the shared map key if every term is a map with the same key. If no term is a map, set it to untyped int.
-//     Otherwise clear the index operations.
-//     3. Drop innerUnionType and NormalTerms from the combining step. Keep NormalTerms only where interfaceTypeOps gets the
-//     constraint's terms.
-//
-//     Bug in the concrete path: integerTypeOps sets Range1: t2, which is the basic type. Ranging over an integer gives you the
-//     operand's own type, so type MyInt int or a single-term ~int type parameter should yield MyInt or X, not int. It should be
-//     Range1: orig, the same as stringTypeOps already does for Slice.
-//
-//     Possibly missing: clear(x) compiles for ~[]T | ~map[int]T. If your typeOp set doesn't have a Clear operation yet, you'll
-//     probably want one, since slices and maps need different dictionary implementations for it.
-//
-//     Your untyped int convention fits these rules, and both cases you found are covered. For indexing, Key is only ever untyped int
-//     (every term is a slice, array, pointer to array or string) or one identical map key type. Go never allows a mix, so you never
-//     need a union for it.
-//
-//     The new checks also show that most of the mixed-set behavior falls out of two simple steps:
-//
-//     1. Intersect the operation bits across terms. For ~[]byte | ~string, Go rejects setting an index, taking &x[i], the
-//     three-index slice x[a:b:c] and cap. Those are exactly the operations string lacks, so the intersection removes them.
-//     Reading x[i] and two-index slices still work.
-//     2. Keep a result type only if it's types.Identical across terms.
-//
-//   - []T | [3]T | *[3]T all have key untyped int and element T, so indexing is kept, which matches the compiler.
-//
-//   - []byte | string | [4]byte all have element byte, so reading an index is kept.
-//
-//   - Slicing mostly works out too. sliceTypeOps and stringTypeOps both return orig, so []byte | string keeps Slice: X. An
-//     array returns []T, which doesn't match a slice's X, so []T | [3]T drops slicing, which is also correct.
-//
-//     You need one explicit rule on top of that, because the identity check alone can't catch it. If the terms' underlying types
-//     differ, clear Range0, Range1, Range2 and Make:
-//
-//   - []T | [3]T both report range types int and T, so they'd survive the identity check, but Go rejects ranging over that set.
-//
-//   - []T | map[int]T both have Make, but Go rejects make for it.
-//
-//   - The same goes for slicing [3]T | *[3]T: both report []T, but Go rejects it. Since your input compiles, keeping that bit
-//     only means the dictionary carries an unused function, so it's harmless either way.
-//
-//     Bug found along the way: arrayTypeOps is missing typeOp.Cap. The compiler accepts cap(x) for ~[]T | ~[3]T, and cap works on
-//     arrays and pointers to arrays. pointerTypeOps reuses arrayTypeOps, so adding it there fixes both. That's in addition to the
-//     integerTypeOps fix I mentioned last time: Range1 should be orig, not t2.

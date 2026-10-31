@@ -346,9 +346,7 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 	// Go never allows these on a type parameter whose terms have different
 	// underlying types, and never allows real, imag, or complex on any
 	// type parameter.
-	// TODO: Double check this
-	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Make
-	//| typeOp.Complex | typeOp.Float
+	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Make | typeOp.Complex | typeOp.Float
 	if ops == typeOp.None {
 		return OpTypes{}
 	}
@@ -364,20 +362,10 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 		return nil
 	}
 
-	/*
-		ot := OpTypes{
-			Key:     pick(`Key`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Key }),
-			Elem:    pick(`Elem`, typeOp.GetIndex|typeOp.RefIndex|typeOp.SetIndex, func(op OpTypes) types.Type { return op.Elem }),
-			Complex: pick(`Complex`, typeOp.Float, func(op OpTypes) types.Type { return op.Complex }),
-			Float:   pick(`Float`, typeOp.Complex, func(op OpTypes) types.Type { return op.Float }),
-			Slice:   pick(`Slice`, typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice }),
-			Range1:  pick(`Range1`, typeOp.Range1|typeOp.Range2, func(op OpTypes) types.Type { return op.Range1 }),
-			Range2:  pick(`Range2`, typeOp.Range2, func(op OpTypes) types.Type { return op.Range2 }),
-		}
-	*/
-
-	// Key must be picked before Elem since a mismatched key (e.g. a map mixed
-	// with a slice, `untyped int` vs `int`) removes the index ops.
+	// Key must be picked before Elem since a mismatched key
+	// (e.g. a map mixed with a slice, `untyped int` vs `int`)
+	// removes the index, range1, and range2 ops,
+	// so there is no need to set the Elem.
 	indexOps := typeOp.GetIndex | typeOp.RefIndex | typeOp.SetIndex
 	ot := OpTypes{}
 	ot.Key = pick(indexOps, func(op OpTypes) types.Type { return op.Key })
