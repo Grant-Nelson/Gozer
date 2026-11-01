@@ -14,74 +14,6 @@ import (
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
 
-func lines(lines ...string) string { return strings.Join(lines, "\n") }
-
-func checkOps(t *testing.T, expr, exp string) {
-	t.Helper()
-	checkOpsWithFile(t, "package t\n", token.NoPos, expr, exp)
-}
-
-var regexPathMatch = sync.OnceValue(func() *regexp.Regexp {
-	return regexp.MustCompile(`^.*t.go:(?:\d+:){0,2}\s`)
-})
-
-func removePaths(s string) string {
-	buf := &strings.Builder{}
-	for ln := range strings.Lines(s) {
-		ln = regexPathMatch().ReplaceAllString(ln, ``)
-		_, _ = buf.WriteString(ln)
-	}
-	return buf.String()
-}
-
-func checkOpsAllowance(t *testing.T, code, exp string) {
-	t.Helper()
-
-	prime := "package main\n" + code + "\n"
-	got := `Ok`
-	_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
-	if err != nil {
-		got = removePaths(err.Error())
-	}
-
-	if diff := cmp.Diff(exp, got); len(diff) > 0 {
-		diff = strings.TrimSpace(diff)
-		diff = strings.ReplaceAll(diff, "\n", "\n    ")
-		t.Errorf("Unexpected results:\ncode: %s\ndiff: %s\ngot: %q\nexp: %q",
-			code, diff, got, exp)
-	}
-}
-
-func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp string) {
-	t.Helper()
-
-	ps, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
-	if err != nil {
-		t.Errorf(`Failed to parse package: %v`, err)
-		return
-	}
-
-	if !pos.IsValid() {
-		pos = ps.Syntax[0].FileEnd - 1
-	}
-
-	tv, err := types.Eval(ps.Fset, ps.Types, pos, expr)
-	if err != nil {
-		t.Errorf(`Failed to parse expression: %v`, err)
-		return
-	}
-
-	got := Ops(tv.Type).String()
-	got = strings.ReplaceAll(got, `command-line-arguments`, `$`)
-
-	if diff := cmp.Diff(exp, got); len(diff) > 0 {
-		diff = strings.TrimSpace(diff)
-		diff = strings.ReplaceAll(diff, "\n", "\n    ")
-		t.Errorf("Unexpected results:\ntype: %s\ndiff: %s\ngot: %q\nexp: %q",
-			tv.Type.String(), diff, got, exp)
-	}
-}
-
 func Test_Ops_Arrays(t *testing.T) {
 	checkOpsAllowance(t, lines(
 		`func Foo(x, y [3]int) {`,
@@ -427,6 +359,24 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 
 // TODO: Check comparable
 
+func checkOpsAllowance(t *testing.T, code, exp string) {
+	t.Helper()
+
+	prime := "package main\n" + code + "\n"
+	got := `Ok`
+	_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
+	if err != nil {
+		got = removePaths(err.Error())
+	}
+
+	if diff := cmp.Diff(exp, got); len(diff) > 0 {
+		diff = strings.TrimSpace(diff)
+		diff = strings.ReplaceAll(diff, "\n", "\n    ")
+		t.Errorf("Unexpected results:\ncode: %s\ndiff: %s\ngot: %q\nexp: %q",
+			code, diff, got, exp)
+	}
+}
+
 func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
 	t.Helper()
 	checkOpsAllowance(t,
@@ -637,7 +587,61 @@ func Test_Ops_Go_Allowance_Complex(t *testing.T) {
 			"cannot use complex(x, x) (value of type X constrained by interface{~complex64}) as complex64 value in variable declaration")
 }
 
-func checkGoOps(t *testing.T, typeParams, typeExp string) {
+func lines(lines ...string) string { return strings.Join(lines, "\n") }
+
+var regexPathMatch = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^.*t.go:(?:\d+:){0,2}\s`)
+})
+
+func removePaths(s string) string {
+	buf := &strings.Builder{}
+	for ln := range strings.Lines(s) {
+		ln = regexPathMatch().ReplaceAllString(ln, ``)
+		_, _ = buf.WriteString(ln)
+	}
+	return buf.String()
+}
+
+func getOpsWithFile(t *testing.T, prime string, pos token.Pos, expr string) OpTypes {
+	t.Helper()
+
+	ps, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
+	if err != nil {
+		t.Fatalf(`Failed to parse package: %v`, err)
+	}
+
+	if !pos.IsValid() {
+		pos = ps.Syntax[0].FileEnd - 1
+	}
+
+	tv, err := types.Eval(ps.Fset, ps.Types, pos, expr)
+	if err != nil {
+		t.Fatalf(`Failed to parse expression: %v`, err)
+	}
+
+	return Ops(tv.Type)
+}
+
+func checkOps(t *testing.T, expr, exp string) {
+	t.Helper()
+	checkOpsWithFile(t, "package t\n", token.NoPos, expr, exp)
+}
+
+func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp string) {
+	t.Helper()
+	opt := getOpsWithFile(t, prime, pos, expr)
+	got := opt.String()
+	got = strings.ReplaceAll(got, `command-line-arguments`, `$`)
+
+	if diff := cmp.Diff(exp, got); len(diff) > 0 {
+		diff = strings.TrimSpace(diff)
+		diff = strings.ReplaceAll(diff, "\n", "\n    ")
+		t.Errorf("Unexpected results:\ntype: %s\ndiff: %s\ngot: %q\nexp: %q",
+			opt.Type.String(), diff, got, exp)
+	}
+}
+
+func checkGoOps(t *testing.T, prime, typeParams, typeExp string, expOp typeOp.Op) {
 	t.Helper()
 
 	opGroups := []struct {
@@ -777,17 +781,20 @@ func checkGoOps(t *testing.T, typeParams, typeExp string) {
 		typeParams = `[` + typeParams + `]`
 	}
 
-	result := typeOp.None
 	for _, tt := range opGroups {
 		prime := lines(
-			`package main`,
+			`package t`,
+			prime,
 			`func Foo`+typeParams+`(x, y, z `+typeExp+`) {`,
 			tt.code,
 			`}`)
 		_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
 		if err == nil {
-			result |= tt.op
+			if !expOp.Any(tt.op) {
+				t.Errorf(`%v was allowed by Go but not in the expected ops`, tt.op.String())
+			}
+		} else if expOp.Any(tt.op) {
+			t.Errorf(`%v was in the expected ops but Go errored with %s`, tt.op.String(), err.Error())
 		}
 	}
-
 }

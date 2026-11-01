@@ -14,6 +14,9 @@ import (
 type OpTypes struct {
 	Ops typeOp.Op
 
+	// Type is the type this OpTypes was built for.
+	Type types.Type
+
 	// TODO: Add an indication if the type will always be boxed with the type
 	// or if the underlying type is consistent (add the underlying as a type)
 	// or if a type dictionary would been to be passed along side the type.
@@ -66,44 +69,52 @@ func (ops OpTypes) String() string {
 	if len(parts) > 0 {
 		tail = `{ ` + strings.Join(parts, `, `) + ` }`
 	}
-	return ops.Ops.String() + tail
+	return ops.Type.String() + `: ` + ops.Ops.String() + tail
 }
 
 func Ops(t types.Type) OpTypes {
 	return getOps(t, t)
 }
 
+func blankOps(orig types.Type) OpTypes {
+	return OpTypes{
+		Ops:  typeOp.None,
+		Type: orig,
+	}
+}
+
 func getOps(orig, t types.Type) OpTypes {
 	switch t2 := t.Underlying().(type) {
 	case *types.Array:
-		return arrayTypeOps(t2)
+		return arrayTypeOps(orig, t2)
 	case *types.Basic:
 		return basicTypeOps(orig, t2)
 	case *types.Chan:
-		return chanTypeOps(t2)
+		return chanTypeOps(orig, t2)
 	case *types.Interface:
 		return interfaceTypeOps(orig, t2)
 	case *types.Map:
-		return mapTypeOps(t2)
+		return mapTypeOps(orig, t2)
 	case *types.Pointer:
-		return pointerTypeOps(t2)
+		return pointerTypeOps(orig, t2)
 	case *types.Signature:
-		return signatureTypeOps(t2)
+		return signatureTypeOps(orig, t2)
 	case *types.Slice:
 		return sliceTypeOps(orig, t2)
 	case *types.Struct:
-		return structTypeOps(t2)
+		return structTypeOps(orig, t2)
 	case *types.Union:
 		return unionTypeOps(orig, t2)
 	}
-	return OpTypes{}
+	return blankOps(orig)
 }
 
-func arrayTypeOps(t2 *types.Array) OpTypes {
+func arrayTypeOps(orig types.Type, t2 *types.Array) OpTypes {
 	return OpTypes{
 		Ops: typeOp.Cap | typeOp.Comparable | typeOp.GetIndex | typeOp.Len |
 			typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref |
 			typeOp.RefIndex | typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
+		Type:   orig,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   t2.Elem(),
 		Slice:  types.NewSlice(t2.Elem()),
@@ -115,41 +126,46 @@ func arrayTypeOps(t2 *types.Array) OpTypes {
 func basicTypeOps(orig types.Type, t2 *types.Basic) OpTypes {
 	switch t2.Kind() {
 	case types.Bool, types.UntypedBool:
-		return booleanTypeOps()
+		return booleanTypeOps(orig)
 	case types.Int, types.Int8, types.Int16, types.Int32, types.Int64,
 		types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64,
 		types.UntypedInt, types.UntypedRune, types.Uintptr:
-		return integerTypeOps(t2)
+		return integerTypeOps(orig)
 	case types.UntypedFloat, types.Float32, types.Float64:
-		return floatTypeOps(t2)
+		return floatTypeOps(orig, t2)
 	case types.UntypedComplex, types.Complex64, types.Complex128:
-		return complexTypeOps(t2)
+		return complexTypeOps(orig, t2)
 	case types.UntypedString, types.String:
 		return stringTypeOps(orig)
 	case types.UnsafePointer:
-		return unsafePointerTypeOps()
+		return unsafePointerTypeOps(orig)
 	case types.UntypedNil:
-		return untypedNilTypeOps()
+		return untypedNilTypeOps(orig)
 	}
-	return OpTypes{}
+	return blankOps(orig)
 }
 
-func booleanTypeOps() OpTypes {
-	return OpTypes{Ops: typeOp.Comparable | typeOp.Ref}
+func booleanTypeOps(orig types.Type) OpTypes {
+	return OpTypes{
+		Ops:  typeOp.Comparable | typeOp.Ref,
+		Type: orig,
+	}
 }
 
 func integerTypeOps(orig types.Type) OpTypes {
 	return OpTypes{
 		Ops: typeOp.Add | typeOp.Arith | typeOp.Bitwise | typeOp.Comparable |
 			typeOp.Mod | typeOp.Orderable | typeOp.Range0 | typeOp.Range1 | typeOp.Ref,
+		Type:   orig,
 		Range1: orig,
 	}
 }
 
-func floatTypeOps(t2 *types.Basic) OpTypes {
+func floatTypeOps(orig types.Type, t2 *types.Basic) OpTypes {
 	ops := OpTypes{
 		Ops: typeOp.Add | typeOp.Arith | typeOp.Comparable | typeOp.Float |
 			typeOp.Orderable | typeOp.Ref,
+		Type: orig,
 	}
 	switch t2.Kind() {
 	case types.Float32:
@@ -162,10 +178,11 @@ func floatTypeOps(t2 *types.Basic) OpTypes {
 	return ops
 }
 
-func complexTypeOps(t2 *types.Basic) OpTypes {
+func complexTypeOps(orig types.Type, t2 *types.Basic) OpTypes {
 	ops := OpTypes{
-		Ops: typeOp.Add | typeOp.Arith | typeOp.Comparable | typeOp.Complex |
-			typeOp.Ref,
+		Ops: typeOp.Add | typeOp.Arith | typeOp.Comparable |
+			typeOp.Complex | typeOp.Ref,
+		Type: orig,
 	}
 	switch t2.Kind() {
 	case types.Complex64:
@@ -183,6 +200,7 @@ func stringTypeOps(orig types.Type) OpTypes {
 		Ops: typeOp.Add | typeOp.GetIndex | typeOp.Len | typeOp.Comparable |
 			typeOp.Orderable | typeOp.Range0 | typeOp.Range1 | typeOp.Range2 |
 			typeOp.Ref | typeOp.Slice,
+		Type:   orig,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   types.Typ[types.Byte],
 		Slice:  orig,
@@ -191,19 +209,24 @@ func stringTypeOps(orig types.Type) OpTypes {
 	}
 }
 
-func unsafePointerTypeOps() OpTypes {
+func unsafePointerTypeOps(orig types.Type) OpTypes {
 	return OpTypes{
-		Ops: typeOp.Comparable | typeOp.IsNil | typeOp.Ref,
+		Ops:  typeOp.Comparable | typeOp.IsNil | typeOp.Ref,
+		Type: orig,
 	}
 }
 
-func untypedNilTypeOps() OpTypes {
-	return OpTypes{Ops: typeOp.IsNil | typeOp.Ref}
+func untypedNilTypeOps(orig types.Type) OpTypes {
+	return OpTypes{
+		Ops:  typeOp.IsNil | typeOp.Ref,
+		Type: orig,
+	}
 }
 
-func chanTypeOps(t2 *types.Chan) OpTypes {
+func chanTypeOps(orig types.Type, t2 *types.Chan) OpTypes {
 	ops := OpTypes{
-		Ops: typeOp.Len | typeOp.Cap | typeOp.Make | typeOp.Ref | typeOp.IsNil | typeOp.Comparable,
+		Ops:  typeOp.Len | typeOp.Cap | typeOp.Make | typeOp.Ref | typeOp.IsNil | typeOp.Comparable,
+		Type: orig,
 	}
 	switch t2.Dir() {
 	case types.SendOnly:
@@ -220,7 +243,10 @@ func chanTypeOps(t2 *types.Chan) OpTypes {
 
 func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
 	if t2.IsMethodSet() {
-		ops := OpTypes{Ops: typeOp.IsNil | typeOp.Ref}
+		ops := OpTypes{
+			Ops:  typeOp.IsNil | typeOp.Ref,
+			Type: orig,
+		}
 		if t2.IsComparable() {
 			ops.Ops |= typeOp.Comparable
 		}
@@ -235,10 +261,11 @@ func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
 	return unionTermsOps(orig, terms)
 }
 
-func mapTypeOps(t2 *types.Map) OpTypes {
+func mapTypeOps(orig types.Type, t2 *types.Map) OpTypes {
 	return OpTypes{
 		Ops: typeOp.GetIndex | typeOp.IsNil | typeOp.Len | typeOp.Make |
 			typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref | typeOp.SetIndex,
+		Type:   orig,
 		Key:    t2.Key(),
 		Elem:   t2.Elem(),
 		Range1: t2.Key(),
@@ -246,16 +273,16 @@ func mapTypeOps(t2 *types.Map) OpTypes {
 	}
 }
 
-func pointerTypeOps(t2 *types.Pointer) OpTypes {
+func pointerTypeOps(orig types.Type, t2 *types.Pointer) OpTypes {
 	var ops OpTypes
 	if at, ok := t2.Elem().Underlying().(*types.Array); ok {
-		ops = arrayTypeOps(at)
+		ops = arrayTypeOps(orig, at)
 	}
 	ops.Ops |= typeOp.Comparable | typeOp.IsNil | typeOp.Ref
 	return ops
 }
 
-func signatureTypeOps(t2 *types.Signature) OpTypes {
+func signatureTypeOps(orig types.Type, t2 *types.Signature) OpTypes {
 	// Check for iter.Seq and iter.Seq2 (receivers are optional).
 	if t2.Params().Len() == 1 && t2.Results().Len() == 0 {
 		par := t2.Params().At(0).Type()
@@ -265,23 +292,29 @@ func signatureTypeOps(t2 *types.Signature) OpTypes {
 			switch fn.Params().Len() {
 			case 0: // Found an `func(func() bool)`
 				return OpTypes{
-					Ops: typeOp.IsNil | typeOp.Range0 | typeOp.Ref,
+					Ops:  typeOp.IsNil | typeOp.Range0 | typeOp.Ref,
+					Type: orig,
 				}
 			case 1: // Found an `iter.Seq[K]`
 				return OpTypes{
 					Ops:    typeOp.IsNil | typeOp.Range0 | typeOp.Range1 | typeOp.Ref,
+					Type:   orig,
 					Range1: fn.Params().At(0).Type(),
 				}
 			case 2: // Found an `iter.Seq[K, V]`
 				return OpTypes{
 					Ops:    typeOp.IsNil | typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref,
+					Type:   orig,
 					Range1: fn.Params().At(0).Type(),
 					Range2: fn.Params().At(1).Type(),
 				}
 			}
 		}
 	}
-	return OpTypes{Ops: typeOp.IsNil | typeOp.Ref}
+	return OpTypes{
+		Ops:  typeOp.IsNil | typeOp.Ref,
+		Type: orig,
+	}
 }
 
 func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
@@ -289,6 +322,7 @@ func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 		Ops: typeOp.Cap | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
 			typeOp.Make | typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref |
 			typeOp.RefIndex | typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
+		Type:   orig,
 		Key:    types.Typ[types.UntypedInt],
 		Elem:   t2.Elem(),
 		Slice:  orig,
@@ -297,8 +331,11 @@ func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 	}
 }
 
-func structTypeOps(t2 *types.Struct) OpTypes {
-	ops := OpTypes{Ops: typeOp.Ref}
+func structTypeOps(orig types.Type, t2 *types.Struct) OpTypes {
+	ops := OpTypes{
+		Ops:  typeOp.Ref,
+		Type: orig,
+	}
 	if types.Comparable(t2) {
 		ops.Ops |= typeOp.Comparable
 	}
@@ -319,7 +356,7 @@ func termOps(t *types.Term) OpTypes {
 func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 	switch len(t2) {
 	case 0:
-		return OpTypes{}
+		return blankOps(orig)
 	case 1:
 		return getOps(orig, t2[0].Type())
 	}
@@ -348,7 +385,7 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 	// type parameter.
 	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Make | typeOp.Complex | typeOp.Float
 	if ops == typeOp.None {
-		return OpTypes{}
+		return blankOps(orig)
 	}
 
 	pick := func(adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
