@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/Grant-Nelson/Gozer/avail/astTools"
+	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
 
 func lines(lines ...string) string { return strings.Join(lines, "\n") }
@@ -33,7 +34,7 @@ func removePaths(s string) string {
 	return buf.String()
 }
 
-func checkOpsTrial(t *testing.T, code, exp string) {
+func checkOpsAllowance(t *testing.T, code, exp string) {
 	t.Helper()
 
 	prime := "package main\n" + code + "\n"
@@ -49,14 +50,6 @@ func checkOpsTrial(t *testing.T, code, exp string) {
 		t.Errorf("Unexpected results:\ncode: %s\ndiff: %s\ngot: %q\nexp: %q",
 			code, diff, got, exp)
 	}
-}
-
-func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
-	t.Helper()
-	checkOpsTrial(t,
-		"func Foo["+typeParams+"](x X, i int) {\n"+
-			"	"+body+"\n"+
-			"}", exp)
 }
 
 func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp string) {
@@ -90,26 +83,53 @@ func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp strin
 }
 
 func Test_Ops_Arrays(t *testing.T) {
+	checkOpsAllowance(t, lines(
+		`func Foo(x, y [3]int) {`,
+		`	_, _ = len(x), cap(x)`,               // Len | Cap
+		`	_ = x == y`,                          // Comparable
+		`	_ = &x`,                              // Ref
+		`	x[1] = x[0]`,                         // GetIndex, SetIndex
+		`	p := &x[0]; *p = 4`,                  // RefIndex
+		`	_, _ = x[0:1], x[0:1:2]`,             // Slice | Slice3
+		`	for range x { print("hi") }`,         // Range0
+		`	for i := range x { print(i) }`,       // Range1
+		`	for i, v := range x { print(i, v) }`, // Range2
+		`}`), `Ok`)
+
 	checkOps(t, `[3]int`,
-		`Len|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `[...]byte{1, 2, 3}`,
-		`Len|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 }
 
 func Test_Ops_PointersToArrays(t *testing.T) {
+	checkOpsAllowance(t, lines(
+		`func Foo(x, y *[3]int) {`,
+		`	_ = x == nil`,                        // IsNil
+		`	_, _ = len(x), cap(x)`,               // Len | Cap
+		`	_ = x == y`,                          // Comparable
+		`	_, _ = &x, *x`,                       // Ref
+		`	x[1] = x[0]`,                         // GetIndex, SetIndex
+		`	p := &x[0]; *p = 4`,                  // RefIndex
+		`	_, _ = x[0:1], x[0:1:2]`,             // Slice | Slice3
+		`	for range x { print("hi") }`,         // Range0
+		`	for i := range x { print(i) }`,       // Range1
+		`	for i, v := range x { print(i, v) }`, // Range2
+		`}`), `Ok`)
+
 	checkOps(t, `&[3]int{1,2,3}`,
-		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `*[3]int`,
-		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
 	checkOps(t, `*[3]byte`,
-		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 
 	checkOps(t, `(*int)(nil)`,
@@ -122,11 +142,24 @@ func Test_Ops_PointersToArrays(t *testing.T) {
 		`package t`,
 		`type Foo [3]int`,
 	), token.NoPos, `new(Foo)`,
-		`Len|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 }
 
 func Test_Ops_Slices(t *testing.T) {
+	checkOpsAllowance(t, lines(
+		`func Foo(x, y []int) {`,
+		`	_ = x == nil`,                        // IsNil
+		`	_, _ = len(x), cap(x)`,               // Len | Cap
+		`	_ = &x`,                              // Ref
+		`	x[1] = x[0]`,                         // GetIndex, SetIndex
+		`	p := &x[0]; *p = 4`,                  // RefIndex
+		`	_, _ = x[0:1], x[0:1:2]`,             // Slice | Slice3
+		`	for range x { print("hi") }`,         // Range0
+		`	for i := range x { print(i) }`,       // Range1
+		`	for i, v := range x { print(i, v) }`, // Range2
+		`}`), `Ok`)
+
 	checkOps(t, `[]int`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
@@ -274,8 +307,7 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 	checkOps(t, `interface{String() string}`, `IsNil|Ref`)
 
 	checkOps(t, `interface{int|uint}`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+ // TODO: Fix, Range1 not valid, Range0 is then also not valid
-			`{ Range1:{int | uint} }`)
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`)
 
 	checkOpsWithFile(t, lines(
 		`package t`,
@@ -283,33 +315,31 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 		`	println(t)`,
 		`}`,
 	), token.Pos(40), `t`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
-			`{ Range1:{int | uint} }`)
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`)
 
 	checkOps(t, `interface{int64|float64}`,
 		`Add|Arith|Comparable|Orderable|Ref`)
 
 	checkOps(t, `interface{String() string; int|uint}`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
-			`{ Range1:{int | uint} }`)
+		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`)
 }
 
 func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	checkOps(t, `interface{~[]byte|~string}`,
-		`Len|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:{~[]byte | ~string}, Range1:int, Range2:{byte | rune} }`)
+		`Len|Ref|GetIndex`+
+			`{ Key:untyped int, Elem:byte }`)
 
 	checkOps(t, `interface{~[]byte|string}`,
-		`Len|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:{~[]byte | string}, Range1:int, Range2:{byte | rune} }`)
+		`Len|Ref|GetIndex`+
+			`{ Key:untyped int, Elem:byte }`)
 
 	checkOps(t, `interface{[]byte|~string}`,
-		`Len|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:{[]byte | ~string}, Range1:int, Range2:{byte | rune} }`)
+		`Len|Ref|GetIndex`+
+			`{ Key:untyped int, Elem:byte }`)
 
 	checkOps(t, `interface{[]byte|string}`,
-		`Len|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:{[]byte | string}, Range1:int, Range2:{byte | rune} }`)
+		`Len|Ref|GetIndex`+
+			`{ Key:untyped int, Elem:byte }`)
 }
 
 func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
@@ -324,7 +354,7 @@ func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
 		`type C interface { ~string|~int }`,
 		`type P interface{ A|B; C }`, // ~string|int
 	), token.Pos(45), `P`,
-		`Add|Comparable|Orderable|Ref|Range0|Range1`+
+		`Add|Comparable|Orderable|Ref`+
 			`{ Range1:int }`)
 }
 
@@ -397,6 +427,14 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 
 // TODO: Check comparable
 
+func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
+	t.Helper()
+	checkOpsAllowance(t,
+		"func Foo["+typeParams+"](x X, i int) {\n"+
+			"	"+body+"\n"+
+			"}", exp)
+}
+
 func Test_Ops_Go_Allowance_SliceAndMap(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~[]T | ~map[int]T`,
@@ -414,8 +452,12 @@ func Test_Ops_Go_Allowance_SliceAndMap(t *testing.T) {
 
 func Test_Ops_Go_Allowance_SliceAndArray(t *testing.T) {
 	checkOpsAllowed(t,
+		`X ~[4]int`,
+		`x[1] = x[0]; _, _ = len(x), cap(x)`,
+		`Ok`)
+	checkOpsAllowed(t,
 		`T any, X ~[]T | ~[4]T`,
-		`var t T = x[0]; x[1] = t; _, _ = len(x)`,
+		`var t T = x[0]; x[1] = t; _, _ = len(x), cap(x)`,
 		`Ok`)
 	checkOpsAllowed(t,
 		`T any, X ~[]T | ~[4]T`,
@@ -593,4 +635,159 @@ func Test_Ops_Go_Allowance_Complex(t *testing.T) {
 		`var c complex64 = complex(x, x); _ = c`,
 		"x (variable of type X constrained by ~float32) not supported as argument to built-in complex for go1.18 (see go.dev/issue/50937)\n"+
 			"cannot use complex(x, x) (value of type X constrained by interface{~complex64}) as complex64 value in variable declaration")
+}
+
+func checkGoOps(t *testing.T, typeParams, typeExp string) {
+	t.Helper()
+
+	opGroups := []struct {
+		op   typeOp.Op
+		code string
+	}{
+		{
+			op: typeOp.Add,
+			code: lines(
+				`x = y + z`,
+				`x += y`),
+		}, {
+			op: typeOp.Arith,
+			code: lines(
+				`x = -y`,
+				`x = y - z`,
+				`x = y * z`,
+				`x = y / z`,
+				`x -= y`,
+				`x *= y`,
+				`x /= y`,
+				`x++`,
+				`x--`,
+				`_ = int(y)`,
+				`_ = float64(y)`),
+		}, {
+			op: typeOp.Mod,
+			code: lines(
+				`x = y % z`,
+				`x %= y`),
+		}, {
+			op: typeOp.Bitwise,
+			code: lines(
+				`x = ^y`,
+				`x = y & z`,
+				`x = y | z`,
+				`x = y ^ z`,
+				`x = y &^ z`,
+				`x = y << z`,
+				`x = y >> z`,
+				`x &= y`,
+				`x |= y`,
+				`x ^= y`,
+				`x &^= y`,
+				`x <<= y`,
+				`x >>= y`),
+		}, {
+			op:   typeOp.Len,
+			code: `_ = len(y)`,
+		}, {
+			op:   typeOp.Cap,
+			code: `_ = cap(y)`,
+		}, {
+			op:   typeOp.IsNil,
+			code: `_ = y == nil`,
+		}, {
+			op: typeOp.Comparable,
+			code: lines(
+				`_ = y == z`,
+				`_ = y != z`),
+		}, {
+			op: typeOp.Orderable,
+			code: lines(
+				`_ = y < z`,
+				`_ = y <= z`,
+				`_ = y > z`,
+				`_ = y >= z`),
+		}, {
+			op: typeOp.Ref,
+			code: lines(
+				`_ = &y`,
+				`_ = new(y)`,
+				`_ = new(`+typeExp+`)`),
+		}, {
+			op: typeOp.Make,
+			code: lines(
+				`_ = make(`+typeExp+`)`,
+				`_ = make(`+typeExp+`, 1)`,
+				`_ = make(`+typeExp+`, 1, 2)`),
+		}, {
+			op: typeOp.GetIndex,
+			code: lines(
+				`_ = y[0]`,
+				`_, _ = y[0]`),
+		}, {
+			op: typeOp.SetIndex,
+			code: lines(
+				`x[0] = y[0]`,
+				`clear(x)`),
+		}, {
+			op:   typeOp.RefIndex,
+			code: `_ = &y[0]`,
+		}, {
+			op:   typeOp.Slice,
+			code: `x = y[0:1]`,
+		}, {
+			op:   typeOp.Slice3,
+			code: `x = y[0:1:2]`,
+		}, {
+			op: typeOp.Range0,
+			code: lines(
+				`for range x {`,
+				`	print("hi")`,
+				`}`),
+		}, {
+			op: typeOp.Range1,
+			code: lines(
+				`for i := range x {`,
+				`	print(i)`,
+				`}`),
+		}, {
+			op: typeOp.Range2,
+			code: lines(
+				`for i, j := range x {`,
+				`	print(i, j)`,
+				`}`),
+		}, {
+			op: typeOp.Recv,
+			code: lines(
+				`_ = <- x`,
+				`_, _ = <- x`),
+		}, {
+			op:   typeOp.Send,
+			code: `close(x)`,
+		}, {
+			op:   typeOp.Float,
+			code: `_ = complex(x, y)`,
+		}, {
+			op: typeOp.Complex,
+			code: lines(
+				`_ = real(x)`,
+				`_ = imag(x)`),
+		},
+	}
+
+	if len(typeParams) > 0 {
+		typeParams = `[` + typeParams + `]`
+	}
+
+	result := typeOp.None
+	for _, tt := range opGroups {
+		prime := lines(
+			`package main`,
+			`func Foo`+typeParams+`(x, y, z `+typeExp+`) {`,
+			tt.code,
+			`}`)
+		_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
+		if err == nil {
+			result |= tt.op
+		}
+	}
+
 }

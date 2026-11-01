@@ -22,7 +22,7 @@ const (
 	//
 	//	| Operator       | Types       | Comment                           |
 	//	|----------------|-------------|-----------------------------------|
-	//	| `x = (y + z)`  | `x, y, z T` | addition / concatenation          |
+	//	| `x = y + z`    | `x, y, z T` | addition / concatenation          |
 	//	| `x = (y += z)` | `x, y, z T` | in place addition / concatenation |
 	Add Op = 1 << (iota - 1)
 
@@ -134,11 +134,11 @@ const (
 	//
 	// See [https://pkg.go.dev/builtin#make]
 	//
-	//	| Operator     | Types               | Comment                                    |
-	//	|--------------|---------------------|--------------------------------------------|
-	//	| `make()`     |                     | creates a type with default length         |
-	//	| `make(x)`    | `x unsigned int`    | creates a type with a length               |
-	//	| `make(x, y)` | `x, y unsigned int` | creates a slice with a length and capacity |
+	//	| Operator        | Types               | Comment                                    |
+	//	|-----------------|---------------------|--------------------------------------------|
+	//	| `make(T)`       |                     | creates a type with default length         |
+	//	| `make(T, x)`    | `x unsigned int`    | creates a type with a length               |
+	//	| `make(T, x, y)` | `x, y unsigned int` | creates a slice with a length and capacity |
 	Make
 
 	// GetIndex indicates that index getter operations are available.
