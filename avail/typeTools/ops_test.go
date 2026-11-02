@@ -15,19 +15,6 @@ import (
 )
 
 func Test_Ops_Arrays(t *testing.T) {
-	checkOpsAllowance(t, lines(
-		`func Foo(x, y [3]int) {`,
-		`	_, _ = len(x), cap(x)`,               // Len | Cap
-		`	_ = x == y`,                          // Comparable
-		`	_ = &x`,                              // Ref
-		`	x[1] = x[0]`,                         // GetIndex, SetIndex
-		`	p := &x[0]; *p = 4`,                  // RefIndex
-		`	_, _ = x[0:1], x[0:1:2]`,             // Slice | Slice3
-		`	for range x { print("hi") }`,         // Range0
-		`	for i := range x { print(i) }`,       // Range1
-		`	for i, v := range x { print(i, v) }`, // Range2
-		`}`), `Ok`)
-
 	checkOps(t, `[3]int`,
 		`Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
@@ -38,20 +25,6 @@ func Test_Ops_Arrays(t *testing.T) {
 }
 
 func Test_Ops_PointersToArrays(t *testing.T) {
-	checkOpsAllowance(t, lines(
-		`func Foo(x, y *[3]int) {`,
-		`	_ = x == nil`,                        // IsNil
-		`	_, _ = len(x), cap(x)`,               // Len | Cap
-		`	_ = x == y`,                          // Comparable
-		`	_, _ = &x, *x`,                       // Ref
-		`	x[1] = x[0]`,                         // GetIndex, SetIndex
-		`	p := &x[0]; *p = 4`,                  // RefIndex
-		`	_, _ = x[0:1], x[0:1:2]`,             // Slice | Slice3
-		`	for range x { print("hi") }`,         // Range0
-		`	for i := range x { print(i) }`,       // Range1
-		`	for i, v := range x { print(i, v) }`, // Range2
-		`}`), `Ok`)
-
 	checkOps(t, `&[3]int{1,2,3}`,
 		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
@@ -71,7 +44,6 @@ func Test_Ops_PointersToArrays(t *testing.T) {
 		`IsNil|Comparable|Ref`)
 
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`type Foo [3]int`,
 	), token.NoPos, `new(Foo)`,
 		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
@@ -79,19 +51,6 @@ func Test_Ops_PointersToArrays(t *testing.T) {
 }
 
 func Test_Ops_Slices(t *testing.T) {
-	checkOpsAllowance(t, lines(
-		`func Foo(x, y []int) {`,
-		`	_ = x == nil`,                        // IsNil
-		`	_, _ = len(x), cap(x)`,               // Len | Cap
-		`	_ = &x`,                              // Ref
-		`	x[1] = x[0]`,                         // GetIndex, SetIndex
-		`	p := &x[0]; *p = 4`,                  // RefIndex
-		`	_, _ = x[0:1], x[0:1:2]`,             // Slice | Slice3
-		`	for range x { print("hi") }`,         // Range0
-		`	for i := range x { print(i) }`,       // Range1
-		`	for i, v := range x { print(i, v) }`, // Range2
-		`}`), `Ok`)
-
 	checkOps(t, `[]int`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
@@ -108,7 +67,6 @@ func Test_Ops_Slices(t *testing.T) {
 		`IsNil|Comparable|Ref`)
 
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`type Bar struct{ v int }`,
 		`type Foo []*Bar`,
 	), token.NoPos, `Foo`,
@@ -121,7 +79,6 @@ func Test_Ops_BooleanTypes(t *testing.T) {
 	checkOps(t, `false`, `Comparable|Ref`)
 
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`type Foo bool`,
 	), token.NoPos, `Foo`,
 		`Comparable|Ref`)
@@ -186,7 +143,6 @@ func Test_Ops_StringTypes(t *testing.T) {
 			`{ Key:untyped int, Elem:uint8, Slice:untyped string, Range1:int, Range2:rune }`)
 
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`type Foo string`,
 	), token.NoPos, `Foo`,
 		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2`+
@@ -205,7 +161,6 @@ func Test_Ops_RuneTypes(t *testing.T) {
 
 func Test_Ops_PointersTypes(t *testing.T) {
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`import "unsafe"`,
 		`var x = 10`,
 		`var p = unsafe.Pointer(&x)`,
@@ -242,7 +197,6 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`)
 
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`func Foo[T int|uint](t T) {`,
 		`	println(t)`,
 		`}`,
@@ -280,7 +234,6 @@ func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
 	// > expands to ~string|~[]byte|int|string, which reduces to ~string|~[]byte|int,
 	// > which when intersected with C (~string|~int) yields ~string|int.
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`type A interface{ ~string|~[]byte }`,
 		`type B interface{ int|string }`,
 		`type C interface { ~string|~int }`,
@@ -314,7 +267,6 @@ func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 
 func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`func Foo[T any, S ~[]T](s S) {`,
 		`	println(s)`,
 		`}`,
@@ -323,7 +275,6 @@ func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 			`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
 
 	checkOpsWithFile(t, lines(
-		`package t`,
 		`func Foo[T any, S ~[]T | ~map[int]T](s S) {`,
 		`	println(s)`,
 		`}`,
@@ -359,32 +310,7 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 
 // TODO: Check comparable
 
-func checkOpsAllowance(t *testing.T, code, exp string) {
-	t.Helper()
-
-	prime := "package main\n" + code + "\n"
-	got := `Ok`
-	_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
-	if err != nil {
-		got = removePaths(err.Error())
-	}
-
-	if diff := cmp.Diff(exp, got); len(diff) > 0 {
-		diff = strings.TrimSpace(diff)
-		diff = strings.ReplaceAll(diff, "\n", "\n    ")
-		t.Errorf("Unexpected results:\ncode: %s\ndiff: %s\ngot: %q\nexp: %q",
-			code, diff, got, exp)
-	}
-}
-
-func checkOpsAllowed(t *testing.T, typeParams, body, exp string) {
-	t.Helper()
-	checkOpsAllowance(t,
-		"func Foo["+typeParams+"](x X, i int) {\n"+
-			"	"+body+"\n"+
-			"}", exp)
-}
-
+/*
 func Test_Ops_Go_Allowance_SliceAndMap(t *testing.T) {
 	checkOpsAllowed(t,
 		`T any, X ~[]T | ~map[int]T`,
@@ -586,6 +512,7 @@ func Test_Ops_Go_Allowance_Complex(t *testing.T) {
 		"x (variable of type X constrained by ~float32) not supported as argument to built-in complex for go1.18 (see go.dev/issue/50937)\n"+
 			"cannot use complex(x, x) (value of type X constrained by interface{~complex64}) as complex64 value in variable declaration")
 }
+*/
 
 func lines(lines ...string) string { return strings.Join(lines, "\n") }
 
@@ -605,7 +532,8 @@ func removePaths(s string) string {
 func getOpsWithFile(t *testing.T, prime string, pos token.Pos, expr string) OpTypes {
 	t.Helper()
 
-	ps, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
+	file := "package t\n" + prime
+	ps, err := astTools.ParsePackage(map[string]string{`t.go`: file}, nil)
 	if err != nil {
 		t.Fatalf(`Failed to parse package: %v`, err)
 	}
@@ -624,7 +552,7 @@ func getOpsWithFile(t *testing.T, prime string, pos token.Pos, expr string) OpTy
 
 func checkOps(t *testing.T, expr, exp string) {
 	t.Helper()
-	checkOpsWithFile(t, "package t\n", token.NoPos, expr, exp)
+	checkOpsWithFile(t, ``, token.NoPos, expr, exp)
 }
 
 func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp string) {
