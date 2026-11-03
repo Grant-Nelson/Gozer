@@ -15,12 +15,12 @@ import (
 )
 
 func Test_Ops_Arrays(t *testing.T) {
-	checkOps(t, `[3]int`,
-		`Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+	checkGoOps(t, ``, ``, `[3]int`,
+		`[3]int: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
-	checkOps(t, `[...]byte{1, 2, 3}`,
-		`Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+	checkGoOps(t, ``, ``, `[...]byte{1, 2, 3}`,
+		`[3]byte: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 }
 
@@ -310,210 +310,6 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 
 // TODO: Check comparable
 
-/*
-func Test_Ops_Go_Allowance_SliceAndMap(t *testing.T) {
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~map[int]T`,
-		`_ = x == nil`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~map[int]T`,
-		`var t T = x[0]; _ = t`,
-		`cannot index x (variable of type X constrained by ~[]T | ~map[int]T)`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~map[int]T`,
-		`clear(x)`,
-		`Ok`)
-}
-
-func Test_Ops_Go_Allowance_SliceAndArray(t *testing.T) {
-	checkOpsAllowed(t,
-		`X ~[4]int`,
-		`x[1] = x[0]; _, _ = len(x), cap(x)`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~[4]T`,
-		`var t T = x[0]; x[1] = t; _, _ = len(x), cap(x)`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~[4]T`,
-		`for i, v := range x { _, _ = i, v }`,
-		`cannot range over x (variable of type X constrained by ~[]T | ~[4]T): []T and [4]T have different underlying types`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~*[4]T`,
-		`var t T = x[0]; _ = &x[0]`,
-		`declared and not used: t`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~*[4]T`,
-		`var y []T = x[1:2]; _ = y`,
-		`cannot slice x (variable of type X constrained by ~[]T | ~*[4]T): []T and *[4]T have different underlying types`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~[4]T`,
-		`var y []T = x[1:2]; _ = y`,
-		`cannot slice x (variable of type X constrained by ~[]T | ~[4]T): []T and [4]T have different underlying types`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~[3]T`,
-		`_ = cap(x)`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`T any, X ~[]T | ~[3]T | ~*[3]T`,
-		`var t T = x[i]; x[i] = t; _ = &x[i]`,
-		`Ok`)
-}
-
-func Test_Ops_Go_Allowance_SliceAndString(t *testing.T) {
-	checkOpsAllowed(t,
-		`T any, X ~[]byte | ~string`,
-		`var b byte = x[0]; _ = x[1:2]`,
-		`declared and not used: b`)
-	checkOpsAllowed(t,
-		`T any, X ~[]byte | ~string`,
-		`for j, v := range x { _, _ = j, v }`,
-		`cannot range over x (variable of type X constrained by ~[]byte | ~string): []byte and string have different underlying types`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`var y X = x[1:2]; _ = y`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~string | ~[]byte`,
-		`var y X = x + x; _ = y`,
-		`invalid operation: operator + not defined on x (variable of type X constrained by ~string | ~[]byte)`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string | ~[4]byte`,
-		`var b byte = x[i]; _ = b`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`x[i] = 1`,
-		`cannot assign to x[i] (neither addressable nor a map index expression)`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`_ = &x[i]`,
-		`invalid operation: cannot take address of x[i] (value of type byte)`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`var y X = x[1:2:3]; _ = y`,
-		`invalid operation: 3-index slice of string`)
-	checkOpsAllowed(t,
-		`X ~[]byte | ~string`,
-		`_ = len(x); _ = cap(x)`,
-		`invalid argument: x (variable of type X constrained by ~[]byte | ~string) for built-in cap`)
-	checkOpsAllowed(t,
-		`X ~string | ~[]byte`,
-		`var y X = x[i:]; _ = y`,
-		`Ok`)
-}
-
-func Test_Ops_Go_Allowance_SliceAndSlice(t *testing.T) {
-	checkOpsAllowed(t,
-		`X ~[]int | ~[]int8`,
-		`_ = x[i]`,
-		`cannot index x (variable of type X constrained by ~[]int | ~[]int8)`)
-	checkOpsAllowed(t,
-		`X ~[]int | ~[]int8`,
-		`_, _ = len(x), cap(x)`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~[]int | ~[]int8`,
-		`_ = x == nil`,
-		`Ok`)
-}
-
-func Test_Ops_Go_Allowance_MapAndMap(t *testing.T) {
-	checkOpsAllowed(t,
-		`T any, X ~map[int]T | ~map[int]T`,
-		`for k, v := range x { _, _ = k, v }`,
-		`overlapping terms ~map[int]T and ~map[int]T`)
-	checkOpsAllowed(t,
-		`T any, X ~map[int8]T | ~map[int16]T`,
-		`for k, v := range x { _, _ = k, v }`,
-		`cannot range over x (variable of type X constrained by ~map[int8]T | ~map[int16]T): `+
-			`map[int8]T and map[int16]T have different underlying types`)
-	checkOpsAllowed(t,
-		`X ~map[int][]byte | ~map[int]string`,
-		`_ = x[i]`,
-		`cannot index x (variable of type X constrained by ~map[int][]byte | ~map[int]string)`)
-	checkOpsAllowed(t,
-		`T ~string, X ~map[T]int`,
-		`for k, v := range x { _, _ = k, v }`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`T ~[]byte, X ~map[T]int`,
-		`for k, v := range x { _, _ = k, v }`,
-		`invalid map key type T (missing comparable constraint)`)
-	checkOpsAllowed(t,
-		`T ~[]byte | ~string, X ~map[T]int`,
-		`for k, v := range x { _, _ = k, v }`,
-		`invalid map key type T (missing comparable constraint)`)
-	checkOpsAllowed(t,
-		`T interface{~[]byte | ~string; comparable}, X ~map[T]int`,
-		`for k, v := range x { _, _ = k, v }`,
-		// This seems like it would require `~string` and `~[]byte` with
-		// `comparable` would be impossible. Seems like this shouldn't be allowed.
-		`Ok`)
-	checkOpsAllowed(t,
-		`T interface{~[]byte; comparable}, X ~map[T]int`,
-		`for k, v := range x { _, _ = k, v }`,
-		`invalid map key type T (missing comparable constraint)`)
-}
-
-func Test_Ops_Go_Allowance_BasicAndBasic(t *testing.T) {
-	checkOpsAllowed(t,
-		`T any, X ~int | ~float64`,
-		`_ = x + 1`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`T any, X ~int | ~float64`,
-		`_ = x + 1.5`,
-		`cannot convert 1.5 (untyped float constant) to type X`)
-	checkOpsAllowed(t,
-		`T any, X ~uint8 | ~int16`,
-		`_ = x + 200`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`T any, X ~uint8 | ~int16`,
-		`_ = x + 300`,
-		`cannot convert 300 (untyped int constant) to type X`)
-	checkOpsAllowed(t,
-		`T any, X ~int | ~float64`,
-		`_ = x % 2`,
-		`invalid operation: operator % not defined on x (variable of type X constrained by ~int | ~float64)`)
-	checkOpsAllowed(t,
-		`X ~int | ~int8`,
-		`for i := range x { var y X = i; _ = y }`,
-		`cannot range over x (variable of type X constrained by ~int | ~int8): int and int8 have different underlying types`)
-	checkOpsAllowed(t,
-		`X ~int`,
-		`for i := range x { var y X = i; _ = y }`,
-		`Ok`)
-	checkOpsAllowed(t,
-		`X ~int | ~int8`,
-		`for i := range 10 { var y X = i; _ = y }`,
-		`cannot use i (variable of type int) as X value in variable declaration`)
-}
-
-func Test_Ops_Go_Allowance_Complex(t *testing.T) {
-	checkOpsAllowed(t,
-		`X ~complex64 | ~complex128`,
-		`_ = real(x)`,
-		`x (variable of type X constrained by ~complex64 | ~complex128) not supported as argument to built-in real for go1.18 (see go.dev/issue/50937)`)
-	checkOpsAllowed(t,
-		`X ~complex64`,
-		`var f float32 = real(x); _ = f`,
-		"x (variable of type X constrained by ~complex64) not supported as argument to built-in real for go1.18 (see go.dev/issue/50937)\n"+
-			"cannot use real(x) (value of type X constrained by interface{~float32}) as float32 value in variable declaration")
-	checkOpsAllowed(t,
-		`X ~float32 | ~float64`,
-		`_ = complex(x, x)`,
-		`x (variable of type X constrained by ~float32 | ~float64) not supported as argument to built-in complex for go1.18 (see go.dev/issue/50937)`)
-	checkOpsAllowed(t,
-		`X ~float32`,
-		`var c complex64 = complex(x, x); _ = c`,
-		"x (variable of type X constrained by ~float32) not supported as argument to built-in complex for go1.18 (see go.dev/issue/50937)\n"+
-			"cannot use complex(x, x) (value of type X constrained by interface{~complex64}) as complex64 value in variable declaration")
-}
-*/
-
 func lines(lines ...string) string { return strings.Join(lines, "\n") }
 
 var regexPathMatch = sync.OnceValue(func() *regexp.Regexp {
@@ -569,160 +365,170 @@ func checkOpsWithFile(t *testing.T, prime string, pos token.Pos, expr, exp strin
 	}
 }
 
-func checkGoOps(t *testing.T, prime, typeParams, typeExp string, expOp typeOp.Op) {
+func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 	t.Helper()
-
-	opGroups := []struct {
-		op   typeOp.Op
-		code string
-	}{
-		{
-			op: typeOp.Add,
-			code: lines(
-				`x = y + z`,
-				`x += y`),
-		}, {
-			op: typeOp.Arith,
-			code: lines(
-				`x = -y`,
-				`x = y - z`,
-				`x = y * z`,
-				`x = y / z`,
-				`x -= y`,
-				`x *= y`,
-				`x /= y`,
-				`x++`,
-				`x--`,
-				`_ = int(y)`,
-				`_ = float64(y)`),
-		}, {
-			op: typeOp.Mod,
-			code: lines(
-				`x = y % z`,
-				`x %= y`),
-		}, {
-			op: typeOp.Bitwise,
-			code: lines(
-				`x = ^y`,
-				`x = y & z`,
-				`x = y | z`,
-				`x = y ^ z`,
-				`x = y &^ z`,
-				`x = y << z`,
-				`x = y >> z`,
-				`x &= y`,
-				`x |= y`,
-				`x ^= y`,
-				`x &^= y`,
-				`x <<= y`,
-				`x >>= y`),
-		}, {
-			op:   typeOp.Len,
-			code: `_ = len(y)`,
-		}, {
-			op:   typeOp.Cap,
-			code: `_ = cap(y)`,
-		}, {
-			op:   typeOp.IsNil,
-			code: `_ = y == nil`,
-		}, {
-			op: typeOp.Comparable,
-			code: lines(
-				`_ = y == z`,
-				`_ = y != z`),
-		}, {
-			op: typeOp.Orderable,
-			code: lines(
-				`_ = y < z`,
-				`_ = y <= z`,
-				`_ = y > z`,
-				`_ = y >= z`),
-		}, {
-			op: typeOp.Ref,
-			code: lines(
-				`_ = &y`,
-				`_ = new(y)`,
-				`_ = new(`+typeExp+`)`),
-		}, {
-			op: typeOp.Make,
-			code: lines(
-				`_ = make(`+typeExp+`)`,
-				`_ = make(`+typeExp+`, 1)`,
-				`_ = make(`+typeExp+`, 1, 2)`),
-		}, {
-			op: typeOp.GetIndex,
-			code: lines(
-				`_ = y[0]`,
-				`_, _ = y[0]`),
-		}, {
-			op: typeOp.SetIndex,
-			code: lines(
-				`x[0] = y[0]`,
-				`clear(x)`),
-		}, {
-			op:   typeOp.RefIndex,
-			code: `_ = &y[0]`,
-		}, {
-			op:   typeOp.Slice,
-			code: `x = y[0:1]`,
-		}, {
-			op:   typeOp.Slice3,
-			code: `x = y[0:1:2]`,
-		}, {
-			op: typeOp.Range0,
-			code: lines(
-				`for range x {`,
-				`	print("hi")`,
-				`}`),
-		}, {
-			op: typeOp.Range1,
-			code: lines(
-				`for i := range x {`,
-				`	print(i)`,
-				`}`),
-		}, {
-			op: typeOp.Range2,
-			code: lines(
-				`for i, j := range x {`,
-				`	print(i, j)`,
-				`}`),
-		}, {
-			op: typeOp.Recv,
-			code: lines(
-				`_ = <- x`,
-				`_, _ = <- x`),
-		}, {
-			op:   typeOp.Send,
-			code: `close(x)`,
-		}, {
-			op:   typeOp.Float,
-			code: `_ = complex(x, y)`,
-		}, {
-			op: typeOp.Complex,
-			code: lines(
-				`_ = real(x)`,
-				`_ = imag(x)`),
-		},
-	}
 
 	if len(typeParams) > 0 {
 		typeParams = `[` + typeParams + `]`
 	}
 
-	for _, tt := range opGroups {
+	file := lines(
+		`package t`,
+		prime,
+		`func Foo`+typeParams+`(x, y, z `+typeExpr+`) {`,
+		``)
+	posOff := len(file)
+	file += lines(`print(x)`,
+		`}`)
+	ps, err := astTools.ParsePackage(map[string]string{`t.go`: file}, nil)
+	if err != nil {
+		t.Fatalf(`Failed to parse package: %v`, err)
+	}
+
+	pos := ps.Syntax[0].FileStart + token.Pos(posOff)
+	tv, err := types.Eval(ps.Fset, ps.Types, pos, `x`)
+	if err != nil {
+		t.Fatalf(`Failed to parse expression: %v`, err)
+	}
+
+	expOp := Ops(tv.Type)
+
+	gt := func(typ types.Type) string {
+		if typ == nil {
+			return `any`
+		}
+		return types.Default(typ).String()
+	}
+
+	check := func(op typeOp.Op, code string) {
 		prime := lines(
 			`package t`,
 			prime,
-			`func Foo`+typeParams+`(x, y, z `+typeExp+`) {`,
-			tt.code,
+			`func Foo`+typeParams+`(x, y, z `+gt(expOp.Type)+`) {`,
+			code,
 			`}`)
 		_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
 		if err == nil {
-			if !expOp.Any(tt.op) {
-				t.Errorf(`%v was allowed by Go but not in the expected ops`, tt.op.String())
+			if !expOp.Ops.Any(op) {
+				t.Errorf(`%v was allowed by Go but not in the expected ops`, op.String())
 			}
-		} else if expOp.Any(tt.op) {
-			t.Errorf(`%v was in the expected ops but Go errored with %s`, tt.op.String(), err.Error())
+		} else if expOp.Ops.Any(op) {
+			errStr := removePaths(err.Error())
+			t.Errorf(`%v was in the expected ops but Go errored with %s`, op.String(), errStr)
 		}
 	}
+
+	check(typeOp.Add, lines(
+		`x = y + z`,
+		`x += y`))
+	check(typeOp.Arith, lines(
+		`x = -y`,
+		`x = y - z`,
+		`x = y * z`,
+		`x = y / z`,
+		`x -= y`,
+		`x *= y`,
+		`x /= y`,
+		`x++`,
+		`x--`,
+		`_ = int(y)`,
+		`_ = float64(y)`))
+	check(typeOp.Mod, lines(
+		`x = y % z`,
+		`x %= y`))
+	check(typeOp.Bitwise, lines(
+		`x = ^y`,
+		`x = y & z`,
+		`x = y | z`,
+		`x = y ^ z`,
+		`x = y &^ z`,
+		`x = y << z`,
+		`x = y >> z`,
+		`x &= y`,
+		`x |= y`,
+		`x ^= y`,
+		`x &^= y`,
+		`x <<= y`,
+		`x >>= y`))
+	check(typeOp.Len, lines(
+		`var _ int = len(y)`))
+	check(typeOp.Cap, lines(
+		`var _ int = cap(y)`))
+	check(typeOp.IsNil, lines(
+		`var _ bool = y == nil`))
+	check(typeOp.Comparable, lines(
+		`var _ bool = y == z`,
+		`var _ bool = y != z`))
+	check(typeOp.Orderable, lines(
+		`var _ bool = y < z`,
+		`var _ bool = y <= z`,
+		`var _ bool = y > z`,
+		`var _ bool = y >= z`))
+	check(typeOp.Ref, lines(
+		`var p *`+gt(expOp.Type),
+		`p = &y`,
+		`p = new(y)`,
+		`p = new(`+gt(expOp.Type)+`)`,
+		`_ = p`))
+	check(typeOp.Make, lines(
+		`_ = make(`+gt(expOp.Type)+`)`,
+		`_ = make(`+gt(expOp.Type)+`, 1)`,
+		`_ = make(`+gt(expOp.Type)+`, 1, 2)`))
+	check(typeOp.GetIndex, lines(
+		`var k `+gt(expOp.Key),
+		`var e `+gt(expOp.Elem),
+		`e = y[k]`,
+		`_ = e`))
+	check(typeOp.SetIndex, lines(
+		`var k `+gt(expOp.Key),
+		`var e `+gt(expOp.Elem),
+		`x[k] = e`))
+	check(typeOp.RefIndex, lines(
+		`var _ *`+gt(expOp.Elem)+` = &y[0]`))
+	check(typeOp.Slice, lines(
+		`var s `+gt(expOp.Slice),
+		`s = y[0:1]`,
+		`_ = s`))
+	check(typeOp.Slice3, lines(
+		`var s `+gt(expOp.Slice),
+		`s = y[0:1:2]`,
+		`_ = s`))
+	check(typeOp.Range0, lines(
+		`for range x {`,
+		`	print("hi")`,
+		`}`))
+	check(typeOp.Range1, lines(
+		`var k `+gt(expOp.Range1),
+		`for k = range x {`,
+		`	print(k)`,
+		`}`,
+		`for _ = range x {`,
+		`	print(k)`,
+		`}`))
+	check(typeOp.Range2, lines(
+		`var k `+gt(expOp.Range1),
+		`var v `+gt(expOp.Range2),
+		`for k, v = range x {`,
+		`	print(k, v)`,
+		`}`,
+		`for _, v = range x {`,
+		`	print(k, v)`,
+		`}`,
+		`for k, _ = range x {`,
+		`	print(k, v)`,
+		`}`,
+		`for _, _ = range x {`,
+		`	print(k, v)`,
+		`}`))
+	check(typeOp.Recv, lines(
+		`var e `+gt(expOp.Elem),
+		`var ok bool`,
+		`e = <- x`,
+		`e, ok = <- x`))
+	check(typeOp.Send,
+		`close(x)`)
+	check(typeOp.Float, `_ = complex(x, y)`)
+	check(typeOp.Complex, lines(
+		`_ = real(x)`,
+		`_ = imag(x)`))
 }
