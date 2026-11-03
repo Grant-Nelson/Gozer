@@ -19,57 +19,51 @@ func Test_Ops_Arrays(t *testing.T) {
 		`[3]int: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
-	checkGoOps(t, ``, ``, `[...]byte{1, 2, 3}`,
-		`[3]byte: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
+	checkGoOps(t, `type Foo [3]int`, ``, `Foo`,
+		`Foo: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 }
 
 func Test_Ops_PointersToArrays(t *testing.T) {
-	checkOps(t, `&[3]int{1,2,3}`,
+	checkGoOps(t, ``, ``, `*[3]int`,
 		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
-	checkOps(t, `*[3]int`,
-		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
-
-	checkOps(t, `*[3]byte`,
+	checkGoOps(t, ``, ``, `*[3]byte`,
 		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 
-	checkOps(t, `(*int)(nil)`,
+	checkGoOps(t, ``, ``, `*int`,
 		`IsNil|Comparable|Ref`)
 
-	checkOps(t, `**[3]byte`,
+	checkGoOps(t, ``, ``, `**[3]byte`,
 		`IsNil|Comparable|Ref`)
 
-	checkOpsWithFile(t, lines(
-		`type Foo [3]int`,
-	), token.NoPos, `new(Foo)`,
+	checkGoOps(t, `type Foo [3]int`, ``, `*Foo`,
 		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 }
 
 func Test_Ops_Slices(t *testing.T) {
-	checkOps(t, `[]int`,
+	checkGoOps(t, ``, ``, `[]int`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
 
-	checkOps(t, `[]*float64`,
+	checkGoOps(t, ``, ``, `[]*float64`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:*float64, Slice:[]*float64, Range1:int, Range2:*float64 }`)
 
-	checkOps(t, `[]byte`,
+	checkGoOps(t, ``, ``, `[]byte`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
 
-	checkOps(t, `*[]byte`,
+	checkGoOps(t, ``, ``, `*[]byte`,
 		`IsNil|Comparable|Ref`)
 
-	checkOpsWithFile(t, lines(
+	checkGoOps(t, lines(
 		`type Bar struct{ v int }`,
 		`type Foo []*Bar`,
-	), token.NoPos, `Foo`,
+	), ``, `Foo`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
 			`{ Key:untyped int, Elem:*$.Bar, Slice:$.Foo, Range1:int, Range2:*$.Bar }`)
 }
@@ -313,7 +307,7 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 func lines(lines ...string) string { return strings.Join(lines, "\n") }
 
 var regexPathMatch = sync.OnceValue(func() *regexp.Regexp {
-	return regexp.MustCompile(`^.*t.go:(?:\d+:){0,2}\s`)
+	return regexp.MustCompile(`^.*t.go:\s`)
 })
 
 func removePaths(s string) string {
@@ -375,20 +369,20 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 	file := lines(
 		`package t`,
 		prime,
-		`func Foo`+typeParams+`(x, y, z `+typeExpr+`) {`,
+		`func testFn`+typeParams+`(x `+typeExpr+`) {`,
 		``)
 	posOff := len(file)
 	file += lines(`print(x)`,
 		`}`)
 	ps, err := astTools.ParsePackage(map[string]string{`t.go`: file}, nil)
 	if err != nil {
-		t.Fatalf(`Failed to parse package: %v`, err)
+		t.Fatalf("Failed to parse package: %v\n%s", err, file)
 	}
 
 	pos := ps.Syntax[0].FileStart + token.Pos(posOff)
 	tv, err := types.Eval(ps.Fset, ps.Types, pos, `x`)
 	if err != nil {
-		t.Fatalf(`Failed to parse expression: %v`, err)
+		t.Fatalf("Failed to parse expression: %v\n%s", err, file)
 	}
 
 	expOp := Ops(tv.Type)
@@ -397,24 +391,33 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		if typ == nil {
 			return `any`
 		}
-		return types.Default(typ).String()
+		r := types.Default(typ).String()
+		r = strings.ReplaceAll(r, `command-line-arguments.`, ``)
+		return r
+	}
+
+	build := func(code string) error {
+		t.Helper()
+		file := lines(
+			`package t`,
+			prime,
+			`func testFn`+typeParams+`(x, y, z `+gt(expOp.Type)+`) {`,
+			"\t"+strings.ReplaceAll(code, "\n", "\n\t"),
+			`}`)
+		_, err := astTools.ParsePackage(map[string]string{`t.go`: file}, nil)
+		return err
 	}
 
 	check := func(op typeOp.Op, code string) {
-		prime := lines(
-			`package t`,
-			prime,
-			`func Foo`+typeParams+`(x, y, z `+gt(expOp.Type)+`) {`,
-			code,
-			`}`)
-		_, err := astTools.ParsePackage(map[string]string{`t.go`: prime}, nil)
+		t.Helper()
+		err := build(code)
 		if err == nil {
 			if !expOp.Ops.Any(op) {
 				t.Errorf(`%v was allowed by Go but not in the expected ops`, op.String())
 			}
 		} else if expOp.Ops.Any(op) {
 			errStr := removePaths(err.Error())
-			t.Errorf(`%v was in the expected ops but Go errored with %s`, op.String(), errStr)
+			t.Errorf("%v was in the expected ops but Go errored with\n%s\n%s", op.String(), errStr, file)
 		}
 	}
 
@@ -470,10 +473,12 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		`p = new(y)`,
 		`p = new(`+gt(expOp.Type)+`)`,
 		`_ = p`))
+
 	check(typeOp.Make, lines(
 		`_ = make(`+gt(expOp.Type)+`)`,
 		`_ = make(`+gt(expOp.Type)+`, 1)`,
 		`_ = make(`+gt(expOp.Type)+`, 1, 2)`))
+
 	check(typeOp.GetIndex, lines(
 		`var k `+gt(expOp.Key),
 		`var e `+gt(expOp.Elem),
@@ -482,7 +487,8 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 	check(typeOp.SetIndex, lines(
 		`var k `+gt(expOp.Key),
 		`var e `+gt(expOp.Elem),
-		`x[k] = e`))
+		`x[k] = e`,
+		`_ = e`))
 	check(typeOp.RefIndex, lines(
 		`var _ *`+gt(expOp.Elem)+` = &y[0]`))
 	check(typeOp.Slice, lines(
@@ -524,11 +530,19 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		`var e `+gt(expOp.Elem),
 		`var ok bool`,
 		`e = <- x`,
-		`e, ok = <- x`))
-	check(typeOp.Send,
-		`close(x)`)
-	check(typeOp.Float, `_ = complex(x, y)`)
+		`e, ok = <- x`,
+		`_, _ = e, ok`))
+	check(typeOp.Send, lines(
+		`var e `+gt(expOp.Elem),
+		`x <- e`,
+		`close(x)`))
+	check(typeOp.Float, lines(
+		`var c `+gt(expOp.Complex),
+		`c = complex(x, y)`,
+		`_ = c`))
 	check(typeOp.Complex, lines(
-		`_ = real(x)`,
-		`_ = imag(x)`))
+		`var f `+gt(expOp.Float),
+		`f = real(x)`,
+		`f = imag(x)`,
+		`_ = f`))
 }
