@@ -1,6 +1,7 @@
 package typeTools
 
 import (
+	"errors"
 	"go/token"
 	"go/types"
 	"regexp"
@@ -69,43 +70,49 @@ func Test_Ops_Slices(t *testing.T) {
 }
 
 func Test_Ops_BooleanTypes(t *testing.T) {
-	checkOps(t, `bool`, `Comparable|Ref`)
-	checkOps(t, `false`, `Comparable|Ref`)
+	checkGoOps(t, ``, ``, `bool`,
+		`Comparable|Ref`)
 
-	checkOpsWithFile(t, lines(
-		`type Foo bool`,
-	), token.NoPos, `Foo`,
+	checkGoOps(t, `type Foo bool`, ``, `Foo`,
 		`Comparable|Ref`)
 }
 
 func Test_Ops_IntegerTypes(t *testing.T) {
-	checkOps(t, `int`,
+	checkGoOps(t, ``, ``, `int`,
 		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
 			`{ Range1:int }`)
 
-	checkOps(t, `uint`,
+	checkGoOps(t, ``, ``, `uint`,
 		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
 			`{ Range1:uint }`)
 
-	checkOps(t, `int64`,
+	checkGoOps(t, ``, ``, `int64`,
 		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
 			`{ Range1:int64 }`)
-
-	checkOps(t, `42`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
-			`{ Range1:untyped int }`)
 }
 
 func Test_Ops_FloatTypes(t *testing.T) {
-	checkOps(t, `float32`,
+	checkGoOps(t, ``, ``, `float32`,
 		`Add|Arith|Comparable|Orderable|Ref|Float`+
 			`{ Complex:complex64 }`)
 
-	checkOps(t, `float64`,
+	checkGoOps(t, ``, ``, `float64`,
 		`Add|Arith|Comparable|Orderable|Ref|Float`+
 			`{ Complex:complex128 }`)
 
-	checkOps(t, `1.42`,
+	checkGoOps(t, `type Foo float64`, ``, `Foo`,
+		`Add|Arith|Comparable|Orderable|Ref|Float`+
+			`{ Complex:untyped complex }`)
+
+	checkGoOps(t, `type Foo float64`, ``, `*Foo`,
+		`Add|Arith|Comparable|Orderable|Ref|Float`+
+			`{ Complex:untyped complex }`)
+
+	checkGoOps(t, `type Foo *float64`, ``, `Foo`,
+		`Add|Arith|Comparable|Orderable|Ref|Float`+
+			`{ Complex:untyped complex }`)
+
+	checkGoOps(t, `type Foo *float64`, ``, `*Foo`,
 		`Add|Arith|Comparable|Orderable|Ref|Float`+
 			`{ Complex:untyped complex }`)
 }
@@ -396,35 +403,43 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		return r
 	}
 
-	build := func(code string) error {
+	build := func(code ...string) error {
 		t.Helper()
 		file := lines(
 			`package t`,
 			prime,
 			`func testFn`+typeParams+`(x, y, z `+gt(expOp.Type)+`) {`,
-			"\t"+strings.ReplaceAll(code, "\n", "\n\t"),
+			"\t"+strings.ReplaceAll(lines(code...), "\n", "\n\t"),
 			`}`)
 		_, err := astTools.ParsePackage(map[string]string{`t.go`: file}, nil)
 		return err
 	}
 
-	check := func(op typeOp.Op, code string) {
+	anyBuilds := func(errs ...error) error {
+		for _, e := range errs {
+			if e == nil {
+				return nil
+			}
+		}
+		return errors.Join(errs...)
+	}
+
+	check := func(op typeOp.Op, buildErr error) {
 		t.Helper()
-		err := build(code)
-		if err == nil {
+		if buildErr == nil {
 			if !expOp.Ops.Any(op) {
 				t.Errorf(`%v was allowed by Go but not in the expected ops`, op.String())
 			}
 		} else if expOp.Ops.Any(op) {
-			errStr := removePaths(err.Error())
+			errStr := removePaths(buildErr.Error())
 			t.Errorf("%v was in the expected ops but Go errored with\n%s\n%s", op.String(), errStr, file)
 		}
 	}
 
-	check(typeOp.Add, lines(
+	check(typeOp.Add, build(
 		`x = y + z`,
 		`x += y`))
-	check(typeOp.Arith, lines(
+	check(typeOp.Arith, build(
 		`x = -y`,
 		`x = y - z`,
 		`x = y * z`,
@@ -436,10 +451,10 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		`x--`,
 		`_ = int(y)`,
 		`_ = float64(y)`))
-	check(typeOp.Mod, lines(
+	check(typeOp.Mod, build(
 		`x = y % z`,
 		`x %= y`))
-	check(typeOp.Bitwise, lines(
+	check(typeOp.Bitwise, build(
 		`x = ^y`,
 		`x = y & z`,
 		`x = y | z`,
@@ -453,57 +468,58 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		`x &^= y`,
 		`x <<= y`,
 		`x >>= y`))
-	check(typeOp.Len, lines(
+	check(typeOp.Len, build(
 		`var _ int = len(y)`))
-	check(typeOp.Cap, lines(
+	check(typeOp.Cap, build(
 		`var _ int = cap(y)`))
-	check(typeOp.IsNil, lines(
+	check(typeOp.IsNil, build(
 		`var _ bool = y == nil`))
-	check(typeOp.Comparable, lines(
+	check(typeOp.Comparable, build(
 		`var _ bool = y == z`,
 		`var _ bool = y != z`))
-	check(typeOp.Orderable, lines(
+	check(typeOp.Orderable, build(
 		`var _ bool = y < z`,
 		`var _ bool = y <= z`,
 		`var _ bool = y > z`,
 		`var _ bool = y >= z`))
-	check(typeOp.Ref, lines(
+	check(typeOp.Ref, build(
 		`var p *`+gt(expOp.Type),
 		`p = &y`,
 		`p = new(y)`,
 		`p = new(`+gt(expOp.Type)+`)`,
 		`_ = p`))
-
-	check(typeOp.Make, lines(
-		`_ = make(`+gt(expOp.Type)+`)`,
-		`_ = make(`+gt(expOp.Type)+`, 1)`,
-		`_ = make(`+gt(expOp.Type)+`, 1, 2)`))
-
-	check(typeOp.GetIndex, lines(
+	check(typeOp.Make,
+		anyBuilds(
+			build(`_ = make(`+gt(expOp.Type)+`)`),
+			build(`_ = make(`+gt(expOp.Type)+`, 1)`),
+			build(`_ = make(`+gt(expOp.Type)+`, 1, 2)`),
+		),
+	)
+	check(typeOp.GetIndex, build(
 		`var k `+gt(expOp.Key),
 		`var e `+gt(expOp.Elem),
 		`e = y[k]`,
 		`_ = e`))
-	check(typeOp.SetIndex, lines(
+	check(typeOp.SetIndex, build(
 		`var k `+gt(expOp.Key),
 		`var e `+gt(expOp.Elem),
 		`x[k] = e`,
 		`_ = e`))
-	check(typeOp.RefIndex, lines(
+	check(typeOp.RefIndex, build(
 		`var _ *`+gt(expOp.Elem)+` = &y[0]`))
-	check(typeOp.Slice, lines(
+	check(typeOp.Slice, build(
 		`var s `+gt(expOp.Slice),
 		`s = y[0:1]`,
 		`_ = s`))
-	check(typeOp.Slice3, lines(
+	check(typeOp.Slice3, build(
 		`var s `+gt(expOp.Slice),
 		`s = y[0:1:2]`,
 		`_ = s`))
-	check(typeOp.Range0, lines(
+	check(typeOp.Range0, build(
 		`for range x {`,
 		`	print("hi")`,
 		`}`))
-	check(typeOp.Range1, lines(
+	check(typeOp.Range1, build(
 		`var k `+gt(expOp.Range1),
 		`for k = range x {`,
 		`	print(k)`,
@@ -511,7 +527,7 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		`for _ = range x {`,
 		`	print(k)`,
 		`}`))
-	check(typeOp.Range2, lines(
+	check(typeOp.Range2, build(
 		`var k `+gt(expOp.Range1),
 		`var v `+gt(expOp.Range2),
 		`for k, v = range x {`,
@@ -526,21 +542,21 @@ func checkGoOps(t *testing.T, prime, typeParams, typeExpr, exp string) {
 		`for _, _ = range x {`,
 		`	print(k, v)`,
 		`}`))
-	check(typeOp.Recv, lines(
+	check(typeOp.Recv, build(
 		`var e `+gt(expOp.Elem),
 		`var ok bool`,
 		`e = <- x`,
 		`e, ok = <- x`,
 		`_, _ = e, ok`))
-	check(typeOp.Send, lines(
+	check(typeOp.Send, build(
 		`var e `+gt(expOp.Elem),
 		`x <- e`,
 		`close(x)`))
-	check(typeOp.Float, lines(
+	check(typeOp.Float, build(
 		`var c `+gt(expOp.Complex),
 		`c = complex(x, y)`,
 		`_ = c`))
-	check(typeOp.Complex, lines(
+	check(typeOp.Complex, build(
 		`var f `+gt(expOp.Float),
 		`f = real(x)`,
 		`f = imag(x)`,
