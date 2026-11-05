@@ -29,19 +29,19 @@ const (
 	// Arith indicates that arithmetic operations are available.
 	// Arithmetic operations should always have additions operations too.
 	//
-	//	| Operator     | Types        | Comment                                  |
-	//	|--------------|--------------|------------------------------------------|
-	//	| `x = -y`     | `x, y T`     | negation unary operation                 |
-	//	| `x = y - z`  | `x, y, z T`  | subtraction binary operation             |
-	//	| `x = y * z`  | `x, y, z T`  | multiplication binary operation          |
-	//	| `x = y / z`  | `x, y, z T`  | division binary operation                |
-	//	| `x -= y`     | `x, y T`     | in place subtraction binary operation    |
-	//	| `x *= y`     | `x, y T`     | in place multiplication binary operation |
-	//	| `x /= y`     | `x, y T`     | in place division binary operation       |
-	//	| `x++`        | `x T`        | increment unary operation                |
-	//	| `x--`        | `x T`        | decrement unary operation                |
-	//  | `x = int(y)` | `x int, y T` | cast to integer or float                 |
-	//  | `x = T(y)`   | `x T, y int` | cast from integer or float               |
+	//	| Operator     | Types        | Comment                                     |
+	//	|--------------|--------------|---------------------------------------------|
+	//	| `x = -y`     | `x, y T`     | negation unary operation                    |
+	//	| `x = y - z`  | `x, y, z T`  | subtraction binary operation                |
+	//	| `x = y * z`  | `x, y, z T`  | multiplication binary operation             |
+	//	| `x = y / z`  | `x, y, z T`  | division binary operation                   |
+	//	| `x -= y`     | `x, y T`     | in place subtraction binary operation       |
+	//	| `x *= y`     | `x, y T`     | in place multiplication binary operation    |
+	//	| `x /= y`     | `x, y T`     | in place division binary operation          |
+	//	| `x++`        | `x T`        | increment unary operation                   |
+	//	| `x--`        | `x T`        | decrement unary operation                   |
+	//  | `x = int(y)` | `x int, y T` | cast to integer or float (except complex)   |
+	//  | `x = T(y)`   | `x T, y int` | cast from integer or float (except complex) |
 	Arith
 
 	// Mod indicates that modulo operations are available.
