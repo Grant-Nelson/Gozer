@@ -17,36 +17,52 @@ import (
 )
 
 func Test_Ops_Arrays(t *testing.T) {
-	checkGoOps(t, ``, ``, `[3]int`,
-		`[3]int: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+	testee{
+		typeExpr: `[3]int`,
+		exp: `[3]int: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo [3]int`, ``, `Foo`,
-		`Foo: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+	testee{
+		prime:    `type Foo [3]int`,
+		typeExpr: `Foo`,
+		exp: `$.Foo: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
+	}.Check(t)
+}
+
+func Test_Ops_PointersToArrays(t *testing.T) {
+	testee{
+		typeExpr: `*[3]int`,
+		exp: `*[3]int: Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `*[3]byte`,
+		exp: `*[3]byte: Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `*int`,
+		exp:      `IsNil|Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `**[3]byte`,
+		exp:      `IsNil|Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		prime:    `type Foo [3]int`,
+		typeExpr: `*Foo`,
+		exp: `Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
+	}.Check(t)
 }
 
 /*
-func Test_Ops_PointersToArrays(t *testing.T) {
-	checkGoOps(t, ``, ``, `*[3]int`,
-		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
-
-	checkGoOps(t, ``, ``, `*[3]byte`,
-		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
-
-	checkGoOps(t, ``, ``, `*int`,
-		`IsNil|Comparable|Ref`)
-
-	checkGoOps(t, ``, ``, `**[3]byte`,
-		`IsNil|Comparable|Ref`)
-
-	checkGoOps(t, `type Foo [3]int`, ``, `*Foo`,
-		`Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
-}
-
 func Test_Ops_Slices(t *testing.T) {
 	checkGoOps(t, ``, ``, `[]int`,
 		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
@@ -346,7 +362,8 @@ type testee struct {
 	opTypes    OpTypes
 }
 
-func (ts *testee) Check() {
+func (ts testee) Check(t *testing.T) {
+	ts.t = t
 	ts.prep()
 	ts.getOpTypes()
 	ts.checkExpected()

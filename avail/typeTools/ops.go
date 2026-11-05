@@ -278,6 +278,7 @@ func pointerTypeOps(orig types.Type, t2 *types.Pointer) OpTypes {
 	if at, ok := t2.Elem().Underlying().(*types.Array); ok {
 		ops = arrayTypeOps(orig, at)
 	}
+	ops.Type = orig
 	ops.Ops |= typeOp.Comparable | typeOp.IsNil | typeOp.Ref
 	return ops
 }
