@@ -26,7 +26,7 @@ func Test_Ops_Arrays(t *testing.T) {
 	testee{
 		prime:    `type Foo [3]int`,
 		typeExpr: `Foo`,
-		exp: `$.Foo: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+		exp: `Foo: Len|Cap|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
 	}.Check(t)
 }
@@ -46,55 +46,83 @@ func Test_Ops_PointersToArrays(t *testing.T) {
 
 	testee{
 		typeExpr: `*int`,
-		exp:      `IsNil|Comparable|Ref`,
+		exp:      `*int: IsNil|Comparable|Ref`,
 	}.Check(t)
 
 	testee{
 		typeExpr: `**[3]byte`,
-		exp:      `IsNil|Comparable|Ref`,
+		exp:      `**[3]byte: IsNil|Comparable|Ref`,
 	}.Check(t)
 
 	testee{
 		prime:    `type Foo [3]int`,
 		typeExpr: `*Foo`,
-		exp: `Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+		exp: `*Foo: Len|Cap|IsNil|Comparable|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
 	}.Check(t)
 }
 
-/*
 func Test_Ops_Slices(t *testing.T) {
-	checkGoOps(t, ``, ``, `[]int`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`)
+	testee{
+		typeExpr: `[]int`,
+		exp: `[]int: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, ``, `[]*float64`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:*float64, Slice:[]*float64, Range1:int, Range2:*float64 }`)
+	testee{
+		typeExpr: `[]*float64`,
+		exp: `[]*float64: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:*float64, Slice:[]*float64, Range1:int, Range2:*float64 }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, ``, `[]byte`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`)
+	testee{
+		typeExpr: `[]byte`,
+		exp: `[]byte: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, ``, `*[]byte`,
-		`IsNil|Comparable|Ref`)
+	testee{
+		typeExpr: `*[]byte`,
+		exp:      `*[]byte: IsNil|Comparable|Ref`,
+	}.Check(t)
 
-	checkGoOps(t, lines(
-		`type Bar struct{ v int }`,
-		`type Foo []*Bar`,
-	), ``, `Foo`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:*$.Bar, Slice:$.Foo, Range1:int, Range2:*$.Bar }`)
+	testee{
+		prime: lines(
+			`type Bar struct{ v int }`,
+			`type Foo []*Bar`,
+		),
+		typeExpr: `Foo`,
+		exp: `Foo: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:*Bar, Slice:Foo, Range1:int, Range2:*Bar }`,
+	}.Check(t)
 }
 
 func Test_Ops_BooleanTypes(t *testing.T) {
-	checkGoOps(t, ``, ``, `bool`,
-		`Comparable|Ref`)
+	testee{
+		typeExpr: `bool`,
+		exp:      `bool: Comparable|Ref`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo bool`, ``, `Foo`,
-		`Comparable|Ref`)
+	testee{
+		prime:    `type Foo bool`,
+		typeExpr: `Foo`,
+		exp:      `Foo: Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		prime:    `type Foo *bool`,
+		typeExpr: `Foo`,
+		exp:      `Foo: IsNil|Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		prime:    `type Foo bool`,
+		typeExpr: `*Foo`,
+		exp:      `*Foo: IsNil|Comparable|Ref`,
+	}.Check(t)
 }
 
+/*
 func Test_Ops_IntegerTypes(t *testing.T) {
 	checkGoOps(t, ``, ``, `int`,
 		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
@@ -403,7 +431,7 @@ func (ts *testee) getOpTypes() {
 
 func (ts *testee) checkExpected() {
 	got := ts.opTypes.String()
-	got = strings.ReplaceAll(got, `command-line-arguments`, `$`)
+	got = strings.ReplaceAll(got, `command-line-arguments.`, ``)
 	if diff := cmp.Diff(ts.exp, got); len(diff) > 0 {
 		diff = strings.TrimSpace(diff)
 		diff = strings.ReplaceAll(diff, "\n", "\n    ")
@@ -474,6 +502,8 @@ func (ts *testee) fullBuildCheck() {
 			`x++`,
 			`x--`),
 		ts.anyBuilds(
+			// TODO: Work on a better way to check and handle casting.
+			// TODO: Should check `fn[TIn ~int, TOut ~string](x TIn) { return TOut(x) }`
 			ts.buildTrial(
 				`_ = int(y)`,
 				`_ = float64(y)`,
