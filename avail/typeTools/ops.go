@@ -17,7 +17,7 @@ type OpTypes struct {
 	// Type is the type this OpTypes was built for.
 	Type types.Type
 
-	// TODO: Add an indication if the type will always be boxed with the type
+	// TODO: Determine if we should add an indication if the type will always be boxed with the type
 	// or if the underlying type is consistent (add the underlying as a type)
 	// or if a type dictionary would been to be passed along side the type.
 
@@ -412,6 +412,7 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 
 	// set the result ops to the ops value after adj has modified it.
 	ot.Ops = ops
+	ot.Type = orig
 	return ot
 }
 

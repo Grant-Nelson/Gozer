@@ -122,79 +122,159 @@ func Test_Ops_BooleanTypes(t *testing.T) {
 	}.Check(t)
 }
 
-/*
 func Test_Ops_IntegerTypes(t *testing.T) {
-	checkGoOps(t, ``, ``, `int`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
-			`{ Range1:int }`)
+	testee{
+		typeExpr: `int`,
+		exp: `int: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:int }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, ``, `uint`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
-			`{ Range1:uint }`)
+	testee{
+		typeExpr: `uint`,
+		exp: `uint: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:uint }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, ``, `int64`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
-			`{ Range1:int64 }`)
+	testee{
+		typeExpr: `int8`,
+		exp: `int8: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:int8 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `int16`,
+		exp: `int16: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:int16 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `int32`,
+		exp: `int32: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:int32 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `int64`,
+		exp: `int64: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:int64 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `uint8`,
+		exp: `uint8: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:uint8 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `uint16`,
+		exp: `uint16: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:uint16 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `uint32`,
+		exp: `uint32: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:uint32 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `uint64`,
+		exp: `uint64: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:uint64 }`,
+	}.Check(t)
 }
 
 func Test_Ops_FloatTypes(t *testing.T) {
-	checkGoOps(t, ``, ``, `float32`,
-		`Add|Arith|Comparable|Orderable|Ref|Float`+
-			`{ Complex:complex64 }`)
+	testee{
+		typeExpr: `float32`,
+		exp: `float32: Add|Arith|Comparable|Orderable|Ref|Float` +
+			`{ Complex:complex64 }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, ``, `float64`,
-		`Add|Arith|Comparable|Orderable|Ref|Float`+
-			`{ Complex:complex128 }`)
+	testee{
+		typeExpr: `float64`,
+		exp: `float64: Add|Arith|Comparable|Orderable|Ref|Float` +
+			`{ Complex:complex128 }`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo float64`, ``, `Foo`,
-		`Add|Arith|Comparable|Orderable|Ref|Float`+
-			`{ Complex:untyped complex }`)
+	testee{
+		prime:    `type Foo float64`,
+		typeExpr: `Foo`,
+		exp: `Foo: Add|Arith|Comparable|Orderable|Ref|Float` +
+			`{ Complex:complex128 }`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo float64`, ``, `*Foo`,
-		`Add|Arith|Comparable|Orderable|Ref|Float`+
-			`{ Complex:untyped complex }`)
+	testee{
+		prime:    `type Foo float64`,
+		typeExpr: `*Foo`,
+		exp:      `*Foo: IsNil|Comparable|Ref`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo *float64`, ``, `Foo`,
-		`Add|Arith|Comparable|Orderable|Ref|Float`+
-			`{ Complex:untyped complex }`)
+	testee{
+		prime:    `type Foo *float64`,
+		typeExpr: `Foo`,
+		exp:      `Foo: IsNil|Comparable|Ref`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo *float64`, ``, `*Foo`,
-		`Add|Arith|Comparable|Orderable|Ref|Float`+
-			`{ Complex:untyped complex }`)
+	testee{
+		prime:    `type Foo *float64`,
+		typeExpr: `*Foo`,
+		exp:      `*Foo: IsNil|Comparable|Ref`,
+	}.Check(t)
 }
 
 func Test_Ops_ComplexTypes(t *testing.T) {
-	checkGoOps(t, ``, ``, `complex128`,
-		`Add|Arith|Comparable|Ref|Complex`+
-			`{ Float:float64 }`)
+	testee{
+		typeExpr: `complex128`,
+		exp: `complex128: Add|Arith|Comparable|Ref|Complex` +
+			`{ Float:float64 }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, ``, `complex64`,
-		`Add|Arith|Comparable|Ref|Complex`+
-			`{ Float:float32 }`)
+	testee{
+		typeExpr: `complex64`,
+		exp: `complex64: Add|Arith|Comparable|Ref|Complex` +
+			`{ Float:float32 }`,
+	}.Check(t)
 
-	// TODO: Fix when we can mark deviations
-	//checkGoOps(t, ``, `T interface{float64|complex128}`, `T`,
-	//	`Add|Arith|Comparable|Ref`)
+	testee{
+		// TODO: Fix when we can mark deviations
+		typeParams: `T interface{float64|complex128}`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Arith|Comparable|Ref`,
+	}.Check(t)
 }
 
 func Test_Ops_StringTypes(t *testing.T) {
-	checkGoOps(t, ``, ``, `string`,
-		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:uint8, Slice:string, Range1:int, Range2:rune }`)
+	testee{
+		typeExpr: `string`,
+		exp: `string: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:uint8, Slice:string, Range1:int, Range2:rune }`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo string`, ``, `Foo`,
-		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:uint8, Slice:$.Foo, Range1:int, Range2:rune }`)
+	testee{
+		prime:    `type Foo string`,
+		typeExpr: `Foo`,
+		exp: `Foo: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:uint8, Slice:Foo, Range1:int, Range2:rune }`,
+	}.Check(t)
 
-	checkGoOps(t, ``, `T ~string`, `T`,
-		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:uint8, Slice:$.Foo, Range1:int, Range2:rune }`)
+	testee{
+		typeParams: `T ~string`,
+		typeExpr:   `T`,
+		exp: `T: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:uint8, Slice:T, Range1:int, Range2:rune }`,
+	}.Check(t)
 
-	checkGoOps(t, `type Foo string`, `T Foo`, `T`,
-		`Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:uint8, Slice:$.Foo, Range1:int, Range2:rune }`)
+	testee{
+		prime:      `type Foo string`,
+		typeParams: `T Foo`,
+		typeExpr:   `T`,
+		exp: `T: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:uint8, Slice:T, Range1:int, Range2:rune }`,
+	}.Check(t)
 }
 
+/*
 func Test_Ops_RuneTypes(t *testing.T) {
 	checkGoOps(t, ``, ``, `rune`,
 		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
@@ -468,7 +548,7 @@ func (ts *testee) allBuilds(buildErrs ...string) string {
 	for _, e := range buildErrs {
 		if len(e) > 0 {
 			buildErrs = slices.DeleteFunc(buildErrs, func(e string) bool { return len(e) <= 0 })
-			return fmt.Sprintf("expected no errors out of %d results:\n\t%s", len(buildErrs),
+			return fmt.Sprintf("expected no errors out of %d results:\n%s", len(buildErrs),
 				indent(lines(buildErrs...)))
 		}
 	}
@@ -505,16 +585,16 @@ func (ts *testee) fullBuildCheck() {
 			// TODO: Work on a better way to check and handle casting.
 			// TODO: Should check `fn[TIn ~int, TOut ~string](x TIn) { return TOut(x) }`
 			ts.buildTrial(
-				`_ = int(y)`,
-				`_ = float64(y)`,
-				`_ = `+gt(ts.opTypes.Type)+`(int(24))`,
-				`_ = `+gt(ts.opTypes.Type)+`(float64(1.2))`,
+				`yi := int(y)`,
+				`yf := float64(y)`,
+				`_ = `+gt(ts.opTypes.Type)+`(yi)`,
+				`_ = `+gt(ts.opTypes.Type)+`(yf)`,
 			),
 			ts.buildTrial(
-				`_ = complex64(y)`,
-				`_ = complex128(y)`,
-				`_ = `+gt(ts.opTypes.Type)+`(complex64(1.2+3.4i))`,
-				`_ = `+gt(ts.opTypes.Type)+`(complex128(1.2+3.4i))`,
+				`y1 := complex64(y)`,
+				`y2 := complex128(y)`,
+				`_ = `+gt(ts.opTypes.Type)+`(y1)`,
+				`_ = `+gt(ts.opTypes.Type)+`(y2)`,
 			),
 		),
 	))
