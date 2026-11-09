@@ -128,20 +128,31 @@ const (
 	Ref
 
 	// Make indicates that make operations are available.
-	// The make can build slices, maps, and channels.
+	// The make can build arrays, maps, and channels.
+	// See [https://pkg.go.dev/builtin#make]
 	//
-	// If the first parameter is zero or not given, the default is used.
-	// The second parameter is only defined for slices by Go so shouldn't be called by any type other
-	// than a slice. However, for other types the second parameter can simply be ignored.
+	//	| Operator  | Types | Comment                            |
+	//	|-----------|-------|------------------------------------|
+	//	| `make(T)` |       | creates a type with default length |
+	Make1
+
+	// Make2 indicates that make operations with length and optional capacity are available.
+	// The make can build arrays, slices, maps, and channels.
+	// See [https://pkg.go.dev/builtin#make]
 	//
+	//	| Operator     | Types            | Comment                      |
+	//	|--------------|------------------|------------------------------|
+	//	| `make(T, x)` | `x unsigned int` | creates a type with a length |
+	Make2
+
+	// Make2 indicates that make operations with length and optional capacity are available.
+	// The make can build arrays, slices, and maps.
 	// See [https://pkg.go.dev/builtin#make]
 	//
 	//	| Operator        | Types               | Comment                                    |
 	//	|-----------------|---------------------|--------------------------------------------|
-	//	| `make(T)`       |                     | creates a type with default length         |
-	//	| `make(T, x)`    | `x unsigned int`    | creates a type with a length               |
 	//	| `make(T, x, y)` | `x, y unsigned int` | creates a slice with a length and capacity |
-	Make
+	Make3
 
 	// GetIndex indicates that index getter operations are available.
 	// Index getter operations should always have the length operation.
@@ -294,7 +305,9 @@ func Iterate() iter.Seq[Op] {
 		Comparable,
 		Orderable,
 		Ref,
-		Make,
+		Make1,
+		Make2,
+		Make3,
 		GetIndex,
 		SetIndex,
 		RefIndex,
@@ -406,7 +419,9 @@ func (op Op) String() string {
 	add(Comparable, `Comparable`)
 	add(Orderable, `Orderable`)
 	add(Ref, `Ref`)
-	add(Make, `Make`)
+	add(Make1, `Make1`)
+	add(Make2, `Make2`)
+	add(Make3, `Make3`)
 	add(GetIndex, `GetIndex`)
 	add(SetIndex, `SetIndex`)
 	add(RefIndex, `RefIndex`)

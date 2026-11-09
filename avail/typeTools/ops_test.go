@@ -64,19 +64,19 @@ func Test_Ops_PointersToArrays(t *testing.T) {
 func Test_Ops_Slices(t *testing.T) {
 	testee{
 		typeExpr: `[]int`,
-		exp: `[]int: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+		exp: `[]int: Len|Cap|IsNil|Ref|Make2|Make3|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
 			`{ Key:untyped int, Elem:int, Slice:[]int, Range1:int, Range2:int }`,
 	}.Check(t)
 
 	testee{
 		typeExpr: `[]*float64`,
-		exp: `[]*float64: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+		exp: `[]*float64: Len|Cap|IsNil|Ref|Make2|Make3|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
 			`{ Key:untyped int, Elem:*float64, Slice:[]*float64, Range1:int, Range2:*float64 }`,
 	}.Check(t)
 
 	testee{
 		typeExpr: `[]byte`,
-		exp: `[]byte: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+		exp: `[]byte: Len|Cap|IsNil|Ref|Make2|Make3|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
 			`{ Key:untyped int, Elem:byte, Slice:[]byte, Range1:int, Range2:byte }`,
 	}.Check(t)
 
@@ -91,7 +91,7 @@ func Test_Ops_Slices(t *testing.T) {
 			`type Foo []*Bar`,
 		),
 		typeExpr: `Foo`,
-		exp: `Foo: Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+		exp: `Foo: Len|Cap|IsNil|Ref|Make2|Make3|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
 			`{ Key:untyped int, Elem:*Bar, Slice:Foo, Range1:int, Range2:*Bar }`,
 	}.Check(t)
 }
@@ -236,8 +236,14 @@ func Test_Ops_ComplexTypes(t *testing.T) {
 	}.Check(t)
 
 	testee{
-		// TODO: Fix when we can mark deviations
 		typeParams: `T interface{float64|complex128}`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Arith|Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		// Go doesn't allow real or imag on mixed types.
+		typeParams: `T interface{complex64|complex128}`,
 		typeExpr:   `T`,
 		exp:        `T: Add|Arith|Comparable|Ref`,
 	}.Check(t)
@@ -284,19 +290,19 @@ func Test_Ops_RuneTypes(t *testing.T) {
 func Test_Ops_ChanTypes(t *testing.T) {
 	testee{
 		typeExpr: `chan int`,
-		exp: `chan int: Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv|Send` +
+		exp: `chan int: Len|Cap|IsNil|Comparable|Ref|Make1|Make2|Range0|Range1|Recv|Send` +
 			`{ Elem:int, Range1:int }`,
 	}.Check(t)
 
 	testee{
 		typeExpr: `chan<- int`,
-		exp: `chan<- int: Len|Cap|IsNil|Comparable|Ref|Make|Send` +
+		exp: `chan<- int: Len|Cap|IsNil|Comparable|Ref|Make1|Make2|Send` +
 			`{ Elem:int }`,
 	}.Check(t)
 
 	testee{
 		typeExpr: `<-chan int`,
-		exp: `<-chan int: Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv` +
+		exp: `<-chan int: Len|Cap|IsNil|Comparable|Ref|Make1|Make2|Range0|Range1|Recv` +
 			`{ Elem:int, Range1:int }`,
 	}.Check(t)
 }
@@ -555,6 +561,10 @@ func (ts *testee) runTestCode() map[typeOp.Op][]string {
 				lineNoStr, errMsg := matches[1], matches[2]
 				if lineNo, err := strconv.ParseUint(lineNoStr, 10, 32); err == nil {
 					op := opLines[lineNo-1]
+					if op == typeOp.None {
+						ts.t.Error(`error came from typeOp.None location of the test code: `, errMsg)
+						continue
+					}
 					errs[op] = append(errs[op], errMsg)
 				}
 			}
@@ -593,12 +603,22 @@ func (ts *testee) createOpsTestCode() (string, []typeOp.Op) {
 
 	mark := func(op typeOp.Op) { currentOp = op }
 
+	typeStr := gt(ts.opTypes.Type)
 	writeLn(`package t`)
 	writeLn(`type noType any`)
 	writeLn(ts.prime)
-	writeLn(`func testFn`, ts.typeParams, `(x, y, z `, gt(ts.opTypes.Type), `) {`)
-
-	// TODO: Move the elem, key, etc up to one point.
+	writeLn(`func testFn`, ts.typeParams, `(x, y, z `, typeStr, `) {`)
+	writeLn(`var b bool`)
+	writeLn(`var i int`)
+	writeLn(`var p *`, typeStr)
+	writeLn(`var k `, gt(ts.opTypes.Key))
+	writeLn(`var e `, gt(ts.opTypes.Elem))
+	writeLn(`var pe *`, gt(ts.opTypes.Elem))
+	writeLn(`var s `, gt(ts.opTypes.Slice))
+	writeLn(`var rk `, gt(ts.opTypes.Range1))
+	writeLn(`var rv `, gt(ts.opTypes.Range2))
+	writeLn(`var c `, gt(ts.opTypes.Complex))
+	writeLn(`var f `, gt(ts.opTypes.Float))
 
 	mark(typeOp.Add)
 	writeLn(`x = y + z`)
@@ -651,61 +671,52 @@ func (ts *testee) createOpsTestCode() (string, []typeOp.Op) {
 	writeLn(`x >>= y`)
 
 	mark(typeOp.Len)
-	writeLn(`var _ int = len(y)`)
+	writeLn(`i = len(y)`)
 
 	mark(typeOp.Cap)
-	writeLn(`var _ int = cap(y)`)
+	writeLn(`i = cap(y)`)
 
 	mark(typeOp.IsNil)
-	writeLn(`var _ bool = y == nil`)
+	writeLn(`b = y == nil`)
 
 	mark(typeOp.Comparable)
-	writeLn(`var _ bool = y == z`)
-	writeLn(`var _ bool = y != z`)
+	writeLn(`b = y == z`)
+	writeLn(`b = y != z`)
 
 	mark(typeOp.Orderable)
-	writeLn(`var _ bool = y < z`)
-	writeLn(`var _ bool = y <= z`)
-	writeLn(`var _ bool = y > z`)
-	writeLn(`var _ bool = y >= z`)
+	writeLn(`b = y < z`)
+	writeLn(`b = y <= z`)
+	writeLn(`b = y > z`)
+	writeLn(`b = y >= z`)
 
 	mark(typeOp.Ref)
-	writeLn(`var p1 *`, gt(ts.opTypes.Type))
-	writeLn(`p1 = &y`)
-	writeLn(`p1 = new(y)`)
-	writeLn(`p1 = new(`, gt(ts.opTypes.Type), `)`)
-	writeLn(`_ = p1`)
+	writeLn(`p = &y`)
+	writeLn(`p = new(y)`)
+	writeLn(`p = new(`, typeStr, `)`)
 
-	//	any
-	//		ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`)`),
-	//		ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`, 1)`),
-	//		ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`, 1, 2)`),
-	//	)
+	mark(typeOp.Make1)
+	writeLn(`_ = make(` + typeStr + `)`)
+
+	mark(typeOp.Make2)
+	writeLn(`_ = make(` + typeStr + `, 1)`)
+
+	mark(typeOp.Make3)
+	writeLn(`_ = make(` + typeStr + `, 1, 2)`)
 
 	mark(typeOp.GetIndex)
-	writeLn(`var k1 `, gt(ts.opTypes.Key))
-	writeLn(`var e1 `, gt(ts.opTypes.Elem))
-	writeLn(`e1 = y[k1]`)
-	writeLn(`_ = e1`)
+	writeLn(`e = y[k]`)
 
 	mark(typeOp.SetIndex)
-	writeLn(`var k2 `, gt(ts.opTypes.Key))
-	writeLn(`var e2 `, gt(ts.opTypes.Elem))
-	writeLn(`x[k2] = e2`)
-	writeLn(`_ = e2`)
+	writeLn(`x[k] = e`)
 
 	mark(typeOp.RefIndex)
-	writeLn(`var _ *`, gt(ts.opTypes.Elem), ` = &y[0]`)
+	writeLn(`pe = &y[0]`)
 
 	mark(typeOp.Slice)
-	writeLn(`var s1 `, gt(ts.opTypes.Slice))
-	writeLn(`s1 = y[0:1]`)
-	writeLn(`_ = s1`)
+	writeLn(`s = y[0:1]`)
 
 	mark(typeOp.Slice3)
-	writeLn(`var s2 `, gt(ts.opTypes.Slice))
-	writeLn(`s2 = y[0:1:2]`)
-	writeLn(`_ = s2`)
+	writeLn(`s = y[0:1:2]`)
 
 	mark(typeOp.Range0)
 	writeLn(`for range x {`)
@@ -713,54 +724,47 @@ func (ts *testee) createOpsTestCode() (string, []typeOp.Op) {
 	writeLn(`}`)
 
 	mark(typeOp.Range1)
-	writeLn(`var k3 `, gt(ts.opTypes.Range1))
-	writeLn(`for k3 = range x {`)
-	writeLn(`	print(k3)`)
+	writeLn(`for rk = range x {`)
+	writeLn(`	print(rk)`)
 	writeLn(`}`)
 	writeLn(`for _ = range x {`)
-	writeLn(`	print(k3)`)
+	writeLn(`	print(rk)`)
 	writeLn(`}`)
 
 	mark(typeOp.Range2)
-	writeLn(`var k4 `, gt(ts.opTypes.Range1))
-	writeLn(`var v4 `, gt(ts.opTypes.Range2))
-	writeLn(`for k4, v4 = range x {`)
-	writeLn(`	print(k4, v4)`)
+	writeLn(`for rk, rv = range x {`)
+	writeLn(`	print(rk, rv)`)
 	writeLn(`}`)
-	writeLn(`for _, v4 = range x {`)
-	writeLn(`	print(k4, v4)`)
+	writeLn(`for _, rv = range x {`)
+	writeLn(`	print(rk, rv)`)
 	writeLn(`}`)
-	writeLn(`for k4, _ = range x {`)
-	writeLn(`	print(k4, v4)`)
+	writeLn(`for rk, _ = range x {`)
+	writeLn(`	print(rk, rv)`)
 	writeLn(`}`)
 	writeLn(`for _, _ = range x {`)
-	writeLn(`	print(k4, v4)`)
+	writeLn(`	print(rk, rv)`)
 	writeLn(`}`)
 
 	mark(typeOp.Recv)
-	writeLn(`var e3 `, gt(ts.opTypes.Elem))
-	writeLn(`var ok3 bool`)
-	writeLn(`e3 = <- x`)
-	writeLn(`e3, ok3 = <- x`)
-	writeLn(`_, _ = e3, ok3`)
+	writeLn(`e = <- x`)
+	writeLn(`e, b = <- x`)
 
 	mark(typeOp.Send)
-	writeLn(`var e4 `, gt(ts.opTypes.Elem))
-	writeLn(`x <- e4`)
+	writeLn(`x <- e`)
 	writeLn(`close(x)`)
 
 	mark(typeOp.Float)
-	writeLn(`var c `, gt(ts.opTypes.Complex))
 	writeLn(`c = complex(x, y)`)
-	writeLn(`_ = c`)
 
 	mark(typeOp.Complex)
-	writeLn(`var f `, gt(ts.opTypes.Float))
 	writeLn(`f = real(x)`)
 	writeLn(`f = imag(x)`)
-	writeLn(`_ = f`)
 
 	mark(typeOp.None)
+	writeLn(`_, _ = b, i`)
+	writeLn(`_, _, _, _ = p, k, e, pe`)
+	writeLn(`_, _, _ = s, rk, rv`)
+	writeLn(`_, _ = c, f`)
 	writeLn(`}`)
 	return buf.String(), opLines
 }

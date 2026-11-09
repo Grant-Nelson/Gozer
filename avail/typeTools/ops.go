@@ -225,7 +225,7 @@ func untypedNilTypeOps(orig types.Type) OpTypes {
 
 func chanTypeOps(orig types.Type, t2 *types.Chan) OpTypes {
 	ops := OpTypes{
-		Ops:  typeOp.Len | typeOp.Cap | typeOp.Make | typeOp.Ref | typeOp.IsNil | typeOp.Comparable,
+		Ops:  typeOp.Len | typeOp.Cap | typeOp.Make1 | typeOp.Make2 | typeOp.Ref | typeOp.IsNil | typeOp.Comparable,
 		Type: orig,
 		Elem: t2.Elem(),
 	}
@@ -244,7 +244,7 @@ func chanTypeOps(orig types.Type, t2 *types.Chan) OpTypes {
 
 func mapTypeOps(orig types.Type, t2 *types.Map) OpTypes {
 	return OpTypes{
-		Ops: typeOp.GetIndex | typeOp.IsNil | typeOp.Len | typeOp.Make |
+		Ops: typeOp.GetIndex | typeOp.IsNil | typeOp.Len | typeOp.Make1 | typeOp.Make2 |
 			typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref | typeOp.SetIndex,
 		Type:   orig,
 		Key:    t2.Key(),
@@ -302,7 +302,7 @@ func signatureTypeOps(orig types.Type, t2 *types.Signature) OpTypes {
 func sliceTypeOps(orig types.Type, t2 *types.Slice) OpTypes {
 	return OpTypes{
 		Ops: typeOp.Cap | typeOp.GetIndex | typeOp.IsNil | typeOp.Len |
-			typeOp.Make | typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref |
+			typeOp.Make2 | typeOp.Make3 | typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Ref |
 			typeOp.RefIndex | typeOp.SetIndex | typeOp.Slice | typeOp.Slice3,
 		Type:   orig,
 		Key:    types.Typ[types.UntypedInt],
@@ -392,7 +392,8 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	}
 
 	// Go never allows these on a type parameter whose terms have different underlying types.
-	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Make |
+	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 |
+		typeOp.Make1 | typeOp.Make2 | typeOp.Make3 |
 		// real, imag, and complex currently do not work in Go type parameters.
 		typeOp.Complex | typeOp.Float
 	if ops == typeOp.None {
