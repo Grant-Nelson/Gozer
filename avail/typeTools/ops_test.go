@@ -220,6 +220,13 @@ func Test_Ops_FloatTypes(t *testing.T) {
 		typeExpr: `*Foo`,
 		exp:      `*Foo: IsNil|Comparable|Ref`,
 	}.Check(t)
+
+	testee{
+		// Go doesn't allow complex on mixed types.
+		typeParams: `T interface{float32|float64}`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Arith|Comparable|Orderable|Ref`,
+	}.Check(t)
 }
 
 func Test_Ops_ComplexTypes(t *testing.T) {
@@ -355,25 +362,37 @@ func Test_Ops_UnionsTypes_Basics(t *testing.T) {
 	}.Check(t)
 }
 
-/*
 func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
-	checkOps(t, `interface{~[]byte|~string}`,
-		`Len|Ref|GetIndex`+
-			`{ Key:untyped int, Elem:byte }`)
+	testee{
+		typeParams: `T interface{~[]byte|~string}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte }`,
+	}.Check(t)
 
-	checkOps(t, `interface{~[]byte|string}`,
-		`Len|Ref|GetIndex`+
-			`{ Key:untyped int, Elem:byte }`)
+	testee{
+		typeParams: `T interface{~[]byte|string}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte }`,
+	}.Check(t)
 
-	checkOps(t, `interface{[]byte|~string}`,
-		`Len|Ref|GetIndex`+
-			`{ Key:untyped int, Elem:byte }`)
+	testee{
+		typeParams: `T interface{[]byte|~string}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte }`,
+	}.Check(t)
 
-	checkOps(t, `interface{[]byte|string}`,
-		`Len|Ref|GetIndex`+
-			`{ Key:untyped int, Elem:byte }`)
+	testee{
+		typeParams: `T interface{[]byte|string}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte }`,
+	}.Check(t)
 }
 
+/*
 func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
 	// From https://cs.opensource.google/go/x/exp/+/e88cd736:typeparams/normalize.go;l=66
 	// > In this example, the structural type restriction of P is ~string|int: A|B

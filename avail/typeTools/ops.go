@@ -347,9 +347,6 @@ func termOps(t *types.Term) OpTypes {
 	return getOps(t.Type(), t.Type())
 }
 
-// TODO: Handle the method only interfaces differently since they
-// may not be comparable or isNil.
-
 func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	terms, err := typeparams.NormalTerms(t2)
 	if err != nil {
@@ -415,11 +412,11 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	// (e.g. a map mixed with a slice, `untyped int` vs `int`)
 	// removes the index, range1, and range2 ops,
 	// so there is no need to set the Elem.
-	indexOps := typeOp.GetIndex | typeOp.RefIndex | typeOp.SetIndex
 	ot := OpTypes{}
-	ot.Key = pick(indexOps, func(op OpTypes) types.Type { return op.Key })
-	ot.Elem = pick(indexOps, func(op OpTypes) types.Type { return op.Elem })
-	ot.Slice = pick(typeOp.Slice|typeOp.Slice3, func(op OpTypes) types.Type { return op.Slice })
+	ot = commonKeys(ot, opTerms)
+	//ot.Key = pick(indexOps, func(op OpTypes) types.Type { return op.Key })
+	ot.Elem = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Elem })
+	ot.Slice = pick(typeOp.SliceOps, func(op OpTypes) types.Type { return op.Slice })
 
 	// set the result ops to the ops value after adj has modified it.
 	ot.Ops = ops
@@ -445,4 +442,20 @@ func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type 
 		}
 	}
 	return first
+}
+
+func commonKeys(ot OpTypes, opTerms []OpTypes) OpTypes {
+	if !ot.Ops.Any(typeOp.SliceOps) {
+		ot.Key = nil
+		return ot
+	}
+
+	if t := commonType(opTerms, func(op OpTypes) types.Type { return op.Key }); t != nil {
+		ot.Key = t
+		return ot
+	}
+
+	ot.Ops &^= typeOp.SliceOps
+	ot.Key = nil
+	return ot
 }

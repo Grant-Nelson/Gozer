@@ -290,6 +290,12 @@ const (
 
 	// mask is the mask of the valid operators.
 	mask = stop - 1
+
+	IndexOps = GetIndex | RefIndex | SetIndex
+	SliceOps = Slice | Slice3
+	MakeOps  = Make1 | Make2 | Make3
+	RangeOps = Range0 | Range1 | Range2
+	ChanOps  = Send | Recv
 )
 
 // Iterate returns all of the individual operations.
