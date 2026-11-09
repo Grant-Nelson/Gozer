@@ -2,6 +2,8 @@ package typeOp
 
 import (
 	"fmt"
+	"iter"
+	"slices"
 	"strings"
 )
 
@@ -278,6 +280,35 @@ const (
 	// mask is the mask of the valid operators.
 	mask = stop - 1
 )
+
+// Iterate returns all of the individual operations.
+func Iterate() iter.Seq[Op] {
+	return slices.Values([]Op{
+		Add,
+		Arith,
+		Mod,
+		Bitwise,
+		Len,
+		Cap,
+		IsNil,
+		Comparable,
+		Orderable,
+		Ref,
+		Make,
+		GetIndex,
+		SetIndex,
+		RefIndex,
+		Slice,
+		Slice3,
+		Range0,
+		Range1,
+		Range2,
+		Recv,
+		Send,
+		Float,
+		Complex,
+	})
+}
 
 // Valid will indicate if the ops is a combination of valid type operators,
 // but does not check for conflicts such as Complex|Float (which should be exclusive)

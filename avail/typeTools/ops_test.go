@@ -1,11 +1,10 @@
 package typeTools
 
 import (
-	"fmt"
 	"go/token"
 	"go/types"
 	"regexp"
-	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -458,10 +457,6 @@ func lines(lines ...string) string { return strings.Join(lines, "\n") }
 
 func indent(s string) string { return "\t" + strings.ReplaceAll(s, "\n", "\n\t") }
 
-var regexPathMatch = sync.OnceValue(func() *regexp.Regexp {
-	return regexp.MustCompile(`^.*t\.go:(?:\d+:){0,2}\s`)
-})
-
 func gt(typ types.Type) string {
 	if typ == nil {
 		return `noType` // defined in the code patterns below
@@ -469,15 +464,6 @@ func gt(typ types.Type) string {
 	r := types.Default(typ).String()
 	r = strings.ReplaceAll(r, `command-line-arguments.`, ``)
 	return r
-}
-
-func removePaths(s string) string {
-	buf := &strings.Builder{}
-	for ln := range strings.Lines(s) {
-		ln = regexPathMatch().ReplaceAllString(ln, ``)
-		_, _ = buf.WriteString(ln)
-	}
-	return buf.String()
 }
 
 type testee struct {
@@ -496,10 +482,7 @@ func (ts testee) Check(t *testing.T) {
 	ts.getOpTypes()
 	ts.checkExpected()
 	if !testing.Short() {
-		ts.fullBuildCheck()
-	}
-	if t.Failed() {
-		t.Log(`Failed:`, ts.opTypes.String())
+		ts.checkTestCode()
 	}
 }
 
@@ -547,218 +530,237 @@ func (ts *testee) checkExpected() {
 	}
 }
 
-func (ts *testee) buildTrial(code ...string) string {
+func (ts *testee) checkTestCode() {
+	errs := ts.runTestCode()
+	for op := range typeOp.Iterate() {
+		ts.testCodeErrCheck(op, errs[op])
+	}
+}
+
+var regexTestCodeErrorMatch = sync.OnceValue(func() *regexp.Regexp {
+	return regexp.MustCompile(`^.*t\.go:(\d+):(?:\d+:)?\s(.*)$`)
+})
+
+func (ts *testee) runTestCode() map[typeOp.Op][]string {
 	ts.t.Helper()
-	file := lines(
-		`package t`,
-		`type noType any`,
-		ts.prime,
-		`func testFn`+ts.typeParams+`(x, y, z `+gt(ts.opTypes.Type)+`) {`,
-		indent(lines(code...)),
-		`}`)
-	_, err := astTools.ParsePackage(map[string]string{`t.go`: file}, nil)
+	errs := map[typeOp.Op][]string{}
+	code, opLines := ts.createOpsTestCode()
+	_, err := astTools.ParsePackage(map[string]string{`t.go`: code}, nil)
 	if err != nil {
-		return removePaths(err.Error())
-	}
-	return ``
-}
-
-func (ts *testee) anyBuilds(buildErrs ...string) string {
-	ts.t.Helper()
-	for _, e := range buildErrs {
-		if len(e) <= 0 {
-			return ``
+		errMsg := err.Error()
+		for ln := range strings.Lines(errMsg) {
+			ln = strings.TrimSpace(ln)
+			matches := regexTestCodeErrorMatch().FindStringSubmatch(ln)
+			if len(matches) == 3 {
+				lineNoStr, errMsg := matches[1], matches[2]
+				if lineNo, err := strconv.ParseUint(lineNoStr, 10, 32); err == nil {
+					op := opLines[lineNo-1]
+					errs[op] = append(errs[op], errMsg)
+				}
+			}
 		}
 	}
-	return fmt.Sprintf("expected at least one nil-error out of %d results:\n%s", len(buildErrs),
-		indent(lines(buildErrs...)))
+	return errs
 }
 
-func (ts *testee) allBuilds(buildErrs ...string) string {
+func (ts *testee) testCodeErrCheck(op typeOp.Op, errs []string) {
 	ts.t.Helper()
-	for _, e := range buildErrs {
-		if len(e) > 0 {
-			buildErrs = slices.DeleteFunc(buildErrs, func(e string) bool { return len(e) <= 0 })
-			return fmt.Sprintf("expected no errors out of %d results:\n%s", len(buildErrs),
-				indent(lines(buildErrs...)))
-		}
-	}
-	return ``
-}
-
-func (ts *testee) buildCheck(op typeOp.Op, buildErr string) {
-	ts.t.Helper()
-	if len(buildErr) <= 0 {
+	if len(errs) <= 0 {
 		if !ts.opTypes.Ops.Any(op) {
 			ts.t.Errorf(`%s: %s was allowed by Go but not in the expected ops`, gt(ts.opTypes.Type), op.String())
 		}
 	} else if ts.opTypes.Ops.Any(op) {
-		ts.t.Errorf("%s: %s was in the expected ops but Go errored with:\n%s", gt(ts.opTypes.Type), op.String(), indent(buildErr))
+		ts.t.Errorf("%s: %s was in the expected ops but Go errored with:\n%s", gt(ts.opTypes.Type), op.String(), indent(lines(errs...)))
 	}
 }
 
-func (ts *testee) fullBuildCheck() {
+func (ts *testee) createOpsTestCode() (string, []typeOp.Op) {
 	ts.t.Helper()
-	ts.buildCheck(typeOp.Add, ts.buildTrial(
-		`x = y + z`,
-		`x += y`))
+	buf := &strings.Builder{}
+	currentOp := typeOp.None
+	opLines := []typeOp.Op{}
 
-	ts.buildCheck(typeOp.Arith, ts.allBuilds(
-		ts.buildTrial(
-			`x = -y`,
-			`x = y - z`,
-			`x = y * z`,
-			`x = y / z`,
-			`x -= y`,
-			`x *= y`,
-			`x /= y`,
-			`x++`,
-			`x--`),
-		ts.anyBuilds(
-			// TODO: Work on a better way to check and handle casting.
-			// TODO: Should check `fn[TIn ~int, TOut ~string](x TIn) { return TOut(x) }`
-			ts.buildTrial(
-				`yi := int(y)`,
-				`yf := float64(y)`,
-				`_ = `+gt(ts.opTypes.Type)+`(yi)`,
-				`_ = `+gt(ts.opTypes.Type)+`(yf)`,
-			),
-			ts.buildTrial(
-				`y1 := complex64(y)`,
-				`y2 := complex128(y)`,
-				`_ = `+gt(ts.opTypes.Type)+`(y1)`,
-				`_ = `+gt(ts.opTypes.Type)+`(y2)`,
-			),
-		),
-	))
+	writeLn := func(parts ...string) {
+		for _, s := range parts {
+			for range strings.Count(s, "\n") {
+				opLines = append(opLines, currentOp)
+			}
+			_, _ = buf.WriteString(s)
+		}
+		_, _ = buf.WriteRune('\n')
+		opLines = append(opLines, currentOp)
+	}
 
-	ts.buildCheck(typeOp.Mod, ts.buildTrial(
-		`x = y % z`,
-		`x %= y`))
+	mark := func(op typeOp.Op) { currentOp = op }
 
-	ts.buildCheck(typeOp.Bitwise, ts.buildTrial(
-		`x = ^y`,
-		`x = y & z`,
-		`x = y | z`,
-		`x = y ^ z`,
-		`x = y &^ z`,
-		`x = y << z`,
-		`x = y >> z`,
-		`x &= y`,
-		`x |= y`,
-		`x ^= y`,
-		`x &^= y`,
-		`x <<= y`,
-		`x >>= y`))
+	writeLn(`package t`)
+	writeLn(`type noType any`)
+	writeLn(ts.prime)
+	writeLn(`func testFn`, ts.typeParams, `(x, y, z `, gt(ts.opTypes.Type), `) {`)
 
-	ts.buildCheck(typeOp.Len, ts.buildTrial(
-		`var _ int = len(y)`))
+	// TODO: Move the elem, key, etc up to one point.
 
-	ts.buildCheck(typeOp.Cap, ts.buildTrial(
-		`var _ int = cap(y)`))
+	mark(typeOp.Add)
+	writeLn(`x = y + z`)
+	writeLn(`x += y`)
 
-	ts.buildCheck(typeOp.IsNil, ts.buildTrial(
-		`var _ bool = y == nil`))
+	mark(typeOp.Arith)
+	writeLn(`x = -y`)
+	writeLn(`x = y - z`)
+	writeLn(`x = y * z`)
+	writeLn(`x = y / z`)
+	writeLn(`x -= y`)
+	writeLn(`x *= y`)
+	writeLn(`x /= y`)
+	writeLn(`x++`)
+	writeLn(`x--`)
+	//	any(
+	//		// TODO: Work on a better way to check and handle casting.
+	//		// TODO: Should check `fn[TIn ~int, TOut ~string](x TIn) { return TOut(x) }`
+	//		build(
+	//			`yi := int(y)`,
+	//			`yf := float64(y)`,
+	//			`_ = `+gt(ts.opTypes.Type)+`(yi)`,
+	//			`_ = `+gt(ts.opTypes.Type)+`(yf)`,
+	//		),
+	//		build(
+	//			`y1 := complex64(y)`,
+	//			`y2 := complex128(y)`,
+	//			`_ = `+gt(ts.opTypes.Type)+`(y1)`,
+	//			`_ = `+gt(ts.opTypes.Type)+`(y2)`,
+	//		),
+	//	)
 
-	ts.buildCheck(typeOp.Comparable, ts.buildTrial(
-		`var _ bool = y == z`,
-		`var _ bool = y != z`))
+	mark(typeOp.Mod)
+	writeLn(`x = y % z`)
+	writeLn(`x %= y`)
 
-	ts.buildCheck(typeOp.Orderable, ts.buildTrial(
-		`var _ bool = y < z`,
-		`var _ bool = y <= z`,
-		`var _ bool = y > z`,
-		`var _ bool = y >= z`))
+	mark(typeOp.Bitwise)
+	writeLn(`x = ^y`)
+	writeLn(`x = y & z`)
+	writeLn(`x = y | z`)
+	writeLn(`x = y ^ z`)
+	writeLn(`x = y &^ z`)
+	writeLn(`x = y << z`)
+	writeLn(`x = y >> z`)
+	writeLn(`x &= y`)
+	writeLn(`x |= y`)
+	writeLn(`x ^= y`)
+	writeLn(`x &^= y`)
+	writeLn(`x <<= y`)
+	writeLn(`x >>= y`)
 
-	ts.buildCheck(typeOp.Ref, ts.buildTrial(
-		`var p *`+gt(ts.opTypes.Type),
-		`p = &y`,
-		`p = new(y)`,
-		`p = new(`+gt(ts.opTypes.Type)+`)`,
-		`_ = p`))
+	mark(typeOp.Len)
+	writeLn(`var _ int = len(y)`)
 
-	ts.buildCheck(typeOp.Make,
-		ts.anyBuilds(
-			ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`)`),
-			ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`, 1)`),
-			ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`, 1, 2)`),
-		))
+	mark(typeOp.Cap)
+	writeLn(`var _ int = cap(y)`)
 
-	ts.buildCheck(typeOp.GetIndex, ts.buildTrial(
-		`var k `+gt(ts.opTypes.Key),
-		`var e `+gt(ts.opTypes.Elem),
-		`e = y[k]`,
-		`_ = e`))
+	mark(typeOp.IsNil)
+	writeLn(`var _ bool = y == nil`)
 
-	ts.buildCheck(typeOp.SetIndex, ts.buildTrial(
-		`var k `+gt(ts.opTypes.Key),
-		`var e `+gt(ts.opTypes.Elem),
-		`x[k] = e`,
-		`_ = e`))
+	mark(typeOp.Comparable)
+	writeLn(`var _ bool = y == z`)
+	writeLn(`var _ bool = y != z`)
 
-	ts.buildCheck(typeOp.RefIndex, ts.buildTrial(
-		`var _ *`+gt(ts.opTypes.Elem)+` = &y[0]`))
+	mark(typeOp.Orderable)
+	writeLn(`var _ bool = y < z`)
+	writeLn(`var _ bool = y <= z`)
+	writeLn(`var _ bool = y > z`)
+	writeLn(`var _ bool = y >= z`)
 
-	ts.buildCheck(typeOp.Slice, ts.buildTrial(
-		`var s `+gt(ts.opTypes.Slice),
-		`s = y[0:1]`,
-		`_ = s`))
+	mark(typeOp.Ref)
+	writeLn(`var p1 *`, gt(ts.opTypes.Type))
+	writeLn(`p1 = &y`)
+	writeLn(`p1 = new(y)`)
+	writeLn(`p1 = new(`, gt(ts.opTypes.Type), `)`)
+	writeLn(`_ = p1`)
 
-	ts.buildCheck(typeOp.Slice3, ts.buildTrial(
-		`var s `+gt(ts.opTypes.Slice),
-		`s = y[0:1:2]`,
-		`_ = s`))
+	//	any
+	//		ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`)`),
+	//		ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`, 1)`),
+	//		ts.buildTrial(`_ = make(`+gt(ts.opTypes.Type)+`, 1, 2)`),
+	//	)
 
-	ts.buildCheck(typeOp.Range0, ts.buildTrial(
-		`for range x {`,
-		`	print("hi")`,
-		`}`))
+	mark(typeOp.GetIndex)
+	writeLn(`var k1 `, gt(ts.opTypes.Key))
+	writeLn(`var e1 `, gt(ts.opTypes.Elem))
+	writeLn(`e1 = y[k1]`)
+	writeLn(`_ = e1`)
 
-	ts.buildCheck(typeOp.Range1, ts.buildTrial(
-		`var k `+gt(ts.opTypes.Range1),
-		`for k = range x {`,
-		`	print(k)`,
-		`}`,
-		`for _ = range x {`,
-		`	print(k)`,
-		`}`))
+	mark(typeOp.SetIndex)
+	writeLn(`var k2 `, gt(ts.opTypes.Key))
+	writeLn(`var e2 `, gt(ts.opTypes.Elem))
+	writeLn(`x[k2] = e2`)
+	writeLn(`_ = e2`)
 
-	ts.buildCheck(typeOp.Range2, ts.buildTrial(
-		`var k `+gt(ts.opTypes.Range1),
-		`var v `+gt(ts.opTypes.Range2),
-		`for k, v = range x {`,
-		`	print(k, v)`,
-		`}`,
-		`for _, v = range x {`,
-		`	print(k, v)`,
-		`}`,
-		`for k, _ = range x {`,
-		`	print(k, v)`,
-		`}`,
-		`for _, _ = range x {`,
-		`	print(k, v)`,
-		`}`))
+	mark(typeOp.RefIndex)
+	writeLn(`var _ *`, gt(ts.opTypes.Elem), ` = &y[0]`)
 
-	ts.buildCheck(typeOp.Recv, ts.buildTrial(
-		`var e `+gt(ts.opTypes.Elem),
-		`var ok bool`,
-		`e = <- x`,
-		`e, ok = <- x`,
-		`_, _ = e, ok`))
+	mark(typeOp.Slice)
+	writeLn(`var s1 `, gt(ts.opTypes.Slice))
+	writeLn(`s1 = y[0:1]`)
+	writeLn(`_ = s1`)
 
-	ts.buildCheck(typeOp.Send, ts.buildTrial(
-		`var e `+gt(ts.opTypes.Elem),
-		`x <- e`,
-		`close(x)`))
+	mark(typeOp.Slice3)
+	writeLn(`var s2 `, gt(ts.opTypes.Slice))
+	writeLn(`s2 = y[0:1:2]`)
+	writeLn(`_ = s2`)
 
-	ts.buildCheck(typeOp.Float, ts.buildTrial(
-		`var c `+gt(ts.opTypes.Complex),
-		`c = complex(x, y)`,
-		`_ = c`))
+	mark(typeOp.Range0)
+	writeLn(`for range x {`)
+	writeLn(`	print("hi")`)
+	writeLn(`}`)
 
-	ts.buildCheck(typeOp.Complex, ts.buildTrial(
-		`var f `+gt(ts.opTypes.Float),
-		`f = real(x)`,
-		`f = imag(x)`,
-		`_ = f`))
+	mark(typeOp.Range1)
+	writeLn(`var k3 `, gt(ts.opTypes.Range1))
+	writeLn(`for k3 = range x {`)
+	writeLn(`	print(k3)`)
+	writeLn(`}`)
+	writeLn(`for _ = range x {`)
+	writeLn(`	print(k3)`)
+	writeLn(`}`)
+
+	mark(typeOp.Range2)
+	writeLn(`var k4 `, gt(ts.opTypes.Range1))
+	writeLn(`var v4 `, gt(ts.opTypes.Range2))
+	writeLn(`for k4, v4 = range x {`)
+	writeLn(`	print(k4, v4)`)
+	writeLn(`}`)
+	writeLn(`for _, v4 = range x {`)
+	writeLn(`	print(k4, v4)`)
+	writeLn(`}`)
+	writeLn(`for k4, _ = range x {`)
+	writeLn(`	print(k4, v4)`)
+	writeLn(`}`)
+	writeLn(`for _, _ = range x {`)
+	writeLn(`	print(k4, v4)`)
+	writeLn(`}`)
+
+	mark(typeOp.Recv)
+	writeLn(`var e3 `, gt(ts.opTypes.Elem))
+	writeLn(`var ok3 bool`)
+	writeLn(`e3 = <- x`)
+	writeLn(`e3, ok3 = <- x`)
+	writeLn(`_, _ = e3, ok3`)
+
+	mark(typeOp.Send)
+	writeLn(`var e4 `, gt(ts.opTypes.Elem))
+	writeLn(`x <- e4`)
+	writeLn(`close(x)`)
+
+	mark(typeOp.Float)
+	writeLn(`var c `, gt(ts.opTypes.Complex))
+	writeLn(`c = complex(x, y)`)
+	writeLn(`_ = c`)
+
+	mark(typeOp.Complex)
+	writeLn(`var f `, gt(ts.opTypes.Float))
+	writeLn(`f = real(x)`)
+	writeLn(`f = imag(x)`)
+	writeLn(`_ = f`)
+
+	mark(typeOp.None)
+	writeLn(`}`)
+	return buf.String(), opLines
 }
