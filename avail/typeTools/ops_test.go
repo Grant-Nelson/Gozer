@@ -274,64 +274,83 @@ func Test_Ops_StringTypes(t *testing.T) {
 	}.Check(t)
 }
 
-/*
 func Test_Ops_RuneTypes(t *testing.T) {
-	checkGoOps(t, ``, ``, `rune`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1`+
-			`{ Range1:rune }`)
-}
-
-func Test_Ops_PointersTypes(t *testing.T) {
-	checkOpsWithFile(t, lines(
-		`import "unsafe"`,
-		`var x = 10`,
-		`var p = unsafe.Pointer(&x)`,
-	), token.NoPos, `p`,
-		`IsNil|Comparable|Ref`)
-
-	checkOps(t, `nil`, `IsNil|Ref`)
+	testee{
+		typeExpr: `rune`,
+		exp: `rune: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:rune }`,
+	}.Check(t)
 }
 
 func Test_Ops_ChanTypes(t *testing.T) {
-	checkOps(t, `chan int`,
-		`Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv|Send`+
-			`{ Range1:int }`)
+	testee{
+		typeExpr: `chan int`,
+		exp: `chan int: Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv|Send` +
+			`{ Elem:int, Range1:int }`,
+	}.Check(t)
 
-	checkOps(t, `make(chan int, 3)`,
-		`Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv|Send`+
-			`{ Range1:int }`)
+	testee{
+		typeExpr: `chan<- int`,
+		exp: `chan<- int: Len|Cap|IsNil|Comparable|Ref|Make|Send` +
+			`{ Elem:int }`,
+	}.Check(t)
 
-	checkOps(t, `new(chan int)`,
-		`IsNil|Comparable|Ref`)
-
-	checkOps(t, `chan<- int`,
-		`Len|Cap|IsNil|Comparable|Ref|Make|Send`)
-
-	checkOps(t, `<-chan int`,
-		`Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv`+
-			`{ Range1:int }`)
+	testee{
+		typeExpr: `<-chan int`,
+		exp: `<-chan int: Len|Cap|IsNil|Comparable|Ref|Make|Range0|Range1|Recv` +
+			`{ Elem:int, Range1:int }`,
+	}.Check(t)
 }
 
 func Test_Ops_UnionsTypes_Basics(t *testing.T) {
-	checkOps(t, `interface{String() string}`, `IsNil|Ref`)
+	testee{
+		typeExpr: `interface{String() string}`,
+		exp:      `interface{String() string}: IsNil|Comparable|Ref`,
+	}.Check(t)
 
-	checkOps(t, `interface{int|uint}`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`)
+	// The above will wrap the argument in the pseudo interface object that is always comparable and
+	// can compare against nil, however, below's generic will instantiate to the type of the argument,
+	// meaning it may or may not be comparable or compare against nil, unless additional constraints
+	// are added to the Go type.
 
-	checkOpsWithFile(t, lines(
-		`func Foo[T int|uint](t T) {`,
-		`	println(t)`,
-		`}`,
-	), token.Pos(40), `t`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`)
+	testee{
+		typeParams: `T interface{String() string}`,
+		typeExpr:   `T`,
+		exp:        `T: Ref`,
+	}.Check(t)
 
-	checkOps(t, `interface{int64|float64}`,
-		`Add|Arith|Comparable|Orderable|Ref`)
+	testee{
+		typeParams: `T interface{comparable; String() string}`,
+		typeExpr:   `T`,
+		exp:        `T: Comparable|Ref`,
+	}.Check(t)
 
-	checkOps(t, `interface{String() string; int|uint}`,
-		`Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`)
+	testee{
+		typeParams: `T interface{int|uint}`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T int|uint`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T interface{int64|float64}`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Arith|Comparable|Orderable|Ref`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T interface{String() string; int|uint}`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref`,
+	}.Check(t)
 }
 
+/*
 func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	checkOps(t, `interface{~[]byte|~string}`,
 		`Len|Ref|GetIndex`+
@@ -445,7 +464,7 @@ var regexPathMatch = sync.OnceValue(func() *regexp.Regexp {
 
 func gt(typ types.Type) string {
 	if typ == nil {
-		return `any`
+		return `noType` // defined in the code patterns below
 	}
 	r := types.Default(typ).String()
 	r = strings.ReplaceAll(r, `command-line-arguments.`, ``)
@@ -472,23 +491,30 @@ type testee struct {
 
 func (ts testee) Check(t *testing.T) {
 	ts.t = t
+	ts.t.Helper()
 	ts.prep()
 	ts.getOpTypes()
 	ts.checkExpected()
 	if !testing.Short() {
 		ts.fullBuildCheck()
 	}
+	if t.Failed() {
+		t.Log(`Failed:`, ts.opTypes.String())
+	}
 }
 
 func (ts *testee) prep() {
+	ts.t.Helper()
 	if len(ts.typeParams) > 0 && !strings.HasPrefix(ts.typeParams, `[`) {
 		ts.typeParams = `[` + ts.typeParams + `]`
 	}
 }
 
 func (ts *testee) getOpTypes() {
+	ts.t.Helper()
 	file := lines(
 		`package t`,
+		`type noType any`,
 		ts.prime,
 		`func testFn`+ts.typeParams+`(x `+ts.typeExpr+`) {`,
 		``)
@@ -510,6 +536,7 @@ func (ts *testee) getOpTypes() {
 }
 
 func (ts *testee) checkExpected() {
+	ts.t.Helper()
 	got := ts.opTypes.String()
 	got = strings.ReplaceAll(got, `command-line-arguments.`, ``)
 	if diff := cmp.Diff(ts.exp, got); len(diff) > 0 {
@@ -521,8 +548,10 @@ func (ts *testee) checkExpected() {
 }
 
 func (ts *testee) buildTrial(code ...string) string {
+	ts.t.Helper()
 	file := lines(
 		`package t`,
+		`type noType any`,
 		ts.prime,
 		`func testFn`+ts.typeParams+`(x, y, z `+gt(ts.opTypes.Type)+`) {`,
 		indent(lines(code...)),
@@ -535,6 +564,7 @@ func (ts *testee) buildTrial(code ...string) string {
 }
 
 func (ts *testee) anyBuilds(buildErrs ...string) string {
+	ts.t.Helper()
 	for _, e := range buildErrs {
 		if len(e) <= 0 {
 			return ``
@@ -545,6 +575,7 @@ func (ts *testee) anyBuilds(buildErrs ...string) string {
 }
 
 func (ts *testee) allBuilds(buildErrs ...string) string {
+	ts.t.Helper()
 	for _, e := range buildErrs {
 		if len(e) > 0 {
 			buildErrs = slices.DeleteFunc(buildErrs, func(e string) bool { return len(e) <= 0 })
@@ -556,16 +587,18 @@ func (ts *testee) allBuilds(buildErrs ...string) string {
 }
 
 func (ts *testee) buildCheck(op typeOp.Op, buildErr string) {
+	ts.t.Helper()
 	if len(buildErr) <= 0 {
 		if !ts.opTypes.Ops.Any(op) {
 			ts.t.Errorf(`%s: %s was allowed by Go but not in the expected ops`, gt(ts.opTypes.Type), op.String())
 		}
 	} else if ts.opTypes.Ops.Any(op) {
-		ts.t.Errorf("%s: %s was in the expected ops but Go errored with\n%s", gt(ts.opTypes.Type), op.String(), indent(buildErr))
+		ts.t.Errorf("%s: %s was in the expected ops but Go errored with:\n%s", gt(ts.opTypes.Type), op.String(), indent(buildErr))
 	}
 }
 
 func (ts *testee) fullBuildCheck() {
+	ts.t.Helper()
 	ts.buildCheck(typeOp.Add, ts.buildTrial(
 		`x = y + z`,
 		`x += y`))

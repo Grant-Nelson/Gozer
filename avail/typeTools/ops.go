@@ -2,7 +2,6 @@ package typeTools
 
 import (
 	"go/types"
-	"slices"
 	"strings"
 
 	"golang.org/x/exp/typeparams"
@@ -26,7 +25,8 @@ type OpTypes struct {
 	Key types.Type
 
 	// Elem is the type for the parameter of the SetIndex op,
-	// the return types of the ops GetIndex and GetIndex2, and
+	// the return types of the ops GetIndex and GetIndex2,
+	// the value that can be sent or received from a channel, and
 	// the element type in the pointer returned by the RefIndex op.
 	Elem types.Type
 
@@ -227,6 +227,7 @@ func chanTypeOps(orig types.Type, t2 *types.Chan) OpTypes {
 	ops := OpTypes{
 		Ops:  typeOp.Len | typeOp.Cap | typeOp.Make | typeOp.Ref | typeOp.IsNil | typeOp.Comparable,
 		Type: orig,
+		Elem: t2.Elem(),
 	}
 	switch t2.Dir() {
 	case types.SendOnly:
@@ -239,26 +240,6 @@ func chanTypeOps(orig types.Type, t2 *types.Chan) OpTypes {
 		ops.Range1 = t2.Elem()
 	}
 	return ops
-}
-
-func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
-	if t2.IsMethodSet() {
-		ops := OpTypes{
-			Ops:  typeOp.IsNil | typeOp.Ref,
-			Type: orig,
-		}
-		if t2.IsComparable() {
-			ops.Ops |= typeOp.Comparable
-		}
-		return ops
-	}
-
-	terms, err := typeparams.NormalTerms(t2)
-	if err != nil {
-		panic(faults.New(`failed to determine op type of interface`, err).
-			With(`interface`, t2))
-	}
-	return unionTermsOps(orig, terms)
 }
 
 func mapTypeOps(orig types.Type, t2 *types.Map) OpTypes {
@@ -343,8 +324,20 @@ func structTypeOps(orig types.Type, t2 *types.Struct) OpTypes {
 	return ops
 }
 
+func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
+	if t2.IsMethodSet() {
+		if _, ok := orig.(*types.TypeParam); !ok {
+			return OpTypes{
+				Ops:  typeOp.IsNil | typeOp.Comparable | typeOp.Ref,
+				Type: orig,
+			}
+		}
+	}
+	return unionTermsOps(orig, t2)
+}
+
 func unionTypeOps(orig types.Type, t2 *types.Union) OpTypes {
-	return unionTermsOps(orig, slices.Collect(t2.Terms()))
+	return unionTermsOps(orig, t2)
 }
 
 func termOps(t *types.Term) OpTypes {
@@ -354,26 +347,43 @@ func termOps(t *types.Term) OpTypes {
 	return getOps(t.Type(), t.Type())
 }
 
-func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
-	switch len(t2) {
+// TODO: Handle the method only interfaces differently since they
+// may not be comparable or isNil.
+
+func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
+	terms, err := typeparams.NormalTerms(t2)
+	if err != nil {
+		panic(faults.New(`failed to determine op type from terms`, err).
+			With(`union`, t2).
+			WithTypeOf(`type`, t2))
+	}
+
+	switch len(terms) {
 	case 0:
-		return blankOps(orig)
+		ops := OpTypes{
+			Ops:  typeOp.Ref,
+			Type: orig,
+		}
+		if it, ok := t2.(*types.Interface); ok && it.IsComparable() {
+			ops.Ops |= typeOp.Comparable
+		}
+		return ops
 	case 1:
-		return getOps(orig, t2[0].Type())
+		return getOps(orig, terms[0].Type())
 	}
 
 	// Range, make, and (other than for []byte|string) slicing are only
 	// permitted when every term has the same underlying type, so in that
 	// case the union behaves exactly like that single type.
-	if under := sharedUnderlying(t2); under != nil {
+	if under := sharedUnderlying(terms); under != nil {
 		return getOps(orig, under)
 	}
 
-	terms := make([]OpTypes, len(t2))
+	opTerms := make([]OpTypes, len(terms))
 	ops := typeOp.None
-	for i, t := range t2 {
+	for i, t := range terms {
 		u := termOps(t)
-		terms[i] = u
+		opTerms[i] = u
 		if i == 0 {
 			ops = u.Ops
 		} else {
@@ -381,10 +391,10 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 		}
 	}
 
-	// Go never allows these on a type parameter whose terms have different
-	// underlying types, and never allows real, imag, or complex on any
-	// type parameter.
-	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Make | typeOp.Complex | typeOp.Float
+	// Go never allows these on a type parameter whose terms have different underlying types.
+	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 | typeOp.Make |
+		// real, imag, and complex currently do not work in Go type parameters.
+		typeOp.Complex | typeOp.Float
 	if ops == typeOp.None {
 		return blankOps(orig)
 	}
@@ -393,7 +403,7 @@ func unionTermsOps(orig types.Type, t2 []*types.Term) OpTypes {
 		if !ops.Any(adjOps) {
 			return nil
 		}
-		if t := commonType(terms, getType); t != nil {
+		if t := commonType(opTerms, getType); t != nil {
 			return t
 		}
 		ops &^= adjOps
@@ -426,9 +436,9 @@ func sharedUnderlying(t2 []*types.Term) types.Type {
 	return under
 }
 
-func commonType(terms []OpTypes, getType func(OpTypes) types.Type) types.Type {
-	first := getType(terms[0])
-	for _, term := range terms[1:] {
+func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type {
+	first := getType(opTerms[0])
+	for _, term := range opTerms[1:] {
 		if t := getType(term); t == nil || !types.Identical(first, t) {
 			return nil
 		}

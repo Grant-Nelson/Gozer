@@ -297,13 +297,16 @@ func (op Op) Any(other Op) bool { return op&other&mask != None }
 // For maps the key is the map's key type, i.e. `K` in `map[K]E`.
 func (op Op) NeedsKeyType() bool { return op.Any(GetIndex | RefIndex | SetIndex) }
 
-// NeedsElemType indicates that the type of `e` in the operations `e = s[k]` or `s[k] = e` is needed.
+// NeedsElemType indicates that the type of `e` in the operations
+// `e = s[k]`, `s[k] = e`, `c <- e`, or `e <- c` is needed.
 // The element type of `T` is also used as the `*T` result from `&s[k]` and `[]T` result from `s[x:y]`.
 //
 // For arrays and slices the element type is the defined element, i.e. `T` in `[]T`.
 // For strings the element type is a `byte`.
 // For maps the element is the map's value type, i.e. `E` in `map[K]E`.
-func (op Op) NeedsElemType() bool { return op.Any(GetIndex | RefIndex | SetIndex | Slice | Slice3) }
+func (op Op) NeedsElemType() bool {
+	return op.Any(GetIndex | RefIndex | SetIndex | Slice | Slice3 | Recv | Send)
+}
 
 // NeedsComplexType indicates that the type of the resulting complex number from
 // the `complex(x,y)` operator is needed.
