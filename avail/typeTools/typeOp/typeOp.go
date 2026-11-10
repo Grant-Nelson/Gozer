@@ -42,6 +42,11 @@ const (
 	//	| `x /= y`     | `x, y T`     | in place division binary operation          |
 	//	| `x++`        | `x T`        | increment unary operation                   |
 	//	| `x--`        | `x T`        | decrement unary operation                   |
+	//
+	// TODO: Determine if casts should be part of Arith or if we should have unique cast ops.
+	//
+	//	| Operator     | Types        | Comment                                     |
+	//	|--------------|--------------|---------------------------------------------|
 	//  | `x = int(y)` | `x int, y T` | cast to integer or float (except complex)   |
 	//  | `x = T(y)`   | `x T, y int` | cast from integer or float (except complex) |
 	Arith
@@ -296,6 +301,7 @@ const (
 	MakeOps  = Make1 | Make2 | Make3
 	RangeOps = Range0 | Range1 | Range2
 	ChanOps  = Send | Recv
+	ElemOps  = IndexOps | SliceOps | ChanOps
 )
 
 // Iterate returns all of the individual operations.
@@ -345,7 +351,7 @@ func (op Op) Any(other Op) bool { return op&other&mask != None }
 //
 // For arrays, slices, and strings the key should be an untyped int, meaning any integer may be used.
 // For maps the key is the map's key type, i.e. `K` in `map[K]E`.
-func (op Op) NeedsKeyType() bool { return op.Any(GetIndex | RefIndex | SetIndex) }
+func (op Op) NeedsKeyType() bool { return op.Any(IndexOps) }
 
 // NeedsElemType indicates that the type of `e` in the operations
 // `e = s[k]`, `s[k] = e`, `c <- e`, or `e <- c` is needed.
@@ -354,9 +360,7 @@ func (op Op) NeedsKeyType() bool { return op.Any(GetIndex | RefIndex | SetIndex)
 // For arrays and slices the element type is the defined element, i.e. `T` in `[]T`.
 // For strings the element type is a `byte`.
 // For maps the element is the map's value type, i.e. `E` in `map[K]E`.
-func (op Op) NeedsElemType() bool {
-	return op.Any(GetIndex | RefIndex | SetIndex | Slice | Slice3 | Recv | Send)
-}
+func (op Op) NeedsElemType() bool { return op.Any(ElemOps) }
 
 // NeedsComplexType indicates that the type of the resulting complex number from
 // the `complex(x,y)` operator is needed.
@@ -378,7 +382,7 @@ func (op Op) NeedsFloatType() bool { return op.Any(Complex) }
 //
 // For an array `T ~[N]E` this should be `[]E`. For a slice `T ~[]E` this should be `T`,
 // For a string `T ~string` this should be `T`, a string, not `[]byte`.
-func (op Op) NeedsSliceType() bool { return op.Any(Slice | Slice3) }
+func (op Op) NeedsSliceType() bool { return op.Any(SliceOps) }
 
 // NeedsRange1Type indicates that the first type in a range operation is needed.
 //
@@ -388,7 +392,7 @@ func (op Op) NeedsSliceType() bool { return op.Any(Slice | Slice3) }
 // have the same type as the integer being ranged over.
 // If the type is equivalent to `iter.Seq[T]` then this will be the type `T`
 // as given in the function, e.g. `func(yield func(x int) bool)` is `int`.
-func (op Op) NeedsRange1Type() bool { return op.Any(Range1 | Range2) }
+func (op Op) NeedsRange1Type() bool { return op.Any(RangeOps) }
 
 // NeedsRange2Type indicates that the second type in a range operation is needed.
 //

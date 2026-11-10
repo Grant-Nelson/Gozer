@@ -413,8 +413,7 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	// removes the index, range1, and range2 ops,
 	// so there is no need to set the Elem.
 	ot := OpTypes{}
-	ot = commonKeys(ot, opTerms)
-	//ot.Key = pick(indexOps, func(op OpTypes) types.Type { return op.Key })
+	ot.Key = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Key })
 	ot.Elem = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Elem })
 	ot.Slice = pick(typeOp.SliceOps, func(op OpTypes) types.Type { return op.Slice })
 
@@ -442,20 +441,4 @@ func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type 
 		}
 	}
 	return first
-}
-
-func commonKeys(ot OpTypes, opTerms []OpTypes) OpTypes {
-	if !ot.Ops.Any(typeOp.SliceOps) {
-		ot.Key = nil
-		return ot
-	}
-
-	if t := commonType(opTerms, func(op OpTypes) types.Type { return op.Key }); t != nil {
-		ot.Key = t
-		return ot
-	}
-
-	ot.Ops &^= typeOp.SliceOps
-	ot.Key = nil
-	return ot
 }
