@@ -6,6 +6,7 @@ import (
 
 	"golang.org/x/exp/typeparams"
 
+	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
@@ -387,6 +388,7 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 			ops &= u.Ops
 		}
 	}
+	crumb.DropMsg(`%s => %v + %v`, t2.String(), terms, ops)
 
 	// Go never allows these on a type parameter whose terms have different underlying types.
 	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 |
@@ -413,9 +415,13 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	// removes the index, range1, and range2 ops,
 	// so there is no need to set the Elem.
 	ot := OpTypes{}
+	crumb.DropMsg(`Key`)
 	ot.Key = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Key })
+	crumb.DropMsg(`Elem`)
 	ot.Elem = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Elem })
+	crumb.DropMsg(`Slice`)
 	ot.Slice = pick(typeOp.SliceOps, func(op OpTypes) types.Type { return op.Slice })
+	crumb.DropMsg(`Done`)
 
 	// set the result ops to the ops value after adj has modified it.
 	ot.Ops = ops
@@ -434,11 +440,24 @@ func sharedUnderlying(t2 []*types.Term) types.Type {
 }
 
 func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type {
-	first := getType(opTerms[0])
+	first := getType(opTerms[0]).Underlying()
+	crumb.DropMsg(`%v`, first.String())
 	for _, term := range opTerms[1:] {
-		if t := getType(term); t == nil || !types.Identical(first, t) {
+		t := getType(term).Underlying()
+		crumb.DropMsg(`%v`, t.String())
+		if !identicalTypes(first, t) {
 			return nil
 		}
 	}
 	return first
+}
+
+func identicalTypes(a, b types.Type) bool {
+	if IsByteSlice(a) && IsString(b) {
+		return true
+	}
+	if IsString(a) && IsByteSlice(b) {
+		return true
+	}
+	return types.Identical(a, b)
 }
