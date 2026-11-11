@@ -430,9 +430,9 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 }
 
 func sharedUnderlying(t2 []*types.Term) types.Type {
-	under := t2[0].Type().Underlying()
+	under := underlying(t2[0].Type())
 	for _, t := range t2[1:] {
-		if !types.Identical(under, t.Type().Underlying()) {
+		if !types.Identical(under, underlying(t.Type())) {
 			return nil
 		}
 	}
@@ -440,11 +440,11 @@ func sharedUnderlying(t2 []*types.Term) types.Type {
 }
 
 func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type {
-	first := getType(opTerms[0]).Underlying()
-	crumb.DropMsg(`%v`, first.String())
+	first := underlying(getType(opTerms[0]))
+	crumb.DropMsg(`%v (%T)`, first.String(), first)
 	for _, term := range opTerms[1:] {
-		t := getType(term).Underlying()
-		crumb.DropMsg(`%v`, t.String())
+		t := underlying(getType(term))
+		crumb.DropMsg(`%v (%T)`, t.String(), t)
 		if !identicalTypes(first, t) {
 			return nil
 		}
@@ -460,4 +460,18 @@ func identicalTypes(a, b types.Type) bool {
 		return true
 	}
 	return types.Identical(a, b)
+}
+
+// underlying gets the underlying type of the given type.
+// If the type is a union with a single term, e.g. `~string`,
+// the underlying type of that term is returned, e.g. `string`.
+func underlying(t types.Type) types.Type {
+	for {
+		u := t.Underlying()
+		if un, ok := u.(*types.Union); ok && un.Len() == 1 {
+			t = un.Term(0).Type()
+			continue
+		}
+		return u
+	}
 }

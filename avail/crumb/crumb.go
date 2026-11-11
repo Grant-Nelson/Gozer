@@ -80,9 +80,7 @@ func check(_ int, err error) {
 // flush will try to flush the output if the writer has `Sync`.
 func flush() {
 	if s, ok := Out.(interface{ Sync() error }); ok {
-		if err := s.Sync(); err != nil {
-			panic(err)
-		}
+		_ = s.Sync()
 	}
 }
 
