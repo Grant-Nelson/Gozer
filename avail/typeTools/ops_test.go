@@ -367,28 +367,35 @@ func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 		typeParams: `T interface{~[]byte|~string}`,
 		typeExpr:   `T`,
 		exp: `T: Len|Ref|GetIndex|Slice` +
-			`{ Key:untyped int, Elem:byte }`,
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
 	}.Check(t)
 
 	testee{
 		typeParams: `T interface{~[]byte|string}`,
 		typeExpr:   `T`,
 		exp: `T: Len|Ref|GetIndex|Slice` +
-			`{ Key:untyped int, Elem:byte }`,
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T interface{~string|~[]byte}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
 	}.Check(t)
 
 	testee{
 		typeParams: `T interface{[]byte|~string}`,
 		typeExpr:   `T`,
 		exp: `T: Len|Ref|GetIndex|Slice` +
-			`{ Key:untyped int, Elem:byte }`,
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
 	}.Check(t)
 
 	testee{
 		typeParams: `T interface{[]byte|string}`,
 		typeExpr:   `T`,
 		exp: `T: Len|Ref|GetIndex|Slice` +
-			`{ Key:untyped int, Elem:byte }`,
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
 	}.Check(t)
 }
 

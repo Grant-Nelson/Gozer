@@ -6,7 +6,6 @@ import (
 
 	"golang.org/x/exp/typeparams"
 
-	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
@@ -203,7 +202,7 @@ func stringTypeOps(orig types.Type) OpTypes {
 			typeOp.Ref | typeOp.Slice,
 		Type:   orig,
 		Key:    types.Typ[types.UntypedInt],
-		Elem:   types.Typ[types.Byte],
+		Elem:   ByteType(),
 		Slice:  orig,
 		Range1: types.Typ[types.Int],
 		Range2: RuneType(),
@@ -388,7 +387,6 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 			ops &= u.Ops
 		}
 	}
-	crumb.DropMsg(`%s => %v + %v`, t2.String(), terms, ops)
 
 	// Go never allows these on a type parameter whose terms have different underlying types.
 	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 |
@@ -415,57 +413,26 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	// removes the index, range1, and range2 ops,
 	// so there is no need to set the Elem.
 	ot := OpTypes{}
-	crumb.DropMsg(`Key`)
 	ot.Key = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Key })
-	crumb.DropMsg(`Elem`)
 	ot.Elem = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Elem })
-	crumb.DropMsg(`Slice`)
 	ot.Slice = pick(typeOp.SliceOps, func(op OpTypes) types.Type { return op.Slice })
-	crumb.DropMsg(`Done`)
 
 	// set the result ops to the ops value after adj has modified it.
 	ot.Ops = ops
 	ot.Type = orig
+	if ot.Slice != nil {
+		// If the slice can be used, override it with the original type
+		// to pickup the type parameter type.
+		// This is to help with the `[]byte|string` oddness.
+		ot.Slice = orig
+	}
 	return ot
 }
 
-func sharedUnderlying(t2 []*types.Term) types.Type {
-	under := underlying(t2[0].Type())
-	for _, t := range t2[1:] {
-		if !types.Identical(under, underlying(t.Type())) {
-			return nil
-		}
-	}
-	return under
-}
-
-func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type {
-	first := underlying(getType(opTerms[0]))
-	crumb.DropMsg(`%v (%T)`, first.String(), first)
-	for _, term := range opTerms[1:] {
-		t := underlying(getType(term))
-		crumb.DropMsg(`%v (%T)`, t.String(), t)
-		if !identicalTypes(first, t) {
-			return nil
-		}
-	}
-	return first
-}
-
-func identicalTypes(a, b types.Type) bool {
-	if IsByteSlice(a) && IsString(b) {
-		return true
-	}
-	if IsString(a) && IsByteSlice(b) {
-		return true
-	}
-	return types.Identical(a, b)
-}
-
-// underlying gets the underlying type of the given type.
+// unwrapUnderlying gets the underlying type of the given type.
 // If the type is a union with a single term, e.g. `~string`,
-// the underlying type of that term is returned, e.g. `string`.
-func underlying(t types.Type) types.Type {
+// the type of that term is returned, e.g. `string`.
+func unwrapUnderlying(t types.Type) types.Type {
 	for {
 		u := t.Underlying()
 		if un, ok := u.(*types.Union); ok && un.Len() == 1 {
@@ -474,4 +441,35 @@ func underlying(t types.Type) types.Type {
 		}
 		return u
 	}
+}
+
+func sharedUnderlying(t2 []*types.Term) types.Type {
+	under := unwrapUnderlying(t2[0].Type())
+	for _, t := range t2[1:] {
+		if !types.Identical(under, unwrapUnderlying(t.Type())) {
+			return nil
+		}
+	}
+	return under
+}
+
+func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type {
+	first := unwrapUnderlying(getType(opTerms[0]))
+	for _, term := range opTerms[1:] {
+		t := unwrapUnderlying(getType(term))
+		if !identicalOpTypes(first, t) {
+			return nil
+		}
+	}
+	return first
+}
+
+func identicalOpTypes(a, b types.Type) bool {
+	if IsByteSlice(a) && IsString(b) {
+		return true
+	}
+	if IsString(a) && IsByteSlice(b) {
+		return true
+	}
+	return types.Identical(a, b)
 }
