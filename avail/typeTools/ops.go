@@ -6,6 +6,7 @@ import (
 
 	"golang.org/x/exp/typeparams"
 
+	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
@@ -388,7 +389,7 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 		}
 	}
 
-	// Go never allows these on a type parameter whose terms have different underlying types.
+	// Go never allows these ops on a type parameter whose terms have different underlying types.
 	ops &^= typeOp.Range0 | typeOp.Range1 | typeOp.Range2 |
 		typeOp.Make1 | typeOp.Make2 | typeOp.Make3 |
 		// real, imag, and complex currently do not work in Go type parameters.
@@ -412,20 +413,50 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	// (e.g. a map mixed with a slice, `untyped int` vs `int`)
 	// removes the index, range1, and range2 ops,
 	// so there is no need to set the Elem.
-	ot := OpTypes{}
-	ot.Key = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Key })
-	ot.Elem = pick(typeOp.IndexOps, func(op OpTypes) types.Type { return op.Elem })
+	ot := OpTypes{
+		Type: orig,
+		Ops:  ops,
+	}
+	ot = pickIndexOps(ot, opTerms)
 	ot.Slice = pick(typeOp.SliceOps, func(op OpTypes) types.Type { return op.Slice })
 
 	// set the result ops to the ops value after adj has modified it.
-	ot.Ops = ops
-	ot.Type = orig
 	if ot.Slice != nil {
 		// If the slice can be used, override it with the original type
 		// to pickup the type parameter type.
 		// This is to help with the `[]byte|string` oddness.
 		ot.Slice = orig
 	}
+	return ot
+}
+
+func pickIndexOps(ot OpTypes, opTerms []OpTypes) OpTypes {
+	if !ot.Ops.Any(typeOp.IndexOps) {
+		crumb.DropMsg(`Exit 1: %s`, ot.String())
+		return ot
+	}
+
+	key := unwrapUnderlying(opTerms[0].Key)
+	for _, term := range opTerms[1:] {
+		if !types.Identical(key, unwrapUnderlying(term.Key)) {
+			ot.Ops &^= typeOp.IndexOps
+			crumb.DropMsg(`Exit 2: %s`, ot.String())
+			return ot
+		}
+	}
+
+	elem := unwrapUnderlying(opTerms[0].Elem)
+	for _, term := range opTerms[1:] {
+		if !types.Identical(elem, unwrapUnderlying(term.Elem)) {
+			ot.Ops &^= typeOp.IndexOps
+			crumb.DropMsg(`Exit 3: %s`, ot.String())
+			return ot
+		}
+	}
+
+	ot.Key = key
+	ot.Elem = elem
+	crumb.DropMsg(`Exit 4: %s`, ot.String())
 	return ot
 }
 
@@ -465,11 +496,7 @@ func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type 
 }
 
 func identicalOpTypes(a, b types.Type) bool {
-	if IsByteSlice(a) && IsString(b) {
-		return true
-	}
-	if IsString(a) && IsByteSlice(b) {
-		return true
-	}
-	return types.Identical(a, b)
+	return (IsByteSlice(a) && IsString(b)) ||
+		(IsString(a) && IsByteSlice(b)) ||
+		types.Identical(a, b)
 }

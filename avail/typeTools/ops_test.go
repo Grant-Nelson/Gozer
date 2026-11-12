@@ -260,21 +260,21 @@ func Test_Ops_StringTypes(t *testing.T) {
 	testee{
 		typeExpr: `string`,
 		exp: `string: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
-			`{ Key:untyped int, Elem:uint8, Slice:string, Range1:int, Range2:rune }`,
+			`{ Key:untyped int, Elem:byte, Slice:string, Range1:int, Range2:rune }`,
 	}.Check(t)
 
 	testee{
 		prime:    `type Foo string`,
 		typeExpr: `Foo`,
 		exp: `Foo: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
-			`{ Key:untyped int, Elem:uint8, Slice:Foo, Range1:int, Range2:rune }`,
+			`{ Key:untyped int, Elem:byte, Slice:Foo, Range1:int, Range2:rune }`,
 	}.Check(t)
 
 	testee{
 		typeParams: `T ~string`,
 		typeExpr:   `T`,
 		exp: `T: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
-			`{ Key:untyped int, Elem:uint8, Slice:T, Range1:int, Range2:rune }`,
+			`{ Key:untyped int, Elem:byte, Slice:T, Range1:int, Range2:rune }`,
 	}.Check(t)
 
 	testee{
@@ -282,7 +282,7 @@ func Test_Ops_StringTypes(t *testing.T) {
 		typeParams: `T Foo`,
 		typeExpr:   `T`,
 		exp: `T: Add|Len|Comparable|Orderable|Ref|GetIndex|Slice|Range0|Range1|Range2` +
-			`{ Key:untyped int, Elem:uint8, Slice:T, Range1:int, Range2:rune }`,
+			`{ Key:untyped int, Elem:byte, Slice:T, Range1:int, Range2:rune }`,
 	}.Check(t)
 }
 
@@ -399,44 +399,63 @@ func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 	}.Check(t)
 }
 
-/*
 func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
 	// From https://cs.opensource.google/go/x/exp/+/e88cd736:typeparams/normalize.go;l=66
 	// > In this example, the structural type restriction of P is ~string|int: A|B
 	// > expands to ~string|~[]byte|int|string, which reduces to ~string|~[]byte|int,
 	// > which when intersected with C (~string|~int) yields ~string|int.
-	checkOpsWithFile(t, lines(
-		`type A interface{ ~string|~[]byte }`,
-		`type B interface{ int|string }`,
-		`type C interface { ~string|~int }`,
-		`type P interface{ A|B; C }`, // ~string|int
-	), token.Pos(45), `P`,
-		`Add|Comparable|Orderable|Ref`+
-			`{ Range1:int }`)
+	testee{
+		prime: lines(
+			`type A interface{ ~string|~[]byte }`,
+			`type B interface{ int|string }`,
+			`type C interface { ~string|~int }`,
+			`type P interface{ A|B; C }`), // ~string|int
+		typeParams: `T P`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Comparable|Orderable|Ref`,
+	}.Check(t)
 }
 
 func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
-	checkOps(t, `interface{~[][]byte|~[]string}`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:{[]byte | string}, Slice:{~[][]byte | ~[]string}, Range1:int, Range2:{[]byte | string} }`)
+	testee{
+		typeParams: `T interface{~[][]byte|~[]string}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Cap|IsNil|Ref|GetIndex|SetIndex|RefIndex` +
+			`{ Key:untyped int, Elem:[]byte }`,
+	}.Check(t)
 
-	checkOps(t, `interface{~[]int|~[3]int}`,
-		`Len|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
+	/*
+		testee{
+			typeParams: `T interface{~[]int|~[3]int}`,
+			typeExpr:   `T`,
+			exp: `T: Len|Cap|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
+				`{ Key:untyped int, Elem:int, Slice:T }`,
+		}.Check(t)
 
-	checkOps(t, `interface{~[]int|~*[3]int}`,
-		`Len|IsNil|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:int, Slice:~[]int, Range1:int, Range2:int }`)
+		testee{
+			typeParams: `T interface{~[]int|~*[3]int}`,
+			typeExpr:   `T`,
+			exp: `T: Len|Cap|IsNil|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
+				`{ Key:untyped int, Elem:int, Slice:T }`,
+		}.Check(t)
 
-	checkOps(t, `interface{~[]byte|~[]int}`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:{byte | int}, Slice:{~[]byte | ~[]int}, Range1:int, Range2:{byte | int} }`)
+		testee{
+			typeParams: `T interface{~[]byte|~[]int}`,
+			typeExpr:   `T`,
+			exp: `T: Len|Cap|IsNil|Ref` +
+				`{ Key:untyped int }`,
+		}.Check(t)
 
-	checkOps(t, `interface{~[]int|~[3]*int}`,
-		`Len|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:{int | *int}, Slice:{~[]int | []*int}, Range1:int, Range2:{int | *int} }`)
+		testee{
+			typeParams: `T interface{~[]int|~[3]*int}`,
+			typeExpr:   `T`,
+			exp: `T: Len|Cap|Ref` +
+				`{ Key:untyped int }`,
+		}.Check(t)
+	*/
 }
 
+/*
 func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 	checkOpsWithFile(t, lines(
 		`func Foo[T any, S ~[]T](s S) {`,
@@ -563,6 +582,7 @@ func (ts *testee) checkExpected() {
 }
 
 func (ts *testee) checkTestCode() {
+	ts.t.Helper()
 	errs := ts.runTestCode()
 	for op := range typeOp.Iterate() {
 		ts.testCodeErrCheck(op, errs[op])
