@@ -420,42 +420,38 @@ func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 	testee{
 		typeParams: `T interface{~[][]byte|~[]string}`,
 		typeExpr:   `T`,
-		exp: `T: Len|Cap|IsNil|Ref|GetIndex|SetIndex|RefIndex` +
-			`{ Key:untyped int, Elem:[]byte }`,
+		exp:        `T: Len|Cap|IsNil|Ref`,
 	}.Check(t)
 
-	/*
-		testee{
-			typeParams: `T interface{~[]int|~[3]int}`,
-			typeExpr:   `T`,
-			exp: `T: Len|Cap|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
-				`{ Key:untyped int, Elem:int, Slice:T }`,
-		}.Check(t)
+	testee{
+		typeParams: `T interface{~[]int|~[3]int}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Cap|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
+			`{ Key:untyped int, Elem:int, Slice:T }`,
+	}.Check(t)
 
-		testee{
-			typeParams: `T interface{~[]int|~*[3]int}`,
-			typeExpr:   `T`,
-			exp: `T: Len|Cap|IsNil|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
-				`{ Key:untyped int, Elem:int, Slice:T }`,
-		}.Check(t)
+	testee{
+		typeParams: `T interface{~[]int|~*[3]int}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Cap|IsNil|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
+			`{ Key:untyped int, Elem:int, Slice:T }`,
+	}.Check(t)
 
-		testee{
-			typeParams: `T interface{~[]byte|~[]int}`,
-			typeExpr:   `T`,
-			exp: `T: Len|Cap|IsNil|Ref` +
-				`{ Key:untyped int }`,
-		}.Check(t)
+	testee{
+		typeParams: `T interface{~[]byte|~[]int}`,
+		typeExpr:   `T`,
+		exp:        `T: Len|Cap|IsNil|Ref`,
+	}.Check(t)
 
-		testee{
-			typeParams: `T interface{~[]int|~[3]*int}`,
-			typeExpr:   `T`,
-			exp: `T: Len|Cap|Ref` +
-				`{ Key:untyped int }`,
-		}.Check(t)
-	*/
+	testee{
+		typeParams: `T interface{~[]int|~[3]*int}`,
+		typeExpr:   `T`,
+		exp:        `T: Len|Cap|Ref`,
+	}.Check(t)
 }
 
 /*
+// TODO: Finish updating
 func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
 	checkOpsWithFile(t, lines(
 		`func Foo[T any, S ~[]T](s S) {`,
@@ -535,6 +531,7 @@ func (ts testee) Check(t *testing.T) {
 	if !testing.Short() {
 		ts.checkTestCode()
 	}
+	ts.checkSetTypes()
 }
 
 func (ts *testee) prep() {
@@ -579,6 +576,31 @@ func (ts *testee) checkExpected() {
 		ts.t.Errorf("Unexpected results:\ntype: %s\ndiff: %s\ngot: %q\nexp: %q",
 			gt(ts.opTypes.Type), diff, got, ts.exp)
 	}
+}
+
+func (ts *testee) checkSetTypes() {
+	ts.t.Helper()
+	if ts.opTypes.Type == nil {
+		ts.t.Errorf("Expected the Type field of an OpType should always be non-nil\n"+
+			"\tOptType: %s", ts.opTypes.String())
+	}
+
+	checkType := func(name string, need bool, typ types.Type) {
+		if need != (typ != nil) {
+			ts.t.Errorf("Expected a %s field to be set when needed or nil when not needed\n"+
+				"\tField name: %s\n\tOpType:     %s\n\tIs needed:  %t\n\tField type: %v",
+				name, name, ts.opTypes.String(), need, typ)
+		}
+	}
+
+	ops := ts.opTypes.Ops
+	checkType(`Key`, ops.NeedsKeyType(), ts.opTypes.Key)
+	checkType(`Elem`, ops.NeedsElemType(), ts.opTypes.Elem)
+	checkType(`Complex`, ops.NeedsComplexType(), ts.opTypes.Complex)
+	checkType(`Float`, ops.NeedsFloatType(), ts.opTypes.Float)
+	checkType(`Slice`, ops.NeedsSliceType(), ts.opTypes.Slice)
+	checkType(`Range1`, ops.NeedsRange1Type(), ts.opTypes.Range1)
+	checkType(`Range2`, ops.NeedsRange2Type(), ts.opTypes.Range2)
 }
 
 func (ts *testee) checkTestCode() {

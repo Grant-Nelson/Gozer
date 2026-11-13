@@ -70,7 +70,11 @@ func (ops OpTypes) String() string {
 	if len(parts) > 0 {
 		tail = `{ ` + strings.Join(parts, `, `) + ` }`
 	}
-	return ops.Type.String() + `: ` + ops.Ops.String() + tail
+	head := `nil`
+	if ops.Type != nil {
+		head = ops.Type.String()
+	}
+	return head + `: ` + ops.Ops.String() + tail
 }
 
 func Ops(t types.Type) OpTypes {
@@ -398,17 +402,6 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 		return blankOps(orig)
 	}
 
-	pick := func(adjOps typeOp.Op, getType func(OpTypes) types.Type) types.Type {
-		if !ops.Any(adjOps) {
-			return nil
-		}
-		if t := commonType(opTerms, getType); t != nil {
-			return t
-		}
-		ops &^= adjOps
-		return nil
-	}
-
 	// Key must be picked before Elem since a mismatched key
 	// (e.g. a map mixed with a slice, `untyped int` vs `int`)
 	// removes the index, range1, and range2 ops,
@@ -418,45 +411,7 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 		Ops:  ops,
 	}
 	ot = pickIndexOps(ot, opTerms)
-	ot.Slice = pick(typeOp.SliceOps, func(op OpTypes) types.Type { return op.Slice })
-
-	// set the result ops to the ops value after adj has modified it.
-	if ot.Slice != nil {
-		// If the slice can be used, override it with the original type
-		// to pickup the type parameter type.
-		// This is to help with the `[]byte|string` oddness.
-		ot.Slice = orig
-	}
-	return ot
-}
-
-func pickIndexOps(ot OpTypes, opTerms []OpTypes) OpTypes {
-	if !ot.Ops.Any(typeOp.IndexOps) {
-		crumb.DropMsg(`Exit 1: %s`, ot.String())
-		return ot
-	}
-
-	key := unwrapUnderlying(opTerms[0].Key)
-	for _, term := range opTerms[1:] {
-		if !types.Identical(key, unwrapUnderlying(term.Key)) {
-			ot.Ops &^= typeOp.IndexOps
-			crumb.DropMsg(`Exit 2: %s`, ot.String())
-			return ot
-		}
-	}
-
-	elem := unwrapUnderlying(opTerms[0].Elem)
-	for _, term := range opTerms[1:] {
-		if !types.Identical(elem, unwrapUnderlying(term.Elem)) {
-			ot.Ops &^= typeOp.IndexOps
-			crumb.DropMsg(`Exit 3: %s`, ot.String())
-			return ot
-		}
-	}
-
-	ot.Key = key
-	ot.Elem = elem
-	crumb.DropMsg(`Exit 4: %s`, ot.String())
+	ot = pickSliceOps(ot, opTerms)
 	return ot
 }
 
@@ -476,27 +431,72 @@ func unwrapUnderlying(t types.Type) types.Type {
 
 func sharedUnderlying(t2 []*types.Term) types.Type {
 	under := unwrapUnderlying(t2[0].Type())
-	for _, t := range t2[1:] {
-		if !types.Identical(under, unwrapUnderlying(t.Type())) {
+	crumb.DropMsg(`under: %v`, under)
+	for _, term := range t2[1:] {
+		t := unwrapUnderlying(term.Type())
+		crumb.DropMsg(`t: %v`, t)
+		if !types.Identical(under, t) {
+			crumb.DropMsg(`exit 1`)
 			return nil
 		}
 	}
+	crumb.DropMsg(`under: %v`, under)
 	return under
 }
 
-func commonType(opTerms []OpTypes, getType func(OpTypes) types.Type) types.Type {
-	first := unwrapUnderlying(getType(opTerms[0]))
+func pickIndexOps(ot OpTypes, opTerms []OpTypes) OpTypes {
+	if !ot.Ops.Any(typeOp.IndexOps) {
+		return ot
+	}
+
+	key := unwrapUnderlying(opTerms[0].Key)
 	for _, term := range opTerms[1:] {
-		t := unwrapUnderlying(getType(term))
-		if !identicalOpTypes(first, t) {
-			return nil
+		if !types.Identical(key, unwrapUnderlying(term.Key)) {
+			ot.Ops &^= typeOp.IndexOps
+			return ot
 		}
 	}
-	return first
+
+	elem := unwrapUnderlying(opTerms[0].Elem)
+	for _, term := range opTerms[1:] {
+		if !types.Identical(elem, unwrapUnderlying(term.Elem)) {
+			ot.Ops &^= typeOp.IndexOps
+			return ot
+		}
+	}
+
+	ot.Key = key
+	ot.Elem = elem
+	return ot
 }
 
-func identicalOpTypes(a, b types.Type) bool {
-	return (IsByteSlice(a) && IsString(b)) ||
-		(IsString(a) && IsByteSlice(b)) ||
-		types.Identical(a, b)
+func pickSliceOps(ot OpTypes, opTerms []OpTypes) OpTypes {
+	if !ot.Ops.Any(typeOp.SliceOps) {
+		return ot
+	}
+
+	slice := unwrapUnderlying(opTerms[0].Slice)
+	crumb.DropMsg(`slice: %v`, slice)
+	for _, term := range opTerms[1:] {
+		t := unwrapUnderlying(term.Slice)
+		crumb.DropMsg(`t: %v`, t)
+
+		if types.Identical(slice, t) ||
+			(IsByteSlice(slice) && IsString(t)) ||
+			(IsString(slice) && IsByteSlice(t)) {
+			crumb.DropMsg(`continue`)
+			continue
+		}
+
+		ot.Ops &^= typeOp.SliceOps
+		crumb.DropMsg(`exit 1: %s`, ot.String())
+		return ot
+	}
+
+	// If the slice can be used, override it with the original type
+	// to pickup the type parameter type.
+	// This helps with the `[]byte|string` oddness.
+	ot.Slice = ot.Type
+	crumb.DropMsg(`exit 2: %s`, ot.String())
+	return ot
 }
