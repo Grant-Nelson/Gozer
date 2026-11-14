@@ -597,6 +597,68 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 		typeExpr: `func(p func(int, bool, float32) bool)`,
 		exp:      `func(p func(int, bool, float32) bool): IsNil|Ref`,
 	}.Check(t)
+
+	testee{
+		prime:      `import "iter"`,
+		typeParams: `T any`,
+		typeExpr:   `iter.Seq[T]`,
+		exp: `iter.Seq[T]: IsNil|Ref|Range0|Range1` +
+			`{ Range1:T }`,
+	}.Check(t)
+
+	testee{
+		prime:      `import "iter"`,
+		typeParams: `K, V any`,
+		typeExpr:   `iter.Seq2[K, V]`,
+		exp: `iter.Seq2[K, V]: IsNil|Ref|Range0|Range1|Range2` +
+			`{ Range1:K, Range2:V }`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T interface{func() string}`,
+		typeExpr:   `T`,
+		exp:        `T: IsNil|Ref`,
+	}.Check(t)
+}
+
+func Test_Ops_ComparableAndOrderable(t *testing.T) {
+	// testee{
+	// 	typeParams: `T any`,
+	// 	typeExpr:   `T`,
+	// 	exp:        `T: Comparable|Ref`,
+	// }.Check(t)
+
+	// testee{
+	// 	typeParams: `T comparable`,
+	// 	typeExpr:   `T`,
+	// 	exp:        `T: Comparable|Ref`,
+	// }.Check(t)
+
+	testee{
+		typeParams: `T interface{comparable; func() string}`,
+		typeExpr:   `T`,
+		exp:        `T: Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T interface{comparable; ~*int}`,
+		typeExpr:   `T`,
+		exp:        `T: IsNil|Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		prime:      `type Stringer interface{ String() string }`,
+		typeParams: `T interface{comparable; Stringer}`,
+		typeExpr:   `T`,
+		exp:        `T: Comparable|Ref`,
+	}.Check(t)
+
+	// testee{
+	// 	prime:      `import "cmp"`,
+	// 	typeParams: `T cmp.Ordered`,
+	// 	typeExpr:   `T`,
+	// 	exp:        `T: Add|Comparable|Orderable|Ref`,
+	// }.Check(t)
 }
 
 //================================================================================= ==  =
@@ -646,8 +708,8 @@ func (ts *testee) getOpTypes() {
 	ts.t.Helper()
 	file := lines(
 		`package t`,
-		`type noType any`,
 		ts.prime,
+		`type noType any`,
 		`func testFn`+ts.typeParams+`(x `+ts.typeExpr+`) {`,
 		``)
 	posOff := len(file)
@@ -782,8 +844,8 @@ func (ts *testee) createOpsTestCode() (string, []typeOp.Op) {
 
 	typeStr := gt(ts.opTypes.Type)
 	writeLn(`package t`)
-	writeLn(`type noType any`)
 	writeLn(ts.prime)
+	writeLn(`type noType any`)
 	writeLn(`func testFn`, ts.typeParams, `(x, y, z `, typeStr, `) {`)
 	writeLn(`var b bool`)
 	writeLn(`var i int`)

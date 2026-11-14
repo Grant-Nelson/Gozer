@@ -6,6 +6,7 @@ import (
 
 	"golang.org/x/exp/typeparams"
 
+	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
@@ -361,6 +362,7 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 
 	switch len(terms) {
 	case 0:
+		crumb.Drop()
 		ops := OpTypes{
 			Ops:  typeOp.Ref,
 			Type: orig,
@@ -370,13 +372,16 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 		}
 		return ops
 	case 1:
-		return getOps(orig, terms[0].Type())
+		t := terms[0].Type()
+		crumb.DropMsg(`%v => %v`, orig, t) // TODO: FIX
+		return getOps(orig, t)
 	}
 
 	// Range, make, and (other than for []byte|string) slicing are only
 	// permitted when every term has the same underlying type, so in that
 	// case the union behaves exactly like that single type.
 	if under := sharedUnderlying(terms); under != nil {
+		crumb.Drop()
 		return getOps(orig, under)
 	}
 
