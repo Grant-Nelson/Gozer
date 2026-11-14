@@ -392,7 +392,7 @@ func (op Op) NeedsSliceType() bool { return op.Any(SliceOps) }
 // have the same type as the integer being ranged over.
 // If the type is equivalent to `iter.Seq[T]` then this will be the type `T`
 // as given in the function, e.g. `func(yield func(x int) bool)` is `int`.
-func (op Op) NeedsRange1Type() bool { return op.Any(RangeOps) }
+func (op Op) NeedsRange1Type() bool { return op.Any(Range1 | Range2) }
 
 // NeedsRange2Type indicates that the second type in a range operation is needed.
 //

@@ -524,53 +524,80 @@ func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 	}.Check(t)
 }
 
-/*
-// TODO: Finish updating
 func Test_Ops_UnionsTypes_CompoundGenerics(t *testing.T) {
-	checkOpsWithFile(t, lines(
-		`func Foo[T any, S ~[]T](s S) {`,
-		`	println(s)`,
-		`}`,
-	), token.Pos(45), `s`,
-		`Len|Cap|IsNil|Ref|Make|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2`+
-			`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`)
+	testee{
+		typeParams: `T any, S ~[]T`,
+		typeExpr:   `S`,
+		exp: `S: Len|Cap|IsNil|Ref|Make2|Make3|GetIndex|SetIndex|RefIndex|Slice|Slice3|Range0|Range1|Range2` +
+			`{ Key:untyped int, Elem:T, Slice:S, Range1:int, Range2:T }`,
+	}.Check(t)
 
-	checkOpsWithFile(t, lines(
-		`func Foo[T any, S ~[]T | ~map[int]T](s S) {`,
-		`	println(s)`,
-		`}`,
-	), token.Pos(65), `s`,
-		`Len|IsNil|Ref|Make|GetIndex|SetIndex|Range0|Range1|Range2`+
-			`{ Key:int, Elem:T, Range1:int, Range2:T }`)
+	testee{
+		typeParams: `T any, S ~[]T | ~map[int]T`,
+		typeExpr:   `S`,
+		exp:        `S: Len|IsNil|Ref`,
+	}.Check(t)
+
+	testee{
+		typeParams: `K comparable, V ~[]T, T ~int, M ~map[K]V`,
+		typeExpr:   `M`,
+		exp: `M: Len|IsNil|Ref|Make1|Make2|GetIndex|SetIndex|Range0|Range1|Range2` +
+			`{ Key:K, Elem:V, Range1:K, Range2:V }`,
+	}.Check(t)
 }
 
 func Test_Ops_FunctionsTypes(t *testing.T) {
-	// TODO: Create a test to check c.Walk has the correct value
-	//
-	//	package main
-	//
-	//	import "fmt"
-	//
-	//	type Cat struct{ lives int }
-	//
-	//	func (c *Cat) Walk(y func(int) bool) {
-	//		for i := range c.lives {
-	//			if !y(i) {
-	//				return
-	//			}
-	//		}
-	//	}
-	//
-	//	func main() {
-	//		c := &Cat{lives: 3}
-	//		for i := range c.Walk {
-	//			fmt.Println(i)
-	//		}
-	//	}
-}
+	testee{
+		typeExpr: `func()`,
+		exp:      `func(): IsNil|Ref`,
+	}.Check(t)
 
-// TODO: Check comparable
-*/
+	testee{
+		typeExpr: `func(p func())`,
+		exp:      `func(p func()): IsNil|Ref`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `func(p func() bool)`,
+		exp:      `func(p func() bool): IsNil|Ref|Range0`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `func(p func() error)`,
+		exp:      `func(p func() error): IsNil|Ref`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `func(p func(int) bool)`,
+		exp: `func(p func(int) bool): IsNil|Ref|Range0|Range1` +
+			`{ Range1:int }`,
+	}.Check(t)
+
+	testee{
+		typeParams: `F func(p func(int) bool)`,
+		typeExpr:   `F`,
+		exp: `F: IsNil|Ref|Range0|Range1` +
+			`{ Range1:int }`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T any, F func(p func(T) bool)`,
+		typeExpr:   `F`,
+		exp: `F: IsNil|Ref|Range0|Range1` +
+			`{ Range1:T }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `func(p func(int, float32) bool)`,
+		exp: `func(p func(int, float32) bool): IsNil|Ref|Range0|Range1|Range2` +
+			`{ Range1:int, Range2:float32 }`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `func(p func(int, bool, float32) bool)`,
+		exp:      `func(p func(int, bool, float32) bool): IsNil|Ref`,
+	}.Check(t)
+}
 
 //================================================================================= ==  =
 
@@ -726,6 +753,14 @@ func (ts *testee) testCodeErrCheck(op typeOp.Op, errs []string) {
 	}
 }
 
+// createOpsTestCode creates a Go program using the current type information from the gotten OpType.
+// The program runs all the major operators on the types. Since the types will not allow all the operators,
+// when the program is parsed and type checked a list of errors will be returned. The list of errors
+// represents the operators that are not allowed. The program is returned as a string with a slice of
+// operators. The slice of operators represent which operation is associated with which lines of the
+// program so that the line number from an error can be used to determine the operator for that error.
+// The slice of operators is zero based and the error line numbers is one based so the line number subtract
+// one will be the index into the operator slice for the operator for that line number.
 func (ts *testee) createOpsTestCode() (string, []typeOp.Op) {
 	ts.t.Helper()
 	buf := &strings.Builder{}

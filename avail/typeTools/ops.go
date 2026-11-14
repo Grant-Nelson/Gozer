@@ -464,9 +464,6 @@ func pickSliceOps(ot OpTypes, opTerms []OpTypes) OpTypes {
 		}
 	}
 
-	// If the slice can be used, override it with the original type
-	// to pickup the type parameter type.
-	// This helps with the `[]byte|string` oddness.
 	ot.Slice = ot.Type
 	ot.Ops &^= typeOp.Slice3
 	return ot
