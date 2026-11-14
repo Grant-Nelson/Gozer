@@ -397,6 +397,73 @@ func Test_Ops_UnionsTypes_WithSharedOps(t *testing.T) {
 		exp: `T: Len|Ref|GetIndex|Slice` +
 			`{ Key:untyped int, Elem:byte, Slice:T }`,
 	}.Check(t)
+
+	testee{
+		typeParams: `T interface{string|[]byte}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		prime:      `type A []byte`,
+		typeParams: `T interface{string|A}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		prime:      `type A []byte`,
+		typeParams: `T interface{~string|A}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		prime:      `type A []byte`,
+		typeParams: `T interface{A|~string}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		prime:      `type A string`,
+		typeParams: `T interface{[]byte|A}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		prime:      `type A string`,
+		typeParams: `T interface{~[]byte|A}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		prime: lines(
+			`type A string`,
+			`type B []byte`),
+		typeParams: `T interface{A|B}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
+
+	testee{
+		prime: lines(
+			`type A string`,
+			`type B []byte`),
+		typeParams: `T interface{A|B|string|[]uint8}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Ref|GetIndex|Slice` +
+			`{ Key:untyped int, Elem:byte, Slice:T }`,
+	}.Check(t)
 }
 
 func Test_Ops_UnionsTypes_UnionReduction(t *testing.T) {
@@ -424,17 +491,24 @@ func Test_Ops_UnionsTypes_SlicesAndArrays(t *testing.T) {
 	}.Check(t)
 
 	testee{
+		typeParams: `T interface{[]int|[3]int}`,
+		typeExpr:   `T`,
+		exp: `T: Len|Cap|Ref|GetIndex|SetIndex|RefIndex` +
+			`{ Key:untyped int, Elem:int }`,
+	}.Check(t)
+
+	testee{
 		typeParams: `T interface{~[]int|~[3]int}`,
 		typeExpr:   `T`,
-		exp: `T: Len|Cap|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
-			`{ Key:untyped int, Elem:int, Slice:T }`,
+		exp: `T: Len|Cap|Ref|GetIndex|SetIndex|RefIndex` +
+			`{ Key:untyped int, Elem:int }`,
 	}.Check(t)
 
 	testee{
 		typeParams: `T interface{~[]int|~*[3]int}`,
 		typeExpr:   `T`,
-		exp: `T: Len|Cap|IsNil|Ref|GetIndex|SetIndex|RefIndex|Slice|Slice3` +
-			`{ Key:untyped int, Elem:int, Slice:T }`,
+		exp: `T: Len|Cap|IsNil|Ref|GetIndex|SetIndex|RefIndex` +
+			`{ Key:untyped int, Elem:int }`,
 	}.Check(t)
 
 	testee{

@@ -6,7 +6,6 @@ import (
 
 	"golang.org/x/exp/typeparams"
 
-	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
@@ -415,32 +414,14 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 	return ot
 }
 
-// unwrapUnderlying gets the underlying type of the given type.
-// If the type is a union with a single term, e.g. `~string`,
-// the type of that term is returned, e.g. `string`.
-func unwrapUnderlying(t types.Type) types.Type {
-	for {
-		u := t.Underlying()
-		if un, ok := u.(*types.Union); ok && un.Len() == 1 {
-			t = un.Term(0).Type()
-			continue
-		}
-		return u
-	}
-}
-
 func sharedUnderlying(t2 []*types.Term) types.Type {
 	under := unwrapUnderlying(t2[0].Type())
-	crumb.DropMsg(`under: %v`, under)
 	for _, term := range t2[1:] {
 		t := unwrapUnderlying(term.Type())
-		crumb.DropMsg(`t: %v`, t)
 		if !types.Identical(under, t) {
-			crumb.DropMsg(`exit 1`)
 			return nil
 		}
 	}
-	crumb.DropMsg(`under: %v`, under)
 	return under
 }
 
@@ -475,28 +456,18 @@ func pickSliceOps(ot OpTypes, opTerms []OpTypes) OpTypes {
 		return ot
 	}
 
-	slice := unwrapUnderlying(opTerms[0].Slice)
-	crumb.DropMsg(`slice: %v`, slice)
-	for _, term := range opTerms[1:] {
+	for _, term := range opTerms {
 		t := unwrapUnderlying(term.Slice)
-		crumb.DropMsg(`t: %v`, t)
-
-		if types.Identical(slice, t) ||
-			(IsByteSlice(slice) && IsString(t)) ||
-			(IsString(slice) && IsByteSlice(t)) {
-			crumb.DropMsg(`continue`)
-			continue
+		if !IsByteSlice(t) && !IsString(t) {
+			ot.Ops &^= typeOp.SliceOps
+			return ot
 		}
-
-		ot.Ops &^= typeOp.SliceOps
-		crumb.DropMsg(`exit 1: %s`, ot.String())
-		return ot
 	}
 
 	// If the slice can be used, override it with the original type
 	// to pickup the type parameter type.
 	// This helps with the `[]byte|string` oddness.
 	ot.Slice = ot.Type
-	crumb.DropMsg(`exit 2: %s`, ot.String())
+	ot.Ops &^= typeOp.Slice3
 	return ot
 }

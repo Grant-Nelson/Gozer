@@ -29,6 +29,20 @@ func Deref(t types.Type) types.Type {
 	return nil
 }
 
+// unwrapUnderlying gets the underlying type of the given type.
+// If the type is a union with a single term, e.g. `~string`,
+// the type of that term is returned, e.g., `string`.
+func unwrapUnderlying(t types.Type) types.Type {
+	for {
+		u := t.Underlying()
+		if un, ok := u.(*types.Union); ok && un.Len() == 1 {
+			t = un.Term(0).Type()
+			continue
+		}
+		return u
+	}
+}
+
 func namedType[T types.Type](exp string) func() T {
 	return func() T {
 		tv, err := types.Eval(token.NewFileSet(), nil, token.NoPos, exp)
