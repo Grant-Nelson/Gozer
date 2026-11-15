@@ -96,6 +96,29 @@ func Test_Ops_Slices(t *testing.T) {
 	}.Check(t)
 }
 
+func Test_Ops_Structs(t *testing.T) {
+	testee{
+		typeExpr: `struct{ X, Y int }`,
+		exp:      `struct{X int; Y int}: Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `struct{ Y []int }`,
+		exp:      `struct{Y []int}: Ref`,
+	}.Check(t)
+
+	testee{
+		typeExpr: `*struct{ X, Y int }`,
+		exp:      `*struct{X int; Y int}: IsNil|Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		prime:    `type Point struct{ X, Y int }`,
+		typeExpr: `Point`,
+		exp:      `Point: Comparable|Ref`,
+	}.Check(t)
+}
+
 func Test_Ops_BooleanTypes(t *testing.T) {
 	testee{
 		typeExpr: `bool`,
@@ -291,6 +314,14 @@ func Test_Ops_RuneTypes(t *testing.T) {
 		typeExpr: `rune`,
 		exp: `rune: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
 			`{ Range1:rune }`,
+	}.Check(t)
+}
+
+func Test_Ops_UnsafePointer(t *testing.T) {
+	testee{
+		prime:    `import "unsafe"`,
+		typeExpr: `unsafe.Pointer`,
+		exp:      `unsafe.Pointer: IsNil|Comparable|Ref`,
 	}.Check(t)
 }
 
@@ -613,29 +644,29 @@ func Test_Ops_FunctionsTypes(t *testing.T) {
 		exp: `iter.Seq2[K, V]: IsNil|Ref|Range0|Range1|Range2` +
 			`{ Range1:K, Range2:V }`,
 	}.Check(t)
-
-	testee{
-		typeParams: `T interface{func() string}`,
-		typeExpr:   `T`,
-		exp:        `T: IsNil|Ref`,
-	}.Check(t)
 }
 
 func Test_Ops_ComparableAndOrderable(t *testing.T) {
-	// testee{
-	// 	typeParams: `T any`,
-	// 	typeExpr:   `T`,
-	// 	exp:        `T: Comparable|Ref`,
-	// }.Check(t)
-
-	// testee{
-	// 	typeParams: `T comparable`,
-	// 	typeExpr:   `T`,
-	// 	exp:        `T: Comparable|Ref`,
-	// }.Check(t)
+	testee{
+		typeParams: `T any`,
+		typeExpr:   `T`,
+		exp:        `T: Ref`,
+	}.Check(t)
 
 	testee{
-		typeParams: `T interface{comparable; func() string}`,
+		typeParams: `T comparable`,
+		typeExpr:   `T`,
+		exp:        `T: Comparable|Ref`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T interface{String() string}`,
+		typeExpr:   `T`,
+		exp:        `T: Ref`,
+	}.Check(t)
+
+	testee{
+		typeParams: `T interface{comparable; String() string}`,
 		typeExpr:   `T`,
 		exp:        `T: Comparable|Ref`,
 	}.Check(t)
@@ -653,12 +684,32 @@ func Test_Ops_ComparableAndOrderable(t *testing.T) {
 		exp:        `T: Comparable|Ref`,
 	}.Check(t)
 
-	// testee{
-	// 	prime:      `import "cmp"`,
-	// 	typeParams: `T cmp.Ordered`,
-	// 	typeExpr:   `T`,
-	// 	exp:        `T: Add|Comparable|Orderable|Ref`,
-	// }.Check(t)
+	testee{
+		prime:      `import "cmp"`,
+		typeParams: `T cmp.Ordered`,
+		typeExpr:   `T`,
+		exp:        `T: Add|Comparable|Orderable|Ref`,
+	}.Check(t)
+
+	testee{
+		prime: lines(
+			`type A int`,
+			`type B int`),
+		typeParams: `T A|B`,
+		typeExpr:   `T`,
+		exp: `T: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:T }`,
+	}.Check(t)
+
+	testee{
+		prime: lines(
+			`type A int`,
+			`type B int`),
+		typeParams: `T interface{comparable; A|B}`,
+		typeExpr:   `T`,
+		exp: `T: Add|Arith|Mod|Bitwise|Comparable|Orderable|Ref|Range0|Range1` +
+			`{ Range1:T }`,
+	}.Check(t)
 }
 
 //================================================================================= ==  =

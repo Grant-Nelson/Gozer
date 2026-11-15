@@ -6,7 +6,6 @@ import (
 
 	"golang.org/x/exp/typeparams"
 
-	"github.com/Grant-Nelson/Gozer/avail/crumb"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/typeTools/typeOp"
 )
@@ -52,11 +51,7 @@ func (ops OpTypes) String() string {
 	parts := []string{}
 	add := func(name string, t types.Type) {
 		if t != nil {
-			str := t.String()
-			if strings.Contains(str, ` | `) {
-				str = `{` + str + `}`
-			}
-			parts = append(parts, name+`:`+str)
+			parts = append(parts, name+`:`+t.String())
 		}
 	}
 	add(`Key`, ops.Key)
@@ -338,11 +333,7 @@ func interfaceTypeOps(orig types.Type, t2 *types.Interface) OpTypes {
 			}
 		}
 	}
-	return unionTermsOps(orig, t2)
-}
-
-func unionTypeOps(orig types.Type, t2 *types.Union) OpTypes {
-	return unionTermsOps(orig, t2)
+	return unionTypeOps(orig, t2)
 }
 
 func termOps(t *types.Term) OpTypes {
@@ -352,7 +343,7 @@ func termOps(t *types.Term) OpTypes {
 	return getOps(t.Type(), t.Type())
 }
 
-func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
+func unionTypeOps(orig types.Type, t2 types.Type) OpTypes {
 	terms, err := typeparams.NormalTerms(t2)
 	if err != nil {
 		panic(faults.New(`failed to determine op type from terms`, err).
@@ -362,7 +353,6 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 
 	switch len(terms) {
 	case 0:
-		crumb.Drop()
 		ops := OpTypes{
 			Ops:  typeOp.Ref,
 			Type: orig,
@@ -372,16 +362,13 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 		}
 		return ops
 	case 1:
-		t := terms[0].Type()
-		crumb.DropMsg(`%v => %v`, orig, t) // TODO: FIX
-		return getOps(orig, t)
+		return getOps(orig, terms[0].Type())
 	}
 
 	// Range, make, and (other than for []byte|string) slicing are only
 	// permitted when every term has the same underlying type, so in that
 	// case the union behaves exactly like that single type.
 	if under := sharedUnderlying(terms); under != nil {
-		crumb.Drop()
 		return getOps(orig, under)
 	}
 
@@ -402,9 +389,6 @@ func unionTermsOps(orig types.Type, t2 types.Type) OpTypes {
 		typeOp.Make1 | typeOp.Make2 | typeOp.Make3 |
 		// real, imag, and complex currently do not work in Go type parameters.
 		typeOp.Complex | typeOp.Float
-	if ops == typeOp.None {
-		return blankOps(orig)
-	}
 
 	// Key must be picked before Elem since a mismatched key
 	// (e.g. a map mixed with a slice, `untyped int` vs `int`)

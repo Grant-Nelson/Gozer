@@ -208,7 +208,7 @@ func (f *Fault) Error() string {
 		check(buf.WriteString(indent))
 		check(buf.WriteString(k))
 		check(buf.WriteString(`: `))
-		check(buf.WriteString(strings.Repeat(` `, keyWidth-len(k)-2)))
+		check(buf.WriteString(strings.Repeat(` `, keyWidth-len(k))))
 
 		firstLine := true
 		for line := range strings.Lines(fmt.Sprint(v)) {
