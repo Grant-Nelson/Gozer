@@ -1,7 +1,6 @@
 package typescript
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
@@ -11,8 +10,10 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/typeChecker"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel/blocker"
 	"github.com/Grant-Nelson/Gozer/compiler/project"
 	"github.com/Grant-Nelson/Gozer/targets/target"
+	"github.com/Grant-Nelson/Gozer/targets/typescript/writer"
 )
 
 type tsTarget struct{}
@@ -143,9 +144,14 @@ func (ts tsTarget) syncModelPackages(proj *project.Project, cfg *target.BuildCon
 
 func (ts tsTarget) modelPackage(pkg *project.Package, cfg *target.BuildConfig) error {
 	remodelers := remodel.Group{
-		//trimmer.New(&trimmer.Config{
-		//	ErrGroup: cfg.ErrGroup,
-		//}),
+		blocker.New(&blocker.Config{
+			ErrGroup: cfg.ErrGroup,
+		}),
+		// TODO: Add optimizers
+		writer.New(&writer.Config{
+			ErrGroup: cfg.ErrGroup,
+		}),
+		// TODO: Write cache with result
 	}
 
 	modelerCfg := &modeler.Config{
@@ -154,12 +160,5 @@ func (ts tsTarget) modelPackage(pkg *project.Package, cfg *target.BuildConfig) e
 		Package:    pkg,
 		Remodelers: remodelers,
 	}
-	if err := modeler.Model(modelerCfg); err != nil {
-		return err
-	}
-
-	// TODO: Finish
-	fmt.Println(pkg.Ir.String()) // TODO: REMOVE
-
-	return nil
+	return modeler.Model(modelerCfg)
 }
