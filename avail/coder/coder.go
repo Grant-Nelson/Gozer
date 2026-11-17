@@ -23,7 +23,7 @@ func New(filename, indentSymbol string) *Coder {
 		buf:          &strings.Builder{},
 		filename:     filename,
 		line:         1,
-		column:       0,
+		column:       1,
 		curIndent:    ``,
 		indentSymbol: indentSymbol,
 		indentCache:  ``,
@@ -34,7 +34,7 @@ func (c *Coder) Filename() string { return c.filename }
 func (c *Coder) Line() int        { return c.line }
 func (c *Coder) Column() int      { return c.column }
 func (c *Coder) String() string   { return c.buf.String() }
-func (c *Coder) Len() int         { return c.buf.Len() }
+func (c *Coder) Offset() int      { return c.buf.Len() }
 
 func (c *Coder) Indent() {
 	if size := len(c.curIndent); size < len(c.indentCache) {
@@ -45,35 +45,33 @@ func (c *Coder) Indent() {
 	}
 }
 
-func (c *Coder) Dedent() bool {
+func (c *Coder) Dedent() {
 	if size := len(c.curIndent); size > 0 {
 		c.curIndent = c.indentCache[:size-len(c.indentSymbol)]
-		return true
 	}
-	return false
 }
 
 func (c *Coder) writeString(s string) {
 	if _, err := c.buf.WriteString(s); err != nil {
 		panic(faults.New(`unexpected error from the coder buffer`, err).
-			With(`file`, c.filename).
-			With(`line`, c.line).
-			With(`column`, c.column).
-			With(`offset`, c.buf.Len()))
+			With(`file`, c.Filename()).
+			With(`line`, c.Line()).
+			With(`column`, c.Column()).
+			With(`offset`, c.Offset()))
 	}
 }
 
 func (c *Coder) writeText(s string) {
 	for ln := range strings.Lines(s) {
-		if c.column <= 0 {
+		if c.column <= 1 {
 			c.writeString(c.curIndent)
-			c.column = len(c.curIndent)
+			c.column = len(c.curIndent) + 1
 		}
 		c.writeString(ln)
 		c.column += len(ln)
 		if strings.HasSuffix(ln, "\n") {
 			c.line++
-			c.column = 0
+			c.column = 1
 		}
 	}
 }
