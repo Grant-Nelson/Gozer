@@ -1,4 +1,4 @@
-package targets
+package typescript
 
 import (
 	"fmt"
@@ -12,19 +12,24 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/modeler"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
 	"github.com/Grant-Nelson/Gozer/compiler/project"
+	"github.com/Grant-Nelson/Gozer/targets/target"
 )
 
-type typeScriptTarget struct{}
+type tsTarget struct{}
 
-func (ts typeScriptTarget) Language() string { return `typescript` }
+func Target() target.Target {
+	return tsTarget{}
+}
 
-func (ts typeScriptTarget) Aliases() []string { return []string{`typescript`, `ts`} }
+func (ts tsTarget) Language() string { return `typescript` }
 
-func (ts typeScriptTarget) Env() []string {
+func (ts tsTarget) Aliases() []string { return []string{`typescript`, `ts`} }
+
+func (ts tsTarget) Env() []string {
 	return append(os.Environ(), `GOOS=js`, `GOARCH=ecmascript`)
 }
 
-func (ts typeScriptTarget) List(cfg *ListConfig) (*project.Project, error) {
+func (ts tsTarget) List(cfg *target.ListConfig) (*project.Project, error) {
 	defer cfg.Logger.LogGroup("Listing %s", ts.Language())()
 	loaderCfg := &loader.Config{
 		Logger:          cfg.Logger,
@@ -43,7 +48,7 @@ func (ts typeScriptTarget) List(cfg *ListConfig) (*project.Project, error) {
 	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
+func (ts tsTarget) Build(cfg *target.BuildConfig) error {
 	defer cfg.Logger.LogGroup("Building %s", ts.Language())()
 
 	// Load project into AST form and type check.
@@ -63,7 +68,7 @@ func (ts typeScriptTarget) Build(cfg *BuildConfig) error {
 	return cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
+func (ts tsTarget) load(cfg *target.BuildConfig) (*project.Project, error) {
 	defer cfg.Logger.LogGroup("Loading %s", ts.Language())()
 
 	mods := mods.Group{
@@ -109,7 +114,7 @@ func (ts typeScriptTarget) load(cfg *BuildConfig) (*project.Project, error) {
 	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts typeScriptTarget) model(proj *project.Project, cfg *BuildConfig) error {
+func (ts tsTarget) model(proj *project.Project, cfg *target.BuildConfig) error {
 	defer cfg.Logger.LogGroup("Modelling %s", ts.Language())()
 	if cfg.Parallel {
 		return ts.asyncModelPackages(proj, cfg)
@@ -117,7 +122,7 @@ func (ts typeScriptTarget) model(proj *project.Project, cfg *BuildConfig) error 
 	return ts.syncModelPackages(proj, cfg)
 }
 
-func (ts typeScriptTarget) asyncModelPackages(proj *project.Project, cfg *BuildConfig) error {
+func (ts tsTarget) asyncModelPackages(proj *project.Project, cfg *target.BuildConfig) error {
 	// TODO: Use work group to run several of these in parallel.
 	for pkg := range proj.UnfinishedPackages() {
 		if err := ts.modelPackage(pkg, cfg); err != nil {
@@ -127,7 +132,7 @@ func (ts typeScriptTarget) asyncModelPackages(proj *project.Project, cfg *BuildC
 	return nil
 }
 
-func (ts typeScriptTarget) syncModelPackages(proj *project.Project, cfg *BuildConfig) error {
+func (ts tsTarget) syncModelPackages(proj *project.Project, cfg *target.BuildConfig) error {
 	for pkg := range proj.UnfinishedPackages() {
 		if err := ts.modelPackage(pkg, cfg); err != nil {
 			return err
@@ -136,7 +141,7 @@ func (ts typeScriptTarget) syncModelPackages(proj *project.Project, cfg *BuildCo
 	return nil
 }
 
-func (ts typeScriptTarget) modelPackage(pkg *project.Package, cfg *BuildConfig) error {
+func (ts tsTarget) modelPackage(pkg *project.Package, cfg *target.BuildConfig) error {
 	remodelers := remodel.Group{
 		//trimmer.New(&trimmer.Config{
 		//	ErrGroup: cfg.ErrGroup,

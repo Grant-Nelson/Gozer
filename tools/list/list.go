@@ -18,6 +18,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/compiler/project"
 	"github.com/Grant-Nelson/Gozer/targets"
+	"github.com/Grant-Nelson/Gozer/targets/target"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -44,7 +45,7 @@ func DefaultConfig() *Config {
 }
 
 func List(cfg *Config) {
-	listCfg := &targets.ListConfig{
+	listCfg := &target.ListConfig{
 		Lang:     cfg.Lang,
 		Patterns: cfg.Patterns,
 		Tests:    cfg.Tests,

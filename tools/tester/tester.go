@@ -7,6 +7,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/targets"
+	"github.com/Grant-Nelson/Gozer/targets/target"
 )
 
 type Config struct {
@@ -33,7 +34,7 @@ func Test(cfg *Config) bool {
 	// TODO: Add optional build flags to config
 	// TODO: Add optional parallel flags to config
 
-	buildCfg := &targets.BuildConfig{
+	buildCfg := &target.BuildConfig{
 		Lang:     cfg.Lang,
 		Patterns: cfg.Patterns,
 		Logger:   logger.New(cfg.Verbose, nil),
