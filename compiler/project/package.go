@@ -14,7 +14,6 @@ import (
 
 // Package describes a single package in a project.
 type Package struct {
-
 	// State indicates the status of the package during a build.
 	State buildState.BuildState
 
@@ -73,30 +72,58 @@ func cleanFile(f *ast.File) {
 
 // PkgPath is the package path as used by the go/types package.
 func (p *Package) PkgPath() string {
+	if p.Ir != nil {
+		return p.Ir.Path
+	}
 	return p.Ast.PkgPath
 }
 
-func (p *Package) IsTest() bool {
-	return len(p.Ast.ForTest) > 0
+// PkgName is the short name of the package.
+// The package name is not guaranteed to be unique per program.
+func (p *Package) PkgName() string {
+	if p.Ir != nil {
+		return p.Ir.Name
+	}
+	return p.Ast.Name
 }
 
+// IsTest reports if this package is being built as part of a test.
+// This uses the AST so will always return false if the AST is nil.
+func (p *Package) IsTest() bool {
+	// TODO: Need to figure out a better way to do this so that `_test` files
+	// are only included when the current package is the package being tested.
+	return p.Ast != nil && len(p.Ast.ForTest) > 0
+}
+
+// IsXTest reports if this package is a package specifically for testing a package,
+// e.g., if `X` is the package, any file in the same path labelled `X_test`
+// will comprise a package used for testing `X`.
 func (p *Package) IsXTest() bool {
-	return strings.HasSuffix(p.Ast.Name, `_test`)
+	return strings.HasSuffix(p.PkgName(), `_test`)
+}
+
+func (p *Package) FileSet() *token.FileSet {
+	if p.Ir != nil {
+		return p.Ir.FileSet
+	}
+	return p.Ast.Fset
 }
 
 // Position converts a [Pos] location indicator into a Position value
 // containing the file name, line number, column, and byte offset in file
 // for the source file that the code labelled with the [Pos] came from.
 func (p *Package) Position(pos token.Pos) token.Position {
-	return p.Ast.Fset.Position(pos)
+	return p.FileSet().Position(pos)
 }
 
-// CollectErrors checks the types for any errors and
+// CollectErrors checks the types for any errors in the AST package and
 // adds all of them to the given error group.
 func (p *Package) CollectErrors(errGroup *faults.ErrGroup) {
-	errs := make([]error, len(p.Ast.Errors))
-	for i, err := range p.Ast.Errors {
-		errs[i] = err
+	if p.Ast != nil {
+		errs := make([]error, len(p.Ast.Errors))
+		for i, err := range p.Ast.Errors {
+			errs[i] = err
+		}
+		errGroup.Add(errs...)
 	}
-	errGroup.Add(errs...)
 }

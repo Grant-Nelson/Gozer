@@ -9,32 +9,38 @@ import (
 )
 
 type Coder struct {
-	buf          *strings.Builder
-	filename     string
-	line         int
-	column       int
-	curIndent    string
-	indentSymbol string
-	indentCache  string
+	buf           *strings.Builder
+	filepath      string
+	line          int
+	column        int
+	curIndent     string
+	indentSymbol  string
+	indentCache   string
+	commentSymbol string
 }
 
-func New(filename, indentSymbol string) *Coder {
+func New(filepath, indentSymbol, commentSymbol string) *Coder {
 	return &Coder{
-		buf:          &strings.Builder{},
-		filename:     filename,
-		line:         1,
-		column:       1,
-		curIndent:    ``,
-		indentSymbol: indentSymbol,
-		indentCache:  ``,
+		buf:           &strings.Builder{},
+		filepath:      filepath,
+		line:          1,
+		column:        1,
+		curIndent:     ``,
+		indentSymbol:  indentSymbol,
+		indentCache:   ``,
+		commentSymbol: commentSymbol,
 	}
 }
 
-func (c *Coder) Filename() string { return c.filename }
+func (c *Coder) FilePath() string { return c.filepath }
 func (c *Coder) Line() int        { return c.line }
 func (c *Coder) Column() int      { return c.column }
 func (c *Coder) String() string   { return c.buf.String() }
 func (c *Coder) Offset() int      { return c.buf.Len() }
+
+// StartOfLine indicates if the last character that was written was a newline.
+// This also returns true when nothing has been written.
+func (c *Coder) StartOfLine() bool { return c.column <= 1 }
 
 func (c *Coder) Indent() {
 	if size := len(c.curIndent); size < len(c.indentCache) {
@@ -54,7 +60,7 @@ func (c *Coder) Dedent() {
 func (c *Coder) writeString(s string) {
 	if _, err := c.buf.WriteString(s); err != nil {
 		panic(faults.New(`unexpected error from the coder buffer`, err).
-			With(`file`, c.Filename()).
+			With(`filepath`, c.FilePath()).
 			With(`line`, c.Line()).
 			With(`column`, c.Column()).
 			With(`offset`, c.Offset()))
@@ -63,7 +69,7 @@ func (c *Coder) writeString(s string) {
 
 func (c *Coder) writeText(s string) {
 	for ln := range strings.Lines(s) {
-		if c.column <= 1 {
+		if c.StartOfLine() {
 			c.writeString(c.curIndent)
 			c.column = len(c.curIndent) + 1
 		}
@@ -76,18 +82,24 @@ func (c *Coder) writeText(s string) {
 	}
 }
 
-// Write formats using the default formats for its operands and writes to the buffer.
+// Write writes using the default formats for its operands and writes to the buffer.
 // Spaces are added between operands when neither is a string.
 func (c *Coder) Write(a ...any) { c.writeText(fmt.Sprint(a...)) }
 
-// Printf formats according to a format specifier and writes to the buffer.
-func (c *Coder) WriteF(format string, a ...any) { c.writeText(fmt.Sprintf(format, a...)) }
+// WriteF writes according to a format specifier and writes to the buffer.
+func (c *Coder) WriteF(format string, args ...any) { c.writeText(fmt.Sprintf(format, args...)) }
 
-// WriteLn formats using the default formats for its operands and writes to the buffer.
+// WriteLn writes using the default formats for its operands and writes to the buffer.
 // Spaces are always added between operands and a newline is appended.
-func (c *Coder) WriteLn(a ...any) { c.writeText(fmt.Sprintln(a...)) }
+func (c *Coder) WriteLn(args ...any) { c.writeText(fmt.Sprintln(args...)) }
+
+// WriteComment works like WriteLn except it will insert the comment prefix
+// at the start of each new line after the indent.
+func (c *Coder) WriteComment(a ...any) {
+	c.writeText(strings.ReplaceAll(fmt.Sprintln(a...), "\n", "\n"+c.commentSymbol))
+}
 
 // Save writes the buffer out to the filename that was given.
 func (c *Coder) Save() error {
-	return os.WriteFile(c.filename, []byte(c.String()), 0o0644)
+	return os.WriteFile(c.FilePath(), []byte(c.String()), 0o0644)
 }
