@@ -58,6 +58,9 @@ func (c *Coder) Dedent() {
 }
 
 func (c *Coder) writeString(s string) {
+	if len(s) <= 0 {
+		return
+	}
 	if _, err := c.buf.WriteString(s); err != nil {
 		panic(faults.New(`unexpected error from the coder buffer`, err).
 			With(`filepath`, c.FilePath()).
@@ -67,10 +70,11 @@ func (c *Coder) writeString(s string) {
 	}
 }
 
-func (c *Coder) writeText(s string) {
+func (c *Coder) writeText(prefix, s string) {
 	for ln := range strings.Lines(s) {
 		if c.StartOfLine() {
 			c.writeString(c.curIndent)
+			c.writeString(prefix)
 			c.column = len(c.curIndent) + 1
 		}
 		c.writeString(ln)
@@ -84,22 +88,18 @@ func (c *Coder) writeText(s string) {
 
 // Write writes using the default formats for its operands and writes to the buffer.
 // Spaces are added between operands when neither is a string.
-func (c *Coder) Write(a ...any) { c.writeText(fmt.Sprint(a...)) }
+func (c *Coder) Write(a ...any) { c.writeText(``, fmt.Sprint(a...)) }
 
 // WriteF writes according to a format specifier and writes to the buffer.
-func (c *Coder) WriteF(format string, args ...any) { c.writeText(fmt.Sprintf(format, args...)) }
+func (c *Coder) WriteF(format string, args ...any) { c.writeText(``, fmt.Sprintf(format, args...)) }
 
 // WriteLn writes using the default formats for its operands and writes to the buffer.
 // Spaces are always added between operands and a newline is appended.
-func (c *Coder) WriteLn(args ...any) { c.writeText(fmt.Sprintln(args...)) }
+func (c *Coder) WriteLn(args ...any) { c.writeText(``, fmt.Sprintln(args...)) }
 
 // WriteComment works like WriteLn except it will insert the comment prefix
 // at the start of each new line after the indent.
-func (c *Coder) WriteComment(a ...any) {
-	c.writeText(strings.ReplaceAll(fmt.Sprintln(a...), "\n", "\n"+c.commentSymbol))
-}
+func (c *Coder) WriteComment(a ...any) { c.writeText(c.commentSymbol, fmt.Sprintln(a...)) }
 
 // Save writes the buffer out to the filename that was given.
-func (c *Coder) Save() error {
-	return os.WriteFile(c.FilePath(), []byte(c.String()), 0o0644)
-}
+func (c *Coder) Save() error { return os.WriteFile(c.FilePath(), []byte(c.String()), 0o0644) }

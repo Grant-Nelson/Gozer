@@ -10,29 +10,32 @@ import (
 )
 
 func Test_Coder(t *testing.T) {
-	c := New(`t.go`, "\t")
+	c := New(`t.go`, "\t", `// `)
 	checkLoc(t, c, `t.go:1:1:0`)
+	c.WriteComment(`Entry`, `Point`)
+	checkLoc(t, c, `t.go:2:1:15`)
 	c.Write(`func `, `main`, `() `)
-	checkLoc(t, c, `t.go:1:13:12`)
+	checkLoc(t, c, `t.go:2:13:27`)
 	c.WriteLn(`{`)
-	checkLoc(t, c, `t.go:2:1:14`)
+	checkLoc(t, c, `t.go:3:1:29`)
 	c.Indent()
-	checkLoc(t, c, `t.go:2:1:14`)
+	checkLoc(t, c, `t.go:3:1:29`)
 	c.WriteF("a := %d\n", 42)
-	checkLoc(t, c, `t.go:3:1:23`)
+	checkLoc(t, c, `t.go:4:1:38`)
 	c.WriteLn(`print(`, `a`, `)`)
-	checkLoc(t, c, `t.go:4:1:35`)
+	checkLoc(t, c, `t.go:5:1:50`)
 	c.Dedent()
 	c.Indent()
 	c.Indent()
-	checkLoc(t, c, `t.go:4:1:35`)
+	checkLoc(t, c, `t.go:5:1:50`)
 	c.Dedent()
 	c.Dedent()
-	checkLoc(t, c, `t.go:4:1:35`)
+	checkLoc(t, c, `t.go:5:1:50`)
 	c.WriteLn(`}`)
-	checkLoc(t, c, `t.go:5:1:37`)
+	checkLoc(t, c, `t.go:6:1:52`)
 
 	checkString(t, c,
+		"// Entry Point\n",
 		"func main() {\n",
 		"\ta := 42\n",
 		"\tprint( a )\n",
@@ -40,7 +43,7 @@ func Test_Coder(t *testing.T) {
 }
 
 func checkLoc(t *testing.T, c *Coder, exp string) {
-	got := fmt.Sprintf(`%s:%d:%d:%d`, c.Filename(), c.Line(), c.Column(), c.Offset())
+	got := fmt.Sprintf(`%s:%d:%d:%d`, c.FilePath(), c.Line(), c.Column(), c.Offset())
 	if got != exp {
 		t.Errorf("Unexpected Coder results:\ngot: %q\nexp: %q",
 			got, exp)

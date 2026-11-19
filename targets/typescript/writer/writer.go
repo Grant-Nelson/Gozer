@@ -45,22 +45,24 @@ func (w *writer) getModuleFilePath(pkgPath string) string {
 	return filepath.Join(pkgPath, `temp.ts`)
 }
 
-func (w *writer) Remodel() (bool, error) {
-	// TODO: Add recover
+func (w *writer) Remodel() (con bool, err error) {
+	w.errGroup.Recover(&err)
 
 	modulePath := w.getModuleFilePath(w.pkg.PkgPath())
-	w.c = coder.New(modulePath, `  `, `//`)
+	w.c = coder.New(modulePath, `  `, `// `)
 
 	w.writePackageComment()
 	w.writeImports()
-
-	// TODO: Finish implementing
+	w.writeConsts()
+	w.writeTypeDefs()
+	w.writeVars()
+	w.writeFuncs()
 
 	return true, w.errGroup.FullOrNil()
 }
 
-func (w *writer) PackageDone() (bool, error) {
-	// TODO: Add recover
+func (w *writer) PackageDone() (con bool, err error) {
+	w.errGroup.Recover(&err)
 
 	// TODO: Implement saving module file
 
@@ -75,11 +77,10 @@ func (w *writer) writePackageComment() {
 }
 
 func (w *writer) writeImports() {
-	imports := w.pkg.Ir.Imports
-	for _, imp := range imports {
-		w.writeImport(imp)
-	}
-	if len(imports) > 0 {
+	if imports := w.pkg.Ir.Imports; len(imports) > 0 {
+		for _, imp := range imports {
+			w.writeImport(imp)
+		}
 		w.c.WriteLn()
 	}
 }
@@ -89,4 +90,69 @@ func (w *writer) writeImport(imp *ir.ImportDef) {
 	name := imp.PkgObj.Name()
 	w.c.WriteF(`import { %s } from '%s'`, name, modulePath)
 	w.c.WriteLn()
+}
+
+func (w *writer) writeConsts() {
+	for _, ct := range w.pkg.Ir.Consts {
+		w.writeConst(ct)
+	}
+}
+
+func (w *writer) writeConst(ct *ir.ConstDef) {
+	w.c.WriteComment(ct.Comment)
+	if ct.ConstObj.Exported() {
+		w.c.Write(`export `)
+	}
+	w.c.Write(`const `, ct.ConstObj.Name(), ` = `)
+	w.c.Write(ct.ConstObj.Val().ExactString())
+	w.c.WriteLn(`;`)
+}
+
+func (w *writer) writeTypeDefs() {
+	for _, t := range w.pkg.Ir.Types {
+		w.writeTypeDef(t)
+	}
+}
+
+func (w *writer) writeTypeDef(t *ir.TypeDef) {
+	// TODO: Implement
+}
+
+func (w *writer) writeVars() {
+	for _, vr := range w.pkg.Ir.Vars {
+		w.writeVar(vr)
+	}
+}
+
+func (w *writer) writeVar(vr *ir.VarDef) {
+	w.c.WriteComment(vr.Comment)
+	if vr.VarObj.Exported() {
+		w.c.Write(`export `)
+	}
+	w.c.WriteLn(`var `, vr.VarObj.Name(), ` = `)
+	w.writeExpr(vr.Value)
+	w.c.WriteLn(`;`)
+}
+
+func (w *writer) writeExpr(expr ir.Expr) {
+	switch expr := expr.(type) {
+
+	// TODO: Implement
+
+	default:
+		w.errGroup.Add(faults.New(`Unexpected expression during write`).
+			With(`pos`, w.pkg.Position(expr.Pos())).
+			With(`expr`, expr.String()).
+			WithTypeOf(`type`, expr))
+	}
+}
+
+func (w *writer) writeFuncs() {
+	for _, fn := range w.pkg.Ir.Funcs {
+		w.writeFunc(fn)
+	}
+}
+
+func (w *writer) writeFunc(fn *ir.FuncDef) {
+
 }
