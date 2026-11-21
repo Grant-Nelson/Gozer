@@ -159,11 +159,13 @@ func (w *writer) writeFunc(fn *ir.FuncDef) {
 }
 
 func (w *writer) writeBlocks(blocks []*ir.Block) {
-	for _, block := range blocks {
-		w.writeBlock(block)
+	for _, blk := range blocks {
+		w.writeBlock(blk)
 	}
 }
 
-func (w *writer) writeBlock(block *ir.Block) {
+func (w *writer) writeBlock(blk *ir.Block) {
+	w.c.WriteComment(blk.Hint)
+
 	// TODO: Implement
 }

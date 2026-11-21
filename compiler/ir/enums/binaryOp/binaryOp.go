@@ -15,7 +15,7 @@ const (
 	Divide           = 8  // x  /  y
 	DivideAssign     = 9  // x  /= y, Assign | Divide
 	Modulo           = 10 // x  %  y
-	ModuloAssign     = 11 // x  %= y. Assign | Modulo
+	ModuloAssign     = 11 // x  %= y, Assign | Modulo
 	BitwiseAnd       = 12 // x  &  y
 	BitwiseAndAssign = 13 // x  &= y, Assign | BitwiseAnd
 	BitwiseOr        = 14 // x  |  y
@@ -36,8 +36,8 @@ const (
 	GreaterThan        = 36 // x >  y
 	GreaterThanOrEqual = 37 // x >= y, Equal | GreaterThan
 
-	LogicalAnd = 38
-	LogicalOr  = 39
+	LogicalAnd = 38 // x && y
+	LogicalOr  = 39 // x || y
 )
 
 func (b BinaryOp) Valid() bool {
