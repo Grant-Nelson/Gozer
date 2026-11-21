@@ -8,7 +8,6 @@ import (
 )
 
 type Config struct {
-
 	// KeepAst indicates that the AST on the package should NOT be
 	// set to nil when done converting into the IR.
 	KeepAst bool

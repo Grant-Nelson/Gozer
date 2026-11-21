@@ -35,10 +35,17 @@ func (n *UnaryExpr) Pos() token.Pos   { return n.OpPos }
 func (n *UnaryExpr) Type() types.Type { return n.ResultType }
 
 func (n *UnaryExpr) String() string {
-	if n.Op == unaryOp.PostInc || n.Op == unaryOp.PostDec {
+	switch n.Op {
+	case unaryOp.Paren:
+		if n.X != nil {
+			return `⸨` + toString(n.X) + `⸩`
+		}
+		return `⸨_⸩`
+	case unaryOp.PostInc, unaryOp.PostDec:
 		return paren(n.X) + toString(n.Op)
+	default:
+		return toString(n.Op) + paren(n.X)
 	}
-	return toString(n.Op) + paren(n.X)
 }
 
 func (n *UnaryExpr) ChildCount() int { return 1 }

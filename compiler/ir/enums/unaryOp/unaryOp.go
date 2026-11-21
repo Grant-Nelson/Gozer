@@ -9,6 +9,7 @@ const (
 	Reference     // &x
 	BitwiseInvert // ^x
 	Not           // !x
+	Paren         // (x)
 	PreInc        // ++x
 	PreDec        // --x
 	PostInc       // x++
@@ -42,6 +43,8 @@ func (u UnaryOp) String() string {
 		return `^`
 	case Not:
 		return `!`
+	case Paren:
+		return `()`
 	case PreInc:
 		return `++`
 	case PreDec:
