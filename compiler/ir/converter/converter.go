@@ -22,6 +22,7 @@ func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Pac
 	assert.NotNil(pkg.Fset)
 
 	c := &converter{
+		Pkg:     pkg,
 		FileSet: pkg.Fset,
 		Info:    pkg.TypesInfo,
 		Errors:  errGroup,
@@ -30,6 +31,7 @@ func ConvertPackage(pkg *packages.Package, errGroup *faults.ErrGroup) (p *ir.Pac
 }
 
 type converter struct {
+	Pkg       *packages.Package
 	FileSet   *token.FileSet
 	Info      *types.Info
 	Errors    *faults.ErrGroup

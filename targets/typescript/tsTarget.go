@@ -69,7 +69,8 @@ func (ts tsTarget) Build(cfg *target.BuildConfig) error {
 	return cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts tsTarget) load(cfg *target.BuildConfig) (*project.Project, error) {
+func (ts tsTarget) load(cfg *target.BuildConfig) (proj *project.Project, err error) {
+	defer cfg.ErrGroup.Recover(&err)
 	defer cfg.Logger.LogGroup("Loading %s", ts.Language())()
 
 	mods := mods.Group{
@@ -80,16 +81,19 @@ func (ts tsTarget) load(cfg *target.BuildConfig) (*project.Project, error) {
 				`runtime`,
 			},
 		}),
+
 		//cache.New(&cache.Config{
 		//	Build: config.Build,
 		//	ErrGroup: config.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
+
 		//augmenter.New(&augmenter.Config{
 		//	Build:    config.Build,
 		//	ErrGroup: config.ErrGroup,
 		//	//Converter: , // TODO:
 		//}),
+
 		typeChecker.New(&typeChecker.Config{
 			ErrGroup: cfg.ErrGroup,
 		}),
@@ -108,57 +112,41 @@ func (ts tsTarget) load(cfg *target.BuildConfig) (*project.Project, error) {
 		Parallel:  cfg.Parallel,
 		Env:       ts.Env(),
 	}
-	proj, err := loader.Load(loaderCfg)
+	proj, err = loader.Load(loaderCfg)
 	if err != nil {
 		cfg.ErrGroup.Add(faults.New(`loading failed: %w`, err))
 	}
 	return proj, cfg.ErrGroup.AnyOrNil()
 }
 
-func (ts tsTarget) model(proj *project.Project, cfg *target.BuildConfig) error {
+func (ts tsTarget) model(proj *project.Project, cfg *target.BuildConfig) (err error) {
+	defer cfg.ErrGroup.Recover(&err)
 	defer cfg.Logger.LogGroup("Modelling %s", ts.Language())()
-	if cfg.Parallel {
-		return ts.asyncModelPackages(proj, cfg)
-	}
-	return ts.syncModelPackages(proj, cfg)
-}
 
-func (ts tsTarget) asyncModelPackages(proj *project.Project, cfg *target.BuildConfig) error {
-	// TODO: Use work group to run several of these in parallel.
-	for pkg := range proj.UnfinishedPackages() {
-		if err := ts.modelPackage(pkg, cfg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (ts tsTarget) syncModelPackages(proj *project.Project, cfg *target.BuildConfig) error {
-	for pkg := range proj.UnfinishedPackages() {
-		if err := ts.modelPackage(pkg, cfg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (ts tsTarget) modelPackage(pkg *project.Package, cfg *target.BuildConfig) error {
 	remodelers := remodel.Group{
 		blocker.New(&blocker.Config{
 			ErrGroup: cfg.ErrGroup,
 		}),
+
 		// TODO: Add optimizers
+
 		writer.New(&writer.Config{
 			ErrGroup: cfg.ErrGroup,
 		}),
+
 		// TODO: Write cache with result
 	}
 
 	modelerCfg := &modeler.Config{
 		Logger:     cfg.Logger,
 		ErrGroup:   cfg.ErrGroup,
-		Package:    pkg,
+		Proj:       proj,
 		Remodelers: remodelers,
+		Parallel:   cfg.Parallel,
 	}
-	return modeler.Model(modelerCfg)
+	err = modeler.Model(modelerCfg)
+	if err != nil {
+		cfg.ErrGroup.Add(faults.New(`modelling failed: %w`, err))
+	}
+	return cfg.ErrGroup.AnyOrNil()
 }

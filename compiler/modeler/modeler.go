@@ -8,6 +8,9 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
 )
 
+// TODO: Need to make this able to take one or more packages and then
+//       run them in parallel.
+
 type Config struct {
 	// Logger to log verbose messages with. Has no affect if verbose was false.
 	Logger *logger.Logger
@@ -15,21 +18,53 @@ type Config struct {
 	// ErrGroup is the collector to handle multiple errors.
 	ErrGroup *faults.ErrGroup
 
-	// Package is the package to create a IR for.
-	Package *project.Package
+	// Proj is the project of packages to remodel.
+	Proj *project.Project
 
 	// Remodelers are the tools to apply to the IR to transform from
 	// very similar to AST over to a form needed by the target.
 	Remodelers remodel.Group
+
+	// Parallel indicates that the packages should be
+	// remodelled in parallel.
+	Parallel bool
 }
 
 // Model converts the AST in the packages in the given configs
 // into the IR form and sets that to the package.
-func Model(cfg *Config) (err error) {
-	defer faults.Recover(&err)
-	cfg.Logger.LogGroup(`Remodelling %q`, cfg.Package.PkgPath())
+func Model(cfg *Config) error {
+	if cfg.Parallel {
+		return asyncModelPackages(cfg)
+	}
+	return syncModelPackages(cfg)
+}
 
-	pkg := cfg.Package
+func asyncModelPackages(cfg *Config) (err error) {
+	defer cfg.ErrGroup.Recover(&err)
+
+	// TODO: Use work group to run several of these in parallel.
+
+	for pkg := range cfg.Proj.UnfinishedPackages() {
+		if err := modelPackage(pkg, cfg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func syncModelPackages(cfg *Config) (err error) {
+	defer cfg.ErrGroup.Recover(&err)
+	for pkg := range cfg.Proj.UnfinishedPackages() {
+		if err := modelPackage(pkg, cfg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func modelPackage(pkg *project.Package, cfg *Config) (err error) {
+	defer cfg.ErrGroup.Recover(&err)
+	cfg.Logger.LogGroup(`Remodelling %q`, pkg.PkgPath())
 	pkg.State = buildState.Remodelling
 
 	rm := &modeler{

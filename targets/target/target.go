@@ -75,7 +75,8 @@ type BuildConfig struct {
 	Overlay map[string][]byte
 
 	// Parallel indicates that the packages should be loaded
-	// in parallel when possible based on dependencies.
+	// in parallel when possible based on dependencies and
+	// remodelled in parallel.
 	// Otherwise, the packages are loaded one at a time in the order
 	// that the packages are defined in the project.
 	Parallel bool
