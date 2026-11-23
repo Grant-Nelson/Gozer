@@ -6,8 +6,6 @@ import (
 	"sync"
 
 	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
@@ -64,10 +62,6 @@ type Config struct {
 	// SkipFileParsing indicates that the loader should get the file names,
 	// run the package start and stop modifiers but not modify files.
 	SkipFileParsing bool
-
-	// SkipSsa indicates that the loader should not get the SSA IR.
-	// This will be set to true by default if SkipFileParsing is skipped.
-	SkipSsa bool
 }
 
 // Load reads, parses, modifies, and collects type information for a project
@@ -91,10 +85,8 @@ func Load(cfg *Config) (proj *project.Project, err error) {
 		parser:          p,
 		overlay:         cfg.Overlay,
 		skipFileParsing: cfg.SkipFileParsing,
-		skipSsa:         cfg.SkipSsa || cfg.SkipFileParsing,
 	}
-	var root []*packages.Package
-	if root, err = ld.loadFileNames(cfg); err != nil {
+	if err = ld.loadFileNames(cfg); err != nil {
 		return nil, err
 	}
 
@@ -114,8 +106,6 @@ func Load(cfg *Config) (proj *project.Project, err error) {
 	if err = ld.projectDone(); err != nil {
 		return nil, err
 	}
-
-	ld.prepareSsa(root)
 	return ld.proj, err
 }
 
@@ -128,10 +118,9 @@ type loader struct {
 	parser          parser.Parser
 	overlay         map[string][]byte
 	skipFileParsing bool
-	skipSsa         bool
 }
 
-func (ld *loader) loadFileNames(cfg *Config) ([]*packages.Package, error) {
+func (ld *loader) loadFileNames(cfg *Config) error {
 	const allNeeds = packages.NeedName |
 		packages.NeedFiles |
 		packages.NeedImports |
@@ -153,12 +142,12 @@ func (ld *loader) loadFileNames(cfg *Config) ([]*packages.Package, error) {
 	if err != nil {
 		ld.errGroup.Add(err)
 		// Always return the errGroup to stop building.
-		return nil, ld.errGroup
+		return ld.errGroup
 	}
 
 	ld.proj = project.New(ld.fSet, roots)
 	ld.proj.CollectErrors(ld.errGroup)
-	return roots, ld.errGroup.AnyOrNil()
+	return ld.errGroup.AnyOrNil()
 }
 
 func (ld *loader) startProject() error {
@@ -315,19 +304,4 @@ func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error
 		}
 	}
 	return f, ld.errGroup.FullOrNil()
-}
-
-func (ld *loader) prepareSsa(root []*packages.Package) {
-	if ld.skipSsa {
-		return
-	}
-
-	ld.logger.Print(`Creating SSA`)
-	defer ld.logger.Indent()()
-
-	prog, _ := ssautil.AllPackages(root, ssa.SanityCheckFunctions)
-	for _, pkg := range ld.proj.AllPackages {
-		pkg.Ssa = prog.Package(pkg.Ast.Types)
-	}
-	ld.proj.Ssa = prog
 }

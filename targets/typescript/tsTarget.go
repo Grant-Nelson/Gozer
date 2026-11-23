@@ -7,6 +7,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/loader"
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods"
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/pkgDropper"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/ssaBuilder"
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/typeChecker"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
@@ -95,6 +96,10 @@ func (ts tsTarget) load(cfg *target.BuildConfig) (proj *project.Project, err err
 		//}),
 
 		typeChecker.New(&typeChecker.Config{
+			ErrGroup: cfg.ErrGroup,
+		}),
+
+		ssaBuilder.New(&ssaBuilder.Config{
 			ErrGroup: cfg.ErrGroup,
 		}),
 	}
