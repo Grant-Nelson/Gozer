@@ -6,6 +6,8 @@ import (
 	"sync"
 
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
@@ -86,7 +88,8 @@ func Load(cfg *Config) (proj *project.Project, err error) {
 		overlay:         cfg.Overlay,
 		skipFileParsing: cfg.SkipFileParsing,
 	}
-	if err = ld.loadFileNames(cfg); err != nil {
+	var root []*packages.Package
+	if root, err = ld.loadFileNames(cfg); err != nil {
 		return nil, err
 	}
 
@@ -107,6 +110,7 @@ func Load(cfg *Config) (proj *project.Project, err error) {
 		return nil, err
 	}
 
+	ld.prepareSsa(root)
 	return ld.proj, err
 }
 
@@ -121,7 +125,7 @@ type loader struct {
 	skipFileParsing bool
 }
 
-func (ld *loader) loadFileNames(cfg *Config) error {
+func (ld *loader) loadFileNames(cfg *Config) ([]*packages.Package, error) {
 	const allNeeds = packages.NeedName |
 		packages.NeedFiles |
 		packages.NeedImports |
@@ -143,12 +147,12 @@ func (ld *loader) loadFileNames(cfg *Config) error {
 	if err != nil {
 		ld.errGroup.Add(err)
 		// Always return the errGroup to stop building.
-		return ld.errGroup
+		return nil, ld.errGroup
 	}
 
 	ld.proj = project.New(ld.fSet, roots)
 	ld.proj.CollectErrors(ld.errGroup)
-	return ld.errGroup.AnyOrNil()
+	return roots, ld.errGroup.AnyOrNil()
 }
 
 func (ld *loader) startProject() error {
@@ -305,4 +309,12 @@ func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error
 		}
 	}
 	return f, ld.errGroup.FullOrNil()
+}
+
+func (ld *loader) prepareSsa(root []*packages.Package) {
+	prog, _ := ssautil.AllPackages(root, ssa.SanityCheckFunctions)
+	for _, pkg := range ld.proj.AllPackages {
+		pkg.Ssa = prog.Package(pkg.Ast.Types)
+	}
+	ld.proj.Ssa = prog
 }

@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
@@ -31,6 +32,9 @@ type Project struct {
 
 	// PackageMap is the set of all packages keyed by the package's import path.
 	PackageMap map[string]*Package
+
+	// Ssa is the project in the SSA IR program form.
+	Ssa *ssa.Program
 }
 
 // New constructs a new project and initializes that project
@@ -69,7 +73,7 @@ func (proj *Project) insertPackage(basePkg *packages.Package) {
 	pkg.Depth = depth
 }
 
-// assignRootPackage set an existing package as a root package.
+// assignRootPackage sets an existing package as a root package.
 // This assumes that the package has already been added.
 func (proj *Project) assignRootPackage(root *packages.Package) {
 	rootPkg := proj.PackageMap[root.PkgPath]

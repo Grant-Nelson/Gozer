@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
@@ -27,6 +28,9 @@ type Package struct {
 	// This package is for the project's build, go version,
 	// and augmented for the target languages.
 	Ast *packages.Package
+
+	// Saa is the package in the Go SSA IR form.
+	Ssa *ssa.Package
 
 	// Ir is the package's intermediate representation (IR) form.
 	//
