@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"go/token"
 	"iter"
+	"maps"
 	"slices"
 
 	"golang.org/x/tools/go/packages"
@@ -67,10 +68,15 @@ func (proj *Project) insertPackage(basePkg *packages.Package) {
 	proj.PackageMap[basePkg.PkgPath] = pkg
 
 	depth := 0
-	for pkgPath := range basePkg.Imports {
-		depth = max(depth, proj.PackageMap[pkgPath].Depth+1)
+	impPaths := slices.Sorted(maps.Keys(basePkg.Imports))
+	imports := make([]*Package, len(impPaths))
+	for i, pkgPath := range impPaths {
+		imp := proj.PackageMap[pkgPath]
+		depth = max(depth, imp.Depth+1)
+		imports[i] = imp
 	}
 	pkg.Depth = depth
+	pkg.Imports = imports
 }
 
 // assignRootPackage sets an existing package as a root package.
@@ -101,10 +107,24 @@ func (proj *Project) UnfinishedPackages() iter.Seq[*Package] {
 	}
 }
 
-// CollectErrors checks the types for any errors and
-// adds all of them to the given error group.
+// CollectErrors checks the types for any errors
+// and adds all of them to the given error group.
 func (proj *Project) CollectErrors(errGroup *faults.ErrGroup) {
 	for _, pkg := range proj.AllPackages {
-		pkg.CollectErrors(errGroup)
+		collectErrors(pkg, errGroup)
+	}
+}
+
+// collectErrors checks the types for any errors in the AST package
+// and adds all of them to the given error group.
+func collectErrors(pkg *Package, errGroup *faults.ErrGroup) {
+	if p := pkg.Ast; p != nil {
+		if count := len(p.Errors); count > 0 {
+			errs := make([]error, count)
+			for i, err := range p.Errors {
+				errs[i] = err
+			}
+			errGroup.Add(errs...)
+		}
 	}
 }

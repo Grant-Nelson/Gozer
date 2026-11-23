@@ -8,7 +8,6 @@ import (
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
 
-	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 	"github.com/Grant-Nelson/Gozer/compiler/project/enums/buildState"
 )
@@ -20,6 +19,9 @@ type Package struct {
 
 	// Root indicates this package is a root package.
 	Root bool
+
+	// Imports is the packages that this package imports.
+	Imports []*Package
 
 	// Ast is the package in the Go abstract syntax tree (AST) form.
 	//
@@ -63,40 +65,35 @@ func newPackage(basePkg *packages.Package) *Package {
 	return pkg
 }
 
+// cleanFile removes all the deprecated Object/Scope values
+// to ensure that those values are never used.
 func cleanFile(f *ast.File) {
-	// Remove all the deprecated Object/Scope values.
-	ast.Inspect(f, func(n ast.Node) bool {
-		if id, ok := n.(*ast.Ident); ok {
-			id.Obj = nil
-		}
-		return true
-	})
-	f.Scope = nil
+	if f != nil {
+		ast.Inspect(f, func(n ast.Node) bool {
+			if id, ok := n.(*ast.Ident); ok {
+				id.Obj = nil
+			}
+			return true
+		})
+		f.Scope = nil
+		f.Unresolved = nil
+	}
 }
 
 // PkgPath is the package path as used by the go/types package.
-func (p *Package) PkgPath() string {
-	if p.Ir != nil {
-		return p.Ir.Path
-	}
-	return p.Ast.PkgPath
-}
+func (p *Package) PkgPath() string { return p.Ast.PkgPath }
 
 // PkgName is the short name of the package.
 // The package name is not guaranteed to be unique per program.
-func (p *Package) PkgName() string {
-	if p.Ir != nil {
-		return p.Ir.Name
-	}
-	return p.Ast.Name
-}
+func (p *Package) PkgName() string { return p.Ast.Name }
 
-// IsTest reports if this package is being built as part of a test.
-// This uses the AST so will always return false if the AST is nil.
+// ForTest reports if this package is being built as part of a test.
+func (p *Package) ForTest() bool { return len(p.Ast.ForTest) > 0 }
+
+// IsTest reports if this package is being tested.
+// This will be true for a X_test packages too.
 func (p *Package) IsTest() bool {
-	// TODO: Need to figure out a better way to do this so that `_test` files
-	// are only included when the current package is the package being tested.
-	return p.Ast != nil && len(p.Ast.ForTest) > 0
+	return p.IsXTest() || p.Ast.ForTest == p.PkgName()
 }
 
 // IsXTest reports if this package is a package specifically for testing a package,
@@ -106,12 +103,8 @@ func (p *Package) IsXTest() bool {
 	return strings.HasSuffix(p.PkgName(), `_test`)
 }
 
-func (p *Package) FileSet() *token.FileSet {
-	if p.Ir != nil {
-		return p.Ir.FileSet
-	}
-	return p.Ast.Fset
-}
+// FileSet is the set of files for positional information.
+func (p *Package) FileSet() *token.FileSet { return p.Ast.Fset }
 
 // Position converts a [Pos] location indicator into a Position value
 // containing the file name, line number, column, and byte offset in file
@@ -120,14 +113,5 @@ func (p *Package) Position(pos token.Pos) token.Position {
 	return p.FileSet().Position(pos)
 }
 
-// CollectErrors checks the types for any errors in the AST package and
-// adds all of them to the given error group.
-func (p *Package) CollectErrors(errGroup *faults.ErrGroup) {
-	if p.Ast != nil {
-		errs := make([]error, len(p.Ast.Errors))
-		for i, err := range p.Ast.Errors {
-			errs[i] = err
-		}
-		errGroup.Add(errs...)
-	}
-}
+// TODO: Need to be able to return composure and other
+// information to help with optimization and blocking.
