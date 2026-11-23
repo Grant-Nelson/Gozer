@@ -64,6 +64,10 @@ type Config struct {
 	// SkipFileParsing indicates that the loader should get the file names,
 	// run the package start and stop modifiers but not modify files.
 	SkipFileParsing bool
+
+	// SkipSsa indicates that the loader should not get the SSA IR.
+	// This will be set to true by default if SkipFileParsing is skipped.
+	SkipSsa bool
 }
 
 // Load reads, parses, modifies, and collects type information for a project
@@ -87,6 +91,7 @@ func Load(cfg *Config) (proj *project.Project, err error) {
 		parser:          p,
 		overlay:         cfg.Overlay,
 		skipFileParsing: cfg.SkipFileParsing,
+		skipSsa:         cfg.SkipSsa || cfg.SkipFileParsing,
 	}
 	var root []*packages.Package
 	if root, err = ld.loadFileNames(cfg); err != nil {
@@ -123,6 +128,7 @@ type loader struct {
 	parser          parser.Parser
 	overlay         map[string][]byte
 	skipFileParsing bool
+	skipSsa         bool
 }
 
 func (ld *loader) loadFileNames(cfg *Config) ([]*packages.Package, error) {
@@ -312,6 +318,13 @@ func (ld *loader) parseFile(mg mods.Modifier, filename string) (*ast.File, error
 }
 
 func (ld *loader) prepareSsa(root []*packages.Package) {
+	if ld.skipSsa {
+		return
+	}
+
+	ld.logger.Print(`Creating SSA`)
+	defer ld.logger.Indent()()
+
 	prog, _ := ssautil.AllPackages(root, ssa.SanityCheckFunctions)
 	for _, pkg := range ld.proj.AllPackages {
 		pkg.Ssa = prog.Package(pkg.Ast.Types)
