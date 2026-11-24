@@ -1,6 +1,8 @@
 package modeler
 
 import (
+	"slices"
+
 	"github.com/Grant-Nelson/Gozer/avail/faults"
 	"github.com/Grant-Nelson/Gozer/avail/logger"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
@@ -25,44 +27,26 @@ type Config struct {
 	// very similar to AST over to a form needed by the target.
 	Remodelers remodel.Group
 
-	// Parallel indicates that the packages should be
-	// remodelled in parallel.
+	// Parallel indicates that the packages should be modelled
+	// in parallel when possible based on dependencies.
+	// Otherwise, the packages are modelled one at a time in the order
+	// that the packages are defined in the project.
 	Parallel bool
 }
 
 // Model converts the AST in the packages in the given configs
 // into the IR form and sets that to the package.
 func Model(cfg *Config) error {
-	if cfg.Parallel {
-		return asyncModelPackages(cfg)
+	pr := &project.Processor{
+		Parallel: cfg.Parallel,
+		Packages: slices.Collect(cfg.Proj.UnfinishedPackages()),
+		ErrGroup: cfg.ErrGroup,
+		Handle:   cfg.modelPackage,
 	}
-	return syncModelPackages(cfg)
+	return pr.Process()
 }
 
-func asyncModelPackages(cfg *Config) (err error) {
-	defer cfg.ErrGroup.Recover(&err)
-
-	// TODO: Use work group to run several of these in parallel.
-
-	for pkg := range cfg.Proj.UnfinishedPackages() {
-		if err := modelPackage(pkg, cfg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func syncModelPackages(cfg *Config) (err error) {
-	defer cfg.ErrGroup.Recover(&err)
-	for pkg := range cfg.Proj.UnfinishedPackages() {
-		if err := modelPackage(pkg, cfg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func modelPackage(pkg *project.Package, cfg *Config) (err error) {
+func (cfg *Config) modelPackage(pkg *project.Package) (err error) {
 	defer cfg.ErrGroup.Recover(&err)
 	cfg.Logger.LogGroup(`Remodelling %q`, pkg.PkgPath())
 	pkg.State = buildState.Remodelling

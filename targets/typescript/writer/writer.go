@@ -46,7 +46,7 @@ func (w *writer) getModuleFilePath(pkgPath string) string {
 }
 
 func (w *writer) Remodel() (con bool, err error) {
-	w.errGroup.Recover(&err)
+	defer w.errGroup.Recover(&err)
 
 	modulePath := w.getModuleFilePath(w.pkg.PkgPath())
 	w.c = coder.New(modulePath, `  `, `// `)
@@ -62,7 +62,7 @@ func (w *writer) Remodel() (con bool, err error) {
 }
 
 func (w *writer) PackageDone() (con bool, err error) {
-	w.errGroup.Recover(&err)
+	defer w.errGroup.Recover(&err)
 
 	// TODO: Implement saving module file
 

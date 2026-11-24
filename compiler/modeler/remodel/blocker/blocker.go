@@ -72,7 +72,7 @@ func (bb *blockBuilder) Remodel() (bool, error) {
 }
 
 func (bb *blockBuilder) remodelFunc(fn *ir.FuncDef) (con bool, err error) {
-	bb.errGroup.Recover(&err)
+	defer bb.errGroup.Recover(&err)
 	if fn.Atomic {
 		return true, nil
 	}

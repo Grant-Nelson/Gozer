@@ -7,7 +7,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/loader"
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods"
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/pkgDropper"
-	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/ssaBuilder"
+	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/ssaSetup"
 	"github.com/Grant-Nelson/Gozer/compiler/loader/mods/typeChecker"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
@@ -64,9 +64,6 @@ func (ts tsTarget) Build(cfg *target.BuildConfig) error {
 		return err
 	}
 
-	// Compile the packages that need to be compiled.
-	// TODO: Finish
-
 	return cfg.ErrGroup.AnyOrNil()
 }
 
@@ -99,7 +96,7 @@ func (ts tsTarget) load(cfg *target.BuildConfig) (proj *project.Project, err err
 			ErrGroup: cfg.ErrGroup,
 		}),
 
-		ssaBuilder.New(&ssaBuilder.Config{
+		ssaSetup.New(&ssaSetup.Config{
 			ErrGroup: cfg.ErrGroup,
 		}),
 	}

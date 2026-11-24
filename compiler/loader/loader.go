@@ -3,7 +3,6 @@ package loader
 import (
 	"go/ast"
 	"go/token"
-	"sync"
 
 	"golang.org/x/tools/go/packages"
 
@@ -94,12 +93,13 @@ func Load(cfg *Config) (proj *project.Project, err error) {
 		return nil, err
 	}
 
-	if cfg.Parallel {
-		err = ld.parallelParseProject()
-	} else {
-		err = ld.parseProject()
+	pr := &project.Processor{
+		Parallel: cfg.Parallel,
+		Packages: proj.AllPackages,
+		ErrGroup: cfg.ErrGroup,
+		Handle:   ld.parsePackage,
 	}
-	if err != nil {
+	if err = pr.Process(); err != nil {
 		return nil, err
 	}
 
@@ -166,53 +166,8 @@ func (ld *loader) projectDone() error {
 	return ld.errGroup.AnyOrNil()
 }
 
-// parallelParseProject loads all the packages as parallel as possible.
-// If there are any errors between groups of parallel packages, then
-// the errors will be returned since after that group is a group that
-// depends on the group with errors.
-func (ld *loader) parallelParseProject() error {
-	defer ld.logger.LogGroup(`Parsing Project (Parallel)`)()
-	prev, depth := 0, 0
-	for i, pkg := range ld.proj.AllPackages {
-		if pkg.Depth != depth {
-			err := ld.parallelParseGroup(depth, ld.proj.AllPackages[prev:i])
-			if err != nil {
-				return ld.errGroup.Add(err)
-			}
-			prev, depth = i, pkg.Depth
-		}
-	}
-	return ld.parallelParseGroup(depth, ld.proj.AllPackages[prev:])
-}
-
-// parallelParseGroup is a group of packages that all have their imports already
-// loaded and do not depend on each other, so they can be loaded in parallel.
-func (ld *loader) parallelParseGroup(depth int, packages []*project.Package) error {
-	defer ld.logger.LogGroup(`Parsing Project (Parallel) Depth %d`, depth)()
-	wg := &sync.WaitGroup{}
-	wg.Add(len(packages))
-	for _, pkg := range packages {
-		go func(pkg *project.Package) {
-			defer wg.Done()
-			ld.errGroup.Add(ld.parsePackage(pkg))
-		}(pkg)
-	}
-	wg.Wait()
-	return ld.errGroup.AnyOrNil()
-}
-
-func (ld *loader) parseProject() error {
-	defer ld.logger.LogGroup(`Parsing Project`)()
-	for _, pkg := range ld.proj.AllPackages {
-		if err := ld.parsePackage(pkg); err != nil {
-			return ld.errGroup.Add(err)
-		}
-	}
-	return ld.errGroup.AnyOrNil()
-}
-
 func (ld *loader) parsePackage(pkg *project.Package) (err error) {
-	ld.errGroup.Recover(&err)
+	defer ld.errGroup.Recover(&err)
 	defer ld.logger.LogGroup(`Parsing Package %q`, pkg.PkgPath())()
 	pkg.State = buildState.Loading
 
