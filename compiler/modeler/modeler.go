@@ -37,27 +37,38 @@ type Config struct {
 // Model converts the AST in the packages in the given configs
 // into the IR form and sets that to the package.
 func Model(cfg *Config) error {
-	pr := &project.Processor{
+	mf := &modelerFactory{
+		logger:     cfg.Logger,
+		errGroup:   cfg.ErrGroup,
+		remodelers: cfg.Remodelers,
+	}
+	pr := project.Processor{
 		Parallel: cfg.Parallel,
 		Packages: slices.Collect(cfg.Proj.UnfinishedPackages()),
 		ErrGroup: cfg.ErrGroup,
-		Handle:   cfg.modelPackage,
+		Handle:   mf.modelPackage,
 	}
 	return pr.Process()
 }
 
-func (cfg *Config) modelPackage(pkg *project.Package) (err error) {
-	defer cfg.ErrGroup.Recover(&err)
-	cfg.Logger.LogGroup(`Remodelling %q`, pkg.PkgPath())
+type modelerFactory struct {
+	logger     *logger.Logger
+	errGroup   *faults.ErrGroup
+	remodelers remodel.Group
+}
+
+func (mf *modelerFactory) modelPackage(pkg *project.Package) (err error) {
+	defer mf.errGroup.Recover(&err)
+	mf.logger.LogGroup(`Remodelling %q`, pkg.PkgPath())
 	pkg.State = buildState.Remodelling
 
 	rm := &modeler{
-		logger:   cfg.Logger,
-		errGroup: cfg.ErrGroup,
+		logger:   mf.logger,
+		errGroup: mf.errGroup,
 		pkg:      pkg,
 	}
 
-	if err := rm.packageStart(cfg.Remodelers); err != nil {
+	if err := rm.packageStart(mf.remodelers); err != nil {
 		return err
 	}
 

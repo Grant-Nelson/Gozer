@@ -188,18 +188,12 @@ func getData(pkg *project.Package) *packageData {
 		Depth: pkg.Depth,
 	}
 
-	imports := slices.Collect(maps.Keys(pkg.Ast.Imports))
-	slices.Sort(imports)
-	data.Imports = imports
-
+	data.Imports = slices.Sorted(maps.Keys(pkg.Ast.Imports))
 	depMap := map[string]bool{}
 	for dep := range packages.Postorder([]*packages.Package{pkg.Ast}) {
 		depMap[dep.PkgPath] = true
 	}
-	deps := slices.Collect(maps.Keys(depMap))
-	slices.Sort(deps)
-	data.Deps = deps
-
+	data.Deps = slices.Sorted(maps.Keys(depMap))
 	return data
 }
 

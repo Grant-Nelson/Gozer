@@ -67,8 +67,7 @@ func (d *PkgDropper) StartProject(proj *project.Project) (err error) {
 		for _, p := range proj.AllPackages {
 			delete(removed, p.Ast.PkgPath)
 		}
-		removedPaths := slices.Collect(maps.Keys(removed))
-		slices.Sort(removedPaths)
+		removedPaths := slices.Sorted(maps.Keys(removed))
 		d.logger.Printf("Dropped Packages:\n\t%s\n", strings.Join(removedPaths, "\n\t"))
 	}
 

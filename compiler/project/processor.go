@@ -1,6 +1,7 @@
 package project
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
@@ -15,32 +16,45 @@ type Processor struct {
 	Handle   ProcessorHandle
 }
 
-func (pr *Processor) Process() (err error) {
+func (pr Processor) Process() (err error) {
 	defer pr.ErrGroup.Recover(&err)
-	sortPackagesByDepth(pr.Packages)
+
+	ph := &processorHelper{
+		Packages: slices.Clone(pr.Packages),
+		ErrGroup: pr.ErrGroup,
+		Handle:   pr.Handle,
+	}
+
+	sortPackagesByDepth(ph.Packages)
 	if pr.Parallel {
-		pr.parallelProcessProject()
+		ph.parallel()
 	} else {
-		pr.serialProcessProject()
+		ph.serial()
 	}
 	return pr.ErrGroup.AnyOrNil()
 }
 
-func (pr *Processor) parallelProcessProject() {
+type processorHelper struct {
+	Packages []*Package
+	ErrGroup *faults.ErrGroup
+	Handle   ProcessorHandle
+}
+
+func (pr *processorHelper) parallel() {
 	prev, depth := 0, 0
 	for i, pkg := range pr.Packages {
 		if pkg.Depth != depth {
-			pr.parallelProcessGroup(pr.Packages[prev:i])
+			pr.parallelGroup(pr.Packages[prev:i])
 			if !pr.ErrGroup.Empty() {
 				return
 			}
 			prev, depth = i, pkg.Depth
 		}
 	}
-	pr.parallelProcessGroup(pr.Packages[prev:])
+	pr.parallelGroup(pr.Packages[prev:])
 }
 
-func (pr *Processor) parallelProcessGroup(packages []*Package) {
+func (pr *processorHelper) parallelGroup(packages []*Package) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(packages))
 	for _, pkg := range packages {
@@ -55,7 +69,7 @@ func (pr *Processor) parallelProcessGroup(packages []*Package) {
 	wg.Wait()
 }
 
-func (pr *Processor) serialProcessProject() {
+func (pr *processorHelper) serial() {
 	for _, pkg := range pr.Packages {
 		if err := pr.Handle(pkg); err != nil {
 			pr.ErrGroup.Add(err)

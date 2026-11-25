@@ -1,4 +1,4 @@
-package converter
+package astConverter
 
 import (
 	"go/ast"
@@ -83,8 +83,7 @@ func (c *converter) FromPackage(pkg *packages.Package) *ir.Package {
 		}
 	}
 
-	paths := slices.Collect(maps.Keys(c.Imports))
-	slices.Sort(paths)
+	paths := slices.Sorted(maps.Keys(c.Imports))
 	imports := make([]*ir.ImportDef, len(paths))
 	for i, path := range paths {
 		imports[i] = c.Imports[path]

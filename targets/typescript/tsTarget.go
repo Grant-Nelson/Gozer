@@ -12,6 +12,7 @@ import (
 	"github.com/Grant-Nelson/Gozer/compiler/modeler"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel/blocker"
+	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel/ssaBuilder"
 	"github.com/Grant-Nelson/Gozer/compiler/project"
 	"github.com/Grant-Nelson/Gozer/targets/target"
 	"github.com/Grant-Nelson/Gozer/targets/typescript/writer"
@@ -126,6 +127,12 @@ func (ts tsTarget) model(proj *project.Project, cfg *target.BuildConfig) (err er
 	defer cfg.Logger.LogGroup("Modelling %s", ts.Language())()
 
 	remodelers := remodel.Group{
+		ssaBuilder.New(&ssaBuilder.Config{
+			ErrGroup: cfg.ErrGroup,
+		}),
+
+		// TODO: Convert
+
 		blocker.New(&blocker.Config{
 			ErrGroup: cfg.ErrGroup,
 		}),

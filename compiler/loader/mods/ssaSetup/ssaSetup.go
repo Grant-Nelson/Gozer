@@ -38,7 +38,13 @@ func New(cfg *Config) *SsaSetup {
 
 func (tc *SsaSetup) StartProject(f *project.Project) (err error) {
 	defer tc.errGroup.Recover(&err)
-	prog := ssa.NewProgram(f.FileSet, ssa.SanityCheckFunctions)
+
+	// TODO: Make sure this mode is reasonable.
+	mode := ssa.SanityCheckFunctions |
+		ssa.GlobalDebug |
+		ssa.NaiveForm
+
+	prog := ssa.NewProgram(f.FileSet, mode)
 	tc.prog = prog
 	f.Ssa = prog
 	return nil

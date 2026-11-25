@@ -1,6 +1,6 @@
-# Converter
+# AST Converter
 
-The converter will convert from Go's AST nodes into the Gozer IR nodes.
+The AST converter will convert from Go's AST nodes into the Gozer IR nodes.
 
 ## TODO
 

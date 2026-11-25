@@ -93,7 +93,7 @@ func Load(cfg *Config) (proj *project.Project, err error) {
 		return nil, err
 	}
 
-	pr := &project.Processor{
+	pr := project.Processor{
 		Parallel: cfg.Parallel,
 		Packages: proj.AllPackages,
 		ErrGroup: cfg.ErrGroup,

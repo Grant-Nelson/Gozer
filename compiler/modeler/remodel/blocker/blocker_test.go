@@ -11,7 +11,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/Grant-Nelson/Gozer/avail/faults"
-	"github.com/Grant-Nelson/Gozer/compiler/ir/converter"
+	"github.com/Grant-Nelson/Gozer/compiler/ir/astConverter"
 	"github.com/Grant-Nelson/Gozer/compiler/modeler/remodel"
 	"github.com/Grant-Nelson/Gozer/compiler/project"
 )
@@ -645,7 +645,7 @@ func blockIrcFunc(t *testing.T, lines ...string) *project.Package {
 		t.Fatalf(`expected only one root package but got %d`, len(proj.Roots))
 	}
 	pkg := proj.Roots[0]
-	irp, err := converter.ConvertPackage(pkg.Ast, errGroup)
+	irp, err := astConverter.ConvertPackage(pkg.Ast, errGroup)
 	if err != nil {
 		t.Fatalf(`error converting to IR: %v`, err)
 	}
