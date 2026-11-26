@@ -69,14 +69,23 @@ func (c *converter) FromPackage(pkg *ssa.Package) *ir.Package {
 	for _, name := range names {
 		mem := c.FromMember(pkg.Members[name])
 		switch mem := mem.(type) {
+		case nil:
 		case *ir.ConstDef:
-			p.Consts = append(p.Consts, mem)
+			if mem != nil {
+				p.Consts = append(p.Consts, mem)
+			}
 		case *ir.VarDef:
-			p.Vars = append(p.Vars, mem)
+			if mem != nil {
+				p.Vars = append(p.Vars, mem)
+			}
 		case *ir.FuncDef:
-			p.Funcs = append(p.Funcs, mem)
+			if mem != nil {
+				p.Funcs = append(p.Funcs, mem)
+			}
 		case *ir.TypeDef:
-			p.Types = append(p.Types, mem)
+			if mem != nil {
+				p.Types = append(p.Types, mem)
+			}
 		default:
 			c.addFault(faults.New(`unexpected AST node type`).
 				WithTypeOf(`type`, mem).
@@ -89,8 +98,10 @@ func (c *converter) FromPackage(pkg *ssa.Package) *ir.Package {
 }
 
 func (c *converter) FromMember(m ssa.Member) ir.Def {
+	printMemberTree(m) // TODO: REMOVE
 	switch m := m.(type) {
 	case *ssa.Function:
+		printFunctionDebug(m) // TODO: REMOVE
 		return c.FromFunction(m)
 	case *ssa.Global:
 		return c.FromGlobal(m)
@@ -111,6 +122,14 @@ func (c *converter) FromFunction(f *ssa.Function) *ir.FuncDef {
 
 	// TODO: Implement
 	fmt.Printf("FuncDef: %v\n", f)
+
+	synthetic := len(f.Synthetic) > 0
+	if synthetic {
+		// TODO: Determine if any of the synthetic methods needs to be kept,
+		//       for example, check if test main is synthesized and can be used.
+		fmt.Printf("Skipping Synthetic Function: %s\n", f.Synthetic)
+		return nil
+	}
 
 	blocks := make([]*ir.Block, len(f.Blocks))
 	for i, blk := range f.Blocks {

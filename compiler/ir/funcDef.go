@@ -78,9 +78,13 @@ func (fn *FuncDef) String() string {
 	if fn.NoRace {
 		flags = `<no race> `
 	}
-	sig := fn.FuncObj.Signature().String()
-	sig, _ = strings.CutPrefix(sig, `func`)
-	return `func ` + fn.FuncObj.FullName() + ` ` + sig + ` ` + flags + toString(fn.Func)
+	sig := `<missing func object>`
+	if fn.FuncObj != nil {
+		sig = fn.FuncObj.Signature().String()
+		sig, _ = strings.CutPrefix(sig, `func`)
+		sig = `func ` + fn.FuncObj.FullName() + ` ` + sig
+	}
+	return sig + ` ` + flags + toString(fn.Func)
 }
 
 func (fn *FuncDef) ChildCount() int { return 1 + len(fn.Directives) }

@@ -72,6 +72,26 @@ func TestConverter_SimpleFunc(t *testing.T) {
 	))
 }
 
+func TestConverter_MathFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(x, y float64) float64 {`,
+		`	return x*x + y*y`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		`  Funcs:`,
+		`    func $.foo (x float64, y float64) float64 {`,
+		`      block 0 (x float64, y float64)<initial> {`,
+		`        return ((ref var x float64) * (ref var x float64)) + ((ref var y float64) * (ref var y float64))`,
+		`      }`,
+		`    }`,
+		`}`,
+	))
+}
+
 func TestConverter_FuncConstant(t *testing.T) {
 	checkFile(t, lines(
 		`package t`,

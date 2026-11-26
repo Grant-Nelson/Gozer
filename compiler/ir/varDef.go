@@ -39,7 +39,9 @@ func (n *VarDef) Blank() bool          { return n.VarObj.Name() == `_` }
 
 func (n *VarDef) String() string {
 	result := `_`
-	if !n.Blank() {
+	if n.VarObj == nil {
+		result = `<missing var obj>`
+	} else if !n.Blank() {
 		result = `def ` + toString(n.VarObj)
 	}
 	if n.Value != nil {

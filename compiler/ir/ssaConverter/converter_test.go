@@ -22,15 +22,15 @@ func checkFile(t *testing.T, input, expected string) {
 	}
 
 	// TODO: Make sure this mode is reasonable.
-	mode := ssa.SanityCheckFunctions |
-		ssa.GlobalDebug |
-		ssa.NaiveForm
+	mode := ssa.SanityCheckFunctions
+	//mode |=	ssa.GlobalDebug
+	//mode |=	ssa.NaiveForm
 
 	prog := ssa.NewProgram(ps.Fset, mode)
 	sp := prog.CreatePackage(ps.Types, ps.Syntax, ps.TypesInfo, true)
 	sp.Build()
 
-	p, err := ConvertPackage(sp, nil)
+	p, err := ConvertPackage(ps, sp, nil)
 	if err != nil {
 		t.Errorf(`Failed to convert package: %v`, err)
 		return
@@ -53,10 +53,554 @@ func TestConverter_EmptyFunc(t *testing.T) {
 	), lines(
 		`package{`,
 		`  Name: t`,
-		`  Funcs:`,
-		`    func $.foo () {`,
-		`      block 0 ()<initial> {}`,
-		`    }`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_CondFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(cond bool, a, b int) int {`,
+		`	x := a`,
+		`	if cond {`,
+		`		x = b`,
+		`	}`,
+		`	return x + 1`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_SimpleFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	return a + b`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_MathFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(x, y float64) float64 {`,
+		`	return x*x + y*y`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_FuncConstant(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a int) int {`,
+		`	const b = 10`,
+		`	return a + b`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_ForLoop(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	var sum = 0`,
+		`	for i := 0; i < b; i++ {`,
+		`		sum += a`,
+		`	}`,
+		`	return sum`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_ForRange(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	var sum = 0`,
+		`	for i := range b {`,
+		`		_ = i`,
+		`		sum += a`,
+		`	}`,
+		`	return sum`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_IfElse(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) int {`,
+		`	if a > 4 {`,
+		`		return 4`,
+		`	} else if b > 4 {`,
+		`		return -4`,
+		`	} else {`,
+		`		return a + b`,
+		`	}`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_SimpleStructAndMethod(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`type Person struct{`,
+		`	Name string`,
+		`	Age  int`,
+		`}`,
+		``,
+		`func (p *Person) String() string {`,
+		`	return p.Name`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_Globals(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`const start = 0`,
+		`var current = start`,
+		`const step = 1`,
+		``,
+		`var update = func() {`,
+		`	current += step`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_AtomicFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`//gozer:atomic`,
+		`func foo() {}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_BuildInFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`  println("Hello World")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_FmtImport(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`import "fmt"`,
+		``,
+		`func foo() {`,
+		`	fmt.Println("Hello World")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_Ellipse(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(vs ...int) int {`,
+		`	sum := 0`,
+		`   for _, v := range vs {`,
+		`		sum += v`,
+		`	}`,
+		`	return sum`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_Params(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) bool {`,
+		`	return !(a*(b+1) > 10)`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_SliceLit(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo(a, b int) []int {`,
+		`	v := []int { a, a+1, b }`,
+		`   return append([]int{}, v...)`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_SliceIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func last(v []int) int {`,
+		`	if count := len(v); count > 0 {`,
+		`		return v[count-1]`,
+		`	}`,
+		`   return 0`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_MapIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func has(m map[string]int, k string) bool {`,
+		`	_, ok := m[k]`,
+		`   return ok`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_StringIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func last(v string) byte {`,
+		`	if count := len(v); count > 0 {`,
+		`		return v[count-1]`,
+		`	}`,
+		`   return 0`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_GenericSliceIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func last[V any, S ~[]V](s S) V {`,
+		`	if count := len(s); count > 0 {`,
+		`		return s[count-1]`,
+		`	}`,
+		`	var zero V`,
+		`   return zero`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_GenericMapIndex(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func has[K comparable, V any, M ~map[K]V](m M, k K) bool {`,
+		`	_, ok := m[k]`,
+		`   return ok`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_GotoLabel(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	print("start")`,
+		`	goto End`,
+		`	print("unreachable")`,
+		`	End:`,
+		`   print("done")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_Branch(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	for i := 0; i < 10; i++ {`,
+		`		if i % 2 == 0 {`,
+		`			println("even")`,
+		`			continue`,
+		`		}`,
+		`		println("odd")`,
+		`		break`,
+		`	}`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_LabelBranch(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	Loop: for i := 0; i < 10; i++ {`,
+		`		if i % 2 == 0 {`,
+		`			println("even")`,
+		`			continue Loop`,
+		`		}`,
+		`		println("odd")`,
+		`		break Loop`,
+		`	}`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_SimpleCall(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	bar()`,
+		`}`,
+		``,
+		`func bar() {`,
+		`	println("Boop")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_GoFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	go bar()`,
+		`}`,
+		``,
+		`func bar() {`,
+		`	println("Boop")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_GenericCall(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	bar[int](42)`,
+		`	bar("Hello")`,
+		`}`,
+		``,
+		`func bar[T any](t T) {`,
+		`	print(">", t, "<\n")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_MultiGenericCall(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func foo() {`,
+		`	m := map[string]int{`,
+		`		"banana": 6,`,
+		`		"cat":    3,`,
+		`	}`,
+		`	bar[string, int](m)`,
+		`}`,
+		``,
+		`func bar[K comparable, V any, M ~map[K]V](t M) {`,
+		`	print(">", t, "<\n")`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_Struct(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`type Foo struct { name string }`,
+		``,
+		`func (f *Foo) String() string { return f.name }`,
+		``,
+		`func main() {`,
+		`	f1 := &Foo{name: "Bob"}`,
+		`	println(f1.String())`,
+		``,
+		`	f2 := &Foo{"Bob"}`,
+		`   println(f1 == f2)`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_RecursiveLocalFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`import "errors"`,
+		``,
+		`func main() {`,
+		`	var fn func(string, int) (string, error)`,
+		``,
+		`	fn = func(phrase string, count int) (string, error) {`,
+		`		if count <= 0 {`,
+		`			return "", errors.New("invalid count")`,
+		`		}`,
+		`		if count == 1 {`,
+		`			return phrase, nil`,
+		`		}`,
+		`		result, err := fn(phrase, count-1)`,
+		`		if err != nil {`,
+		`			return "", err`,
+		`		}`,
+		`		return phrase + " " + result, nil`,
+		`	}`,
+		``,
+		`	println(fn("buffalo", 5))`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
 		`}`,
 	))
 }
