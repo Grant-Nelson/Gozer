@@ -7,7 +7,9 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/astTools"
 	"github.com/google/go-cmp/cmp"
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 func lines(lines ...string) string { return strings.Join(lines, "\n") }
@@ -21,14 +23,10 @@ func checkFile(t *testing.T, input, expected string) {
 		return
 	}
 
-	// TODO: Make sure this mode is reasonable.
 	mode := ssa.SanityCheckFunctions
-	//mode |=	ssa.GlobalDebug
-	//mode |=	ssa.NaiveForm
-
-	prog := ssa.NewProgram(ps.Fset, mode)
-	sp := prog.CreatePackage(ps.Types, ps.Syntax, ps.TypesInfo, true)
-	sp.Build()
+	prog, sps := ssautil.Packages([]*packages.Package{ps}, mode)
+	prog.Build()
+	sp := sps[0]
 
 	p, err := ConvertPackage(ps, sp, nil)
 	if err != nil {
@@ -114,6 +112,26 @@ func TestConverter_FuncConstant(t *testing.T) {
 		`func foo(a int) int {`,
 		`	const b = 10`,
 		`	return a + b`,
+		`}`,
+	), lines(
+		`package{`,
+		`  Name: t`,
+		// TODO: Finish
+		`}`,
+	))
+}
+
+func TestConverter_OpFunc(t *testing.T) {
+	checkFile(t, lines(
+		`package t`,
+		``,
+		`func scale(a, b int) int {`,
+		`	return a * b`,
+		`}`,
+		``,
+		`func foo(a, b int) int {`,
+		`	x := 3*scale(a, 2) + b`,
+		`	return x`,
 		`}`,
 	), lines(
 		`package{`,

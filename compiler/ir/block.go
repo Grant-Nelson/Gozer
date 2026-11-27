@@ -22,10 +22,10 @@ type Block struct {
 	// A block is invalid when there are no statements.
 	Body []Stmt
 
-	// Prior blocks are blocks that can transition to this block.
+	// Prior blocks are predecessor blocks that can transition to this block.
 	Prior []*Block
 
-	// Follow blocks are blocks that this block can transition to.
+	// Follow blocks are successor blocks that this block can transition to.
 	Follow []*Block
 
 	// Params are the parameters that are passed into this block

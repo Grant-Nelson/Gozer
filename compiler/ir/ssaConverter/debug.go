@@ -3,7 +3,7 @@ package ssaConverter
 import (
 	"fmt"
 	"go/types"
-	"strings"
+	"os"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -13,12 +13,9 @@ var _ = printFunctionDebug
 var _ = printMemberTree
 
 func printFunctionDebug(f *ssa.Function) {
-	buf := &strings.Builder{}
-	_, err := f.WriteTo(buf)
-	if err != nil {
+	if _, err := f.WriteTo(os.Stdout); err != nil {
 		panic(err)
 	}
-	fmt.Println(buf)
 }
 
 func printMemberTree(m ssa.Member) {
@@ -84,7 +81,7 @@ func printFunctionTree(fn *ssa.Function, indent string, visited map[*ssa.Functio
 		}
 		connector := `├─`
 		edge := `│   `
-		if i == len(fn.Blocks)-1 {
+		if i == len(fn.Blocks)-1 && len(fn.AnonFuncs) == 0 {
 			connector = `└─`
 			edge = `    `
 		}
@@ -92,11 +89,15 @@ func printFunctionTree(fn *ssa.Function, indent string, visited map[*ssa.Functio
 			childIndent, connector, b.Index, b.Comment, len(b.Preds), len(b.Succs))
 		instrIndent := childIndent + edge
 
-		for _, v := range blockUsedInputs(b) {
-			fmt.Printf("%s│   • used input:  %s : %s\n", instrIndent, v.Name(), v.Type())
-		}
-		for _, v := range blockPhiInputs(b) {
-			fmt.Printf("%s│   • phi input:  %s : %s\n", instrIndent, v.Name(), v.Type())
+		if vars := blockUsedInputs(b); len(vars) > 0 {
+			fmt.Printf(`%s│   • input: `, instrIndent)
+			for j, v := range vars {
+				if j > 0 {
+					fmt.Print(`, `)
+				}
+				fmt.Printf(`[%T] %s : %s`, v, v.Name(), v.Type())
+			}
+			fmt.Println()
 		}
 
 		for j, instr := range b.Instrs {
@@ -125,33 +126,20 @@ func printFunctionTree(fn *ssa.Function, indent string, visited map[*ssa.Functio
 }
 
 func blockUsedInputs(b *ssa.BasicBlock) (usedInBlock []ssa.Value) {
-	seenUsed := map[ssa.Value]bool{}
+	seen := map[ssa.Value]bool{}
 	for _, instr := range b.Instrs {
+		if v, ok := instr.(ssa.Value); ok {
+			seen[v] = true
+		}
 		for _, op := range instr.Operands(nil) {
-			if op != nil && *op != nil && !seenUsed[*op] {
-				seenUsed[*op] = true
+			if op != nil && *op != nil && !seen[*op] {
+				if _, constant := (*op).(*ssa.Const); constant {
+					continue
+				}
+				seen[*op] = true
 				usedInBlock = append(usedInBlock, *op)
 			}
 		}
 	}
 	return usedInBlock
-}
-
-func blockPhiInputs(b *ssa.BasicBlock) (phiEdgesFromBlock []ssa.Value) {
-	seenPhi := map[ssa.Value]bool{}
-	for _, succ := range b.Succs {
-		for _, instr := range succ.Instrs {
-			phi, ok := instr.(*ssa.Phi)
-			if !ok {
-				continue
-			}
-			for i, pred := range succ.Preds {
-				if pred == b && i < len(phi.Edges) && phi.Edges[i] != nil && !seenPhi[phi.Edges[i]] {
-					seenPhi[phi.Edges[i]] = true
-					phiEdgesFromBlock = append(phiEdgesFromBlock, phi.Edges[i])
-				}
-			}
-		}
-	}
-	return phiEdgesFromBlock
 }

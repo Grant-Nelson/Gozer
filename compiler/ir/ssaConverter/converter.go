@@ -12,6 +12,7 @@ import (
 
 	"github.com/Grant-Nelson/Gozer/avail/assert"
 	"github.com/Grant-Nelson/Gozer/avail/faults"
+	"github.com/Grant-Nelson/Gozer/avail/iterator"
 	"github.com/Grant-Nelson/Gozer/compiler/ir"
 )
 
@@ -98,10 +99,8 @@ func (c *converter) FromPackage(pkg *ssa.Package) *ir.Package {
 }
 
 func (c *converter) FromMember(m ssa.Member) ir.Def {
-	printMemberTree(m) // TODO: REMOVE
 	switch m := m.(type) {
 	case *ssa.Function:
-		printFunctionDebug(m) // TODO: REMOVE
 		return c.FromFunction(m)
 	case *ssa.Global:
 		return c.FromGlobal(m)
@@ -118,37 +117,8 @@ func (c *converter) FromMember(m ssa.Member) ir.Def {
 	}
 }
 
-func (c *converter) FromFunction(f *ssa.Function) *ir.FuncDef {
-
-	// TODO: Implement
-	fmt.Printf("FuncDef: %v\n", f)
-
-	synthetic := len(f.Synthetic) > 0
-	if synthetic {
-		// TODO: Determine if any of the synthetic methods needs to be kept,
-		//       for example, check if test main is synthesized and can be used.
-		fmt.Printf("Skipping Synthetic Function: %s\n", f.Synthetic)
-		return nil
-	}
-
-	blocks := make([]*ir.Block, len(f.Blocks))
-	for i, blk := range f.Blocks {
-		b := c.FromBlock(blk)
-		b.Index = i
-		blocks[i] = b
-	}
-
-	return &ir.FuncDef{
-		//FuncObj: fnObj,
-		Func: &ir.Func{
-			FuncPos:   f.Pos(),
-			Signature: f.Signature,
-			Blocks:    blocks,
-		},
-	}
-}
-
 func (c *converter) FromGlobal(g *ssa.Global) *ir.VarDef {
+	//printMemberTree(g) // TODO: REMOVE
 
 	// TODO: Implement
 	fmt.Printf("VarDef: %v\n", g)
@@ -157,6 +127,7 @@ func (c *converter) FromGlobal(g *ssa.Global) *ir.VarDef {
 }
 
 func (c *converter) FromNamedConst(nc *ssa.NamedConst) *ir.ConstDef {
+	//printMemberTree(nc) // TODO: REMOVE
 
 	// TODO: Implement
 	fmt.Printf("ConstDef: %v\n", nc)
@@ -165,6 +136,7 @@ func (c *converter) FromNamedConst(nc *ssa.NamedConst) *ir.ConstDef {
 }
 
 func (c *converter) FromType(t *ssa.Type) *ir.TypeDef {
+	//printMemberTree(t) // TODO: REMOVE
 
 	// TODO: Implement
 	fmt.Printf("TypeDef: %v\n", t)
@@ -172,10 +144,113 @@ func (c *converter) FromType(t *ssa.Type) *ir.TypeDef {
 	return &ir.TypeDef{}
 }
 
-func (c *converter) FromBlock(blk *ssa.BasicBlock) *ir.Block {
+func (c *converter) FromFunction(f *ssa.Function) *ir.FuncDef {
+	synthetic := len(f.Synthetic) > 0
+	if synthetic {
+		// TODO: Determine if any of the synthetic methods needs to be kept,
+		//       for example, check if test main is synthesized and can be used.
+		//       Note that synthetic methods have a nil Object.
+		fmt.Printf("Skipping Synthetic Function: %s\n", f.Synthetic)
+		return nil
+	}
 
-	// TODO: Implement
-	fmt.Printf("Block: %v\n", blk)
+	printFunctionDebug(f) // TODO: REMOVE
+	//printMemberTree(f)    // TODO: REMOVE
 
-	return &ir.Block{}
+	if f.Object() == nil {
+		panic(faults.New(`Function had null object`).
+			With(`pos`, c.pos(f.Pos())).
+			With(`name`, f.Name()))
+	}
+
+	obj, isObjFunc := f.Object().(*types.Func)
+	if !isObjFunc {
+		panic(faults.New(`Function had null object`).
+			With(`pos`, c.pos(f.Pos())).
+			With(`name`, f.Name()).
+			WithTypeOf(`object type`, f.Object()).
+			With(`object`, f.Object().String()))
+	}
+
+	uses := countUsages(f)
+	blocks := make([]*ir.Block, len(f.Blocks))
+	for i, blk := range f.Blocks {
+		blocks[i] = c.convertBlock(blk, uses)
+	}
+
+	// TODO: Update when I inject blocks for obstructions
+	getIrBlock := func(bb *ssa.BasicBlock) *ir.Block { return blocks[bb.Index] }
+	for i, blk := range f.Blocks {
+		b := blocks[i]
+		b.Prior = iterator.Iterate(blk.Preds).Select(getIrBlock).ToSlice()
+		b.Follow = iterator.Iterate(blk.Succs).Select(getIrBlock).ToSlice()
+	}
+
+	return &ir.FuncDef{
+		FuncObj: obj,
+		Func: &ir.Func{
+			FuncPos:   f.Pos(),
+			Signature: f.Signature,
+			Blocks:    blocks,
+			// TODO: Set ReturnBlocks
+		},
+	}
+}
+
+func (c *converter) convertBlock(blk *ssa.BasicBlock, uses map[ssa.Value]int) *ir.Block {
+	body := []ir.Stmt{}
+
+	for _, in := range blk.Instrs {
+		if v, ok := in.(ssa.Value); ok {
+			fmt.Println(v.Name(), `=>`, uses[v])
+		}
+	}
+
+	return &ir.Block{
+		Index: blk.Index,
+		Hint:  blk.Comment,
+		Body:  body,
+		//Params []*Param
+	}
+}
+
+func embeddableInstr(in ssa.Instruction) bool {
+	switch x := in.(type) {
+	case *ssa.BinOp:
+		return true
+	case *ssa.UnOp:
+		return x.Op != token.ARROW && !x.CommaOk
+	}
+	return false
+}
+
+func obstructionInstr(in ssa.Instruction) bool {
+	switch x := in.(type) {
+	case *ssa.Call, *ssa.Send:
+		return true
+	case *ssa.UnOp:
+		return x.Op == token.ARROW && !x.CommaOk
+	}
+	return false
+}
+
+func countUsages(f *ssa.Function) map[ssa.Value]int {
+	counts := map[ssa.Value]int{}
+	ops := []*ssa.Value{}
+	for _, b := range f.Blocks {
+		for _, instr := range b.Instrs {
+			ops = instr.Operands(ops[:0])
+			for _, op := range ops {
+				if op != nil && *op != nil && !is[*ssa.Const](*op) {
+					counts[*op]++
+				}
+			}
+		}
+	}
+	return counts
+}
+
+func is[TOut any](v any) bool {
+	_, ok := v.(TOut)
+	return ok
 }
