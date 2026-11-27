@@ -172,13 +172,12 @@ func (c *converter) FromFunction(f *ssa.Function) *ir.FuncDef {
 			With(`object`, f.Object().String()))
 	}
 
-	uses := countUsages(f)
 	blocks := make([]*ir.Block, len(f.Blocks))
 	for i, blk := range f.Blocks {
-		blocks[i] = c.convertBlock(blk, uses)
+		blocks[i] = c.convertBlock(blk)
 	}
 
-	// TODO: Update when I inject blocks for obstructions
+	// TODO: Update when blocks are injected for obstructions
 	getIrBlock := func(bb *ssa.BasicBlock) *ir.Block { return blocks[bb.Index] }
 	for i, blk := range f.Blocks {
 		b := blocks[i]
@@ -197,15 +196,13 @@ func (c *converter) FromFunction(f *ssa.Function) *ir.FuncDef {
 	}
 }
 
-func (c *converter) convertBlock(blk *ssa.BasicBlock, uses map[ssa.Value]int) *ir.Block {
+func (c *converter) convertBlock(blk *ssa.BasicBlock) *ir.Block {
 	body := []ir.Stmt{}
-
 	for _, in := range blk.Instrs {
-		if v, ok := in.(ssa.Value); ok {
-			fmt.Println(v.Name(), `=>`, uses[v])
+		if stmt := c.fromInstruction(in); stmt != nil {
+			body = append(body, stmt)
 		}
 	}
-
 	return &ir.Block{
 		Index: blk.Index,
 		Hint:  blk.Comment,
@@ -214,12 +211,70 @@ func (c *converter) convertBlock(blk *ssa.BasicBlock, uses map[ssa.Value]int) *i
 	}
 }
 
-func embeddableInstr(in ssa.Instruction) bool {
+func (c *converter) fromInstruction(in ssa.Instruction) ir.Stmt {
 	switch x := in.(type) {
+	case ssa.Value:
+		return c.fromValueInstruction(x)
+	// TODO: Add more as needed
+	default:
+		panic(faults.New(`Unexpected instruction type`).
+			With(`package`, c.SsaPkg.Pkg.Path()).
+			With(`instruction`, in.String()).
+			With(`pos`, c.pos(in.Pos())).
+			WithTypeOf(`type`, in))
+	}
+}
+
+func (c *converter) fromValueInstruction(v ssa.Value) ir.Stmt {
+	if embeddable(v) {
+		return nil
+	}
+	expr := c.fromValue(v)
+	if expr == nil {
+		return expr
+	}
+	return &ir.VarDef{
+		VarObj: types.NewVar(v.Pos(), c.SsaPkg.Pkg, v.Name(), v.Type()),
+		Value:  expr,
+	}
+}
+
+func (c *converter) fromValue(v ssa.Value) ir.Expr {
+	switch x := v.(type) {
+	case *ssa.BinOp:
+		return c.fromBinOp(x)
+	// TODO: Add more as needed
+	default:
+		panic(faults.New(`Unexpected value type`).
+			With(`package`, c.SsaPkg.Pkg.Path()).
+			With(`instruction`, v.String()).
+			With(`pos`, c.pos(v.Pos())).
+			WithTypeOf(`type`, v))
+	}
+}
+
+func (c *converter) fromBinOp(in *ssa.BinOp) ir.Expr {
+
+}
+
+func (c *converter) fromOperand(v ssa.Value) ir.Expr {
+	if embeddable(v) {
+		return c.fromValue(v)
+	}
+
+	// TODO: Finish
+}
+
+func embeddable(v ssa.Value) bool {
+	if len(*v.Referrers()) != 1 {
+		return false
+	}
+	switch x := v.(type) {
 	case *ssa.BinOp:
 		return true
 	case *ssa.UnOp:
 		return x.Op != token.ARROW && !x.CommaOk
+		// TODO: Add more as needed
 	}
 	return false
 }
@@ -230,27 +285,7 @@ func obstructionInstr(in ssa.Instruction) bool {
 		return true
 	case *ssa.UnOp:
 		return x.Op == token.ARROW && !x.CommaOk
+		// TODO: Add more as needed
 	}
 	return false
-}
-
-func countUsages(f *ssa.Function) map[ssa.Value]int {
-	counts := map[ssa.Value]int{}
-	ops := []*ssa.Value{}
-	for _, b := range f.Blocks {
-		for _, instr := range b.Instrs {
-			ops = instr.Operands(ops[:0])
-			for _, op := range ops {
-				if op != nil && *op != nil && !is[*ssa.Const](*op) {
-					counts[*op]++
-				}
-			}
-		}
-	}
-	return counts
-}
-
-func is[TOut any](v any) bool {
-	_, ok := v.(TOut)
-	return ok
 }
