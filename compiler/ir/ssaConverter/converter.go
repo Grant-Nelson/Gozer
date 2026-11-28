@@ -32,6 +32,7 @@ func ConvertPackage(astPkg *packages.Package, ssaPkg *ssa.Package, errGroup *fau
 		Info:    astPkg.TypesInfo,
 		Sizes:   astPkg.TypesSizes,
 		Errors:  errGroup,
+		varObjs: map[ssa.Value]*types.Var{},
 	}
 	return c.FromPackage(ssaPkg), nil
 }
@@ -43,6 +44,8 @@ type converter struct {
 	Info    *types.Info
 	Sizes   types.Sizes
 	Errors  *faults.ErrGroup
+
+	varObjs map[ssa.Value]*types.Var
 }
 
 func (c *converter) pos(p token.Pos) string {
@@ -174,7 +177,7 @@ func (c *converter) FromFunction(f *ssa.Function) *ir.FuncDef {
 
 	blocks := make([]*ir.Block, len(f.Blocks))
 	for i, blk := range f.Blocks {
-		blocks[i] = c.convertBlock(blk)
+		blocks[i] = c.FromBlock(blk)
 	}
 
 	// TODO: Update when blocks are injected for obstructions
@@ -196,10 +199,10 @@ func (c *converter) FromFunction(f *ssa.Function) *ir.FuncDef {
 	}
 }
 
-func (c *converter) convertBlock(blk *ssa.BasicBlock) *ir.Block {
+func (c *converter) FromBlock(blk *ssa.BasicBlock) *ir.Block {
 	body := []ir.Stmt{}
 	for _, in := range blk.Instrs {
-		if stmt := c.fromInstruction(in); stmt != nil {
+		if stmt := c.FromInstruction(in); stmt != nil {
 			body = append(body, stmt)
 		}
 	}
@@ -211,10 +214,13 @@ func (c *converter) convertBlock(blk *ssa.BasicBlock) *ir.Block {
 	}
 }
 
-func (c *converter) fromInstruction(in ssa.Instruction) ir.Stmt {
+func (c *converter) FromInstruction(in ssa.Instruction) ir.Stmt {
 	switch x := in.(type) {
 	case ssa.Value:
-		return c.fromValueInstruction(x)
+		return c.FromValueInstruction(x)
+	case *ssa.Return:
+		return c.FromReturn(x)
+
 	// TODO: Add more as needed
 	default:
 		panic(faults.New(`Unexpected instruction type`).
@@ -225,24 +231,38 @@ func (c *converter) fromInstruction(in ssa.Instruction) ir.Stmt {
 	}
 }
 
-func (c *converter) fromValueInstruction(v ssa.Value) ir.Stmt {
+func (c *converter) FromReturn(in *ssa.Return) ir.Stmt {
+	ops := in.Operands(nil)
+	results := make([]ir.Expr, len(ops))
+	for i, op := range ops {
+		results[i] = c.FromOperand(*op)
+	}
+	return &ir.ReturnStmt{
+		ReturnPos: in.Pos(),
+		Results:   results,
+	}
+}
+
+func (c *converter) FromValueInstruction(v ssa.Value) ir.Stmt {
 	if embeddable(v) {
 		return nil
 	}
-	expr := c.fromValue(v)
+	expr := c.FromValue(v)
 	if expr == nil {
 		return expr
 	}
+	varObj := types.NewVar(v.Pos(), c.SsaPkg.Pkg, v.Name(), v.Type())
+	c.varObjs[v] = varObj
 	return &ir.VarDef{
-		VarObj: types.NewVar(v.Pos(), c.SsaPkg.Pkg, v.Name(), v.Type()),
+		VarObj: varObj,
 		Value:  expr,
 	}
 }
 
-func (c *converter) fromValue(v ssa.Value) ir.Expr {
+func (c *converter) FromValue(v ssa.Value) ir.Expr {
 	switch x := v.(type) {
 	case *ssa.BinOp:
-		return c.fromBinOp(x)
+		return c.FromBinOp(x)
 	// TODO: Add more as needed
 	default:
 		panic(faults.New(`Unexpected value type`).
@@ -253,16 +273,41 @@ func (c *converter) fromValue(v ssa.Value) ir.Expr {
 	}
 }
 
-func (c *converter) fromBinOp(in *ssa.BinOp) ir.Expr {
-
+func (c *converter) FromBinOp(in *ssa.BinOp) ir.Expr {
+	return &ir.BinaryExpr{
+		X:          c.FromOperand(in.X),
+		OpPos:      in.Pos(),
+		Op:         c.FromBinaryOp(in.Op, in.Pos()),
+		Y:          c.FromOperand(in.Y),
+		ResultType: in.Type(),
+	}
 }
 
-func (c *converter) fromOperand(v ssa.Value) ir.Expr {
+func (c *converter) FromOperand(v ssa.Value) ir.Expr {
 	if embeddable(v) {
-		return c.fromValue(v)
+		return c.FromValue(v)
 	}
 
-	// TODO: Finish
+	if c, ok := v.(*ssa.Const); ok {
+		return &ir.BasicLit{
+			ValuePos:  c.Pos(),
+			ValueType: c.Type(),
+			Value:     c.Value,
+		}
+	}
+
+	if varObj, ok := c.varObjs[v]; ok {
+		return &ir.VarRef{
+			RefPos: v.Pos(),
+			VarObj: varObj,
+		}
+	}
+
+	panic(faults.New(`Unexpected operand`).
+		With(`package`, c.SsaPkg.Pkg.Path()).
+		With(`instruction`, v.String()).
+		With(`pos`, c.pos(v.Pos())).
+		WithTypeOf(`type`, v))
 }
 
 func embeddable(v ssa.Value) bool {

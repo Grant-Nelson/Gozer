@@ -234,9 +234,11 @@ func (c *converter) FromBasicLit(e *ast.BasicLit) *ir.BasicLit {
 	if e == nil {
 		return nil
 	}
+	tv := c.exprTypeAndValue(e)
 	return &ir.BasicLit{
-		ValuePos:     e.ValuePos,
-		TypeAndValue: c.exprTypeAndValue(e),
+		ValuePos:  e.ValuePos,
+		ValueType: tv.Type,
+		Value:     tv.Value,
 	}
 }
 

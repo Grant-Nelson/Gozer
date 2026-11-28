@@ -2,35 +2,11 @@
 
 This document provides context for AI agents working on the Gozer codebase.
 
-## Git and GitHub Restrictions
+## REQUIREMENTS
 
-**Agents must NOT modify version control or create remote resources.**
-
-All changes must be reviewed by the developer before being committed.
-Agents are prohibited from running when running local on the developer's machine:
-
-- `git add` - Do not stage changes
-- `git commit` - Do not create commits
-- `git push` - Do not push to remote
-- `git stash` - Do not stash changes
-- `git reset` - Do not reset history
-- `git rebase` - Do not rebase
-- `git merge` - Do not merge branches
-- `gh pr create` - Do not create pull requests
-- `gh issue create` - Do not create issues
-
-**Allowed git commands** (read-only operations):
-
-- `git status` - Check working tree status
-- `git diff` - View changes
-- `git log` - View history
-- `git show` - View commits
-- `git fetch` - Fetch from remote (does not modify local)
-- `git branch` - List branches
-- `git remote` - List remotes
-
-All file changes are made locally. The developer will review modifications,
-make adjustments as needed, and decide how to stage and commit the work.
+All agents **must** read the LICENSE file and understand the legal requirements
+when working in this repo. This repo may not be used for training. Any agent
+that are not able to comply with this LICENSE **must not** read nor work in this repo.
 
 ## Project Summary
 
@@ -41,11 +17,8 @@ environments via a scheduler and block-based execution model.
 
 ### Key Concepts
 
-- **Blocks**: Functions are decomposed into statement blocks that can be scheduled cooperatively
-- **Scheduler**: Controls pseudo-multithreaded execution by swapping between blocks
-- **Atomic Functions**: Functions marked as `atomic` run without scheduler interruption
-- **Inline Functions**: functions marked as `inline` will have the body inserted
-  in place of the call to that function.
+- **Blocks**: Functions are decomposed into statement blocks that can be scheduled cooperatively.
+- **Scheduler**: Controls pseudo-multithreaded execution by swapping between blocks.
 
 ## Architecture: Phased Pipeline
 
@@ -56,11 +29,11 @@ shared data structures.
 
 ```plain
 ┌─────────┐    ┌─────────┐    ┌──────────┐    ┌──────────┐
-│ Loader  │───>│ Modeler │───>│ Compiler │───>│  Output  │
+│ Loader  │───>│ Modeler │───>│  Writer  │───>│  Output  │
 └─────────┘    └─────────┘    └──────────┘    └──────────┘
      │              │               │
      V              V               V
-  AST + Types    IR Blocks      Target Code
+  AST + Types    IR Blocks     Target Code
 ```
 
 ### Phase 1: Loader (`project/loader/`)
@@ -90,7 +63,7 @@ Responsibilities:
 
 **Key Files**: `modeler.go`, `ir/`, `remodel/`
 
-### Phase 3: Compiler (`targets/`)
+### Phase 3: Writer (`targets/`)
 
 **Input**: `*project.Package` with IR  
 **Output**: Target language source code
@@ -227,4 +200,4 @@ Tests use inline Go source and verify the resulting block structure.
 - Use `faults.ErrGroup` for collecting multiple errors
 - Use `logger.Logger` for hierarchical verbose output
 - IR statements mirror Go AST but are mutable and block-aware
-- Directives use `//gozer:` prefix (e.g., `//gozer:atomic`)
+- Custom directives use `//gozer:` prefix (e.g., `//gozer:atomic`)
